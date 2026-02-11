@@ -13,6 +13,23 @@ import path from 'path';
 import { logger } from '@/lib/logger';
 import { sortTablesForRestore } from './restore-order';
 const BACKUP_DIR = path.resolve(process.cwd(), 'backups');
+const TIMESTAMP_FOLDER_REGEX = /^\d{4}-\d{2}-\d{2}T\d{2}-\d{2}-\d{2}$/;
+
+const isSafeFilename = (filename: string) => {
+  if (!filename) {
+    return false;
+  }
+
+  if (
+    filename.includes('..') ||
+    filename.includes('/') ||
+    filename.includes('\\')
+  ) {
+    return false;
+  }
+
+  return true;
+};
 
 type RowRecord = Record<string, unknown>;
 
@@ -420,7 +437,29 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    if (!TIMESTAMP_FOLDER_REGEX.test(timestamp)) {
+      return NextResponse.json(
+        { success: false, error: 'Invalid timestamp format' },
+        { status: 400 }
+      );
+    }
+
+    if (!isSafeFilename(file)) {
+      return NextResponse.json(
+        { success: false, error: 'Invalid backup filename' },
+        { status: 400 }
+      );
+    }
+
     const backupPath = path.join(BACKUP_DIR, timestamp, file);
+    const resolvedPath = path.resolve(backupPath);
+    const resolvedBackupDir = path.resolve(BACKUP_DIR);
+    if (!resolvedPath.startsWith(resolvedBackupDir)) {
+      return NextResponse.json(
+        { success: false, error: 'Access denied' },
+        { status: 403 }
+      );
+    }
 
     if (!fs.existsSync(backupPath)) {
       return NextResponse.json(
@@ -575,12 +614,16 @@ export async function POST(request: NextRequest) {
           continue;
         }
 
-        results[tableName] = await processTableRestore(
-          modelDelegate,
-          modelName,
-          tableData,
-          forceOverwrite
-        );
+        results[tableName] = await prisma.$transaction(async (tx) => {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const txDelegate = (tx as any)[modelName];
+          return processTableRestore(
+            txDelegate,
+            modelName,
+            tableData,
+            forceOverwrite
+          );
+        });
       } catch (error) {
         if (previewOnly) {
           previewResults[tableName] = {

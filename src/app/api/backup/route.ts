@@ -14,10 +14,7 @@ import path from 'path';
 import { logger } from '@/lib/logger';
 import * as Papa from 'papaparse';
 import * as XLSX from 'xlsx';
-import { exec } from 'child_process';
-import { promisify } from 'util';
-
-const execAsync = promisify(exec);
+import { spawn } from 'child_process';
 
 // Force dynamic rendering for this route due to fs operations
 export const dynamic = 'force-dynamic';
@@ -376,16 +373,73 @@ function parseDatabaseUrl() {
     throw new Error('DATABASE_URL not found');
   }
 
-  const match = dbUrl.match(
-    /postgresql:\/\/([^:]+):([^@]+)@([^:]+):(\d+)\/([^?]+)/
-  );
-  if (!match) {
+  let parsed: URL;
+  try {
+    parsed = new URL(dbUrl);
+  } catch (error) {
+    throw new Error(
+      error instanceof Error ? error.message : 'Invalid DATABASE_URL format'
+    );
+  }
+
+  if (!parsed.username || !parsed.pathname) {
     throw new Error('Invalid DATABASE_URL format');
   }
 
-  const [, user, password, host, port, database] = match;
-  return { user, password, host, port, database };
+  const database = parsed.pathname.replace(/^\//, '');
+  if (!database) {
+    throw new Error('Invalid DATABASE_URL format');
+  }
+
+  return {
+    user: decodeURIComponent(parsed.username),
+    password: decodeURIComponent(parsed.password ?? ''),
+    host: parsed.hostname,
+    port: parsed.port || '5432',
+    database,
+  };
 }
+
+const normalizeJsonValue = (value: unknown): unknown => {
+  if (value === null || value === undefined) {
+    return null;
+  }
+
+  if (value instanceof Date) {
+    return value.toISOString();
+  }
+
+  if (typeof value === 'bigint') {
+    return value.toString();
+  }
+
+  if (Array.isArray(value)) {
+    return value.map((item) => normalizeJsonValue(item));
+  }
+
+  if (typeof value === 'object') {
+    const serializable = value as { toJSON?: () => unknown };
+    if (typeof serializable.toJSON === 'function') {
+      return serializable.toJSON();
+    }
+    return Object.fromEntries(
+      Object.entries(value as Record<string, unknown>).map(([key, val]) => [
+        key,
+        normalizeJsonValue(val),
+      ])
+    );
+  }
+
+  return value;
+};
+
+const normalizeJsonRecord = (record: Record<string, unknown>) =>
+  Object.fromEntries(
+    Object.entries(record).map(([key, value]) => [
+      key,
+      normalizeJsonValue(value),
+    ])
+  );
 
 function ensureBackupDir(timestamp: string) {
   if (!fs.existsSync(BACKUP_DIR)) {
@@ -408,17 +462,50 @@ async function createSqlDump(
     const { user, password, host, port, database } = parseDatabaseUrl();
     const sqlFile = path.join(backupDir, `backup-${timestamp}.sql`);
 
-    // Set PGPASSWORD environment variable for pg_dump
-    const env = { ...process.env, PGPASSWORD: password };
+    const env = {
+      ...process.env,
+      ...(password ? { PGPASSWORD: password } : {}),
+    };
 
-    // Execute pg_dump
-    const command = `pg_dump -h ${host} -p ${port} -U ${user} -d ${database} -F p -f "${sqlFile}"`;
+    const args = [
+      '-h',
+      host,
+      '-p',
+      port,
+      '-U',
+      user,
+      '-d',
+      database,
+      '-F',
+      'p',
+      '-f',
+      sqlFile,
+    ];
 
     logger.info(
       `Executing SQL dump: pg_dump -h ${host} -p ${port} -U ${user} -d ${database}`
     );
 
-    await execAsync(command, { env });
+    await new Promise<void>((resolve, reject) => {
+      const child = spawn('pg_dump', args, { env });
+      let stderr = '';
+
+      child.stderr.on('data', (chunk) => {
+        stderr += chunk.toString();
+      });
+
+      child.on('error', (error) => {
+        reject(error);
+      });
+
+      child.on('close', (code) => {
+        if (code === 0) {
+          resolve();
+          return;
+        }
+        reject(new Error(stderr || `pg_dump failed with code ${code}`));
+      });
+    });
 
     if (fs.existsSync(sqlFile)) {
       logger.info(`SQL dump created successfully: ${sqlFile}`);
@@ -530,12 +617,15 @@ export async function POST(request: NextRequest) {
               : undefined;
 
             const data = await delegate.findMany({ where, orderBy });
+            const normalizedData = data.map((record) =>
+              normalizeJsonRecord(record as Record<string, unknown>)
+            );
             tables[logTable.name] = {
-              count: data.length,
-              data,
+              count: normalizedData.length,
+              data: normalizedData,
               since: logSince?.toISOString() ?? null,
             };
-            recordCounts[logTable.name] = data.length;
+            recordCounts[logTable.name] = normalizedData.length;
           } catch (error) {
             tables[logTable.name] = {
               count: 0,
@@ -562,11 +652,14 @@ export async function POST(request: NextRequest) {
             }
 
             const data = await modelDelegate.findMany({ where });
+            const normalizedData = data.map((record) =>
+              normalizeJsonRecord(record as Record<string, unknown>)
+            );
             tables[name] = {
-              count: data.length,
-              data,
+              count: normalizedData.length,
+              data: normalizedData,
             };
-            recordCounts[name] = data.length;
+            recordCounts[name] = normalizedData.length;
           } catch (error) {
             tables[name] = {
               count: 0,
@@ -802,7 +895,6 @@ export async function POST(request: NextRequest) {
       message: 'Backup created successfully',
       backup: {
         timestamp,
-        path: backupDir,
         files: files.map((f) => path.basename(f)),
         totalSize,
         format: requestedFormat,
@@ -862,7 +954,6 @@ export async function GET() {
 
         return {
           timestamp: folder,
-          path: folderPath,
           files,
           totalSize,
           manifest,
@@ -898,7 +989,22 @@ export async function DELETE(request: NextRequest) {
       );
     }
 
+    if (!TIMESTAMP_FOLDER_REGEX.test(timestamp)) {
+      return NextResponse.json(
+        { success: false, error: 'Invalid timestamp format' },
+        { status: 400 }
+      );
+    }
+
     const backupPath = path.join(BACKUP_DIR, timestamp);
+    const resolvedPath = path.resolve(backupPath);
+    const resolvedBackupDir = path.resolve(BACKUP_DIR);
+    if (!resolvedPath.startsWith(resolvedBackupDir)) {
+      return NextResponse.json(
+        { success: false, error: 'Access denied' },
+        { status: 403 }
+      );
+    }
 
     if (!fs.existsSync(backupPath)) {
       return NextResponse.json(

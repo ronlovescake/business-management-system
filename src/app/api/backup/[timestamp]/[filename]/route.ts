@@ -8,11 +8,107 @@ import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 import fs from 'fs';
 import path from 'path';
+import { parser } from 'stream-json';
+import { pick } from 'stream-json/filters/Pick';
+import { streamArray } from 'stream-json/streamers/StreamArray';
+import { streamValues } from 'stream-json/streamers/StreamValues';
 import { logger } from '@/lib/logger';
 
 const BACKUP_DIR = path.resolve(process.cwd(), 'backups');
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
+
+const readJsonValue = async (filePath: string, filter: string) => {
+  return new Promise<unknown>((resolve, reject) => {
+    let settled = false;
+    let found = false;
+    let value: unknown;
+
+    const finish = () => {
+      if (settled) {
+        return;
+      }
+      settled = true;
+      resolve(found ? value : undefined);
+    };
+
+    const fail = (error: unknown) => {
+      if (settled) {
+        return;
+      }
+      settled = true;
+      reject(error);
+    };
+
+    const fileStream = fs.createReadStream(filePath);
+    const jsonStream = fileStream
+      .pipe(parser())
+      .pipe(pick({ filter }))
+      .pipe(streamValues());
+
+    jsonStream.on('data', (data: { value: unknown }) => {
+      found = true;
+      value = data.value;
+      fileStream.destroy();
+    });
+
+    jsonStream.on('end', finish);
+    jsonStream.on('close', finish);
+    jsonStream.on('error', fail);
+    fileStream.on('error', fail);
+  });
+};
+
+const readTableSample = async (
+  filePath: string,
+  tableName: string,
+  offset: number,
+  limit: number
+) => {
+  return new Promise<unknown[]>((resolve, reject) => {
+    let settled = false;
+    const rows: unknown[] = [];
+    let index = 0;
+
+    const finish = () => {
+      if (settled) {
+        return;
+      }
+      settled = true;
+      resolve(rows);
+    };
+
+    const fail = (error: unknown) => {
+      if (settled) {
+        return;
+      }
+      settled = true;
+      reject(error);
+    };
+
+    const fileStream = fs.createReadStream(filePath);
+    const jsonStream = fileStream
+      .pipe(parser())
+      .pipe(pick({ filter: `tables.${tableName}.data` }))
+      .pipe(streamArray());
+
+    jsonStream.on('data', (data: { value: unknown }) => {
+      if (index >= offset && rows.length < limit) {
+        rows.push(data.value);
+      }
+      index += 1;
+
+      if (rows.length >= limit) {
+        fileStream.destroy();
+      }
+    });
+
+    jsonStream.on('end', finish);
+    jsonStream.on('close', finish);
+    jsonStream.on('error', fail);
+    fileStream.on('error', fail);
+  });
+};
 
 export async function GET(
   request: NextRequest,
@@ -99,22 +195,6 @@ export async function GET(
         }
       }
 
-      const raw = fs.readFileSync(filePath, 'utf8');
-      const parsed = JSON.parse(raw) as {
-        metadata?: unknown;
-        tables?: Record<string, { count?: number; data?: unknown[] }>;
-      };
-
-      const metadata = parsed.metadata;
-      const tables = parsed.tables;
-
-      if (!tables || typeof tables !== 'object') {
-        return NextResponse.json(
-          { error: 'Invalid backup file format' },
-          { status: 400 }
-        );
-      }
-
       if (mode === 'summary') {
         const summaryPath = path.join(
           BACKUP_DIR,
@@ -128,62 +208,100 @@ export async function GET(
           });
         }
 
-        const summary = {
-          metadata,
-          tables: Object.fromEntries(
-            Object.entries(tables).map(([name, table]) => [
-              name,
-              {
-                count:
-                  typeof table?.count === 'number'
-                    ? table.count
-                    : Array.isArray(table?.data)
-                      ? table.data.length
-                      : 0,
-              },
-            ])
-          ),
-        };
+        const manifestPath = path.join(BACKUP_DIR, timestamp, 'MANIFEST.json');
+        if (fs.existsSync(manifestPath)) {
+          try {
+            const manifest = JSON.parse(
+              fs.readFileSync(manifestPath, 'utf8')
+            ) as {
+              timestamp?: string;
+              database?: string;
+              format?: string;
+              includeSoftDeleted?: boolean;
+              strategy?: string;
+              baseTimestamp?: string | null;
+              baseFolder?: string | null;
+              changeWindow?: { since: string | null; until: string } | null;
+              recordCounts?: Record<string, number>;
+            };
 
-        try {
-          fs.writeFileSync(summaryPath, JSON.stringify(summary, null, 2));
-        } catch (error) {
-          logger.warn('Failed to write backup summary cache', {
-            summaryPath,
-            error,
-          });
+            if (manifest.recordCounts) {
+              const summary = {
+                metadata: {
+                  createdAt: manifest.timestamp ?? timestamp,
+                  database: manifest.database ?? 'unknown',
+                  format: manifest.format ?? 'json',
+                  version: '1.1',
+                  includeSoftDeleted: manifest.includeSoftDeleted ?? false,
+                  strategy: manifest.strategy ?? 'full',
+                  baseTimestamp: manifest.baseTimestamp ?? null,
+                  baseFolder: manifest.baseFolder ?? null,
+                  changeWindow: manifest.changeWindow ?? null,
+                },
+                tables: Object.fromEntries(
+                  Object.entries(manifest.recordCounts).map(([name, count]) => [
+                    name,
+                    { count },
+                  ])
+                ),
+              };
+
+              try {
+                fs.writeFileSync(summaryPath, JSON.stringify(summary, null, 2));
+              } catch (error) {
+                logger.warn('Failed to write backup summary cache', {
+                  summaryPath,
+                  error,
+                });
+              }
+
+              return NextResponse.json(summary, {
+                headers: { 'Cache-Control': 'no-store' },
+              });
+            }
+          } catch (error) {
+            logger.warn('Failed to read manifest for summary', {
+              manifestPath,
+              error,
+            });
+          }
         }
 
-        return NextResponse.json(summary, {
-          headers: { 'Cache-Control': 'no-store' },
-        });
+        return NextResponse.json(
+          {
+            error: 'Summary unavailable for this backup file',
+          },
+          { status: 400 }
+        );
       }
 
       // mode === 'table'
       const tableName = requestedTable as string;
-      const table = tables[tableName];
+      const metadata = await readJsonValue(filePath, 'metadata');
+      const rawCount = await readJsonValue(
+        filePath,
+        `tables.${tableName}.count`
+      );
+      const total = typeof rawCount === 'number' ? rawCount : undefined;
+      const sliced = await readTableSample(filePath, tableName, offset, limit);
 
-      if (!table || !Array.isArray(table.data)) {
+      if (!sliced.length && (total === undefined || total === 0)) {
         return NextResponse.json({ error: 'Table not found' }, { status: 404 });
       }
 
-      const total =
-        typeof table.count === 'number'
-          ? table.count
-          : (table.data?.length ?? 0);
-      const sliced = table.data.slice(offset, offset + limit);
+      const resolvedTotal = total ?? sliced.length;
 
       return NextResponse.json(
         {
           metadata,
           tables: {
             [tableName]: {
-              count: total,
+              count: resolvedTotal,
               data: sliced,
               sample: {
                 offset,
                 limit,
-                total,
+                total: resolvedTotal,
               },
             },
           },
