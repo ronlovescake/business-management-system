@@ -36,12 +36,6 @@ const HIDDEN_STATUS_PILLS = new Set<StatusFilterOption>([
   'Voided',
 ]);
 
-function buildAllStatusesSelectedSet(
-  controlledStatuses: StatusFilterOption[]
-): Set<StatusFilterOption> {
-  return new Set<StatusFilterOption>(['All Status', ...controlledStatuses]);
-}
-
 type PaymentDraft = {
   transactionId: number;
   amount: number;
@@ -75,6 +69,8 @@ export function TransactionPaymentsModal({
   defaultCustomerName,
   onCustomerChange,
   apiBasePath,
+  selectedStatuses,
+  onStatusFilter,
 }: {
   opened: boolean;
   onClose: () => void;
@@ -83,6 +79,8 @@ export function TransactionPaymentsModal({
   defaultCustomerName?: string | null;
   onCustomerChange?: (customerName: string | null) => void;
   apiBasePath?: string;
+  selectedStatuses: Set<string>;
+  onStatusFilter: (status: string) => void;
 }) {
   const transactionsQueryKey = useMemo(
     () => [...queryKeys.transactions.lists(), apiBasePath ?? '/api'],
@@ -112,16 +110,18 @@ export function TransactionPaymentsModal({
     });
   }, []);
 
-  const allStatusControlledStatuses = useMemo(() => {
-    return visibleStatusFilterOptions.filter(
-      (status): status is Exclude<StatusFilterOption, 'All Status'> =>
-        status !== 'All Status'
-    );
-  }, [visibleStatusFilterOptions]);
+  const filteredSelectedStatuses = useMemo(() => {
+    const next = new Set<StatusFilterOption>();
 
-  const [selectedStatuses, setSelectedStatuses] = useState<
-    Set<StatusFilterOption>
-  >(() => buildAllStatusesSelectedSet(allStatusControlledStatuses));
+    selectedStatuses.forEach((status) => {
+      const typedStatus = status as StatusFilterOption;
+      if (!HIDDEN_STATUS_PILLS.has(typedStatus)) {
+        next.add(typedStatus);
+      }
+    });
+
+    return next;
+  }, [selectedStatuses]);
 
   const [amountByTransactionId, setAmountByTransactionId] = useState<
     Record<number, number>
@@ -130,47 +130,9 @@ export function TransactionPaymentsModal({
 
   const handleStatusFilter = useCallback(
     (status: StatusFilterOption) => {
-      setSelectedStatuses((prev) => {
-        const newSet = new Set(prev);
-
-        if (status === 'All Status') {
-          if (newSet.has('All Status')) {
-            // Toggle off All Status and all controlled statuses
-            newSet.delete('All Status');
-            allStatusControlledStatuses.forEach((s) => newSet.delete(s));
-          } else {
-            // Toggle on All Status and all controlled statuses
-            newSet.add('All Status');
-            allStatusControlledStatuses.forEach((s) => newSet.add(s));
-          }
-        } else {
-          // Handle individual status toggle
-          if (newSet.has(status)) {
-            newSet.delete(status);
-            // If this was one of the controlled statuses, also remove All Status
-            if (allStatusControlledStatuses.includes(status as never)) {
-              newSet.delete('All Status');
-            }
-          } else {
-            newSet.add(status);
-            // Check if all controlled statuses are now selected
-            if (
-              allStatusControlledStatuses.every(
-                (s) => newSet.has(s) || s === status
-              )
-            ) {
-              newSet.add('All Status');
-            }
-          }
-        }
-
-        // Safety: never allow hidden statuses to be selected.
-        HIDDEN_STATUS_PILLS.forEach((s) => newSet.delete(s));
-
-        return newSet;
-      });
+      onStatusFilter(status);
     },
-    [allStatusControlledStatuses]
+    [onStatusFilter]
   );
 
   const resetFormState = useCallback(() => {
@@ -181,11 +143,8 @@ export function TransactionPaymentsModal({
     setNotes('');
     setIsReservation(false);
     setReservationTouched(false);
-    setSelectedStatuses(
-      buildAllStatusesSelectedSet(allStatusControlledStatuses)
-    );
     setAmountByTransactionId({});
-  }, [allStatusControlledStatuses]);
+  }, []);
 
   const handleCustomerChange = useCallback(
     (value: string | null) => {
@@ -258,7 +217,7 @@ export function TransactionPaymentsModal({
         </Text>
         <Group gap="xs" wrap="wrap">
           {visibleStatusFilterOptions.map((status) => {
-            const isSelected = selectedStatuses.has(status);
+            const isSelected = filteredSelectedStatuses.has(status);
             return (
               <Pill
                 key={status}
@@ -290,30 +249,11 @@ export function TransactionPaymentsModal({
         </Group>
       </Stack>
     );
-  }, [handleStatusFilter, selectedStatuses, visibleStatusFilterOptions]);
-
-  useEffect(() => {
-    setSelectedStatuses((prev) => {
-      const newSet = new Set(prev);
-      let changed = false;
-
-      HIDDEN_STATUS_PILLS.forEach((s) => {
-        if (newSet.delete(s)) {
-          changed = true;
-        }
-      });
-
-      if (!changed) {
-        return prev;
-      }
-
-      if (newSet.size === 0) {
-        return buildAllStatusesSelectedSet(allStatusControlledStatuses);
-      }
-
-      return newSet;
-    });
-  }, [allStatusControlledStatuses]);
+  }, [
+    filteredSelectedStatuses,
+    handleStatusFilter,
+    visibleStatusFilterOptions,
+  ]);
 
   // ============================================================================
   // ⚠️ ELIGIBILITY FILTERS (RECORD PAYMENTS)
@@ -354,7 +294,7 @@ export function TransactionPaymentsModal({
       })
       .filter((t) => {
         const status = (t['Order Status'] ?? '').trim();
-        const individual = Array.from(selectedStatuses).filter(
+        const individual = Array.from(filteredSelectedStatuses).filter(
           (s) => s !== 'All Status'
         );
 
@@ -367,14 +307,19 @@ export function TransactionPaymentsModal({
 
         return !status || individual.includes(status as StatusFilterOption);
       });
-  }, [selectedCustomer, selectedProductCode, selectedStatuses, transactions]);
+  }, [
+    filteredSelectedStatuses,
+    selectedCustomer,
+    selectedProductCode,
+    transactions,
+  ]);
 
   const singleSelectedStatusForDefaults = useMemo(() => {
-    const individual = Array.from(selectedStatuses).filter(
+    const individual = Array.from(filteredSelectedStatuses).filter(
       (s) => s !== 'All Status'
     );
     return individual.length === 1 ? individual[0] : null;
-  }, [selectedStatuses]);
+  }, [filteredSelectedStatuses]);
 
   useEffect(() => {
     if (!isGeneralMerchandise) {

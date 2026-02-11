@@ -46,4 +46,47 @@ test.describe('Transactions page', () => {
     const searchInput = page.getByPlaceholder(/search transactions/i);
     await expect(searchInput).toBeVisible({ timeout: 10000 });
   });
+
+  test('keeps record payments status pills in sync', async ({ page }) => {
+    await expect(page).toHaveURL(/\/transactions/);
+
+    const searchInput = page.getByPlaceholder(/search transactions/i);
+    await expect(searchInput).toBeVisible({ timeout: 10000 });
+
+    const mainPreparedPill = page
+      .locator('.mantine-Pill-root', { hasText: 'Prepared' })
+      .first();
+
+    const selectedColor = 'rgb(34, 139, 230)';
+    const currentColor = await mainPreparedPill.evaluate(
+      (element) => window.getComputedStyle(element).backgroundColor
+    );
+
+    if (currentColor !== selectedColor) {
+      await mainPreparedPill.click();
+    }
+
+    await expect(mainPreparedPill).toHaveCSS('background-color', selectedColor);
+
+    await page.getByRole('button', { name: 'Record Payment' }).click();
+
+    const modal = page
+      .locator('.mantine-Modal-root')
+      .filter({ hasText: 'Record Payments' });
+    const modalPreparedPill = modal.locator('.mantine-Pill-root', {
+      hasText: 'Prepared',
+    });
+
+    await expect(modalPreparedPill).toHaveCSS(
+      'background-color',
+      selectedColor
+    );
+
+    await modalPreparedPill.click();
+
+    await expect(mainPreparedPill).not.toHaveCSS(
+      'background-color',
+      selectedColor
+    );
+  });
 });

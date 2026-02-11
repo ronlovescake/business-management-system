@@ -742,6 +742,8 @@ export function TransactionsPage({ apiBasePath }: TransactionsPageProps) {
           defaultCustomerName={defaultPaymentsCustomer}
           onCustomerChange={syncCustomerFilter}
           apiBasePath={apiBasePath}
+          selectedStatuses={selectedStatuses}
+          onStatusFilter={handleStatusFilter}
         />
 
         <CustomerDetailsModal
