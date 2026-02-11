@@ -1,5 +1,19 @@
 # 🎯 10/10 Module Improvement Framework
 
+## Documentation Status (Source of Truth)
+
+- Current status: authentication is deferred and not active.
+- Local URLs: dev server at http://localhost:5001, Playwright dev server at http://localhost:3100.
+- Primary docs: [README.MD](../README.MD), [CONTRIBUTING.md](../CONTRIBUTING.md), and this file.
+
+### Deprecated / Historical Docs (Do Not Follow)
+
+- [archives/README.md](./archives/README.md)
+- [AUTHENTICATION_SETUP_GUIDE.md](./AUTHENTICATION_SETUP_GUIDE.md)
+- [AUTH_QUICK_START.md](./AUTH_QUICK_START.md)
+- [IMPLEMENTATION_COMPLETE.md](./IMPLEMENTATION_COMPLETE.md)
+- [USER_PROFILE_AND_MANAGEMENT.md](./USER_PROFILE_AND_MANAGEMENT.md)
+
 ## Quick Start
 
 ### ⚡ Generate a New Module (Perfect 10/10 Structure)
@@ -22,6 +36,7 @@ Most historical markdown files now live under dedicated subfolders so the reposi
 - `implementations/` – rollout plans, feature notes, and architecture decisions.
 - `reports/` – milestone recaps, audit results, and working session notes.
 - `reference/` – living TODO lists or other running inventories.
+- `archives/` – deprecated or historical docs kept for reference.
 
 Add new documents to the appropriate folder and drop a short link in this README when something notable appears.
 

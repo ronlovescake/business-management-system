@@ -59,9 +59,10 @@ Thank you for contributing! This guide will help you understand our coding stand
    ```
 
 6. **Verify setup**
-   - Open http://localhost:3000
-   - Check that all pages load
-   - Run tests: `npm test`
+
+- Open http://localhost:5001
+- Check that all pages load
+- Run tests: `npm test`
 
 ---
 
@@ -116,7 +117,7 @@ Thank you for contributing! This guide will help you understand our coding stand
 
    ```bash
    npm run lint
-   npm run type-check
+   npm run typecheck
    npm test
    ```
 

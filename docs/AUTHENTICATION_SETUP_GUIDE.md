@@ -1,8 +1,10 @@
 # Authentication & Authorization Setup Guide
 
+> Deprecated: Authentication is currently deferred and not active. This document is retained for future planning only.
+
 ## Overview
 
-This application now has a complete **authentication and role-based access control (RBAC)** system implemented using **NextAuth.js v5**.
+Authentication is currently deferred. When re-enabled, use the project-standard NextAuth.js v4 setup.
 
 ---
 
@@ -30,23 +32,23 @@ This application now has a complete **authentication and role-based access contr
 
 ## 📧 Default Admin Accounts
 
-Two admin accounts are automatically created when you run the seed script:
+When authentication is enabled, a seed script can create example admin accounts:
 
-### Super Admin
+### Super Admin (example)
 
-- **Email**: `czarlie12012010@gmail.com`
-- **Password**: `Admin@2024!`
+- **Email**: `superadmin@example.com`
+- **Password**: `change-me-now`
 - **Role**: SUPER_ADMIN
 - **Access**: Full access to all pages
 
-### Admin
+### Admin (example)
 
-- **Email**: `czarinabalnig@gmail.com`
-- **Password**: `Admin@2024!`
+- **Email**: `admin@example.com`
+- **Password**: `change-me-now`
 - **Role**: ADMIN
 - **Access**: Operations + Employee pages (no settings)
 
-⚠️ **IMPORTANT**: Change these default passwords after first login!
+⚠️ **IMPORTANT**: Do not store real credentials in documentation.
 
 ---
 
@@ -55,7 +57,7 @@ Two admin accounts are automatically created when you run the seed script:
 ### Step 1: Install Dependencies
 
 ```bash
-npm install next-auth@latest bcryptjs --legacy-peer-deps
+npm install next-auth@^4.24.13 bcryptjs --legacy-peer-deps
 npm install --save-dev @types/bcryptjs --legacy-peer-deps
 ```
 
@@ -66,7 +68,7 @@ Add these to your `.env` file:
 ```env
 # NextAuth.js Configuration
 NEXTAUTH_SECRET=your-secret-key-here
-NEXTAUTH_URL=http://localhost:3000
+NEXTAUTH_URL=http://localhost:5001
 ```
 
 Generate a secure secret:

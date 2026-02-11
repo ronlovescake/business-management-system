@@ -1,8 +1,10 @@
 # User Profile & Management System
 
+> Deprecated: Authentication is currently deferred and not active. This document is retained for future planning only.
+
 ## Overview
 
-Complete user profile and management system with role-based access control has been implemented.
+Planned user profile and management system. This is not active while authentication is deferred.
 
 ## Features Implemented
 
@@ -96,11 +98,10 @@ Complete user profile and management system with role-based access control has b
 ## Installed Dependencies
 
 ```bash
-npm install @mantine/modals date-fns --legacy-peer-deps
+npm install @mantine/modals --legacy-peer-deps
 ```
 
 - **@mantine/modals** - Modal dialogs for confirmations
-- **date-fns** - Date formatting utilities
 
 ## Usage
 

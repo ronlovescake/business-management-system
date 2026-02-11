@@ -1,8 +1,10 @@
 # ✅ Authentication System - Implementation Complete!
 
+> Deprecated: Authentication is currently deferred and not active. This document is a historical record only.
+
 ## 🎉 Success! Your Authentication System is Ready
 
-The complete authentication and role-based access control system has been successfully implemented and tested!
+This was a historical spike and is no longer the current system state.
 
 ---
 
@@ -54,37 +56,9 @@ Middleware automatically protects routes based on user roles:
 
 ---
 
-## 🚀 Server Status
+## 🚀 Server Status (Historical)
 
-✅ **Development server is running!**
-
-- URL: http://localhost:3001
-- Environment: Development
-- Database: Connected ✓
-
----
-
-## 🔑 Login Now!
-
-Open your browser and go to: **http://localhost:3001/login**
-
-### Test Accounts:
-
-**Super Admin (Full Access)**
-
-```
-Email: czarlie12012010@gmail.com
-Password: Admin@2024!
-```
-
-**Admin (Operations + Employees)**
-
-```
-Email: czarinabalnig@gmail.com
-Password: Admin@2024!
-```
-
-⚠️ **Remember to change these passwords after first login!**
+This section described a past local setup and is no longer current. Do not use it as a setup guide.
 
 ---
 
@@ -103,7 +77,7 @@ When users try to access restricted pages:
 
 ### 1. Test Login
 
-- Go to http://localhost:3001/login
+- Go to http://localhost:5001/login
 - Login with super admin credentials
 - Verify you can access all pages
 
@@ -343,7 +317,7 @@ pages: {
 
 Your authentication system is **fully operational**!
 
-- ✅ Login at: http://localhost:3001/login
+- ✅ Login at: http://localhost:5001/login (historical reference)
 - ✅ Two admin accounts ready to use
 - ✅ All routes protected by role
 - ✅ Documentation complete
@@ -354,5 +328,5 @@ Your authentication system is **fully operational**!
 ---
 
 Last Updated: November 6, 2025
-Server: Running on http://localhost:3001
+Server: Running on http://localhost:5001 (historical reference)
 Status: ✅ Ready for testing

@@ -1,14 +1,18 @@
 # 🚀 Quick Start - Authentication System
 
-## 📋 What Was Implemented
+> Deprecated: Authentication is currently deferred and not active. This document is retained for future planning only.
 
-✅ Complete authentication system with NextAuth.js v4  
-✅ Role-based access control (RBAC)  
-✅ Three user roles: USER, ADMIN, SUPER_ADMIN  
-✅ Route protection middleware  
-✅ Database User model  
-✅ Admin user seed script  
-✅ Updated login page with real authentication
+## 📋 Planned Scope
+
+Planned features when authentication is enabled:
+
+- NextAuth.js v4
+- Role-based access control (RBAC)
+- Three user roles: USER, ADMIN, SUPER_ADMIN
+- Route protection middleware
+- Database User model
+- Admin user seed script
+- Updated login page with real authentication
 
 ---
 
@@ -27,7 +31,7 @@ Add to your `.env` file:
 
 ```env
 NEXTAUTH_SECRET=your-secret-generated-here
-NEXTAUTH_URL=http://localhost:3000
+NEXTAUTH_URL=http://localhost:5001
 ```
 
 Generate secret:
@@ -59,19 +63,19 @@ npm run dev
 
 ## 🔑 Default Login Credentials
 
-**Super Admin (Full Access)**
+**Super Admin (Example Only)**
 
-- Email: `czarlie12012010@gmail.com`
-- Password: `Admin@2024!`
+- Email: `superadmin@example.com`
+- Password: `change-me-now`
 - Can access: Everything
 
-**Admin (Operations + Employees)**
+**Admin (Example Only)**
 
-- Email: `czarinabalnig@gmail.com`
-- Password: `Admin@2024!`
+- Email: `admin@example.com`
+- Password: `change-me-now`
 - Can access: All operations + employee pages
 
-⚠️ Change these passwords after first login!
+⚠️ Do not store real credentials in documentation.
 
 ---
 
