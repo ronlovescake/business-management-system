@@ -10,6 +10,8 @@ const globalForPrisma = globalThis as unknown as {
   prisma: PrismaClient | undefined;
   auditClient: PrismaClient | undefined;
   middlewaresApplied: boolean | undefined;
+  queryListenersApplied: boolean | undefined;
+  queryStats: { totalQueries: number; slowQueries: number } | undefined;
 };
 
 // ============================================================================
@@ -63,32 +65,35 @@ export const prisma =
     },
   });
 
-// Log slow queries (>100ms) in development and production
-// Check if $on method exists (not available in test mocks)
-if (typeof prisma.$on === 'function') {
-  prisma.$on('query' as never, (e: QueryEvent) => {
-    const duration = e.duration;
-    const query = e.query;
-    const params = e.params;
+const queryStats =
+  globalForPrisma.queryStats ??
+  (globalForPrisma.queryStats = { totalQueries: 0, slowQueries: 0 });
 
-    // Log slow queries for performance monitoring
-    if (duration > 100) {
+// Log slow queries and track stats once to avoid dev/HMR listener leaks.
+if (
+  typeof prisma.$on === 'function' &&
+  !globalForPrisma.queryListenersApplied
+) {
+  prisma.$on('query' as never, (e: QueryEvent) => {
+    queryStats.totalQueries++;
+    if (e.duration > 100) {
+      queryStats.slowQueries++;
       logger.warn('🐌 Slow query detected', {
-        duration: `${duration}ms`,
-        query: query.substring(0, 200), // Truncate long queries
-        params,
+        duration: `${e.duration}ms`,
+        query: e.query.substring(0, 200),
+        params: e.params,
         threshold: '100ms',
       });
     }
 
-    // In development, log all queries for debugging (optional)
     if (isFeatureEnabled('query-logging')) {
       logger.debug('📊 Query executed', {
-        duration: `${duration}ms`,
-        query: query.substring(0, 150),
+        duration: `${e.duration}ms`,
+        query: e.query.substring(0, 150),
       });
     }
   });
+  globalForPrisma.queryListenersApplied = true;
 }
 
 // Separate client for audit logging to prevent recursion.
@@ -113,32 +118,17 @@ if (!isProduction) {
 // ============================================================================
 
 /**
- * Get database connection pool metrics
- * Note: Prisma doesn't expose pool metrics directly, but we can track active queries
- */
-let totalQueries = 0;
-let slowQueries = 0;
-
-if (typeof prisma.$on === 'function') {
-  // Track query start/end for connection monitoring
-  prisma.$on('query' as never, (e: QueryEvent) => {
-    totalQueries++;
-    if (e.duration > 100) {
-      slowQueries++;
-    }
-  });
-}
-
-/**
  * Get basic database statistics
  */
 export function getDatabaseStats() {
   return {
-    totalQueries,
-    slowQueries,
+    totalQueries: queryStats.totalQueries,
+    slowQueries: queryStats.slowQueries,
     slowQueryPercentage:
-      totalQueries > 0
-        ? ((slowQueries / totalQueries) * 100).toFixed(2) + '%'
+      queryStats.totalQueries > 0
+        ? ((queryStats.slowQueries / queryStats.totalQueries) * 100).toFixed(
+            2
+          ) + '%'
         : '0%',
     slowQueryThreshold: '100ms',
   };
