@@ -8,6 +8,7 @@ import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import { getDatabaseUrl } from '@/lib/env';
+import { requireAdmin } from '@/lib/auth/session';
 import fs from 'fs';
 import fsPromises from 'fs/promises';
 import path from 'path';
@@ -15,6 +16,7 @@ import { logger } from '@/lib/logger';
 import * as Papa from 'papaparse';
 import * as XLSX from 'xlsx';
 import { spawn } from 'child_process';
+import { createHash } from 'crypto';
 
 // Force dynamic rendering for this route due to fs operations
 export const dynamic = 'force-dynamic';
@@ -41,10 +43,17 @@ interface BackupManifestFile {
     name: string;
     size: number;
     path: string;
+    checksum?: string;
   }>;
   recordCounts?: Record<string, number>;
   differentialFallbackTables?: string[];
   logStats?: Record<string, number>;
+  integrity?: {
+    algorithm: 'sha256';
+    verified: boolean;
+    generatedAt: string;
+    fileChecksums: Record<string, string>;
+  };
 }
 
 interface BackupLookup {
@@ -68,7 +77,74 @@ function writeWorkbookToFile(workbook: XLSX.WorkBook, filePath: string) {
     type: 'buffer',
     compression: true,
   });
-  fs.writeFileSync(filePath, buffer);
+  return writeFileAtomic(filePath, buffer as Buffer);
+}
+
+async function requireBackupAdmin() {
+  try {
+    await requireAdmin();
+    return null;
+  } catch (error) {
+    if (error instanceof Error && error.message === 'Unauthorized') {
+      return NextResponse.json(
+        { success: false, error: 'Authentication required' },
+        { status: 401 }
+      );
+    }
+
+    return NextResponse.json(
+      { success: false, error: 'Forbidden: Admin access required' },
+      { status: 403 }
+    );
+  }
+}
+
+async function writeFileAtomic(filePath: string, content: string | Buffer) {
+  const tempPath = `${filePath}.tmp-${process.pid}-${Date.now()}`;
+  await fsPromises.writeFile(tempPath, content);
+  await fsPromises.rename(tempPath, filePath);
+}
+
+async function computeFileSha256(filePath: string) {
+  return await new Promise<string>((resolve, reject) => {
+    const hash = createHash('sha256');
+    const stream = fs.createReadStream(filePath);
+
+    stream.on('data', (chunk) => hash.update(chunk));
+    stream.on('end', () => resolve(hash.digest('hex')));
+    stream.on('error', reject);
+  });
+}
+
+async function buildFileChecksums(filePaths: string[]) {
+  const checksums: Record<string, string> = {};
+
+  for (const filePath of filePaths) {
+    const checksum = await computeFileSha256(filePath);
+    checksums[path.basename(filePath)] = checksum;
+  }
+
+  return checksums;
+}
+
+async function verifyFileChecksums(
+  filePaths: string[],
+  expectedChecksums: Record<string, string>
+) {
+  for (const filePath of filePaths) {
+    const fileName = path.basename(filePath);
+    const expected = expectedChecksums[fileName];
+    if (!expected) {
+      return false;
+    }
+
+    const actual = await computeFileSha256(filePath);
+    if (actual !== expected) {
+      return false;
+    }
+  }
+
+  return true;
 }
 
 function isValidStrategy(value: unknown): value is BackupStrategy {
@@ -523,6 +599,11 @@ async function createSqlDump(
 
 // POST - Create backup
 export async function POST(request: NextRequest) {
+  const authError = await requireBackupAdmin();
+  if (authError) {
+    return authError;
+  }
+
   try {
     const body = (await request.json()) as {
       format?: string;
@@ -674,7 +755,7 @@ export async function POST(request: NextRequest) {
           ? `log-backup-${timestamp}.json`
           : `backup-${timestamp}.json`;
       backupFile = path.join(backupDir, jsonFileName);
-      fs.writeFileSync(
+      await writeFileAtomic(
         backupFile,
         JSON.stringify(
           {
@@ -745,7 +826,7 @@ export async function POST(request: NextRequest) {
 
               const csv = Papa.unparse(plainData);
               logger.info(`CSV generated, writing to file: ${csvFile}`);
-              fs.writeFileSync(csvFile, csv);
+              await writeFileAtomic(csvFile, csv);
               files.push(csvFile);
               backupFile = csvFile;
               logger.info(`CSV file created successfully: ${csvFile}`);
@@ -846,7 +927,7 @@ export async function POST(request: NextRequest) {
 
         if (sheetCount > 0) {
           const xlsxFile = path.join(backupDir, `backup-${timestamp}.xlsx`);
-          writeWorkbookToFile(wb, xlsxFile);
+          await writeWorkbookToFile(wb, xlsxFile);
           files.push(xlsxFile);
           backupFile = xlsxFile;
           logger.info(
@@ -862,6 +943,19 @@ export async function POST(request: NextRequest) {
 
     const describedFiles = await describeFiles(files);
 
+    if (!describedFiles.length) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'Backup failed: no output files were generated',
+        },
+        { status: 500 }
+      );
+    }
+
+    const fileChecksums = await buildFileChecksums(files);
+    const integrityVerified = await verifyFileChecksums(files, fileChecksums);
+
     const manifest: BackupManifestFile = {
       timestamp: manilaTime.toISOString(),
       database: parseDatabaseUrl().database,
@@ -875,16 +969,33 @@ export async function POST(request: NextRequest) {
         name: path.basename(filePath),
         size,
         path: path.relative(BACKUP_DIR, filePath),
+        checksum: fileChecksums[path.basename(filePath)],
       })),
       recordCounts,
       differentialFallbackTables:
         strategy === 'differential' && differentialFallbackTables.length
           ? differentialFallbackTables
           : undefined,
+      integrity: {
+        algorithm: 'sha256',
+        verified: integrityVerified,
+        generatedAt: new Date().toISOString(),
+        fileChecksums,
+      },
     };
 
     const manifestFile = path.join(backupDir, 'MANIFEST.json');
-    fs.writeFileSync(manifestFile, JSON.stringify(manifest, null, 2));
+    await writeFileAtomic(manifestFile, JSON.stringify(manifest, null, 2));
+
+    if (!integrityVerified) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'Backup integrity verification failed',
+        },
+        { status: 500 }
+      );
+    }
 
     const totalSize = describedFiles.reduce((sum, { size }) => {
       return sum + size;
@@ -918,6 +1029,11 @@ export async function POST(request: NextRequest) {
 
 // GET - List available backups
 export async function GET() {
+  const authError = await requireBackupAdmin();
+  if (authError) {
+    return authError;
+  }
+
   try {
     if (!fs.existsSync(BACKUP_DIR)) {
       return NextResponse.json({ success: true, backups: [] });
@@ -978,6 +1094,11 @@ export async function GET() {
 
 // DELETE - Delete a specific backup
 export async function DELETE(request: NextRequest) {
+  const authError = await requireBackupAdmin();
+  if (authError) {
+    return authError;
+  }
+
   try {
     const { searchParams } = new URL(request.url);
     const timestamp = searchParams.get('timestamp');

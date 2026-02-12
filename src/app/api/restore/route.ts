@@ -8,12 +8,45 @@ import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 import { isDeepStrictEqual } from 'util';
 import { prisma } from '@/lib/db';
+import { requireAdmin } from '@/lib/auth/session';
 import fs from 'fs';
 import path from 'path';
 import { logger } from '@/lib/logger';
 import { sortTablesForRestore } from './restore-order';
+import { createHash } from 'crypto';
 const BACKUP_DIR = path.resolve(process.cwd(), 'backups');
 const TIMESTAMP_FOLDER_REGEX = /^\d{4}-\d{2}-\d{2}T\d{2}-\d{2}-\d{2}$/;
+const RESTORE_MUTEX_KEY = '__restore_global__';
+const activeRestoreMutexes = new Set<string>();
+
+async function requireRestoreAdmin() {
+  try {
+    await requireAdmin();
+    return null;
+  } catch (error) {
+    if (error instanceof Error && error.message === 'Unauthorized') {
+      return NextResponse.json(
+        { success: false, error: 'Authentication required' },
+        { status: 401 }
+      );
+    }
+
+    return NextResponse.json(
+      { success: false, error: 'Forbidden: Admin access required' },
+      { status: 403 }
+    );
+  }
+}
+
+const computeFileSha256 = async (filePath: string) => {
+  return await new Promise<string>((resolve, reject) => {
+    const hash = createHash('sha256');
+    const stream = fs.createReadStream(filePath);
+    stream.on('data', (chunk) => hash.update(chunk));
+    stream.on('end', () => resolve(hash.digest('hex')));
+    stream.on('error', reject);
+  });
+};
 
 const isSafeFilename = (filename: string) => {
   if (!filename) {
@@ -132,7 +165,7 @@ const normalizeValue = (value: unknown): unknown => {
   }
 
   if (typeof value === 'bigint') {
-    return Number(value);
+    return value.toString();
   }
 
   if (Array.isArray(value)) {
@@ -417,8 +450,22 @@ const processTableRestore = async (
 
 // POST - Restore from backup
 export async function POST(request: NextRequest) {
+  const authError = await requireRestoreAdmin();
+  if (authError) {
+    return authError;
+  }
+
+  let lockAcquired = false;
+
   try {
-    const body = await request.json();
+    const body = (await request.json()) as {
+      timestamp?: string;
+      file?: string;
+      tables?: string[];
+      forceOverwrite?: boolean;
+      previewOnly?: boolean;
+      stopOnError?: boolean;
+    };
     const {
       timestamp,
       file,
@@ -428,7 +475,34 @@ export async function POST(request: NextRequest) {
       stopOnError = true,
     } = body;
 
+    if (
+      typeof forceOverwrite !== 'boolean' ||
+      typeof previewOnly !== 'boolean' ||
+      typeof stopOnError !== 'boolean'
+    ) {
+      return NextResponse.json(
+        { success: false, error: 'Invalid restore options payload' },
+        { status: 400 }
+      );
+    }
+
     const shouldAbortOnError = stopOnError && !previewOnly;
+
+    if (!previewOnly) {
+      if (activeRestoreMutexes.has(RESTORE_MUTEX_KEY)) {
+        return NextResponse.json(
+          {
+            success: false,
+            error:
+              'Another restore operation is already in progress. Please retry after it completes.',
+          },
+          { status: 409 }
+        );
+      }
+
+      activeRestoreMutexes.add(RESTORE_MUTEX_KEY);
+      lockAcquired = true;
+    }
 
     if (!timestamp || !file) {
       return NextResponse.json(
@@ -479,13 +553,42 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const backupData = JSON.parse(fs.readFileSync(backupPath, 'utf8'));
+    const backupData = JSON.parse(fs.readFileSync(backupPath, 'utf8')) as {
+      tables?: Record<string, { data?: RowRecord[] }>;
+    };
 
-    if (!backupData.tables) {
+    if (!backupData.tables || typeof backupData.tables !== 'object') {
       return NextResponse.json(
         { success: false, error: 'Invalid backup file format' },
         { status: 400 }
       );
+    }
+
+    // If manifest includes checksums, verify selected backup file integrity before restore.
+    const manifestPath = path.join(BACKUP_DIR, timestamp, 'MANIFEST.json');
+    if (fs.existsSync(manifestPath)) {
+      const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8')) as {
+        files?: Array<{ name: string; checksum?: string }>;
+        integrity?: { fileChecksums?: Record<string, string> };
+      };
+      const manifestEntry = manifest.files?.find(
+        (entry) => entry.name === file
+      );
+      const expectedChecksum =
+        manifestEntry?.checksum ?? manifest.integrity?.fileChecksums?.[file];
+
+      if (expectedChecksum) {
+        const actualChecksum = await computeFileSha256(backupPath);
+        if (actualChecksum !== expectedChecksum) {
+          return NextResponse.json(
+            {
+              success: false,
+              error: 'Backup integrity verification failed',
+            },
+            { status: 409 }
+          );
+        }
+      }
     }
 
     const modelMap: Record<string, string> = {
@@ -570,19 +673,174 @@ export async function POST(request: NextRequest) {
       }
     > = {};
     const previewResults: Record<string, PreviewTableResult> = {};
-    const requestedTables = (tables ||
-      Object.keys(backupData.tables)) as string[];
+    const requestedTablesRaw = tables ?? Object.keys(backupData.tables);
+
+    if (!Array.isArray(requestedTablesRaw)) {
+      return NextResponse.json(
+        { success: false, error: 'Invalid tables payload' },
+        { status: 400 }
+      );
+    }
+
+    const requestedTables = Array.from(
+      new Set(
+        requestedTablesRaw
+          .filter((value): value is string => typeof value === 'string')
+          .map((value) => value.trim())
+          .filter((value) => value.length > 0)
+      )
+    );
+
+    if (!requestedTables.length) {
+      return NextResponse.json(
+        { success: false, error: 'No tables selected for restore' },
+        { status: 400 }
+      );
+    }
+
+    const unknownTables = requestedTables.filter(
+      (tableName) => !modelMap[tableName]
+    );
+    if (unknownTables.length) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: `Unknown tables requested: ${unknownTables.join(', ')}`,
+        },
+        { status: 400 }
+      );
+    }
+
     const tablesToRestore = sortTablesForRestore(requestedTables);
+
+    if (previewOnly) {
+      for (const tableName of tablesToRestore) {
+        const tableData = backupData.tables[tableName];
+
+        if (!tableData || !Array.isArray(tableData.data)) {
+          previewResults[tableName] = {
+            attempted: 0,
+            inserts: [],
+            updates: [],
+            skipped: 0,
+            notice: 'No data to preview',
+          };
+          continue;
+        }
+
+        if (tableData.data.length === 0) {
+          previewResults[tableName] = {
+            attempted: 0,
+            inserts: [],
+            updates: [],
+            skipped: 0,
+            notice: 'No data to restore',
+          };
+          continue;
+        }
+
+        try {
+          const modelName = modelMap[tableName];
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const modelDelegate = (prisma as any)[modelName];
+          previewResults[tableName] = await processTablePreview(
+            modelDelegate,
+            { data: tableData.data },
+            forceOverwrite
+          );
+        } catch (error) {
+          previewResults[tableName] = {
+            attempted: tableData.data.length,
+            inserts: [],
+            updates: [],
+            skipped: 0,
+            notice:
+              error instanceof Error
+                ? error.message
+                : 'Failed to generate preview',
+          };
+        }
+      }
+
+      return NextResponse.json({
+        success: true,
+        preview: previewResults,
+      });
+    }
+
+    if (shouldAbortOnError) {
+      let abortedAt: string | null = null;
+
+      try {
+        await prisma.$transaction(async (tx) => {
+          for (const tableName of tablesToRestore) {
+            const tableData = backupData.tables?.[tableName];
+
+            if (!tableData || !Array.isArray(tableData.data)) {
+              results[tableName] = { count: 0, error: 'No data to restore' };
+              abortedAt = tableName;
+              throw new Error('Restore aborted due to invalid table data');
+            }
+
+            if (tableData.data.length === 0) {
+              results[tableName] = { count: 0, error: 'No data to restore' };
+              continue;
+            }
+
+            try {
+              const modelName = modelMap[tableName];
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              const txDelegate = (tx as any)[modelName];
+              results[tableName] = await processTableRestore(
+                txDelegate,
+                modelName,
+                { data: tableData.data },
+                forceOverwrite
+              );
+            } catch (error) {
+              results[tableName] = {
+                count: 0,
+                error: error instanceof Error ? error.message : String(error),
+              };
+              abortedAt = tableName;
+              throw error;
+            }
+          }
+        });
+      } catch (error) {
+        return NextResponse.json(
+          {
+            success: false,
+            message: 'Restore aborted due to table restore error',
+            abortedAt,
+            results,
+            error: error instanceof Error ? error.message : String(error),
+          },
+          { status: 500 }
+        );
+      }
+
+      return NextResponse.json({
+        success: true,
+        message: 'Restore completed',
+        results,
+      });
+    }
 
     for (const tableName of tablesToRestore) {
       const tableData = backupData.tables[tableName];
 
-      if (!tableData || !tableData.data || tableData.data.length === 0) {
+      if (
+        !tableData ||
+        !Array.isArray(tableData.data) ||
+        tableData.data.length === 0
+      ) {
         results[tableName] = { count: 0, error: 'No data to restore' };
         continue;
       }
 
       const modelName = modelMap[tableName];
+      const tableRows = tableData.data;
       if (!modelName) {
         results[tableName] = { count: 0, error: 'Unknown table' };
         if (shouldAbortOnError) {
@@ -600,34 +858,20 @@ export async function POST(request: NextRequest) {
       }
 
       try {
-        // Dynamic model access requires 'any' type due to Prisma's runtime model resolution
-        // The modelName is validated against modelMap above
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const modelDelegate = (prisma as any)[modelName];
-
-        if (previewOnly) {
-          previewResults[tableName] = await processTablePreview(
-            modelDelegate,
-            tableData,
-            forceOverwrite
-          );
-          continue;
-        }
-
         results[tableName] = await prisma.$transaction(async (tx) => {
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           const txDelegate = (tx as any)[modelName];
           return processTableRestore(
             txDelegate,
             modelName,
-            tableData,
+            { data: tableRows },
             forceOverwrite
           );
         });
       } catch (error) {
         if (previewOnly) {
           previewResults[tableName] = {
-            attempted: tableData.data.length,
+            attempted: tableRows.length,
             inserts: [],
             updates: [],
             skipped: 0,
@@ -657,13 +901,6 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    if (previewOnly) {
-      return NextResponse.json({
-        success: true,
-        preview: previewResults,
-      });
-    }
-
     return NextResponse.json({
       success: true,
       message: 'Restore completed',
@@ -680,12 +917,20 @@ export async function POST(request: NextRequest) {
       { status: 500 }
     );
   } finally {
+    if (lockAcquired) {
+      activeRestoreMutexes.delete(RESTORE_MUTEX_KEY);
+    }
     await prisma.$disconnect();
   }
 }
 
 // GET - Get soft-deleted records for restoration
 export async function GET(request: NextRequest) {
+  const authError = await requireRestoreAdmin();
+  if (authError) {
+    return authError;
+  }
+
   try {
     const { searchParams } = new URL(request.url);
     const table = searchParams.get('table');
@@ -745,7 +990,14 @@ export async function GET(request: NextRequest) {
     };
 
     if (date) {
-      where.deletedAt.gte = new Date(date);
+      const parsedDate = new Date(date);
+      if (Number.isNaN(parsedDate.getTime())) {
+        return NextResponse.json(
+          { success: false, error: 'Invalid date parameter' },
+          { status: 400 }
+        );
+      }
+      where.deletedAt.gte = parsedDate;
     }
 
     // Dynamic model access requires 'any' type due to Prisma's runtime model resolution
@@ -796,13 +1048,34 @@ export async function GET(request: NextRequest) {
 
 // PATCH - Restore soft-deleted records
 export async function PATCH(request: NextRequest) {
+  const authError = await requireRestoreAdmin();
+  if (authError) {
+    return authError;
+  }
+
   try {
-    const body = await request.json();
+    const body = (await request.json()) as {
+      table?: string;
+      ids?: Array<number | string>;
+    };
     const { table, ids } = body;
 
-    if (!table || !ids || !Array.isArray(ids)) {
+    if (!table || !ids || !Array.isArray(ids) || ids.length === 0) {
       return NextResponse.json(
         { success: false, error: 'Missing table or ids parameter' },
+        { status: 400 }
+      );
+    }
+
+    if (
+      ids.some(
+        (value) =>
+          (typeof value !== 'number' && typeof value !== 'string') ||
+          `${value}`.trim() === ''
+      )
+    ) {
+      return NextResponse.json(
+        { success: false, error: 'Invalid ids parameter' },
         { status: 400 }
       );
     }

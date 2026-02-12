@@ -2,16 +2,18 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { NextRequest } from 'next/server';
 import { mockLogger } from '@/core/testing/test-helpers';
 
-const { mockPrisma, mockExistsSync, mockReadFileSync } = vi.hoisted(() => {
-  return {
-    mockPrisma: {
-      $disconnect: vi.fn().mockResolvedValue(undefined),
-      $transaction: vi.fn(),
-    },
-    mockExistsSync: vi.fn(),
-    mockReadFileSync: vi.fn(),
-  };
-});
+const { mockPrisma, mockExistsSync, mockReadFileSync, mockRequireAdmin } =
+  vi.hoisted(() => {
+    return {
+      mockPrisma: {
+        $disconnect: vi.fn().mockResolvedValue(undefined),
+        $transaction: vi.fn(),
+      },
+      mockExistsSync: vi.fn(),
+      mockReadFileSync: vi.fn(),
+      mockRequireAdmin: vi.fn().mockResolvedValue(undefined),
+    };
+  });
 
 vi.mock('@/lib/db', () => ({
   prisma: mockPrisma,
@@ -29,6 +31,10 @@ vi.mock('fs', () => ({
 
 vi.mock('@/lib/logger', () => ({
   logger: mockLogger,
+}));
+
+vi.mock('@/lib/auth/session', () => ({
+  requireAdmin: mockRequireAdmin,
 }));
 
 import { POST } from '@/app/api/restore/route';

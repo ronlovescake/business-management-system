@@ -6,6 +6,7 @@
 
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
+import { requireAdmin } from '@/lib/auth/session';
 import fs from 'fs';
 import path from 'path';
 import { parser } from 'stream-json';
@@ -13,10 +14,40 @@ import { pick } from 'stream-json/filters/Pick';
 import { streamArray } from 'stream-json/streamers/StreamArray';
 import { streamValues } from 'stream-json/streamers/StreamValues';
 import { logger } from '@/lib/logger';
+import { createHash } from 'crypto';
 
 const BACKUP_DIR = path.resolve(process.cwd(), 'backups');
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
+
+async function requireBackupAdmin() {
+  try {
+    await requireAdmin();
+    return null;
+  } catch (error) {
+    if (error instanceof Error && error.message === 'Unauthorized') {
+      return NextResponse.json(
+        { error: 'Authentication required' },
+        { status: 401 }
+      );
+    }
+
+    return NextResponse.json(
+      { error: 'Forbidden: Admin access required' },
+      { status: 403 }
+    );
+  }
+}
+
+const computeSha256 = async (filePath: string) => {
+  return await new Promise<string>((resolve, reject) => {
+    const hash = createHash('sha256');
+    const stream = fs.createReadStream(filePath);
+    stream.on('data', (chunk) => hash.update(chunk));
+    stream.on('end', () => resolve(hash.digest('hex')));
+    stream.on('error', reject);
+  });
+};
 
 const readJsonValue = async (filePath: string, filter: string) => {
   return new Promise<unknown>((resolve, reject) => {
@@ -114,6 +145,11 @@ export async function GET(
   request: NextRequest,
   { params }: { params: { timestamp: string; filename: string } }
 ) {
+  const authError = await requireBackupAdmin();
+  if (authError) {
+    return authError;
+  }
+
   try {
     const { timestamp, filename } = params;
     const url = new URL(request.url);
@@ -164,6 +200,43 @@ export async function GET(
         fs.readdirSync(path.join(BACKUP_DIR, timestamp))
       );
       return NextResponse.json({ error: 'File not found' }, { status: 404 });
+    }
+
+    // Verify file checksum if available in manifest
+    try {
+      const manifestPath = path.join(BACKUP_DIR, timestamp, 'MANIFEST.json');
+      if (fs.existsSync(manifestPath)) {
+        const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8')) as {
+          files?: Array<{ name: string; checksum?: string }>;
+          integrity?: { fileChecksums?: Record<string, string> };
+        };
+
+        const fileEntry = manifest.files?.find(
+          (entry) => entry.name === filename
+        );
+        const expectedChecksum =
+          fileEntry?.checksum ?? manifest.integrity?.fileChecksums?.[filename];
+
+        if (expectedChecksum) {
+          const actualChecksum = await computeSha256(filePath);
+          if (actualChecksum !== expectedChecksum) {
+            return NextResponse.json(
+              { error: 'Backup file integrity check failed' },
+              { status: 409 }
+            );
+          }
+        }
+      }
+    } catch (error) {
+      logger.warn('Backup file integrity validation failed', {
+        timestamp,
+        filename,
+        error,
+      });
+      return NextResponse.json(
+        { error: 'Failed to validate backup file integrity' },
+        { status: 500 }
+      );
     }
 
     // Lightweight JSON modes for large backups
