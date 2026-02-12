@@ -205,6 +205,24 @@ const statusBadge = (status: RecurringPaymentDraftDTO['status']) => {
   }
 };
 
+const resolveTaggedAccountLabel = (account: string, tag: string | null) => {
+  const normalizedTag = (tag ?? '').trim();
+  if (!normalizedTag) {
+    return account;
+  }
+
+  return `${account} – ${normalizedTag}`;
+};
+
+const buildTemplateRefPreview = (name: string) => {
+  return `RECURRING:${name}`.slice(0, 120);
+};
+
+const formatIsoDate = (value: string | null | undefined) => {
+  const parsed = parseDateValue(value ?? null);
+  return parsed ? formatDateForInput(parsed) : '—';
+};
+
 export function RecurringPaymentsPanel(props: {
   accounts: string[];
   onLedgerUpdated: () => void;
@@ -409,6 +427,17 @@ export function RecurringPaymentsPanel(props: {
 
   const templateRows = templates.map((tpl) => {
     const remaining = paymentsLeft(tpl);
+    const debitLabel = resolveTaggedAccountLabel(
+      tpl.debitAccount,
+      tpl.debitTag
+    );
+    const creditLabel = resolveTaggedAccountLabel(
+      tpl.creditAccount,
+      tpl.creditTag
+    );
+    const accountPairLabel = `${debitLabel} → ${creditLabel}`;
+    const refPreview = buildTemplateRefPreview(tpl.name);
+    const descriptionPreview = tpl.notes?.trim() || '—';
 
     return (
       <Table.Tr key={tpl.id}>
@@ -419,10 +448,11 @@ export function RecurringPaymentsPanel(props: {
           </Badge>
         </Table.Td>
         <Table.Td>{formatCurrencyPHP(tpl.amount)}</Table.Td>
-        <Table.Td>{new Date(tpl.nextDueDate).toLocaleDateString()}</Table.Td>
-        <Table.Td>
-          {tpl.endDate ? new Date(tpl.endDate).toLocaleDateString() : '—'}
-        </Table.Td>
+        <Table.Td>{accountPairLabel}</Table.Td>
+        <Table.Td>{refPreview}</Table.Td>
+        <Table.Td>{descriptionPreview}</Table.Td>
+        <Table.Td>{formatIsoDate(tpl.nextDueDate)}</Table.Td>
+        <Table.Td>{formatIsoDate(tpl.endDate)}</Table.Td>
         <Table.Td>{remaining === null ? '—' : remaining}</Table.Td>
         <Table.Td>
           <Switch
@@ -453,11 +483,17 @@ export function RecurringPaymentsPanel(props: {
 
   const draftRows = drafts.map((draft) => (
     <Table.Tr key={draft.id}>
-      <Table.Td>{new Date(draft.dueDate).toLocaleDateString()}</Table.Td>
+      <Table.Td>{formatIsoDate(draft.dueDate)}</Table.Td>
       <Table.Td>{draft.template.name}</Table.Td>
       <Table.Td>{formatCurrencyPHP(draft.amount)}</Table.Td>
-      <Table.Td>{draft.debitAccount}</Table.Td>
-      <Table.Td>{draft.creditAccount}</Table.Td>
+      <Table.Td>
+        {resolveTaggedAccountLabel(draft.debitAccount, draft.debitTag)}
+      </Table.Td>
+      <Table.Td>
+        {resolveTaggedAccountLabel(draft.creditAccount, draft.creditTag)}
+      </Table.Td>
+      <Table.Td>{draft.ref}</Table.Td>
+      <Table.Td>{draft.description?.trim() || '—'}</Table.Td>
       <Table.Td>{statusBadge(draft.status)}</Table.Td>
       <Table.Td>
         <Group gap="xs" wrap="nowrap">
@@ -529,6 +565,8 @@ export function RecurringPaymentsPanel(props: {
             <Table.Th>Amount</Table.Th>
             <Table.Th>Debit</Table.Th>
             <Table.Th>Credit</Table.Th>
+            <Table.Th>Ref</Table.Th>
+            <Table.Th>Description</Table.Th>
             <Table.Th>Status</Table.Th>
             <Table.Th>Actions</Table.Th>
           </Table.Tr>
@@ -538,7 +576,7 @@ export function RecurringPaymentsPanel(props: {
             draftRows
           ) : (
             <Table.Tr>
-              <Table.Td colSpan={7}>
+              <Table.Td colSpan={9}>
                 <Text c="dimmed" ta="center">
                   {isLoading
                     ? 'Loading drafts…'
@@ -558,6 +596,9 @@ export function RecurringPaymentsPanel(props: {
             <Table.Th>Name</Table.Th>
             <Table.Th>Kind</Table.Th>
             <Table.Th>Amount</Table.Th>
+            <Table.Th>Accounts</Table.Th>
+            <Table.Th>Ref</Table.Th>
+            <Table.Th>Description</Table.Th>
             <Table.Th>Next due</Table.Th>
             <Table.Th>End</Table.Th>
             <Table.Th>Payments left</Table.Th>
@@ -569,7 +610,7 @@ export function RecurringPaymentsPanel(props: {
             templateRows
           ) : (
             <Table.Tr>
-              <Table.Td colSpan={7}>
+              <Table.Td colSpan={10}>
                 <Text c="dimmed" ta="center">
                   {isLoading ? 'Loading templates…' : 'No templates yet.'}
                 </Text>
@@ -740,8 +781,8 @@ export function RecurringPaymentsPanel(props: {
             </Group>
 
             <TextInput
-              label="Notes (optional)"
-              placeholder="Shown as the ledger line description"
+              label="Description (optional)"
+              placeholder="Shown as the draft/journal description (leave blank for simple subscriptions)"
               value={form.notes}
               onChange={(e) =>
                 setForm((p) => ({ ...p, notes: e.target.value }))
