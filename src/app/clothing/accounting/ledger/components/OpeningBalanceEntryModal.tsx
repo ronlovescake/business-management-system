@@ -163,7 +163,6 @@ export function OpeningBalanceEntryModal({
               value={form.debitAccount}
               searchable
               clearable
-              limit={10}
               maxDropdownHeight={400}
               onChange={(value) => onChange('debitAccount', value || '')}
               {...debitAccountSelect.handlers}
@@ -178,7 +177,6 @@ export function OpeningBalanceEntryModal({
               value={form.creditAccount}
               searchable
               clearable
-              limit={10}
               maxDropdownHeight={400}
               onChange={(value) => onChange('creditAccount', value || '')}
               {...creditAccountSelect.handlers}

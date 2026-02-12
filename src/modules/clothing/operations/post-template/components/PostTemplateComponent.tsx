@@ -438,7 +438,6 @@ Arrives In: ${arrivesInText}
         searchable
         clearable
         size="md"
-        limit={1000}
         maxDropdownHeight={400}
         styles={{
           input: {

@@ -40,7 +40,6 @@ interface SelectProps {
 }
 
 export const POLISHED_SELECT_DEFAULTS = {
-  limit: 10,
   maxDropdownHeight: 400,
   withCheckIcon: false as const,
   comboboxProps: { withinPortal: true, zIndex: 500 },

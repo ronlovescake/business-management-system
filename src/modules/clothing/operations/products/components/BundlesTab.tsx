@@ -454,7 +454,7 @@ export function BundlesTab({ apiBasePath }: BundlesTabProps) {
                       updateComponent(idx, { productCode: value || '' })
                     }
                     placeholder={productsLoading ? 'Loading...' : 'Select SKU'}
-                    styles={{ dropdown: { maxHeight: 240 } }}
+                    maxDropdownHeight={240}
                   />
 
                   <NumberInput

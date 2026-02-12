@@ -613,7 +613,6 @@ export function RecurringPaymentsPanel(props: {
                     kind: (value as TemplateKind) ?? 'LOAN',
                   }))
                 }
-                limit={10}
                 maxDropdownHeight={400}
                 {...kindSelect.handlers}
                 styles={kindSelect.styles}
@@ -695,7 +694,6 @@ export function RecurringPaymentsPanel(props: {
                 onChange={(value) =>
                   setForm((p) => ({ ...p, debitAccount: value ?? '' }))
                 }
-                limit={10}
                 maxDropdownHeight={400}
                 {...debitAccountSelect.handlers}
                 styles={debitAccountSelect.styles}
@@ -723,7 +721,6 @@ export function RecurringPaymentsPanel(props: {
                 onChange={(value) =>
                   setForm((p) => ({ ...p, creditAccount: value ?? '' }))
                 }
-                limit={10}
                 maxDropdownHeight={400}
                 {...creditAccountSelect.handlers}
                 styles={creditAccountSelect.styles}
