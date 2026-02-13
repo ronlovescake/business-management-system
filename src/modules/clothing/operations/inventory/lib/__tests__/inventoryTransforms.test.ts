@@ -113,7 +113,7 @@ describe('buildInventoryItems', () => {
     expect(xyz?.shipmentStatus).toBe('In Transit');
   });
 
-  it('derives in-transit unreserved from PO quantity even when sellable receipt ledger exists', () => {
+  it('derives in-transit unreserved from movement-adjusted sellable quantity', () => {
     const products: ProductFromAPI[] = [
       {
         id: 'p1',
@@ -152,7 +152,7 @@ describe('buildInventoryItems', () => {
     expect(gpf?.onHandSellable).toBe(0);
     expect(gpf?.onHandReserved).toBe(0);
     expect(gpf?.inTransitReserved).toBe(1230);
-    expect(gpf?.inTransitUnreserved).toBe(1570);
+    expect(gpf?.inTransitUnreserved).toBe(296);
   });
 
   it('tracks damaged quantity separately and keeps onhand as sellable+reserved', () => {

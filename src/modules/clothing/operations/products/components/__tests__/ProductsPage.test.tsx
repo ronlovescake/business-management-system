@@ -44,6 +44,12 @@ vi.mock('../BundlesTab', () => ({
   BundlesTab: () => <div>bundles-tab</div>,
 }));
 
+vi.mock('../MixAndMatchTab', () => ({
+  __esModule: true,
+  default: () => <div>mix-and-match-tab</div>,
+  MixAndMatchTab: () => <div>mix-and-match-tab</div>,
+}));
+
 const createTestQueryClient = () =>
   new QueryClient({
     defaultOptions: {
@@ -78,7 +84,7 @@ describe('ProductsPage', () => {
     expect(screen.queryByText('stats-cards')).not.toBeInTheDocument();
   });
 
-  it('renders stats and switches tabs between products and shipping calculator', async () => {
+  it('renders stats and switches tabs between products, mix & match, and shipping calculator', async () => {
     mockUseProductsData.mockReturnValue({
       isLoading: false,
       statistics: { total: 10 },
@@ -93,6 +99,14 @@ describe('ProductsPage', () => {
 
     expect(screen.getByText('stats-cards')).toBeInTheDocument();
     expect(screen.getByText('shipping-calculator')).not.toBeVisible();
+
+    const mixAndMatchTab = screen.getByRole('tab', {
+      name: /mix & match/i,
+    });
+    fireEvent.click(mixAndMatchTab);
+
+    expect(screen.getByText('mix-and-match-tab')).toBeVisible();
+    expect(screen.getByText('products-grid')).not.toBeVisible();
 
     const shippingTab = screen.getByRole('tab', {
       name: /shipping fee calculator/i,

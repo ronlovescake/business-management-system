@@ -118,7 +118,7 @@ export function BundlesTab({ apiBasePath }: BundlesTabProps) {
             const status = (product['Shipment Status'] ?? '')
               .trim()
               .toLowerCase();
-            if (status !== 'delivered') {
+            if (status !== 'delivered' && status !== 'in transit') {
               return false;
             }
 

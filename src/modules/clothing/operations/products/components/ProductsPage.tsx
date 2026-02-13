@@ -37,6 +37,14 @@ const BundlesTab = dynamic(
   { ssr: false, loading: TabLoader }
 );
 
+const MixAndMatchTab = dynamic(
+  () =>
+    import('./MixAndMatchTab').then((mod) => ({
+      default: mod.MixAndMatchTab,
+    })),
+  { ssr: false, loading: TabLoader }
+);
+
 interface ProductsPageProps {
   apiBasePath?: string;
 }
@@ -58,6 +66,7 @@ export function ProductsPage({ apiBasePath }: ProductsPageProps) {
             <Tabs.List>
               <Tabs.Tab value="products">Products</Tabs.Tab>
               <Tabs.Tab value="bundles">Bundles</Tabs.Tab>
+              <Tabs.Tab value="mix-and-match">Mix & Match</Tabs.Tab>
               <Tabs.Tab value="shipping-calculator">
                 Shipping Fee Calculator
               </Tabs.Tab>
@@ -69,6 +78,10 @@ export function ProductsPage({ apiBasePath }: ProductsPageProps) {
 
             <Tabs.Panel value="bundles" pt="md">
               <BundlesTab apiBasePath={apiBasePath} />
+            </Tabs.Panel>
+
+            <Tabs.Panel value="mix-and-match" pt="md">
+              <MixAndMatchTab apiBasePath={apiBasePath} />
             </Tabs.Panel>
 
             <Tabs.Panel value="shipping-calculator" pt="md">
