@@ -10,6 +10,8 @@ import {
   normalizeProductCode,
 } from '@/lib/inventory/movements';
 import { isReservedStatus } from '@/lib/inventory/statuses';
+import { allocateByAvailability } from '@/modules/clothing/operations/products/lib/mixAndMatchAllocation';
+import { isStoredMixAndMatchName } from '@/lib/inventory/mixAndMatchTag';
 
 export const dynamic = 'force-dynamic';
 
@@ -33,9 +35,12 @@ type BundleComponent = {
 };
 
 type BundleBatch = {
+  bundleName: string;
   bundleSku: string;
   components: BundleComponent[];
 };
+
+type MixAndMatchBatch = BundleBatch;
 
 type MovementRecord = {
   productCode: string;
@@ -149,6 +154,132 @@ function buildBundleMaps(bundles: BundleBatch[]) {
   return { componentsBySku, bundleSkusByComponent };
 }
 
+function buildMixAndMatchMaps(mixAndMatchRows: MixAndMatchBatch[]) {
+  const componentsBySku = new Map<string, BundleComponent[]>();
+  const mixSkusByComponent = new Map<string, Set<string>>();
+
+  mixAndMatchRows.forEach((mix) => {
+    const normalizedSku = normalizeProductCode(mix.bundleSku);
+    if (!normalizedSku) {
+      return;
+    }
+
+    const filteredComponents = (mix.components || []).filter((component) =>
+      Boolean(normalizeProductCode(component.componentProductCode))
+    );
+
+    componentsBySku.set(normalizedSku, filteredComponents);
+
+    filteredComponents.forEach((component) => {
+      const normalizedComponent = normalizeProductCode(
+        component.componentProductCode
+      );
+
+      if (!normalizedComponent) {
+        return;
+      }
+
+      if (!mixSkusByComponent.has(normalizedComponent)) {
+        mixSkusByComponent.set(normalizedComponent, new Set());
+      }
+
+      mixSkusByComponent.get(normalizedComponent)?.add(normalizedSku);
+    });
+  });
+
+  return { componentsBySku, mixSkusByComponent };
+}
+
+function accumulateMixDemand(
+  transactions: TransactionRecord[],
+  mixComponentsBySku: Map<string, BundleComponent[]>,
+  initialAvailableByComponent: Map<string, number>
+) {
+  const mixDemandBySku = new Map<string, number>();
+
+  transactions.forEach((transaction) => {
+    if (!isReservedStatus(transaction.orderStatus)) {
+      return;
+    }
+
+    const normalizedProductCode = normalizeProductCode(transaction.productCode);
+    const quantity = Math.max(transaction.quantity ?? 0, 0);
+    if (!normalizedProductCode || quantity <= 0) {
+      return;
+    }
+
+    if (!mixComponentsBySku.has(normalizedProductCode)) {
+      return;
+    }
+
+    mixDemandBySku.set(
+      normalizedProductCode,
+      (mixDemandBySku.get(normalizedProductCode) ?? 0) + quantity
+    );
+  });
+
+  const componentDemandByProduct = new Map<string, number>();
+  const remainingByComponent = new Map<string, number>();
+
+  initialAvailableByComponent.forEach((available, componentCode) => {
+    remainingByComponent.set(componentCode, Math.max(available, 0));
+  });
+
+  const orderedMixSkus = Array.from(mixDemandBySku.keys()).sort((a, b) =>
+    a.localeCompare(b)
+  );
+
+  orderedMixSkus.forEach((mixSku) => {
+    const mixDemand = mixDemandBySku.get(mixSku) ?? 0;
+    if (mixDemand <= 0) {
+      return;
+    }
+
+    const componentAvailabilityMap = new Map<string, number>();
+    (mixComponentsBySku.get(mixSku) ?? []).forEach((component) => {
+      const normalizedComponent = normalizeProductCode(
+        component.componentProductCode
+      );
+      if (!normalizedComponent) {
+        return;
+      }
+
+      componentAvailabilityMap.set(
+        normalizedComponent,
+        remainingByComponent.get(normalizedComponent) ?? 0
+      );
+    });
+
+    const allocation = allocateByAvailability(
+      Array.from(componentAvailabilityMap.entries()).map(
+        ([key, available]) => ({
+          key,
+          available,
+        })
+      ),
+      mixDemand
+    );
+
+    allocation.forEach((item) => {
+      if (item.allocated <= 0) {
+        return;
+      }
+
+      componentDemandByProduct.set(
+        item.key,
+        (componentDemandByProduct.get(item.key) ?? 0) + item.allocated
+      );
+
+      remainingByComponent.set(
+        item.key,
+        (remainingByComponent.get(item.key) ?? 0) - item.allocated
+      );
+    });
+  });
+
+  return { componentDemandByProduct, remainingByComponent };
+}
+
 function accumulateDemand(
   transactions: TransactionRecord[],
   componentsBySku: Map<string, BundleComponent[]>,
@@ -250,11 +381,20 @@ export async function POST(request: NextRequest) {
 
     const normalizedProductCode = normalizeProductCode(productCode);
 
-    const bundles = (await prisma.bundleBatch.findMany({
+    const allCompositeRows = (await prisma.bundleBatch.findMany({
       include: { components: true },
     })) as unknown as BundleBatch[];
 
+    const bundles = allCompositeRows.filter(
+      (row) => !isStoredMixAndMatchName(row.bundleName)
+    );
+    const mixAndMatchRows = allCompositeRows.filter((row) =>
+      isStoredMixAndMatchName(row.bundleName)
+    );
+
     const { componentsBySku, bundleSkusByComponent } = buildBundleMaps(bundles);
+    const { componentsBySku: mixComponentsBySku, mixSkusByComponent } =
+      buildMixAndMatchMaps(mixAndMatchRows);
 
     const product = await prisma.product.findFirst({
       where: {
@@ -269,6 +409,149 @@ export async function POST(request: NextRequest) {
     });
 
     const bundleComponents = componentsBySku.get(normalizedProductCode);
+    const mixComponents = mixComponentsBySku.get(normalizedProductCode);
+
+    // CASE 0: Mix & Match SKU - validate against pooled component availability
+    if (mixComponents?.length) {
+      const componentCodes = Array.from(
+        new Set(
+          mixComponents.map((component) => component.componentProductCode)
+        )
+      );
+      const bundleSkusSharingComponents = Array.from(
+        new Set(
+          componentCodes.flatMap((code) =>
+            Array.from(
+              bundleSkusByComponent.get(normalizeProductCode(code)) ?? []
+            )
+          )
+        )
+      );
+      const mixSkusSharingComponents = Array.from(
+        new Set(
+          componentCodes.flatMap((code) =>
+            Array.from(mixSkusByComponent.get(normalizeProductCode(code)) ?? [])
+          )
+        )
+      );
+
+      const transactionProductCodes = [
+        ...componentCodes,
+        ...bundleSkusSharingComponents,
+        ...mixSkusSharingComponents,
+      ];
+
+      const movementCodes = Array.from(new Set(componentCodes));
+
+      const movements = (await prisma.inventoryMovement.findMany({
+        where: {
+          deletedAt: null,
+          productCode: { in: movementCodes },
+        },
+      })) as unknown as MovementRecord[];
+      const movementsForStockBalances = movements.filter(
+        (movement) => movement.toBucket !== 'supplier_short'
+      );
+      const sellableDelta = buildSellableDeltaMap(movementsForStockBalances);
+      const reservedDelta = buildReservedDeltaMap(movementsForStockBalances);
+      const sellableReceiptCodes = buildSellableReceiptCodeSet(
+        movementsForStockBalances
+      );
+
+      const transactions = await prisma.transaction.findMany({
+        where: {
+          orderStatus: {
+            not: 'Cancelled',
+          },
+          ...buildTransactionWhereClause(transactionProductCodes),
+        },
+        select: {
+          productCode: true,
+          quantity: true,
+          orderStatus: true,
+        },
+      });
+
+      const products = await prisma.product.findMany({
+        where: buildTransactionWhereClause(componentCodes),
+        select: {
+          productCode: true,
+          quantity: true,
+        },
+      });
+
+      const productQuantityMap = new Map<string, number>();
+      products.forEach((current) => {
+        const normalizedCode = normalizeProductCode(current.productCode);
+        if (!normalizedCode) {
+          return;
+        }
+
+        productQuantityMap.set(normalizedCode, current.quantity ?? 0);
+      });
+
+      const getSellableOnHandWithFallback = (code: string) =>
+        getSellableOnHand({
+          productCode: code,
+          sellableDeltaByProduct: sellableDelta,
+          fallbackQuantity:
+            productQuantityMap.get(normalizeProductCode(code)) ?? 0,
+          sellableReceiptCodes,
+        });
+
+      const bundleSellableSupplyBySku = new Map<string, number>();
+      bundleSkusSharingComponents.forEach((bundleSku) => {
+        const normalizedSku = normalizeProductCode(bundleSku);
+        if (!normalizedSku) {
+          return;
+        }
+
+        bundleSellableSupplyBySku.set(normalizedSku, 0);
+      });
+
+      const { componentDemandByProduct } = accumulateDemand(
+        transactions,
+        componentsBySku,
+        bundleSellableSupplyBySku
+      );
+
+      const initialAvailableByComponent = new Map<string, number>();
+      componentCodes.forEach((componentCode) => {
+        const normalizedCode = normalizeProductCode(componentCode);
+        if (!normalizedCode) {
+          return;
+        }
+
+        const supply = getSellableOnHandWithFallback(componentCode);
+        const demandRaw = componentDemandByProduct.get(normalizedCode) ?? 0;
+        const reservedOnHand = reservedDelta.get(normalizedCode) ?? 0;
+        const demand = Math.max(demandRaw - reservedOnHand, 0);
+        initialAvailableByComponent.set(
+          normalizedCode,
+          Math.max(supply - demand, 0)
+        );
+      });
+
+      const { remainingByComponent } = accumulateMixDemand(
+        transactions,
+        mixComponentsBySku,
+        initialAvailableByComponent
+      );
+
+      const availableStock = componentCodes.reduce((sum, componentCode) => {
+        const normalizedCode = normalizeProductCode(componentCode);
+        if (!normalizedCode) {
+          return sum;
+        }
+
+        return sum + Math.max(remainingByComponent.get(normalizedCode) ?? 0, 0);
+      }, 0);
+
+      return NextResponse.json(
+        summarizeStatus(productCode, availableStock, requestedQuantity),
+        { status: 200 }
+      );
+    }
 
     // CASE 1: Bundle SKU - validate against components
     if (bundleComponents?.length) {
@@ -285,9 +568,18 @@ export async function POST(request: NextRequest) {
         )
       );
 
+      const mixSkusSharingComponents = Array.from(
+        new Set(
+          componentCodes.flatMap((code) =>
+            Array.from(mixSkusByComponent.get(normalizeProductCode(code)) ?? [])
+          )
+        )
+      );
+
       const transactionProductCodes = [
         ...componentCodes,
         ...bundleSkusSharingComponents,
+        ...mixSkusSharingComponents,
         productCode,
       ];
 
@@ -376,6 +668,40 @@ export async function POST(request: NextRequest) {
         bundleSellableSupplyBySku
       );
 
+      const allMixComponentCodes = Array.from(
+        new Set(
+          mixSkusSharingComponents.flatMap((mixSku) =>
+            (mixComponentsBySku.get(normalizeProductCode(mixSku)) ?? []).map(
+              (component) => component.componentProductCode
+            )
+          )
+        )
+      );
+
+      const initialAvailableByComponent = new Map<string, number>();
+      allMixComponentCodes.forEach((componentCode) => {
+        const normalizedCode = normalizeProductCode(componentCode);
+        if (!normalizedCode) {
+          return;
+        }
+
+        const supply = getSellableOnHandWithFallback(componentCode);
+        const demandRaw = componentDemandByProduct.get(normalizedCode) ?? 0;
+        const reservedOnHand = reservedDelta.get(normalizedCode) ?? 0;
+        const demand = Math.max(demandRaw - reservedOnHand, 0);
+        initialAvailableByComponent.set(
+          normalizedCode,
+          Math.max(supply - demand, 0)
+        );
+      });
+
+      const { componentDemandByProduct: mixDemandByProduct } =
+        accumulateMixDemand(
+          transactions,
+          mixComponentsBySku,
+          initialAvailableByComponent
+        );
+
       let limitingAvailable = Number.POSITIVE_INFINITY;
       let limitingComponent: string | null = null;
 
@@ -390,7 +716,9 @@ export async function POST(request: NextRequest) {
         const supply = getSellableOnHandWithFallback(
           component.componentProductCode
         );
-        const demandRaw = componentDemandByProduct.get(normalizedCode) ?? 0;
+        const demandRaw =
+          (componentDemandByProduct.get(normalizedCode) ?? 0) +
+          (mixDemandByProduct.get(normalizedCode) ?? 0);
         const reservedOnHand = reservedDelta.get(normalizedCode) ?? 0;
         const demand = Math.max(demandRaw - reservedOnHand, 0);
         const available = supply - demand;
@@ -455,8 +783,25 @@ export async function POST(request: NextRequest) {
     const bundleSkusThatUseProduct = Array.from(
       bundleSkusByComponent.get(normalizedProductCode) ?? []
     );
+    const mixSkusThatUseProduct = Array.from(
+      mixSkusByComponent.get(normalizedProductCode) ?? []
+    );
 
-    const transactionProductCodes = [productCode, ...bundleSkusThatUseProduct];
+    const transactionProductCodes = [
+      productCode,
+      ...bundleSkusThatUseProduct,
+      ...mixSkusThatUseProduct,
+    ];
+
+    const mixComponentCodes = Array.from(
+      new Set(
+        mixSkusThatUseProduct.flatMap((mixSku) =>
+          (mixComponentsBySku.get(normalizeProductCode(mixSku)) ?? []).map(
+            (component) => component.componentProductCode
+          )
+        )
+      )
+    );
 
     const transactions = await prisma.transaction.findMany({
       where: {
@@ -472,7 +817,11 @@ export async function POST(request: NextRequest) {
       },
     });
 
-    const movementCodes = [productCode, ...bundleSkusThatUseProduct];
+    const movementCodes = [
+      productCode,
+      ...bundleSkusThatUseProduct,
+      ...mixComponentCodes,
+    ];
     const movements = (await prisma.inventoryMovement.findMany({
       where: {
         deletedAt: null,
@@ -490,15 +839,19 @@ export async function POST(request: NextRequest) {
     );
     const reservedDelta = buildReservedDeltaMap(movementsForStockBalances);
 
-    const bundleProducts = bundleSkusThatUseProduct.length
-      ? await prisma.product.findMany({
-          where: buildTransactionWhereClause(bundleSkusThatUseProduct),
-          select: {
-            productCode: true,
-            quantity: true,
-          },
-        })
-      : [];
+    const bundleProducts =
+      bundleSkusThatUseProduct.length || mixComponentCodes.length
+        ? await prisma.product.findMany({
+            where: buildTransactionWhereClause([
+              ...bundleSkusThatUseProduct,
+              ...mixComponentCodes,
+            ]),
+            select: {
+              productCode: true,
+              quantity: true,
+            },
+          })
+        : [];
 
     const bundleQuantityMap = new Map<string, number>();
     bundleProducts.forEach((p) => {
@@ -532,8 +885,39 @@ export async function POST(request: NextRequest) {
       bundleSellableSupplyBySku
     );
 
+    const initialAvailableByComponent = new Map<string, number>();
+    mixComponentCodes.forEach((componentCode) => {
+      const normalizedCode = normalizeProductCode(componentCode);
+      if (!normalizedCode) {
+        return;
+      }
+
+      const supply = getSellableOnHand({
+        productCode: componentCode,
+        sellableDeltaByProduct: sellableDelta,
+        fallbackQuantity: bundleQuantityMap.get(normalizedCode) ?? 0,
+        sellableReceiptCodes,
+      });
+
+      const demandRaw = componentDemandByProduct.get(normalizedCode) ?? 0;
+      const reservedOnHand = reservedDelta.get(normalizedCode) ?? 0;
+      const demand = Math.max(demandRaw - reservedOnHand, 0);
+      initialAvailableByComponent.set(
+        normalizedCode,
+        Math.max(supply - demand, 0)
+      );
+    });
+
+    const { componentDemandByProduct: mixDemandByProduct } =
+      accumulateMixDemand(
+        transactions,
+        mixComponentsBySku,
+        initialAvailableByComponent
+      );
+
     const totalOrderRaw =
-      componentDemandByProduct.get(normalizedProductCode) ?? 0;
+      (componentDemandByProduct.get(normalizedProductCode) ?? 0) +
+      (mixDemandByProduct.get(normalizedProductCode) ?? 0);
     const reservedOnHand =
       reservedDelta.get(normalizeProductCode(productCode)) ?? 0;
     const totalOrder = Math.max(totalOrderRaw - reservedOnHand, 0);

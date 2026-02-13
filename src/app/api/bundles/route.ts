@@ -2,6 +2,7 @@ import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
+import { MIX_AND_MATCH_NAME_PREFIX } from '@/lib/inventory/mixAndMatchTag';
 
 export const dynamic = 'force-dynamic';
 
@@ -26,6 +27,13 @@ interface UpdateBundleRequest extends CreateBundleRequest {
 export async function GET() {
   try {
     const bundles = await prisma.bundleBatch.findMany({
+      where: {
+        NOT: {
+          bundleName: {
+            startsWith: MIX_AND_MATCH_NAME_PREFIX,
+          },
+        },
+      },
       orderBy: { createdAt: 'desc' },
       include: { components: true },
     });

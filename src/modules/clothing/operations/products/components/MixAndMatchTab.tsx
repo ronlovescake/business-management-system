@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   Button,
   Group,
@@ -12,7 +12,7 @@ import {
   Text,
   TextInput,
 } from '@mantine/core';
-import { useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   StandardDataTable,
   StandardTableContainer,
@@ -27,13 +27,24 @@ import {
 } from '@/lib/dateInputConfig';
 import { DateInput } from '@mantine/dates';
 import { ProductService } from '../services/ProductService';
+import { buildApiPath } from '@/lib/api/paths';
+import { confirmTripleDelete } from '@/utils/confirmTripleDelete';
+import type {
+  InventoryMovementFromAPI,
+  ProductFromAPI,
+} from '@/modules/clothing/operations/inventory/types';
+import {
+  buildSellableDeltaMap,
+  buildSellableReceiptCodeSet,
+  getSellableOnHand,
+  normalizeProductCode,
+} from '@/lib/inventory/movements';
 
 type MixAndMatchRow = {
   id: number;
   postingDate: string;
   mixAndMatchName: string;
   mixAndMatchSku: string;
-  quantity: number;
   price: number;
   productCodes: string[];
   includedQuantities: number[];
@@ -49,10 +60,34 @@ type MixAndMatchFormState = {
   postingDate: string;
   mixAndMatchName: string;
   mixAndMatchSku: string;
-  quantity: number;
   price: number;
   components: MixAndMatchComponentRow[];
 };
+
+type MixAndMatchApiRow = {
+  id: number;
+  postingDate: string;
+  mixAndMatchName: string;
+  mixAndMatchSku: string;
+  price: number;
+  components: Array<{
+    id: number;
+    productCode: string;
+    includedQuantity: number;
+  }>;
+};
+
+async function confirmTripleDeleteMixAndMatch(
+  mixAndMatchLabel: string
+): Promise<boolean> {
+  return confirmTripleDelete({
+    title: 'Delete mix & match batch?',
+    warning: `This will permanently delete ${mixAndMatchLabel}.`,
+    secondaryWarning:
+      'This will remove the mix & match batch and its inventory movements.',
+    finalPrompt: 'Type DELETE to confirm.',
+  });
+}
 
 function newClientId(): string {
   if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) {
@@ -67,7 +102,6 @@ function createEmptyMixAndMatchForm(): MixAndMatchFormState {
     postingDate: formatDateForInput(new Date()),
     mixAndMatchName: '',
     mixAndMatchSku: '',
-    quantity: 1,
     price: 0,
     components: [
       {
@@ -84,8 +118,12 @@ interface MixAndMatchTabProps {
 }
 
 export function MixAndMatchTab({ apiBasePath }: MixAndMatchTabProps) {
+  const queryClient = useQueryClient();
   const [searchQuery, setSearchQuery] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editingMixAndMatchId, setEditingMixAndMatchId] = useState<
+    number | null
+  >(null);
   const [rows, setRows] = useState<MixAndMatchRow[]>([]);
   const [form, setForm] = useState<MixAndMatchFormState>(
     createEmptyMixAndMatchForm()
@@ -119,6 +157,95 @@ export function MixAndMatchTab({ apiBasePath }: MixAndMatchTabProps) {
     staleTime: 30 * 1000,
   });
 
+  const mixAndMatchQueryKey = useMemo(
+    () => ['mix-and-match', apiBasePath ?? 'default'],
+    [apiBasePath]
+  );
+
+  const { data: mixAndMatchRows = [] } = useQuery<MixAndMatchApiRow[]>({
+    queryKey: mixAndMatchQueryKey,
+    queryFn: async () => {
+      const response = await fetch(buildApiPath(apiBasePath, '/mix-and-match'));
+      if (!response.ok) {
+        return [];
+      }
+
+      return (await response.json()) as MixAndMatchApiRow[];
+    },
+    staleTime: 30 * 1000,
+  });
+
+  useEffect(() => {
+    setRows(
+      mixAndMatchRows.map((row) => ({
+        id: row.id,
+        postingDate: row.postingDate,
+        mixAndMatchName: row.mixAndMatchName,
+        mixAndMatchSku: row.mixAndMatchSku,
+        price: Number(row.price) || 0,
+        productCodes: row.components.map((component) => component.productCode),
+        includedQuantities: row.components.map(
+          (component) => component.includedQuantity
+        ),
+      }))
+    );
+  }, [mixAndMatchRows]);
+
+  const { data: movements = [] } = useQuery<InventoryMovementFromAPI[]>({
+    queryKey: ['inventory-movements', apiBasePath ?? 'default'],
+    queryFn: async () => {
+      const response = await fetch(
+        buildApiPath(apiBasePath, '/inventory/movements')
+      );
+      if (!response.ok) {
+        return [];
+      }
+
+      const payload = (await response.json()) as {
+        data?: InventoryMovementFromAPI[];
+      };
+      return Array.isArray(payload?.data) ? payload.data : [];
+    },
+    staleTime: 30 * 1000,
+  });
+
+  const sellableOnHandByCode = useMemo(() => {
+    const movementRows = movements.filter(
+      (movement) => movement.toBucket !== 'supplier_short'
+    );
+    const sellableDeltaByProduct = buildSellableDeltaMap(movementRows);
+    const sellableReceiptCodes = buildSellableReceiptCodeSet(movementRows);
+
+    const map = new Map<string, number>();
+    (products as unknown as ProductFromAPI[]).forEach((product) => {
+      const productCode = product['Product Code'] || '';
+      const normalized = normalizeProductCode(productCode);
+      if (!normalized) {
+        return;
+      }
+
+      const sellableOnHand = getSellableOnHand({
+        productCode,
+        sellableDeltaByProduct,
+        fallbackQuantity: product.Quantity || 0,
+        sellableReceiptCodes,
+      });
+
+      map.set(normalized, Math.max(sellableOnHand, 0));
+    });
+
+    return map;
+  }, [movements, products]);
+
+  const availableQtyByClientId = useMemo(() => {
+    const map = new Map<string, number>();
+    form.components.forEach((component) => {
+      const normalized = normalizeProductCode(component.productCode);
+      map.set(component.clientId, sellableOnHandByCode.get(normalized) ?? 0);
+    });
+    return map;
+  }, [form.components, sellableOnHandByCode]);
+
   const productCodeOptions = useMemo(() => {
     const codes = Array.from(
       new Set(
@@ -147,7 +274,6 @@ export function MixAndMatchTab({ apiBasePath }: MixAndMatchTabProps) {
     form.postingDate.trim() &&
     form.mixAndMatchName.trim() &&
     form.mixAndMatchSku.trim() &&
-    form.quantity > 0 &&
     form.price >= 0 &&
     form.components.some(
       (component) =>
@@ -155,8 +281,63 @@ export function MixAndMatchTab({ apiBasePath }: MixAndMatchTabProps) {
         component.includedQuantity > 0
     );
 
+  const autoMixAndMatchSku = useMemo(() => {
+    const mixAndMatchName = form.mixAndMatchName.trim();
+    const postingDate = form.postingDate.trim();
+    if (!mixAndMatchName || !postingDate) {
+      return '';
+    }
+
+    return ProductService.generateProductCode(mixAndMatchName, postingDate);
+  }, [form.mixAndMatchName, form.postingDate]);
+
+  useEffect(() => {
+    setForm((prev) => {
+      if (prev.mixAndMatchSku === autoMixAndMatchSku) {
+        return prev;
+      }
+
+      return {
+        ...prev,
+        mixAndMatchSku: autoMixAndMatchSku,
+      };
+    });
+  }, [autoMixAndMatchSku]);
+
   const handleOpenModal = () => {
     setForm(createEmptyMixAndMatchForm());
+    setEditingMixAndMatchId(null);
+    setIsModalOpen(true);
+  };
+
+  const handleOpenEditModal = (rowId: number) => {
+    const target = mixAndMatchRows.find((row) => row.id === rowId);
+    if (!target) {
+      return;
+    }
+
+    setForm({
+      postingDate: target.postingDate,
+      mixAndMatchName: target.mixAndMatchName,
+      mixAndMatchSku: target.mixAndMatchSku,
+      price: Number(target.price) || 0,
+      components:
+        target.components.length > 0
+          ? target.components.map((component) => ({
+              clientId: newClientId(),
+              productCode: component.productCode,
+              includedQuantity: Number(component.includedQuantity) || 0,
+            }))
+          : [
+              {
+                clientId: newClientId(),
+                productCode: '',
+                includedQuantity: 1,
+              },
+            ],
+    });
+
+    setEditingMixAndMatchId(rowId);
     setIsModalOpen(true);
   };
 
@@ -187,31 +368,83 @@ export function MixAndMatchTab({ apiBasePath }: MixAndMatchTabProps) {
     const normalizedComponents = form.components
       .map((component) => ({
         productCode: component.productCode.trim(),
-        includedQuantity: Number(component.includedQuantity),
+        includedQuantity: Math.max(Number(component.includedQuantity) || 1, 1),
       }))
-      .filter(
-        (component) =>
-          component.productCode.length > 0 && component.includedQuantity > 0
-      );
+      .filter((component) => component.productCode.length > 0);
 
-    const newRow: MixAndMatchRow = {
-      id: Date.now(),
+    saveMixAndMatchMutation.mutate({
+      id: editingMixAndMatchId ?? undefined,
       postingDate: form.postingDate.trim(),
       mixAndMatchName: form.mixAndMatchName.trim(),
       mixAndMatchSku: form.mixAndMatchSku.trim(),
-      quantity: Number(form.quantity),
       price: Number(form.price),
-      productCodes: normalizedComponents.map(
-        (component) => component.productCode
-      ),
-      includedQuantities: normalizedComponents.map(
-        (component) => component.includedQuantity
-      ),
-    };
+      components: normalizedComponents,
+    });
+  };
 
-    setRows((prev) => [newRow, ...prev]);
-    setForm(createEmptyMixAndMatchForm());
-    setIsModalOpen(false);
+  const saveMixAndMatchMutation = useMutation({
+    mutationFn: async (payload: {
+      id?: number;
+      postingDate: string;
+      mixAndMatchName: string;
+      mixAndMatchSku: string;
+      price: number;
+      components: Array<{ productCode: string; includedQuantity: number }>;
+    }) => {
+      const response = await fetch(
+        buildApiPath(apiBasePath, '/mix-and-match'),
+        {
+          method: payload.id ? 'PATCH' : 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error('Failed to save mix & match');
+      }
+
+      return (await response.json()) as MixAndMatchApiRow;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: mixAndMatchQueryKey });
+      setForm(createEmptyMixAndMatchForm());
+      setEditingMixAndMatchId(null);
+      setIsModalOpen(false);
+    },
+  });
+
+  const deleteMixAndMatchMutation = useMutation({
+    mutationFn: async (id: number) => {
+      const response = await fetch(
+        `${buildApiPath(apiBasePath, '/mix-and-match')}?id=${id}`,
+        {
+          method: 'DELETE',
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error('Failed to delete mix & match');
+      }
+    },
+    onSuccess: (_, id) => {
+      queryClient.invalidateQueries({ queryKey: mixAndMatchQueryKey });
+      if (editingMixAndMatchId === id) {
+        setEditingMixAndMatchId(null);
+        setForm(createEmptyMixAndMatchForm());
+        setIsModalOpen(false);
+      }
+    },
+  });
+
+  const handleDeleteMixAndMatch = async (row: MixAndMatchRow) => {
+    const label = `${row.mixAndMatchName} (${row.mixAndMatchSku})`;
+    const shouldDelete = await confirmTripleDeleteMixAndMatch(label);
+    if (!shouldDelete) {
+      return;
+    }
+
+    await deleteMixAndMatchMutation.mutateAsync(row.id);
   };
 
   return (
@@ -219,11 +452,13 @@ export function MixAndMatchTab({ apiBasePath }: MixAndMatchTabProps) {
       <UniversalModal
         opened={isModalOpen}
         onClose={() => setIsModalOpen(false)}
-        title="Create Mix & Match"
+        title={
+          editingMixAndMatchId ? 'Update Mix & Match' : 'Create Mix & Match'
+        }
         size="45%"
       >
         <Stack gap="sm">
-          <SimpleGrid cols={{ base: 1, sm: 2, md: 5 }} spacing="md" mt="lg">
+          <SimpleGrid cols={{ base: 1, sm: 2, md: 4 }} spacing="md" mt="lg">
             <DateInput
               label="Posting Date"
               value={parseDateValue(form.postingDate)}
@@ -251,25 +486,8 @@ export function MixAndMatchTab({ apiBasePath }: MixAndMatchTabProps) {
             <TextInput
               label="Mix & Match SKU"
               value={form.mixAndMatchSku}
-              onChange={(event) => {
-                const nextValue = event.currentTarget.value;
-                setForm((prev) => ({
-                  ...prev,
-                  mixAndMatchSku: nextValue,
-                }));
-              }}
-            />
-
-            <NumberInput
-              label="Quantity"
-              min={1}
-              value={form.quantity}
-              onChange={(value) =>
-                setForm((prev) => ({
-                  ...prev,
-                  quantity: typeof value === 'number' ? value : 1,
-                }))
-              }
+              readOnly
+              placeholder="TEST (T-021326)"
             />
 
             <NumberInput
@@ -329,7 +547,9 @@ export function MixAndMatchTab({ apiBasePath }: MixAndMatchTabProps) {
                     label={index === 0 ? 'Included Qty' : undefined}
                     min={1}
                     value={component.includedQuantity}
-                    onChange={(value) =>
+                    description={`Available: ${availableQtyByClientId.get(component.clientId) ?? 0}`}
+                    onChange={(value) => {
+                      const nextValue = typeof value === 'number' ? value : 1;
                       setForm((prev) => ({
                         ...prev,
                         components: prev.components.map(
@@ -337,13 +557,12 @@ export function MixAndMatchTab({ apiBasePath }: MixAndMatchTabProps) {
                             currentIndex === index
                               ? {
                                   ...current,
-                                  includedQuantity:
-                                    typeof value === 'number' ? value : 1,
+                                  includedQuantity: nextValue,
                                 }
                               : current
                         ),
-                      }))
-                    }
+                      }));
+                    }}
                   />
 
                   <Group align="end" h="100%" justify="flex-start">
@@ -362,8 +581,12 @@ export function MixAndMatchTab({ apiBasePath }: MixAndMatchTabProps) {
           </Stack>
 
           <Group justify="flex-end">
-            <Button onClick={handleSave} disabled={!canSubmit}>
-              Save Mix & Match
+            <Button
+              onClick={handleSave}
+              disabled={!canSubmit || saveMixAndMatchMutation.isPending}
+              loading={saveMixAndMatchMutation.isPending}
+            >
+              {editingMixAndMatchId ? 'Update Mix & Match' : 'Save Mix & Match'}
             </Button>
           </Group>
         </Stack>
@@ -392,13 +615,12 @@ export function MixAndMatchTab({ apiBasePath }: MixAndMatchTabProps) {
             'Posting Date',
             'Mix & Match Name',
             'Mix & Match SKU',
-            'Quantity',
             'Price',
             'Product Code',
             'Included Qty',
             'Action',
           ]}
-          colSpan={8}
+          colSpan={7}
           emptyState={
             searchQuery
               ? `No mix & match records found matching "${searchQuery}"`
@@ -417,15 +639,17 @@ export function MixAndMatchTab({ apiBasePath }: MixAndMatchTabProps) {
                 {row.mixAndMatchSku}
               </Table.Td>
               <Table.Td style={{ textAlign: 'center' }}>
-                {row.quantity}
-              </Table.Td>
-              <Table.Td style={{ textAlign: 'center' }}>
                 {Number.isFinite(row.price) ? row.price.toFixed(2) : row.price}
               </Table.Td>
               <Table.Td>
                 <Stack gap={2}>
                   {row.productCodes.map((code) => (
-                    <Text key={code} size="sm">
+                    <Text
+                      key={code}
+                      size="sm"
+                      style={{ cursor: 'pointer', textDecoration: 'underline' }}
+                      onClick={() => handleOpenEditModal(row.id)}
+                    >
                       {code}
                     </Text>
                   ))}
@@ -441,7 +665,14 @@ export function MixAndMatchTab({ apiBasePath }: MixAndMatchTabProps) {
                 </Stack>
               </Table.Td>
               <Table.Td style={{ textAlign: 'center' }}>
-                <Button variant="subtle" color="red" disabled>
+                <Button
+                  variant="subtle"
+                  color="red"
+                  onClick={() => {
+                    void handleDeleteMixAndMatch(row);
+                  }}
+                  loading={deleteMixAndMatchMutation.isPending}
+                >
                   Delete
                 </Button>
               </Table.Td>

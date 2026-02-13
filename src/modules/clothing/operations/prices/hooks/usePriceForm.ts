@@ -36,6 +36,11 @@ export function usePriceForm(apiBasePath?: string) {
         buildApiPath(apiBasePath, '/bundles')
       );
 
+      // Fetch mix & match rows so Mix & Match SKUs can also be priced
+      const mixAndMatchRows = await api.get<Array<Record<string, unknown>>>(
+        buildApiPath(apiBasePath, '/mix-and-match')
+      );
+
       // Fetch existing prices to filter out product codes that already have prices
       const prices = await api.get<PriceData[]>(
         buildApiPath(apiBasePath, '/prices')
@@ -64,9 +69,21 @@ export function usePriceForm(apiBasePath?: string) {
             .filter((code) => !existingProductCodes.has(code))
         : [];
 
-      const codes = Array.from(new Set([...productCodes, ...bundleCodes])).sort(
-        (a, b) => a.localeCompare(b)
-      );
+      const mixAndMatchCodes = Array.isArray(mixAndMatchRows)
+        ? mixAndMatchRows
+            .map((row) => {
+              const code =
+                row['mixAndMatchSku'] ??
+                (row as Record<string, unknown>).mixAndMatchSku;
+              return typeof code === 'string' ? code.trim() : '';
+            })
+            .filter((code) => code.length > 0)
+            .filter((code) => !existingProductCodes.has(code))
+        : [];
+
+      const codes = Array.from(
+        new Set([...productCodes, ...bundleCodes, ...mixAndMatchCodes])
+      ).sort((a, b) => a.localeCompare(b));
 
       setProductCodeOptions(codes);
       logger.info(
@@ -109,12 +126,15 @@ export function usePriceForm(apiBasePath?: string) {
       }
 
       try {
-        const [products, bundles] = await Promise.all([
+        const [products, bundles, mixAndMatchRows] = await Promise.all([
           api.get<Array<Record<string, unknown>>>(
             buildApiPath(apiBasePath, '/products')
           ),
           api.get<Array<Record<string, unknown>>>(
             buildApiPath(apiBasePath, '/bundles')
+          ),
+          api.get<Array<Record<string, unknown>>>(
+            buildApiPath(apiBasePath, '/mix-and-match')
           ),
         ]);
 
@@ -127,7 +147,16 @@ export function usePriceForm(apiBasePath?: string) {
           ? bundles.find((b) => b['bundleSku'] === productCode.trim())
           : undefined;
 
-        const resolvedPrice = product?.['Actual Price'] ?? bundle?.['price'];
+        const mixAndMatch = Array.isArray(mixAndMatchRows)
+          ? mixAndMatchRows.find(
+              (row) => row['mixAndMatchSku'] === productCode.trim()
+            )
+          : undefined;
+
+        const resolvedPrice =
+          product?.['Actual Price'] ??
+          bundle?.['price'] ??
+          mixAndMatch?.['price'];
 
         if (resolvedPrice !== undefined && resolvedPrice !== null) {
           const actualPrice = Number(resolvedPrice) || 0;
