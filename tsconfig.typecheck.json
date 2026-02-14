@@ -8,5 +8,11 @@
     "scripts/**/*.ts",
     "tests/**/*.ts"
   ],
-  "exclude": ["node_modules", ".next", "out", "dist"]
+  "exclude": [
+    "node_modules",
+    ".next",
+    "out",
+    "dist",
+    "scripts/tmp/root-archive/**"
+  ]
 }

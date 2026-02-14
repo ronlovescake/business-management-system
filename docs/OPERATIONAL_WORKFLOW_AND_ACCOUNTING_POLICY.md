@@ -233,6 +233,48 @@ Implementation guardrails:
 - API: transaction update endpoints ignore/deny writes to the legacy Adjustment field.
 - Payments: use the “Record Payment” flow (bulk payments endpoint) which writes payment rows and updates totals consistently.
 
+### Refactor rationale (engineering summary)
+
+```text
+P1: Shared employee core (remove clothing/trucking duplication)
+- Single source of truth for business rules; fewer “fixed in one module, broken in another” regressions.
+- Faster delivery: implement once, expose via thin wrappers for each domain.
+- Lower test cost: one core test suite covers most behavior; wrappers only need light smoke tests.
+- Cleaner onboarding: less copy-paste code to learn and maintain.
+- Better policy consistency (especially payroll/employee/accounting side effects) across modules.
+
+P1: Split God hooks into focused hooks
+- Smaller units are easier to reason about, review, and safely modify.
+- Lower bug risk from unrelated side effects (invoice changes no longer destabilize packing/distribution).
+- Better performance opportunities (more targeted memoization/state updates).
+- Easier targeted tests and mocking.
+- Higher confidence for future changes to payment workflows and accounting guardrails.
+
+P2: Compose oversized API routes + domain adapters
+- Clear separation of concerns (auth, validation, query, domain logic, serialization) improves maintainability.
+- Reduced duplication between clothing and GM accounting endpoints while preserving domain differences.
+- Safer accounting evolution: one place to enforce rules like “record payments via payment rows, not legacy adjustments.”
+- Better observability and incident debugging (each stage is isolated).
+- Lower chance of drift in financial behavior across endpoints.
+
+P2: Remove dead/legacy state and backward-compat shims
+- Less cognitive load and fewer misleading code paths.
+- Reduced accidental reactivation of deprecated behavior.
+- Smaller surface area for defects and security issues.
+- Cleaner lint/typecheck output and easier refactorability.
+
+P3: Move root tmp scripts + enforce retention policy
+- Cleaner repository root; faster navigation and fewer accidental script runs.
+- Better operational hygiene and auditability of ad-hoc scripts.
+- Lower risk of production mistakes from stale one-off tools.
+- Clear boundary between permanent tooling and temporary maintenance scripts.
+
+Overall business impact
+- Faster feature throughput, fewer regressions, lower maintenance cost.
+- More reliable accounting behavior and policy compliance.
+- Easier scaling to additional modules/domains without multiplying complexity.
+```
+
 ### Confirmation on product creation
 
 When the user clicks **Add Product**, show a SweetAlert confirmation based on the Payment selection:

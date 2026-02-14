@@ -657,9 +657,9 @@ export function MixAndMatchTab({ apiBasePath }: MixAndMatchTabProps) {
               </Table.Td>
               <Table.Td>
                 <Stack gap={2}>
-                  {row.includedQuantities.map((qty, index) => (
-                    <Text key={`${row.id}-${index}`} size="sm">
-                      {qty}
+                  {row.productCodes.map((code, idx) => (
+                    <Text key={`${row.id}-${code}`} size="sm">
+                      {row.includedQuantities[idx]}
                     </Text>
                   ))}
                 </Stack>

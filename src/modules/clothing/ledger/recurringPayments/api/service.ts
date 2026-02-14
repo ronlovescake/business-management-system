@@ -5,11 +5,14 @@ import type {
 } from '@prisma/client';
 import { prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
-import {
-  buildTaggedAccountName,
-  isTaggableAccountParent,
-} from '@/lib/accounting/account-tagging';
 import { getAccountingCutoverDate } from '@/lib/accounting/cutover';
+import {
+  addOneMonthUtc,
+  isMissingTableError,
+  isUniqueViolation,
+  normalizeUtcMidnight,
+  resolveTaggedAccount,
+} from '@/modules/shared/ledger/recurring-payments/api/helpers';
 import type {
   ClothingRecurringPaymentApproveInput,
   ClothingRecurringPaymentDraftListInput,
@@ -22,53 +25,6 @@ import type {
 
 const CUTOVER = getAccountingCutoverDate();
 const CUTOVER_LABEL = CUTOVER.toISOString().slice(0, 10);
-
-const normalizeUtcMidnight = (date: Date): Date => {
-  return new Date(
-    Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate())
-  );
-};
-
-const clampDayInMonthUtc = (year: number, monthIndex: number, day: number) => {
-  // monthIndex: 0-11
-  const lastDay = new Date(Date.UTC(year, monthIndex + 1, 0)).getUTCDate();
-  return Math.min(day, lastDay);
-};
-
-const addOneMonthUtc = (date: Date, dayOfMonth: number): Date => {
-  const year = date.getUTCFullYear();
-  const month = date.getUTCMonth();
-
-  const nextMonthIndex = month + 1;
-  const nextYear = year + Math.floor(nextMonthIndex / 12);
-  const normalizedMonth = ((nextMonthIndex % 12) + 12) % 12;
-
-  const day = clampDayInMonthUtc(nextYear, normalizedMonth, dayOfMonth);
-  return new Date(Date.UTC(nextYear, normalizedMonth, day));
-};
-
-const isUniqueViolation = (error: unknown): boolean => {
-  const code = (error as { code?: string })?.code;
-  return code === 'P2002';
-};
-
-const isMissingTableError = (error: unknown): boolean => {
-  const code = (error as { code?: string })?.code;
-  const message = (error as { message?: string })?.message ?? '';
-  return code === 'P2021' || message.includes('does not exist');
-};
-
-const resolveTaggedAccount = (account: string, tag: string | null): string => {
-  if (!tag) {
-    return account;
-  }
-
-  if (!isTaggableAccountParent(account)) {
-    return account;
-  }
-
-  return buildTaggedAccountName(account, tag);
-};
 
 export class ClothingRecurringPaymentService {
   async findTemplates(): Promise<ClothingRecurringPaymentTemplate[]> {
