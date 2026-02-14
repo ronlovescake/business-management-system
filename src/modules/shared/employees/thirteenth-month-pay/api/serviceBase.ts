@@ -1,6 +1,5 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
-
 import { logger } from '@/lib/logger';
+import type { FindOptions } from '@/core/database/repository/BaseRepository';
 
 type ThirteenthMonthPayRepositoryLike<
   TEntity,
@@ -8,7 +7,7 @@ type ThirteenthMonthPayRepositoryLike<
   TUpdateInput,
   TQuery,
 > = {
-  findMany(options?: unknown): Promise<TEntity[]>;
+  findMany(options?: FindOptions<TEntity>): Promise<TEntity[]>;
   findWithFilters(filters: TQuery): Promise<TEntity[]>;
   findById(id: string): Promise<TEntity | null>;
   findByRecordId(recordId: string): Promise<TEntity | null>;
@@ -61,7 +60,7 @@ export class ThirteenthMonthPayServiceBase<
     try {
       return await this.repository.findMany({
         orderBy: [{ employeeName: 'asc' }, { year: 'desc' }],
-      } as any);
+      } as unknown as FindOptions<TEntity>);
     } catch (error) {
       logger.error('Failed to fetch 13th month pay records', { error });
       throw new Error('Failed to fetch records');
@@ -103,7 +102,7 @@ export class ThirteenthMonthPayServiceBase<
 
   async create(data: TCreateInput): Promise<TEntity> {
     try {
-      return await this.repository.create(data as any);
+      return await this.repository.create(data);
     } catch (error) {
       logger.error('Failed to create 13th month pay record', { error, data });
       throw new Error('Failed to create record');
@@ -112,7 +111,7 @@ export class ThirteenthMonthPayServiceBase<
 
   async createMany(data: TCreateInput[]): Promise<{ count: number }> {
     try {
-      return await this.repository.createMany(data as any);
+      return await this.repository.createMany(data);
     } catch (error) {
       logger.error('Failed to create 13th month pay records', {
         error,
@@ -180,7 +179,7 @@ export class ThirteenthMonthPayServiceBase<
 
   async deleteAll(): Promise<{ count: number }> {
     try {
-      const records = await this.repository.findMany({} as any);
+      const records = await this.repository.findMany();
       let count = 0;
       for (const record of records) {
         await this.repository.delete(record.id);

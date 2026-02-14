@@ -43,7 +43,6 @@ import {
   STRATEGY_META,
   formatBackupTimestamp,
   formatRelativeTime,
-  guessRowLabel,
   hasTableChanges,
   previewHasChanges,
 } from '../backup/types';
@@ -58,6 +57,16 @@ import {
   ControlPanelCard,
   type ControlPanelTabConfig,
 } from '@/components/ui/ControlPanelCard';
+import {
+  areBackupSidebarTablesEqual,
+  downloadTextFile,
+  getRestorePreviewChangeTypeOptions,
+  getRestorePreviewRowOptions,
+  getRestorePreviewSelectedRowData,
+  getRestorePreviewTableOptions,
+  resolveRowsForClientExport,
+  getSelectedTableDetails,
+} from './backup-restore/backupRestoreTabUtils';
 
 export function BackupRestoreTab() {
   const pathname = usePathname();
@@ -70,32 +79,6 @@ export function BackupRestoreTab() {
     setSelectedTable: setSidebarSelectedTable,
     clear: clearSidebar,
   } = useBackupRestoreSidebarStore();
-
-  const areSidebarTablesEqual = useCallback(
-    (
-      nextTables: Array<{ name: string; count: number }>,
-      currentTables: Array<{ name: string; count: number }>
-    ) => {
-      if (nextTables.length !== currentTables.length) {
-        return false;
-      }
-
-      for (let i = 0; i < nextTables.length; i += 1) {
-        const next = nextTables[i];
-        const current = currentTables[i];
-        if (
-          !current ||
-          next.name !== current.name ||
-          next.count !== current.count
-        ) {
-          return false;
-        }
-      }
-
-      return true;
-    },
-    []
-  );
 
   const [backups, setBackups] = useState<Backup[]>([]);
   const [loading, setLoading] = useState(false);
@@ -514,7 +497,7 @@ export function BackupRestoreTab() {
       .map(([name, table]) => ({ name, count: table.count }))
       .sort((a, b) => a.name.localeCompare(b.name));
 
-    if (!areSidebarTablesEqual(summaries, sidebarTables)) {
+    if (!areBackupSidebarTablesEqual(summaries, sidebarTables)) {
       setSidebarTables(summaries);
     }
 
@@ -547,7 +530,6 @@ export function BackupRestoreTab() {
     sidebarTables,
     setSidebarSelectedTable,
     setSidebarTables,
-    areSidebarTablesEqual,
   ]);
 
   useEffect(() => {
@@ -660,62 +642,36 @@ export function BackupRestoreTab() {
 
     try {
       const XLSX = await import('xlsx');
-      const tableData = previewData.tables[tableName];
-      if (!tableData) {
-        return;
-      }
+      const resolved = await resolveRowsForClientExport({
+        previewData,
+        tableName,
+        maxRows: MAX_CLIENT_EXPORT_ROWS,
+        selectedBackupTimestamp: selectedBackup?.timestamp ?? null,
+        previewJsonFile,
+        fetchTableSample,
+      });
 
-      if (tableData.count > MAX_CLIENT_EXPORT_ROWS) {
+      if (resolved.tooLarge) {
         showNotification({
           title: 'Too large for browser export',
-          message: `Table has ${tableData.count} rows. Use Download JSON or SQL for large exports.`,
+          message: `Table has ${previewData.tables[tableName]?.count ?? 0} rows. Use Download JSON or SQL for large exports.`,
           color: 'yellow',
         });
         return;
       }
 
-      if (!tableData.data || tableData.data.length !== tableData.count) {
-        if (!selectedBackup || !previewJsonFile) {
-          throw new Error('Backup file context missing');
-        }
-        const payload = await fetchTableSample(
-          selectedBackup.timestamp,
-          previewJsonFile,
-          tableName,
-          {
-            limit: tableData.count,
-            offset: 0,
-          }
-        );
+      if (resolved.missingContext) {
+        throw new Error('Backup file context missing');
+      }
 
-        const resolved = payload.tables?.[tableName]?.data;
-        if (!resolved?.length) {
-          return;
-        }
-
-        const ws = XLSX.utils.json_to_sheet(resolved);
-        const wb = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(wb, ws, tableName);
-        XLSX.writeFile(wb, `${tableName}-${selectedBackup?.timestamp}.xlsx`);
-
-        showNotification({
-          title: 'Downloaded',
-          message: `${tableName}.xlsx`,
-          color: 'green',
-        });
+      if (!resolved.rows.length) {
         return;
       }
 
-      if (!tableData.data?.length) {
-        return;
-      }
-
-      // Create worksheet from table data
-      const ws = XLSX.utils.json_to_sheet(tableData.data);
+      const ws = XLSX.utils.json_to_sheet(resolved.rows);
       const wb = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(wb, ws, tableName);
 
-      // Generate XLSX file
       XLSX.writeFile(wb, `${tableName}-${selectedBackup?.timestamp}.xlsx`);
 
       showNotification({
@@ -748,40 +704,22 @@ export function BackupRestoreTab() {
           continue;
         }
 
-        if (tableData.count > MAX_CLIENT_EXPORT_ROWS) {
+        const resolved = await resolveRowsForClientExport({
+          previewData,
+          tableName,
+          maxRows: MAX_CLIENT_EXPORT_ROWS,
+          selectedBackupTimestamp: selectedBackup?.timestamp ?? null,
+          previewJsonFile,
+          fetchTableSample,
+        });
+
+        if (resolved.tooLarge || resolved.missingContext) {
           skipped++;
           continue;
         }
 
-        if (!tableData.data || tableData.data.length !== tableData.count) {
-          if (!selectedBackup || !previewJsonFile) {
-            skipped++;
-            continue;
-          }
-          const payload = await fetchTableSample(
-            selectedBackup.timestamp,
-            previewJsonFile,
-            tableName,
-            {
-              limit: tableData.count,
-              offset: 0,
-            }
-          );
-
-          const resolved = payload.tables?.[tableName]?.data;
-          if (!resolved?.length) {
-            continue;
-          }
-
-          const ws = XLSX.utils.json_to_sheet(resolved);
-          const sheetName = tableName.substring(0, 31);
-          XLSX.utils.book_append_sheet(wb, ws, sheetName);
-          sheetCount++;
-          continue;
-        }
-
-        if (tableData.data?.length) {
-          const ws = XLSX.utils.json_to_sheet(tableData.data);
+        if (resolved.rows.length) {
+          const ws = XLSX.utils.json_to_sheet(resolved.rows);
           const sheetName = tableName.substring(0, 31);
           XLSX.utils.book_append_sheet(wb, ws, sheetName);
           sheetCount++;
@@ -816,68 +754,38 @@ export function BackupRestoreTab() {
     }
 
     try {
-      const tableData = previewData.tables[tableName];
-      if (!tableData) {
-        return;
-      }
+      const resolved = await resolveRowsForClientExport({
+        previewData,
+        tableName,
+        maxRows: MAX_CLIENT_EXPORT_ROWS,
+        selectedBackupTimestamp: selectedBackup?.timestamp ?? null,
+        previewJsonFile,
+        fetchTableSample,
+      });
 
-      if (tableData.count > MAX_CLIENT_EXPORT_ROWS) {
+      if (resolved.tooLarge) {
         showNotification({
           title: 'Too large for browser export',
-          message: `Table has ${tableData.count} rows. Use Download JSON or SQL for large exports.`,
+          message: `Table has ${previewData.tables[tableName]?.count ?? 0} rows. Use Download JSON or SQL for large exports.`,
           color: 'yellow',
         });
         return;
       }
 
-      if (!tableData.data || tableData.data.length !== tableData.count) {
-        if (!selectedBackup || !previewJsonFile) {
-          throw new Error('Backup file context missing');
-        }
-        const payload = await fetchTableSample(
-          selectedBackup.timestamp,
-          previewJsonFile,
-          tableName,
-          {
-            limit: tableData.count,
-            offset: 0,
-          }
-        );
+      if (resolved.missingContext) {
+        throw new Error('Backup file context missing');
+      }
 
-        const resolved = payload.tables?.[tableName]?.data;
-        if (!resolved?.length) {
-          return;
-        }
-
-        const csv = Papa.unparse(resolved);
-        const blob = new Blob([csv], { type: 'text/csv' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `${tableName}-${selectedBackup?.timestamp}.csv`;
-        a.click();
-        URL.revokeObjectURL(url);
-
-        showNotification({
-          title: 'Downloaded',
-          message: `${tableName}.csv`,
-          color: 'green',
-        });
+      if (!resolved.rows.length) {
         return;
       }
 
-      if (!tableData.data?.length) {
-        return;
-      }
-
-      const csv = Papa.unparse(tableData.data);
-      const blob = new Blob([csv], { type: 'text/csv' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `${tableName}-${selectedBackup?.timestamp}.csv`;
-      a.click();
-      URL.revokeObjectURL(url);
+      const csv = Papa.unparse(resolved.rows);
+      downloadTextFile(
+        csv,
+        'text/csv',
+        `${tableName}-${selectedBackup?.timestamp}.csv`
+      );
 
       showNotification({
         title: 'Downloaded',
@@ -905,56 +813,32 @@ export function BackupRestoreTab() {
         continue;
       }
 
-      if (tableData.count > MAX_CLIENT_EXPORT_ROWS) {
+      const resolved = await resolveRowsForClientExport({
+        previewData,
+        tableName,
+        maxRows: MAX_CLIENT_EXPORT_ROWS,
+        selectedBackupTimestamp: selectedBackup?.timestamp ?? null,
+        previewJsonFile,
+        fetchTableSample,
+      });
+
+      if (resolved.tooLarge || resolved.missingContext) {
         skipped++;
         continue;
       }
 
-      if (!tableData.data || tableData.data.length !== tableData.count) {
-        if (!selectedBackup || !previewJsonFile) {
-          skipped++;
-          continue;
-        }
-        const payload = await fetchTableSample(
-          selectedBackup.timestamp,
-          previewJsonFile,
-          tableName,
-          {
-            limit: tableData.count,
-            offset: 0,
-          }
-        );
-
-        const resolved = payload.tables?.[tableName]?.data;
-        if (!resolved?.length) {
-          continue;
-        }
-
-        const csv = Papa.unparse(resolved);
-        const blob = new Blob([csv], { type: 'text/csv' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `${tableName}-${selectedBackup?.timestamp}.csv`;
-        await new Promise((r) => setTimeout(r, 100));
-        a.click();
-        URL.revokeObjectURL(url);
-        count++;
+      if (!resolved.rows.length) {
         continue;
       }
 
-      if (tableData.data?.length) {
-        const csv = Papa.unparse(tableData.data);
-        const blob = new Blob([csv], { type: 'text/csv' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `${tableName}-${selectedBackup?.timestamp}.csv`;
-        await new Promise((r) => setTimeout(r, 100));
-        a.click();
-        URL.revokeObjectURL(url);
-        count++;
-      }
+      const csv = Papa.unparse(resolved.rows);
+      downloadTextFile(
+        csv,
+        'text/csv',
+        `${tableName}-${selectedBackup?.timestamp}.csv`
+      );
+      await new Promise((r) => setTimeout(r, 100));
+      count++;
     }
 
     showNotification({
@@ -1298,88 +1182,9 @@ export function BackupRestoreTab() {
     restorePreviewForceOverwrite,
   ]);
 
-  const parseSortValue = useCallback((value: unknown) => {
-    if (typeof value === 'number') {
-      return value;
-    }
-    if (typeof value === 'string') {
-      const numeric = Number(value);
-      if (!Number.isNaN(numeric) && value.trim() !== '') {
-        return numeric;
-      }
-      const date = Date.parse(value);
-      if (!Number.isNaN(date)) {
-        return date;
-      }
-      return value.toLowerCase();
-    }
-    if (value instanceof Date) {
-      return value.getTime();
-    }
-    return value ?? 0;
-  }, []);
-
-  const sortTableRows = useCallback(
-    (rows: Array<Record<string, unknown>>) => {
-      if (!rows.length) {
-        return rows;
-      }
-
-      const preferredKeys = ['createdAt', 'updatedAt', 'orderDate', 'id'];
-      const sortKey = preferredKeys.find((key) =>
-        rows.some((row) => row[key] !== undefined)
-      );
-
-      if (!sortKey) {
-        return rows;
-      }
-
-      return [...rows].sort((a, b) => {
-        const aValue = parseSortValue(a[sortKey]);
-        const bValue = parseSortValue(b[sortKey]);
-
-        if (aValue < bValue) {
-          return -1;
-        }
-        if (aValue > bValue) {
-          return 1;
-        }
-        return 0;
-      });
-    },
-    [parseSortValue]
-  );
-
   const selectedTableDetails = useMemo(() => {
-    if (!previewData || !selectedTableName) {
-      return null;
-    }
-
-    const table = previewData.tables[selectedTableName];
-    if (!table) {
-      return null;
-    }
-
-    if (!table.data) {
-      return null;
-    }
-
-    const columns: string[] = [];
-    (table.data || []).forEach((row) => {
-      Object.keys(row).forEach((key) => {
-        if (!columns.includes(key)) {
-          columns.push(key);
-        }
-      });
-    });
-
-    return {
-      name: selectedTableName,
-      count: table.count,
-      data: sortTableRows(table.data || []),
-      columns,
-    };
-  }, [previewData, selectedTableName, sortTableRows]);
+    return getSelectedTableDetails(previewData, selectedTableName);
+  }, [previewData, selectedTableName]);
 
   const restorePreviewEntry = useMemo(() => {
     if (!restorePreviewSelectedTable || !restorePreviewData) {
@@ -1389,81 +1194,26 @@ export function BackupRestoreTab() {
   }, [restorePreviewSelectedTable, restorePreviewData]);
 
   const restorePreviewTableOptions = useMemo(() => {
-    if (!restorePreviewData || !restorePreviewTables.length) {
-      return [];
-    }
-
-    return restorePreviewTables
-      .filter((table) => restorePreviewData[table])
-      .map((table) => {
-        const entry = restorePreviewData[table];
-        const insertCount = entry
-          ? (entry.insertCount ?? entry.inserts.length)
-          : 0;
-        const updateCount = restorePreviewForceOverwrite
-          ? 0
-          : entry
-            ? (entry.updateCount ?? entry.updates.length)
-            : 0;
-        const labels: string[] = [];
-        if (insertCount) {
-          labels.push(`${insertCount} insert${insertCount === 1 ? '' : 's'}`);
-        }
-        if (updateCount) {
-          labels.push(`${updateCount} update${updateCount === 1 ? '' : 's'}`);
-        }
-        if (!labels.length) {
-          labels.push('no changes');
-        }
-        return {
-          value: table,
-          label: `${table} — ${labels.join(', ')}`,
-        };
-      });
+    return getRestorePreviewTableOptions(
+      restorePreviewData,
+      restorePreviewTables,
+      restorePreviewForceOverwrite
+    );
   }, [restorePreviewData, restorePreviewTables, restorePreviewForceOverwrite]);
 
   const restorePreviewChangeTypeOptions = useMemo(() => {
-    if (!restorePreviewEntry) {
-      return [];
-    }
-    const options: Array<{ value: 'insert' | 'update'; label: string }> = [];
-    const insertCount =
-      restorePreviewEntry.insertCount ?? restorePreviewEntry.inserts.length;
-    const updateCount =
-      restorePreviewEntry.updateCount ?? restorePreviewEntry.updates.length;
-
-    if (insertCount > 0) {
-      options.push({
-        value: 'insert',
-        label: `New rows (${insertCount})`,
-      });
-    }
-    if (!restorePreviewForceOverwrite && updateCount > 0) {
-      options.push({
-        value: 'update',
-        label: `Updates (${updateCount})`,
-      });
-    }
-    if (!options.length) {
-      options.push({ value: 'insert', label: 'No changes detected' });
-    }
-    return options;
+    return getRestorePreviewChangeTypeOptions(
+      restorePreviewEntry,
+      restorePreviewForceOverwrite
+    );
   }, [restorePreviewEntry, restorePreviewForceOverwrite]);
 
   const restorePreviewRowOptions = useMemo(() => {
-    if (!restorePreviewEntry) {
-      return [];
-    }
-    if (restorePreviewChangeType === 'insert' || restorePreviewForceOverwrite) {
-      return restorePreviewEntry.inserts.map((row, index) => ({
-        value: String(index),
-        label: guessRowLabel(row, `Row ${index + 1}`),
-      }));
-    }
-    return restorePreviewEntry.updates.map((row, index) => ({
-      value: String(index),
-      label: guessRowLabel(row.incoming, `Row ${index + 1}`),
-    }));
+    return getRestorePreviewRowOptions(
+      restorePreviewEntry,
+      restorePreviewChangeType,
+      restorePreviewForceOverwrite
+    );
   }, [
     restorePreviewEntry,
     restorePreviewChangeType,
@@ -1471,23 +1221,12 @@ export function BackupRestoreTab() {
   ]);
 
   const restorePreviewSelectedRowData = useMemo(() => {
-    if (!restorePreviewEntry || restorePreviewSelectedRow === null) {
-      return null;
-    }
-    const index = Number(restorePreviewSelectedRow);
-    if (Number.isNaN(index)) {
-      return null;
-    }
-    if (restorePreviewChangeType === 'insert' || restorePreviewForceOverwrite) {
-      return {
-        type: 'insert' as const,
-        row: restorePreviewEntry.inserts[index] ?? null,
-      };
-    }
-    return {
-      type: 'update' as const,
-      row: restorePreviewEntry.updates[index] ?? null,
-    };
+    return getRestorePreviewSelectedRowData(
+      restorePreviewEntry,
+      restorePreviewSelectedRow,
+      restorePreviewChangeType,
+      restorePreviewForceOverwrite
+    );
   }, [
     restorePreviewEntry,
     restorePreviewSelectedRow,

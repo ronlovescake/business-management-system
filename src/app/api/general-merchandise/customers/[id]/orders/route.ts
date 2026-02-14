@@ -1,6 +1,7 @@
 import type { NextRequest } from 'next/server';
 import { ApiResponse } from '@/core/api';
 import { withErrorHandler } from '@/core/api/middleware';
+import { prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
 import { sanitizers } from '@/lib/security/sanitize';
 
@@ -38,6 +39,24 @@ type RouteContext = { params: { id: string } };
 
 const DEFAULT_ITEMS: OrderItem[] = [];
 
+type TransactionRow = {
+  id: number;
+  orderDate: string | null;
+  productCode: string | null;
+  quantity: number | null;
+  unitPrice: number | null;
+  lineTotal: number | null;
+  orderStatus: string | null;
+  notes: string | null;
+  shipmentCode: string | null;
+  createdAt: Date;
+};
+
+const gmPrisma = prisma as unknown as {
+  generalMerchandiseCustomer: typeof prisma.customer;
+  generalMerchandiseTransaction: typeof prisma.transaction;
+};
+
 export const GET = withErrorHandler<RouteContext>(
   async (_request: NextRequest, context) => {
     const idResult = parseCustomerId(context);
@@ -45,9 +64,51 @@ export const GET = withErrorHandler<RouteContext>(
       return idResult.error;
     }
 
-    // TODO: Replace with real queries when order tables exist
-    logger.info('GM customer orders requested', { customerId: idResult.id });
-    return ApiResponse.success<Order[]>([], 'Customer orders fetched');
+    const customer = await gmPrisma.generalMerchandiseCustomer.findUnique({
+      where: { id: idResult.id },
+      select: { customerName: true },
+    });
+
+    if (!customer) {
+      logger.info('GM customer orders fetched for missing customer', {
+        customerId: idResult.id,
+        transactionCount: 0,
+        orderCount: 0,
+      });
+      return ApiResponse.success<Order[]>([], 'Customer orders fetched');
+    }
+
+    const transactions = (await gmPrisma.generalMerchandiseTransaction.findMany(
+      {
+        where: {
+          customers: customer.customerName,
+          deletedAt: null,
+        },
+        orderBy: [{ orderDate: 'desc' }, { id: 'desc' }],
+        select: {
+          id: true,
+          orderDate: true,
+          productCode: true,
+          quantity: true,
+          unitPrice: true,
+          lineTotal: true,
+          orderStatus: true,
+          notes: true,
+          shipmentCode: true,
+          createdAt: true,
+        },
+      }
+    )) as TransactionRow[];
+
+    const orders = mapTransactionsToOrders(transactions, idResult.id);
+
+    logger.info('GM customer orders fetched', {
+      customerId: idResult.id,
+      transactionCount: transactions.length,
+      orderCount: orders.length,
+    });
+
+    return ApiResponse.success<Order[]>(orders, 'Customer orders fetched');
   }
 );
 
@@ -130,6 +191,59 @@ function sanitizeStatus(value: unknown): OrderStatus {
 
 function generateMockId(): number {
   return Number(String(Date.now()).slice(-6));
+}
+
+function mapTransactionsToOrders(
+  transactions: TransactionRow[],
+  customerId: number
+): Order[] {
+  const grouped = new Map<string, Order>();
+
+  for (const tx of transactions) {
+    const groupKey =
+      tx.shipmentCode?.trim() ||
+      tx.orderDate?.trim() ||
+      `tx-${tx.id.toString()}`;
+
+    const existing = grouped.get(groupKey);
+    const quantity = tx.quantity ?? 0;
+    const unitPrice = tx.unitPrice ?? 0;
+    const lineTotal = tx.lineTotal ?? quantity * unitPrice;
+
+    const orderItem: OrderItem = {
+      id: tx.id,
+      orderId: existing?.id,
+      productName: tx.productCode || 'Unknown Product',
+      quantity,
+      unitPrice,
+      totalPrice: lineTotal,
+    };
+
+    if (!existing) {
+      const status = sanitizeStatus(tx.orderStatus ?? 'pending');
+      grouped.set(groupKey, {
+        id: tx.id,
+        customerId,
+        orderDate: tx.orderDate || tx.createdAt.toISOString(),
+        orderNumber: tx.shipmentCode || `ORD-${customerId}-${tx.id}`,
+        status,
+        totalAmount: lineTotal,
+        items: [orderItem],
+        notes: tx.notes || undefined,
+      });
+      continue;
+    }
+
+    existing.items.push(orderItem);
+    existing.totalAmount += lineTotal;
+    if (!existing.notes && tx.notes) {
+      existing.notes = tx.notes;
+    }
+  }
+
+  return Array.from(grouped.values()).sort((a, b) =>
+    b.orderDate.localeCompare(a.orderDate)
+  );
 }
 
 function parseCustomerId(

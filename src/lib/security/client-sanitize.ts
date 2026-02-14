@@ -8,10 +8,10 @@
  * @module lib/security/client-sanitize
  */
 
-/* eslint-disable @typescript-eslint/no-explicit-any */
 /* eslint-disable curly */
 
 import DOMPurify from 'isomorphic-dompurify';
+import type { ComponentType } from 'react';
 
 /**
  * Configuration for DOMPurify sanitization
@@ -230,14 +230,14 @@ export function sanitizeFormData<T extends Record<string, unknown>>(
  * ```
  */
 export function withSanitizedProps<P extends Record<string, unknown>>(
-  Component: any,
+  Component: ComponentType<P>,
   schema: Record<keyof P, keyof typeof clientSanitizers>
-): any {
+): (props: P) => { Component: ComponentType<P>; props: P } {
   return (props: P) => {
     const sanitizedProps = sanitizeFormData(props, schema);
     // HOC implementation would require React import and JSX
     // This is provided as a utility function instead
-    return { Component, props: sanitizedProps as P };
+    return { Component, props: sanitizedProps as unknown as P };
   };
 }
 

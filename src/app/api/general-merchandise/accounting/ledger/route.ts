@@ -25,6 +25,11 @@ import { buildCogsAndInventoryEntries } from '@/lib/accounting/general-merchandi
 import { getAccountingCutoverDate } from '@/lib/accounting/cutover';
 import { normalizeAccountForReporting } from '@/lib/accounting/account-normalization';
 import { prisma } from '@/lib/db';
+import {
+  getObjectField,
+  getOptionalPrismaDelegate,
+  isReservationPayment,
+} from '@/app/api/_shared/castUtils';
 
 export const dynamic = 'force-dynamic';
 
@@ -57,9 +62,7 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
     paidAtByTxId.set(tx.id, getPaidAtDate(tx));
   }
 
-  const reservationPayments = payments.filter(
-    (p) => (p as unknown as { isReservation?: boolean }).isReservation === true
-  );
+  const reservationPayments = payments.filter((p) => isReservationPayment(p));
 
   const cancelledReservationTxIds = Array.from(
     new Set(
@@ -98,13 +101,9 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
 
   const paymentTransactionIds = new Set(payments.map((p) => p.transactionId));
 
-  const openingBalanceModel = (
-    prisma as unknown as {
-      generalMerchandiseAccountingOpeningBalance?: {
-        findMany?: (args: unknown) => Promise<unknown>;
-      };
-    }
-  ).generalMerchandiseAccountingOpeningBalance;
+  const openingBalanceModel = getOptionalPrismaDelegate<{
+    findMany?: (args: unknown) => Promise<unknown>;
+  }>(prisma, 'generalMerchandiseAccountingOpeningBalance');
 
   const openingBalanceRows = openingBalanceModel?.findMany
     ? ((await openingBalanceModel.findMany({
@@ -136,13 +135,9 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
     description: entry.description ?? 'Opening balance',
   }));
 
-  const reclassModel = (
-    prisma as unknown as {
-      generalMerchandiseInventoryReclassEntry?: {
-        findMany?: (args: unknown) => Promise<unknown>;
-      };
-    }
-  ).generalMerchandiseInventoryReclassEntry;
+  const reclassModel = getOptionalPrismaDelegate<{
+    findMany?: (args: unknown) => Promise<unknown>;
+  }>(prisma, 'generalMerchandiseInventoryReclassEntry');
 
   const reclassRows = reclassModel?.findMany
     ? ((await reclassModel.findMany({
@@ -209,13 +204,9 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
     description: string;
   }>;
 
-  const transitBuildModel = (
-    prisma as unknown as {
-      generalMerchandiseInventoryTransitBuildEntry?: {
-        findMany?: (args: unknown) => Promise<unknown>;
-      };
-    }
-  ).generalMerchandiseInventoryTransitBuildEntry;
+  const transitBuildModel = getOptionalPrismaDelegate<{
+    findMany?: (args: unknown) => Promise<unknown>;
+  }>(prisma, 'generalMerchandiseInventoryTransitBuildEntry');
 
   const transitBuildRows = transitBuildModel?.findMany
     ? ((await transitBuildModel.findMany({
@@ -251,13 +242,9 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
   );
 
   if (missingShipmentCodes.length > 0) {
-    const shipmentModel = (
-      prisma as unknown as {
-        generalMerchandiseShipment?: {
-          findMany?: (args: unknown) => Promise<unknown>;
-        };
-      }
-    ).generalMerchandiseShipment;
+    const shipmentModel = getOptionalPrismaDelegate<{
+      findMany?: (args: unknown) => Promise<unknown>;
+    }>(prisma, 'generalMerchandiseShipment');
 
     if (shipmentModel?.findMany) {
       const shipments = (await shipmentModel.findMany({
@@ -334,15 +321,13 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
     const grouped = new Map<string, RowForExport>();
 
     for (const row of transitBuildRows) {
-      const amount = Number(
-        (row as unknown as { amount?: unknown }).amount ?? 0
-      );
+      const amount = Number(getObjectField(row, 'amount') ?? 0);
       if (!Number.isFinite(amount) || amount <= 0) {
         continue;
       }
 
       const component = parseTransitBuildComponent(
-        (row as unknown as { idempotencyKey?: unknown }).idempotencyKey
+        getObjectField(row, 'idempotencyKey')
       );
       const postingDay = row.postingDate.toISOString().slice(0, 10);
 
@@ -508,9 +493,7 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
   // ============================================================================
   const paymentEntries = payments
     .map((payment) => {
-      const isReservation =
-        (payment as unknown as { isReservation?: boolean }).isReservation ===
-        true;
+      const isReservation = isReservationPayment(payment);
 
       // For cancelled orders, only reservation/deposit payments are included.
       if (

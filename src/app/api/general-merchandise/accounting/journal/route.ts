@@ -25,6 +25,11 @@ import {
   isCancelledOrderStatus,
   isDepositForfeitureOrderStatus,
 } from '@/lib/transactions/order-status';
+import {
+  getObjectField,
+  getOptionalPrismaDelegate,
+  isReservationPayment,
+} from '@/app/api/_shared/castUtils';
 
 export const dynamic = 'force-dynamic';
 
@@ -56,9 +61,7 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
     paidAtByTxId.set(tx.id, getPaidAtDate(tx));
   }
 
-  const reservationPayments = payments.filter(
-    (p) => (p as unknown as { isReservation?: boolean }).isReservation === true
-  );
+  const reservationPayments = payments.filter((p) => isReservationPayment(p));
 
   const cancelledReservationTxIds = Array.from(
     new Set(
@@ -95,13 +98,9 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
     }
   }
 
-  const reclassModel = (
-    prisma as unknown as {
-      generalMerchandiseInventoryReclassEntry?: {
-        findMany?: (args: unknown) => Promise<unknown>;
-      };
-    }
-  ).generalMerchandiseInventoryReclassEntry;
+  const reclassModel = getOptionalPrismaDelegate<{
+    findMany?: (args: unknown) => Promise<unknown>;
+  }>(prisma, 'generalMerchandiseInventoryReclassEntry');
 
   const reclassRows = reclassModel?.findMany
     ? ((await reclassModel.findMany({
@@ -128,9 +127,7 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
 
   const paymentEntries = payments
     .map((payment) => {
-      const isReservation =
-        (payment as unknown as { isReservation?: boolean }).isReservation ===
-        true;
+      const isReservation = isReservationPayment(payment);
 
       // For cancelled orders, only reservation/deposit payments are included.
       if (
@@ -472,13 +469,9 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
     description: string;
   }>;
 
-  const transitBuildModel = (
-    prisma as unknown as {
-      generalMerchandiseInventoryTransitBuildEntry?: {
-        findMany?: (args: unknown) => Promise<unknown>;
-      };
-    }
-  ).generalMerchandiseInventoryTransitBuildEntry;
+  const transitBuildModel = getOptionalPrismaDelegate<{
+    findMany?: (args: unknown) => Promise<unknown>;
+  }>(prisma, 'generalMerchandiseInventoryTransitBuildEntry');
 
   const transitBuildRows = transitBuildModel?.findMany
     ? ((await transitBuildModel.findMany({
@@ -562,15 +555,13 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
     const grouped = new Map<string, RowForExport>();
 
     for (const row of transitBuildRows) {
-      const amount = Number(
-        (row as unknown as { amount?: unknown }).amount ?? 0
-      );
+      const amount = Number(getObjectField(row, 'amount') ?? 0);
       if (!Number.isFinite(amount) || amount <= 0) {
         continue;
       }
 
       const component = parseTransitBuildComponent(
-        (row as unknown as { idempotencyKey?: unknown }).idempotencyKey
+        getObjectField(row, 'idempotencyKey')
       );
       const postingDay = row.postingDate.toISOString().slice(0, 10);
       const shipmentLabel =

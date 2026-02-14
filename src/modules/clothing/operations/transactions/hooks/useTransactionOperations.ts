@@ -18,19 +18,29 @@ import { showNotification } from '@mantine/notifications';
 import type { NotificationData } from '@mantine/notifications';
 import type { CellEditEvent } from '@/components/ui/HandsontableGrid';
 import { TransactionService } from '../services/TransactionService';
-import { api, ApiError } from '@/lib/api/client';
+import { api } from '@/lib/api/client';
 import { buildApiPath } from '@/lib/api/paths';
 import { logger } from '@/lib/logger';
 import { showConfirm, getSwal } from '@/lib/alerts';
 import type { TransactionData, PriceTier } from '../types/transaction.types';
 import { queryKeys } from '@/lib/queryKeys';
 import { OperationsNotificationsService } from '../../notifications/services/OperationsNotificationsService';
-import { PAID_STATUSES } from '@/lib/accounting/constants';
-import {
-  isVoidedOrderStatus,
-  normalizeOrderStatus,
-} from '@/lib/transactions/order-status';
+import { isVoidedOrderStatus } from '@/lib/transactions/order-status';
 import { confirmCustomerReplacement } from './confirmCustomerReplace';
+import {
+  computeRemainingBalance,
+  createEmptyTransaction,
+  formatTodayInManila,
+  hasMinimumCreateFields,
+} from './transactionDraftUtils';
+import {
+  describeTransaction,
+  formatCurrencyValue,
+  formatNumberValue,
+  getCreateDraftTransactionErrorMessage,
+  isPaidOrderStatus,
+  truncateText,
+} from './transactionOperationUtils';
 
 interface UseTransactionOperationsProps {
   transactions: TransactionData[];
@@ -96,75 +106,15 @@ export function useTransactionOperations(
   const draftRowsRef = useRef<Map<number, TransactionData>>(new Map());
   const creatingDraftRowsRef = useRef<Set<number>>(new Set());
 
-  const formatToday = useCallback(() => {
-    const now = new Date();
-    return now.toLocaleDateString('en-US', {
-      month: 'short',
-      day: 'numeric',
-      year: 'numeric',
-      timeZone: 'Asia/Manila',
-    });
-  }, []);
-
-  const createEmptyTransaction = useCallback((): TransactionData => {
-    return {
-      'Order Date': '',
-      Customers: '',
-      'Product Code': '',
-      Quantity: 0,
-      'Unit Price': 0,
-      Discount: 0,
-      Adjustment: 0,
-      'Line Total': 0,
-      'Order Status': '',
-      Notes: '',
-      'Invoice Date': '',
-      'Packed Date': '',
-      'Shipment Code': '',
-    };
-  }, []);
-
-  const ensureDraftRow = useCallback(
-    (rowIndex: number): TransactionData => {
-      const existing = draftRowsRef.current.get(rowIndex);
-      if (existing) {
-        return existing;
-      }
-
-      const emptyRow = createEmptyTransaction();
-      draftRowsRef.current.set(rowIndex, emptyRow);
-      return emptyRow;
-    },
-    [createEmptyTransaction]
-  );
-
-  const isPaidStatus = useCallback((value: string | null | undefined) => {
-    const normalized = normalizeOrderStatus(value);
-    return PAID_STATUSES.some(
-      (status) => normalizeOrderStatus(status) === normalized
-    );
-  }, []);
-
-  const computeRemainingBalance = useCallback((row: TransactionData) => {
-    const lineTotal = Number(row['Line Total']);
-    if (Number.isFinite(lineTotal)) {
-      return lineTotal;
+  const ensureDraftRow = useCallback((rowIndex: number): TransactionData => {
+    const existing = draftRowsRef.current.get(rowIndex);
+    if (existing) {
+      return existing;
     }
 
-    const quantity = Number(row.Quantity) || 0;
-    const unitPrice = Number(row['Unit Price']) || 0;
-    const discount = Number(row.Discount) || 0;
-    const adjustment = Number(row.Adjustment) || 0;
-
-    return quantity * unitPrice - discount - adjustment;
-  }, []);
-
-  const hasMinimumCreateFields = useCallback((draft: TransactionData) => {
-    const orderDate = (draft['Order Date'] ?? '').trim();
-    const hasOrderDate = orderDate !== '';
-    const hasCustomer = (draft.Customers ?? '').trim() !== '';
-    const hasProduct = (draft['Product Code'] ?? '').trim() !== '';
-    return hasOrderDate && (hasCustomer || hasProduct);
+    const emptyRow = createEmptyTransaction();
+    draftRowsRef.current.set(rowIndex, emptyRow);
+    return emptyRow;
   }, []);
 
   const createDraftTransaction = useCallback(
@@ -240,114 +190,7 @@ export function useTransactionOperations(
         return true;
       } catch (error) {
         logger.error('Failed to create transaction from draft row:', error);
-
-        let friendlyMessage = 'Could not save the new transaction';
-
-        if (error instanceof ApiError && error.status === 409) {
-          // Parse the conflict payload to surface missing references (customers/products/shipments)
-          const apiPayload =
-            typeof error.data === 'object' && error.data
-              ? (error.data as Record<string, unknown>)
-              : undefined;
-
-          const rawDetails = apiPayload?.details;
-          const rawMeta = apiPayload?.meta;
-          const rawPayloadString = apiPayload
-            ? (() => {
-                try {
-                  return JSON.stringify(apiPayload);
-                } catch (stringifyError) {
-                  logger.warn(
-                    'Failed to stringify API payload',
-                    stringifyError
-                  );
-                  return undefined;
-                }
-              })()
-            : undefined;
-          const parsedDetails = (() => {
-            if (!rawDetails) {
-              return undefined;
-            }
-            if (typeof rawDetails === 'object') {
-              return rawDetails as Record<string, unknown>;
-            }
-            if (typeof rawDetails === 'string') {
-              try {
-                return JSON.parse(rawDetails) as Record<string, unknown>;
-              } catch (parseError) {
-                logger.warn(
-                  'Failed to parse conflict details payload',
-                  parseError
-                );
-                return undefined;
-              }
-            }
-            return undefined;
-          })();
-
-          const parsedMeta = (() => {
-            if (!rawMeta) {
-              return undefined;
-            }
-            if (typeof rawMeta === 'object') {
-              return rawMeta as Record<string, unknown>;
-            }
-            if (typeof rawMeta === 'string') {
-              try {
-                return JSON.parse(rawMeta) as Record<string, unknown>;
-              } catch (parseError) {
-                logger.warn(
-                  'Failed to parse conflict meta payload',
-                  parseError
-                );
-                return undefined;
-              }
-            }
-            return undefined;
-          })();
-
-          const missingSource = parsedMeta ?? parsedDetails;
-          const missing =
-            missingSource && 'missing' in missingSource
-              ? (missingSource.missing as {
-                  customers?: string[];
-                  products?: string[];
-                  shipments?: string[];
-                })
-              : undefined;
-
-          const missingPieces: string[] = [];
-          if (missing?.customers?.length) {
-            missingPieces.push(`customers: ${missing.customers.join(', ')}`);
-          }
-          if (missing?.products?.length) {
-            missingPieces.push(`products: ${missing.products.join(', ')}`);
-          }
-          if (missing?.shipments?.length) {
-            missingPieces.push(`shipments: ${missing.shipments.join(', ')}`);
-          }
-
-          const serverMessage =
-            typeof apiPayload?.error === 'string'
-              ? apiPayload.error
-              : 'Reference conflict – please verify customer/product/shipment exists.';
-
-          if (missingPieces.length > 0) {
-            friendlyMessage = `Missing references – ${missingPieces.join('; ')}`;
-          } else if (parsedMeta || parsedDetails) {
-            friendlyMessage = serverMessage;
-          } else if (serverMessage) {
-            friendlyMessage = serverMessage;
-          } else if (rawPayloadString) {
-            friendlyMessage = `Conflict – ${rawPayloadString}`;
-          } else {
-            friendlyMessage =
-              'Reference conflict – please verify customer/product/shipment exists.';
-          }
-        } else if (error instanceof Error) {
-          friendlyMessage = error.message;
-        }
+        const friendlyMessage = getCreateDraftTransactionErrorMessage(error);
 
         showNotification({
           title: '❌ Save Failed',
@@ -359,13 +202,7 @@ export function useTransactionOperations(
         creatingDraftRowsRef.current.delete(rowIndex);
       }
     },
-    [
-      apiBasePath,
-      hasMinimumCreateFields,
-      queryClient,
-      createEmptyTransaction,
-      transactionsQueryKey,
-    ]
+    [apiBasePath, queryClient, transactionsQueryKey]
   );
 
   const logNotification = useCallback(
@@ -389,34 +226,6 @@ export function useTransactionOperations(
     },
     [apiBasePath, operationsNotificationsQueryKey, queryClient]
   );
-
-  const describeTransaction = useCallback((transaction: TransactionData) => {
-    const idLabel = transaction.id ? `#${transaction.id}` : 'unsaved row';
-    const customer =
-      transaction.Customers && transaction.Customers.trim() !== ''
-        ? transaction.Customers.trim()
-        : 'No customer';
-    const product =
-      transaction['Product Code'] && transaction['Product Code'].trim() !== ''
-        ? transaction['Product Code'].trim()
-        : 'No product';
-    return `${idLabel} • Customer: ${customer} • Product: ${product}`;
-  }, []);
-
-  const truncate = useCallback((value: string, max = 160) => {
-    if (value.length <= max) {
-      return value;
-    }
-    return `${value.slice(0, max - 1)}…`;
-  }, []);
-
-  const formatNumberValue = useCallback((value: number) => {
-    return TransactionService.formatNumber(value ?? 0);
-  }, []);
-
-  const formatCurrencyValue = useCallback((value: number) => {
-    return TransactionService.formatCurrency(value ?? 0);
-  }, []);
 
   // ============================================================================
   // BATCH MODE TRACKING
@@ -548,7 +357,7 @@ export function useTransactionOperations(
             ((merged.Customers && merged.Customers.trim() !== '') ||
               (merged['Product Code'] && merged['Product Code'].trim() !== ''))
           ) {
-            merged['Order Date'] = formatToday();
+            merged['Order Date'] = formatTodayInManila();
           }
 
           // Mutate the in-memory placeholder so the grid shows auto-populated values immediately
@@ -719,7 +528,7 @@ export function useTransactionOperations(
           dropdownValue.trim() !== '' &&
           (!currentOrderDate || currentOrderDate.trim() === '')
         ) {
-          autoPopulatedOrderDate = formatToday();
+          autoPopulatedOrderDate = formatTodayInManila();
         }
 
         updateTransactionData({
@@ -1536,7 +1345,7 @@ export function useTransactionOperations(
         const dropdownValue = getCellValue(newValue);
 
         const remaining = computeRemainingBalance(transaction);
-        if (isPaidStatus(dropdownValue) && remaining > 0.01) {
+        if (isPaidOrderStatus(dropdownValue) && remaining > 0.01) {
           await Swal.fire({
             title: 'Payment not complete',
             html: `Remaining balance: <strong>₱${remaining.toLocaleString()}</strong>.<br />Record full payment first, or use <strong>Pending Payment</strong> for shipped-but-unpaid orders.`,
@@ -1625,7 +1434,7 @@ export function useTransactionOperations(
           const nextNotes = notesValue ?? '';
 
           logNotification(
-            `Notes updated for ${transactionDescriptor}. Previous: "${truncate(previousNotes)}" • New: "${truncate(nextNotes)}"`,
+            `Notes updated for ${transactionDescriptor}. Previous: "${truncateText(previousNotes)}" • New: "${truncateText(nextNotes)}"`,
             {
               column: 'Notes',
               transactionId: transaction.id,
@@ -1721,18 +1530,10 @@ export function useTransactionOperations(
       productToShipmentStatusMap,
       update,
       onCustomerWarning,
-      describeTransaction,
       logNotification,
-      formatCurrencyValue,
-      formatNumberValue,
-      truncate,
       ensureDraftRow,
       createDraftTransaction,
-      hasMinimumCreateFields,
-      formatToday,
       apiBasePath,
-      computeRemainingBalance,
-      isPaidStatus,
     ]
   );
 

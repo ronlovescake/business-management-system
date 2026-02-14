@@ -12,6 +12,8 @@ export interface InvoicingTabProps {
   filteredInvoiceData: InvoiceData[];
   checkoutLinks: CheckoutLinkData[];
   onSearch: (query: string) => void;
+  onImport?: (file: File | null) => void;
+  onExport?: () => void;
   searchValue?: string;
   onSyncGoogleDrive?: () => void;
   isSyncing?: boolean;
@@ -37,6 +39,8 @@ export function InvoicingTab({
   filteredInvoiceData,
   checkoutLinks,
   onSearch,
+  onImport,
+  onExport,
   onSyncGoogleDrive,
   isSyncing,
   onCustomerNameClick,
@@ -65,12 +69,10 @@ export function InvoicingTab({
         searchPlaceholder={searchPlaceholder}
         onSearch={onSearch}
         searchValue={searchValue}
-        onImport={() => {
-          // TODO: Implement import functionality
-        }}
-        onExport={() => {
-          // TODO: Implement export functionality
-        }}
+        onImport={onImport}
+        onExport={onExport}
+        hideImport={!onImport}
+        hideExport={!onExport}
         onAddNew={showAddNewButton ? onSyncGoogleDrive : undefined}
         addNewLabel={addNewLabel}
         isImporting={safeIsSyncing}

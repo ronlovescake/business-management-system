@@ -1,6 +1,8 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
-
 import { BaseRepository } from '@/core/database/repository/BaseRepository';
+import type {
+  OrderByInput,
+  WhereInput,
+} from '@/core/database/repository/BaseRepository';
 import type { PrismaModelName } from '@/types/prisma';
 import { logger } from '@/lib/logger';
 
@@ -25,11 +27,21 @@ export class LeaveRequestRepositoryBase<
     this.modelName = modelName;
   }
 
+  private toWhereInput(value: Record<string, unknown>): WhereInput<TEntity> {
+    return value as unknown as WhereInput<TEntity>;
+  }
+
+  private toOrderByInput(
+    value: Record<string, 'asc' | 'desc'>
+  ): OrderByInput<TEntity> {
+    return value as unknown as OrderByInput<TEntity>;
+  }
+
   async findByEmployee(employeeId: EmployeeIdLike): Promise<TEntity[]> {
     try {
       return await this.findMany({
-        where: { employeeId } as any,
-        orderBy: { startDate: 'desc' } as any,
+        where: this.toWhereInput({ employeeId }),
+        orderBy: this.toOrderByInput({ startDate: 'desc' }),
       });
     } catch (error) {
       logger.error('findByEmployee failed', { employeeId, error });
@@ -40,8 +52,8 @@ export class LeaveRequestRepositoryBase<
   async findByStatus(status: LeaveStatusLike): Promise<TEntity[]> {
     try {
       return await this.findMany({
-        where: { status } as any,
-        orderBy: { appliedDate: 'desc' } as any,
+        where: this.toWhereInput({ status }),
+        orderBy: this.toOrderByInput({ appliedDate: 'desc' }),
       });
     } catch (error) {
       logger.error('findByStatus failed', { status, error });
@@ -57,11 +69,11 @@ export class LeaveRequestRepositoryBase<
       return await this.findMany({
         where: {
           AND: [
-            { startDate: { gte: startDate } } as any,
-            { endDate: { lte: endDate } } as any,
+            { startDate: { gte: startDate } },
+            { endDate: { lte: endDate } },
           ],
-        } as any,
-        orderBy: { startDate: 'asc' } as any,
+        } as unknown as WhereInput<TEntity>,
+        orderBy: this.toOrderByInput({ startDate: 'asc' }),
       });
     } catch (error) {
       logger.error('findByDateRange failed', { startDate, endDate, error });
@@ -75,8 +87,8 @@ export class LeaveRequestRepositoryBase<
         where: {
           employeeId,
           status: 'pending',
-        } as any,
-        orderBy: { appliedDate: 'desc' } as any,
+        } as unknown as WhereInput<TEntity>,
+        orderBy: this.toOrderByInput({ appliedDate: 'desc' }),
       });
     } catch (error) {
       logger.error('findPendingByEmployee failed', { employeeId, error });
@@ -89,8 +101,8 @@ export class LeaveRequestRepositoryBase<
   ): Promise<TEntity[]> {
     try {
       return await this.findMany({
-        where: { paymentStatus } as any,
-        orderBy: { startDate: 'desc' } as any,
+        where: this.toWhereInput({ paymentStatus }),
+        orderBy: this.toOrderByInput({ startDate: 'desc' }),
       });
     } catch (error) {
       logger.error('findByPaymentStatus failed', { paymentStatus, error });
@@ -113,12 +125,12 @@ export class LeaveRequestRepositoryBase<
       const [total, pending, approved, rejected, paid, unpaid, notApplicable] =
         await Promise.all([
           this.count(),
-          this.count({ status: 'pending' } as any),
-          this.count({ status: 'approved' } as any),
-          this.count({ status: 'rejected' } as any),
-          this.count({ paymentStatus: 'paid' } as any),
-          this.count({ paymentStatus: 'unpaid' } as any),
-          this.count({ paymentStatus: 'not-applicable' } as any),
+          this.count(this.toWhereInput({ status: 'pending' })),
+          this.count(this.toWhereInput({ status: 'approved' })),
+          this.count(this.toWhereInput({ status: 'rejected' })),
+          this.count(this.toWhereInput({ paymentStatus: 'paid' })),
+          this.count(this.toWhereInput({ paymentStatus: 'unpaid' })),
+          this.count(this.toWhereInput({ paymentStatus: 'not-applicable' })),
         ]);
 
       return {
@@ -145,7 +157,7 @@ export class LeaveRequestRepositoryBase<
     excludeId?: LeaveRequestIdLike
   ): Promise<TEntity[]> {
     try {
-      const where: any = {
+      const where: Record<string, unknown> = {
         employeeId,
         OR: [
           {
@@ -170,10 +182,10 @@ export class LeaveRequestRepositoryBase<
       };
 
       if (excludeId) {
-        where.NOT = { id: excludeId as number };
+        where.NOT = { id: excludeId };
       }
 
-      return await this.findMany({ where });
+      return await this.findMany({ where: this.toWhereInput(where) });
     } catch (error) {
       logger.error('findOverlappingLeaves failed', {
         employeeId,
@@ -197,10 +209,10 @@ export class LeaveRequestRepositoryBase<
           employeeId,
           status,
           AND: [
-            { startDate: { gte: startDate } } as any,
-            { endDate: { lte: endDate } } as any,
+            { startDate: { gte: startDate } },
+            { endDate: { lte: endDate } },
           ],
-        } as any,
+        } as unknown as WhereInput<TEntity>,
       });
 
       return leaves.reduce(

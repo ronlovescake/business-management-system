@@ -1,7 +1,10 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
-
 import type { Prisma } from '@prisma/client';
 import { BaseRepository } from '@/core/database/repository/BaseRepository';
+import type {
+  FindOptions,
+  OrderByInput,
+  WhereInput,
+} from '@/core/database/repository/BaseRepository';
 import type { PrismaModelName } from '@/types/prisma';
 
 export interface ThirteenthMonthPayQueryInput {
@@ -44,6 +47,32 @@ export class ThirteenthMonthPayRepositoryBase<
     this.modelName = modelName;
   }
 
+  private toWhereInput(value: Record<string, unknown>): WhereInput<TEntity> {
+    return value as unknown as WhereInput<TEntity>;
+  }
+
+  private toOrderByInput(
+    value:
+      | Record<string, 'asc' | 'desc'>
+      | Array<Record<string, 'asc' | 'desc'>>
+  ): OrderByInput<TEntity> | OrderByInput<TEntity>[] {
+    return value as unknown as OrderByInput<TEntity> | OrderByInput<TEntity>[];
+  }
+
+  private toFindOptions(options: {
+    where?: Record<string, unknown>;
+    orderBy?:
+      | Record<string, 'asc' | 'desc'>
+      | Array<Record<string, 'asc' | 'desc'>>;
+  }): FindOptions<TEntity> {
+    return {
+      where: options.where ? this.toWhereInput(options.where) : undefined,
+      orderBy: options.orderBy
+        ? this.toOrderByInput(options.orderBy)
+        : undefined,
+    };
+  }
+
   async findWithFilters(
     filters: ThirteenthMonthPayQueryInput
   ): Promise<TEntity[]> {
@@ -78,37 +107,47 @@ export class ThirteenthMonthPayRepositoryBase<
       }
     }
 
-    return this.findMany({
-      where: where as any,
-      orderBy: [{ employeeName: 'asc' }, { year: 'desc' }] as any,
-    });
+    return this.findMany(
+      this.toFindOptions({
+        where: where as unknown as Record<string, unknown>,
+        orderBy: [{ employeeName: 'asc' }, { year: 'desc' }],
+      })
+    );
   }
 
   async findByEmployeeId(employeeId: string): Promise<TEntity[]> {
-    return this.findMany({
-      where: { employeeId } as any,
-      orderBy: { year: 'desc' } as any,
-    });
+    return this.findMany(
+      this.toFindOptions({
+        where: { employeeId },
+        orderBy: { year: 'desc' },
+      })
+    );
   }
 
   async findByYear(year: number): Promise<TEntity[]> {
-    return this.findMany({
-      where: { year } as any,
-      orderBy: { employeeName: 'asc' } as any,
-    });
+    return this.findMany(
+      this.toFindOptions({
+        where: { year },
+        orderBy: { employeeName: 'asc' },
+      })
+    );
   }
 
   async findByStatus(status: string): Promise<TEntity[]> {
-    return this.findMany({
-      where: { status } as any,
-      orderBy: [{ year: 'desc' }, { employeeName: 'asc' }] as any,
-    });
+    return this.findMany(
+      this.toFindOptions({
+        where: { status },
+        orderBy: [{ year: 'desc' }, { employeeName: 'asc' }],
+      })
+    );
   }
 
   async findByRecordId(recordId: string): Promise<TEntity | null> {
-    return this.findFirst({
-      where: { recordId } as any,
-    });
+    return this.findFirst(
+      this.toFindOptions({
+        where: { recordId },
+      })
+    );
   }
 
   async getTotalByStatus(): Promise<

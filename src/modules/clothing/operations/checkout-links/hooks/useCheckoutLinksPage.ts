@@ -6,6 +6,13 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api/client';
 import { buildApiPath } from '@/lib/api/paths';
 import { useInvoiceCustomerLookup } from './useInvoiceCustomerLookup';
+import {
+  filterCheckoutLinks,
+  filterCustomerOrders,
+  filterInvoiceData,
+  filterItemWeightData,
+  filterLocalInvoiceData,
+} from './checkoutLinksFilters';
 import { calculateFinalWeight } from '../utils/finalWeightCalculator';
 import { findCheckoutLinkByWeight } from '../utils/checkoutLinkMatcher';
 import { generateInvoiceMessage } from '../utils/messageGenerator';
@@ -349,45 +356,11 @@ export const useCheckoutLinksPage = ({
   }, [loadTransactionsWithInvoiceDate]);
 
   const filteredCheckoutLinks = useMemo(() => {
-    if (!checkoutLinksSearchQuery.trim()) {
-      return checkoutLinks;
-    }
-
-    const query = checkoutLinksSearchQuery.toLowerCase();
-    return checkoutLinks.filter((item) =>
-      [
-        item.weight,
-        item.width,
-        item.length,
-        item.height,
-        item.checkoutLinks,
-        item.productPortals,
-        item.productNames,
-      ]
-        .filter(Boolean)
-        .some((field) => field.toLowerCase().includes(query))
-    );
+    return filterCheckoutLinks(checkoutLinks, checkoutLinksSearchQuery);
   }, [checkoutLinks, checkoutLinksSearchQuery]);
 
   const filteredInvoiceData = useMemo(() => {
-    if (!invoicingSearchQuery.trim()) {
-      return invoiceData;
-    }
-
-    const query = invoicingSearchQuery.toLowerCase();
-    return invoiceData.filter((item) =>
-      [
-        item.customerName,
-        item.actualWeight,
-        item.finalWeight,
-        item.shopeeCheckoutLinks,
-        item.driveFiles,
-        item.message,
-        item.chat,
-      ]
-        .filter(Boolean)
-        .some((field) => field.toLowerCase().includes(query))
-    );
+    return filterInvoiceData(invoiceData, invoicingSearchQuery);
   }, [invoiceData, invoicingSearchQuery]);
 
   const invoiceWeightsByCustomer = useMemo(() => {
@@ -513,32 +486,11 @@ export const useCheckoutLinksPage = ({
   ]);
 
   const filteredLocalInvoiceData = useMemo(() => {
-    const matchesSelectedDate = (item: InvoiceData) => {
-      if (!localInvoiceDateFilter) {
-        return true;
-      }
-
-      const invoiceDates = item.localInvoiceDates
-        ? item.localInvoiceDates
-        : item.localInvoiceDate
-          ? [item.localInvoiceDate]
-          : [];
-
-      return invoiceDates.includes(localInvoiceDateFilter);
-    };
-
-    if (!localInvoicingSearchQuery.trim()) {
-      return localInvoiceData.filter(matchesSelectedDate);
-    }
-
-    const query = localInvoicingSearchQuery.toLowerCase();
-    return localInvoiceData.filter((item) => {
-      const matchesSearch = [item.customerName, item.driveFiles]
-        .filter(Boolean)
-        .some((field) => field.toLowerCase().includes(query));
-
-      return matchesSearch && matchesSelectedDate(item);
-    });
+    return filterLocalInvoiceData(
+      localInvoiceData,
+      localInvoicingSearchQuery,
+      localInvoiceDateFilter
+    );
   }, [localInvoiceData, localInvoicingSearchQuery, localInvoiceDateFilter]);
 
   const localInvoiceDateOptions = useMemo(() => {
@@ -561,41 +513,11 @@ export const useCheckoutLinksPage = ({
   }, [transactionsWithInvoiceDate]);
 
   const filteredItemWeightData = useMemo(() => {
-    if (!itemWeightSearchQuery.trim()) {
-      return itemWeightData;
-    }
-
-    const query = itemWeightSearchQuery.toLowerCase();
-    return itemWeightData.filter((item) => {
-      const candidates = [
-        item.itemName,
-        item.productCode ?? '',
-        item.bulkQuantity,
-        item.bulkWeight,
-        item.approxWeightPerPiece,
-      ];
-      return candidates.some((field) => field.toLowerCase().includes(query));
-    });
+    return filterItemWeightData(itemWeightData, itemWeightSearchQuery);
   }, [itemWeightData, itemWeightSearchQuery]);
 
   const filteredCustomerOrders = useMemo(() => {
-    if (!customerOrdersSearchQuery.trim()) {
-      return customerOrders;
-    }
-
-    const query = customerOrdersSearchQuery.toLowerCase();
-    return customerOrders.filter((order) =>
-      [
-        order.customerName,
-        order.productCode,
-        order.orderStatus,
-        order.actualWeight,
-        order.weightPerPiece,
-        order.quantity.toString(),
-      ]
-        .filter(Boolean)
-        .some((field) => field.toLowerCase().includes(query))
-    );
+    return filterCustomerOrders(customerOrders, customerOrdersSearchQuery);
   }, [customerOrders, customerOrdersSearchQuery]);
 
   const handleInvoicingSearch = useCallback((query: string) => {
@@ -980,8 +902,69 @@ export const useCheckoutLinksPage = ({
   );
 
   const handleExportCSV = useCallback(() => {
-    // TODO: Implement CSV export functionality
-  }, []);
+    if (!filteredCheckoutLinks.length) {
+      showNotification({
+        title: 'Export unavailable',
+        message: 'No checkout links to export.',
+        color: 'yellow',
+      });
+      return;
+    }
+
+    const headers = [
+      'weight',
+      'width',
+      'length',
+      'height',
+      'checkoutLinks',
+      'productPortals',
+      'productNames',
+    ];
+
+    const escapeCsv = (value: unknown): string => {
+      const normalized =
+        value === null || value === undefined ? '' : String(value);
+      if (
+        normalized.includes(',') ||
+        normalized.includes('"') ||
+        normalized.includes('\n')
+      ) {
+        return `"${normalized.replace(/"/g, '""')}"`;
+      }
+      return normalized;
+    };
+
+    const rows = filteredCheckoutLinks.map((row) =>
+      [
+        row.weight,
+        row.width,
+        row.length,
+        row.height,
+        row.checkoutLinks,
+        row.productPortals,
+        row.productNames,
+      ]
+        .map(escapeCsv)
+        .join(',')
+    );
+
+    const csv = [headers.join(','), ...rows].join('\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `checkout-links-${new Date().toISOString().slice(0, 10)}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+
+    showNotification({
+      title: 'Export complete',
+      message: `Exported ${filteredCheckoutLinks.length} checkout link rows.`,
+      color: 'green',
+    });
+  }, [filteredCheckoutLinks]);
 
   const handleSyncGoogleDrive = useCallback(async () => {
     setIsSyncing(true);

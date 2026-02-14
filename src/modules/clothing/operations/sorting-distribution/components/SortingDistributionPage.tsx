@@ -670,9 +670,26 @@ export function SortingDistributionPage({
       cellProperties: unknown
     ) => {
       // Call default text renderer first so Handsontable maintains editors and formatting
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const textRenderer = (window as any).Handsontable?.renderers
-        ?.TextRenderer;
+      type HandsontableTextRenderer = (
+        instance: unknown,
+        td: HTMLTableCellElement,
+        row: number,
+        col: number,
+        prop: string | number,
+        value: unknown,
+        cellProperties: unknown
+      ) => void;
+
+      type HandsontableWindow = Window & {
+        Handsontable?: {
+          renderers?: {
+            TextRenderer?: HandsontableTextRenderer;
+          };
+        };
+      };
+
+      const textRenderer = (window as HandsontableWindow).Handsontable
+        ?.renderers?.TextRenderer;
       if (textRenderer) {
         textRenderer(instance, td, row, col, prop, value, cellProperties);
       } else {

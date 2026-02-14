@@ -1,6 +1,5 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
-
 import { BaseRepository } from '@/core/database/repository';
+import type { OrderByInput, WhereInput } from '@/core/database/repository';
 import type { PrismaModelName } from '@/types/prisma';
 
 type ExpenseQueryLike = {
@@ -13,6 +12,16 @@ type ExpenseQueryLike = {
   endDate?: Date;
   minAmount?: number;
   maxAmount?: number;
+};
+
+type DateRangeFilter = {
+  gte?: string;
+  lte?: string;
+};
+
+type AmountRangeFilter = {
+  gte?: number;
+  lte?: number;
 };
 
 type ExpenseCreateLike = {
@@ -44,8 +53,18 @@ export class ExpenseRepositoryBase<
     this.modelName = modelName;
   }
 
+  private toWhereInput(value: Record<string, unknown>): WhereInput<TEntity> {
+    return value as unknown as WhereInput<TEntity>;
+  }
+
+  private toOrderByInput(
+    value: Record<string, 'asc' | 'desc'>
+  ): OrderByInput<TEntity> {
+    return value as unknown as OrderByInput<TEntity>;
+  }
+
   async findWithFilters(filters: ExpenseQueryLike): Promise<TEntity[]> {
-    const where: Record<string, any> = {};
+    const where: Record<string, unknown> = {};
 
     if (filters.category) {
       where.category = filters.category;
@@ -71,28 +90,30 @@ export class ExpenseRepositoryBase<
     }
 
     if (filters.startDate || filters.endDate) {
-      where.date = {};
+      const dateFilter: DateRangeFilter = {};
       if (filters.startDate) {
-        where.date.gte = filters.startDate.toISOString().split('T')[0];
+        dateFilter.gte = filters.startDate.toISOString().split('T')[0];
       }
       if (filters.endDate) {
-        where.date.lte = filters.endDate.toISOString().split('T')[0];
+        dateFilter.lte = filters.endDate.toISOString().split('T')[0];
       }
+      where.date = dateFilter;
     }
 
     if (filters.minAmount !== undefined || filters.maxAmount !== undefined) {
-      where.amount = {};
+      const amountFilter: AmountRangeFilter = {};
       if (filters.minAmount !== undefined) {
-        where.amount.gte = filters.minAmount;
+        amountFilter.gte = filters.minAmount;
       }
       if (filters.maxAmount !== undefined) {
-        where.amount.lte = filters.maxAmount;
+        amountFilter.lte = filters.maxAmount;
       }
+      where.amount = amountFilter;
     }
 
     return this.model.findMany({
-      where,
-      orderBy: { date: 'desc' },
+      where: this.toWhereInput(where),
+      orderBy: this.toOrderByInput({ date: 'desc' }),
     });
   }
 
@@ -103,22 +124,22 @@ export class ExpenseRepositoryBase<
           contains: employeeName,
           mode: 'insensitive',
         },
-      } as any,
-      orderBy: { date: 'desc' } as any,
+      } as unknown as WhereInput<TEntity>,
+      orderBy: this.toOrderByInput({ date: 'desc' }),
     });
   }
 
   async findByStatus(status: string): Promise<TEntity[]> {
     return this.findMany({
-      where: { status } as any,
-      orderBy: { date: 'desc' } as any,
+      where: this.toWhereInput({ status }),
+      orderBy: this.toOrderByInput({ date: 'desc' }),
     });
   }
 
   async findByCategory(category: string): Promise<TEntity[]> {
     return this.findMany({
-      where: { category } as any,
-      orderBy: { date: 'desc' } as any,
+      where: this.toWhereInput({ category }),
+      orderBy: this.toOrderByInput({ date: 'desc' }),
     });
   }
 
@@ -129,8 +150,8 @@ export class ExpenseRepositoryBase<
           gte: startDate.toISOString().split('T')[0],
           lte: endDate.toISOString().split('T')[0],
         },
-      } as any,
-      orderBy: { date: 'desc' } as any,
+      } as unknown as WhereInput<TEntity>,
+      orderBy: this.toOrderByInput({ date: 'desc' }),
     });
   }
 
