@@ -126,6 +126,27 @@ export function BackupRestoreTab() {
   const TABLE_SAMPLE_LIMIT = 250;
   const MAX_CLIENT_EXPORT_ROWS = 5000;
 
+  const reserveUniqueSheetName = useCallback(
+    (baseName: string, usedNames?: Set<string>) => {
+      const fallback = 'Sheet';
+      const normalizedBase = (baseName || fallback).slice(0, 31);
+      const nameRegistry = usedNames ?? new Set<string>();
+
+      let candidate = normalizedBase;
+      let suffixNumber = 2;
+
+      while (nameRegistry.has(candidate)) {
+        const suffix = `_${suffixNumber}`;
+        candidate = `${normalizedBase.slice(0, 31 - suffix.length)}${suffix}`;
+        suffixNumber++;
+      }
+
+      nameRegistry.add(candidate);
+      return candidate;
+    },
+    []
+  );
+
   const fetchTableSample = useCallback(
     async (
       timestamp: string,
@@ -670,7 +691,8 @@ export function BackupRestoreTab() {
 
       const ws = XLSX.utils.json_to_sheet(resolved.rows);
       const wb = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(wb, ws, tableName);
+      const sheetName = reserveUniqueSheetName(tableName);
+      XLSX.utils.book_append_sheet(wb, ws, sheetName);
 
       XLSX.writeFile(wb, `${tableName}-${selectedBackup?.timestamp}.xlsx`);
 
@@ -696,6 +718,7 @@ export function BackupRestoreTab() {
     try {
       const XLSX = await import('xlsx');
       const wb = XLSX.utils.book_new();
+      const usedSheetNames = new Set<string>();
       let sheetCount = 0;
       let skipped = 0;
 
@@ -720,7 +743,7 @@ export function BackupRestoreTab() {
 
         if (resolved.rows.length) {
           const ws = XLSX.utils.json_to_sheet(resolved.rows);
-          const sheetName = tableName.substring(0, 31);
+          const sheetName = reserveUniqueSheetName(tableName, usedSheetNames);
           XLSX.utils.book_append_sheet(wb, ws, sheetName);
           sheetCount++;
         }

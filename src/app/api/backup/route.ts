@@ -6,6 +6,7 @@
 
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
+import { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/db';
 import { getDatabaseUrl } from '@/lib/env';
 import { requireAdmin } from '@/lib/auth/session';
@@ -65,6 +66,18 @@ type BackupFileDescriptor = {
   filePath: string;
   size: number;
 };
+
+type TableAvailabilityCache = Map<string, boolean>;
+
+class MissingRequiredTablesError extends Error {
+  missingTables: string[];
+
+  constructor(missingTables: string[]) {
+    super('Backup strict mode failed due to missing required tables');
+    this.name = 'MissingRequiredTablesError';
+    this.missingTables = missingTables;
+  }
+}
 
 const LOG_TABLES = [
   { name: 'change_log', model: 'changeLog', dateField: 'createdAt' },
@@ -411,6 +424,99 @@ function getQueryDelegate(
   return delegate as PrismaQueryDelegate;
 }
 
+function toPrismaModelName(modelDelegateName: string) {
+  if (!modelDelegateName.length) {
+    return modelDelegateName;
+  }
+  return modelDelegateName[0].toUpperCase() + modelDelegateName.slice(1);
+}
+
+function getSchemaForModelName(modelName: string) {
+  return modelName.startsWith('GeneralMerchandise')
+    ? 'general_merchandise'
+    : 'public';
+}
+
+function isMissingTableError(error: unknown): error is {
+  code: string;
+  meta?: { table?: string; modelName?: string };
+} {
+  return (
+    !!error &&
+    typeof error === 'object' &&
+    'code' in error &&
+    (error as { code?: unknown }).code === 'P2021'
+  );
+}
+
+async function isModelTableAvailable(
+  model: (typeof TABLES)[number]['model'],
+  cache: TableAvailabilityCache
+) {
+  const cached = cache.get(model);
+  if (cached !== undefined) {
+    return cached;
+  }
+
+  try {
+    const modelName = toPrismaModelName(model);
+    const dmmfModel = Prisma.dmmf.datamodel.models.find(
+      (entry) => entry.name === modelName
+    );
+
+    if (!dmmfModel?.dbName) {
+      cache.set(model, true);
+      return true;
+    }
+
+    const schema = getSchemaForModelName(modelName);
+    const regclassName = `${schema}.${dmmfModel.dbName}`;
+    const result = await prisma.$queryRaw<Array<{ exists: boolean }>>`
+      SELECT to_regclass(${regclassName}) IS NOT NULL AS "exists"
+    `;
+    const exists = !!result?.[0]?.exists;
+
+    cache.set(model, exists);
+    return exists;
+  } catch (error) {
+    logger.warn('Failed to pre-check table availability; continuing backup', {
+      model,
+      error,
+    });
+    cache.set(model, true);
+    return true;
+  }
+}
+
+function reserveUniqueSheetName(baseName: string, usedNames: Set<string>) {
+  const fallback = 'Sheet';
+  const normalizedBase = (baseName || fallback).slice(0, 31);
+  let candidate = normalizedBase;
+  let suffixNumber = 2;
+
+  while (usedNames.has(candidate)) {
+    const suffix = `_${suffixNumber}`;
+    candidate = `${normalizedBase.slice(0, 31 - suffix.length)}${suffix}`;
+    suffixNumber++;
+  }
+
+  usedNames.add(candidate);
+  return candidate;
+}
+
+function parseBooleanFlag(value: string | undefined) {
+  if (!value) {
+    return false;
+  }
+
+  const normalized = value.trim().toLowerCase();
+  return normalized === '1' || normalized === 'true' || normalized === 'yes';
+}
+
+function isStrictMissingTablesEnabled() {
+  return parseBooleanFlag(process.env.BACKUP_STRICT_TABLES);
+}
+
 function buildTableQueryOptions(
   sampleRecord: Record<string, unknown> | null,
   {
@@ -609,8 +715,13 @@ export async function POST(request: NextRequest) {
       format?: string;
       includeSoftDeleted?: boolean;
       strategy?: BackupStrategy;
+      strictMissingTables?: boolean;
     };
     const { format = 'all', includeSoftDeleted = false } = body;
+    const strictMissingTables =
+      typeof body.strictMissingTables === 'boolean'
+        ? body.strictMissingTables
+        : isStrictMissingTablesEnabled();
     let strategy: BackupStrategy = isValidStrategy(body.strategy)
       ? body.strategy
       : 'full';
@@ -629,6 +740,30 @@ export async function POST(request: NextRequest) {
     const files: string[] = [];
     const recordCounts: Record<string, number> = {};
     const differentialFallbackTables: string[] = [];
+    const tableAvailabilityCache: TableAvailabilityCache = new Map();
+    const missingTables = new Set<string>();
+
+    const markMissingTable = ({
+      name,
+      model,
+      table,
+      stage,
+    }: {
+      name: string;
+      model: string;
+      table?: string;
+      stage: 'json' | 'csv' | 'xlsx';
+    }) => {
+      missingTables.add(name);
+      logger.warn(`Missing table encountered during ${stage} backup: ${name}`, {
+        model,
+        table,
+      });
+
+      if (strictMissingTables) {
+        throw new MissingRequiredTablesError(Array.from(missingTables));
+      }
+    };
 
     let baseReference: BackupLookup | null = null;
     let changeWindowStart: Date | null = null;
@@ -717,6 +852,21 @@ export async function POST(request: NextRequest) {
       } else {
         for (const { name, model } of TABLES) {
           try {
+            const isAvailable = await isModelTableAvailable(
+              model,
+              tableAvailabilityCache
+            );
+            if (!isAvailable) {
+              tables[name] = {
+                count: 0,
+                skipped: true,
+                reason: 'table-missing',
+              };
+              recordCounts[name] = 0;
+              markMissingTable({ name, model, stage: 'json' });
+              continue;
+            }
+
             const modelDelegate = getQueryDelegate(model);
             const sampleRecord = await modelDelegate.findFirst();
             const { where, differentialUnsupported } = buildTableQueryOptions(
@@ -744,8 +894,22 @@ export async function POST(request: NextRequest) {
           } catch (error) {
             tables[name] = {
               count: 0,
-              error: error instanceof Error ? error.message : String(error),
+              ...(isMissingTableError(error)
+                ? { skipped: true, reason: 'table-missing' }
+                : {
+                    error:
+                      error instanceof Error ? error.message : String(error),
+                  }),
             };
+            if (isMissingTableError(error)) {
+              tableAvailabilityCache.set(model, false);
+              markMissingTable({
+                name,
+                model,
+                table: error.meta?.table,
+                stage: 'json',
+              });
+            }
           }
         }
       }
@@ -777,6 +941,16 @@ export async function POST(request: NextRequest) {
       try {
         for (const { name, model } of TABLES) {
           try {
+            const isAvailable = await isModelTableAvailable(
+              model,
+              tableAvailabilityCache
+            );
+            if (!isAvailable) {
+              recordCounts[name] = recordCounts[name] ?? 0;
+              markMissingTable({ name, model, stage: 'csv' });
+              continue;
+            }
+
             logger.info(`Processing table: ${name}`);
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             const modelDelegate = prisma[model as keyof typeof prisma] as any;
@@ -834,7 +1008,17 @@ export async function POST(request: NextRequest) {
               logger.info(`Skipping ${name} - no data`);
             }
           } catch (error) {
-            logger.error(`CSV backup failed for table ${name}:`, error);
+            if (isMissingTableError(error)) {
+              tableAvailabilityCache.set(model, false);
+              markMissingTable({
+                name,
+                model,
+                table: error.meta?.table,
+                stage: 'csv',
+              });
+            } else {
+              logger.error(`CSV backup failed for table ${name}:`, error);
+            }
           }
         }
         logger.info(`CSV backup completed. Total files: ${files.length}`);
@@ -865,10 +1049,21 @@ export async function POST(request: NextRequest) {
       logger.info('Starting XLSX backup generation...');
       try {
         const wb = XLSX.utils.book_new();
+        const usedSheetNames = new Set<string>();
         let sheetCount = 0;
 
         for (const { name, model } of TABLES) {
           try {
+            const isAvailable = await isModelTableAvailable(
+              model,
+              tableAvailabilityCache
+            );
+            if (!isAvailable) {
+              recordCounts[name] = recordCounts[name] ?? 0;
+              markMissingTable({ name, model, stage: 'xlsx' });
+              continue;
+            }
+
             logger.info(`Processing table for XLSX: ${name}`);
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             const modelDelegate = prisma[model as keyof typeof prisma] as any;
@@ -913,7 +1108,7 @@ export async function POST(request: NextRequest) {
               });
 
               const ws = XLSX.utils.json_to_sheet(plainData);
-              const sheetName = name.substring(0, 31);
+              const sheetName = reserveUniqueSheetName(name, usedSheetNames);
               XLSX.utils.book_append_sheet(wb, ws, sheetName);
               sheetCount++;
               logger.info(`Added sheet ${sheetName} to workbook`);
@@ -921,7 +1116,17 @@ export async function POST(request: NextRequest) {
               logger.info(`Skipping ${name} for XLSX - no data`);
             }
           } catch (error) {
-            logger.error(`XLSX backup failed for table ${name}:`, error);
+            if (isMissingTableError(error)) {
+              tableAvailabilityCache.set(model, false);
+              markMissingTable({
+                name,
+                model,
+                table: error.meta?.table,
+                stage: 'xlsx',
+              });
+            } else {
+              logger.error(`XLSX backup failed for table ${name}:`, error);
+            }
           }
         }
 
@@ -1013,6 +1218,17 @@ export async function POST(request: NextRequest) {
       },
     });
   } catch (error) {
+    if (error instanceof MissingRequiredTablesError) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'Backup strict mode failed: missing required tables',
+          missingTables: error.missingTables,
+        },
+        { status: 500 }
+      );
+    }
+
     logger.error('Backup failed:', error);
     return NextResponse.json(
       {
