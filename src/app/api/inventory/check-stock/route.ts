@@ -427,18 +427,10 @@ export async function POST(request: NextRequest) {
           )
         )
       );
-      const mixSkusSharingComponents = Array.from(
-        new Set(
-          componentCodes.flatMap((code) =>
-            Array.from(mixSkusByComponent.get(normalizeProductCode(code)) ?? [])
-          )
-        )
-      );
 
       const transactionProductCodes = [
         ...componentCodes,
         ...bundleSkusSharingComponents,
-        ...mixSkusSharingComponents,
       ];
 
       const movementCodes = Array.from(new Set(componentCodes));
@@ -532,19 +524,16 @@ export async function POST(request: NextRequest) {
         );
       });
 
-      const { remainingByComponent } = accumulateMixDemand(
-        transactions,
-        mixComponentsBySku,
-        initialAvailableByComponent
-      );
-
       const availableStock = componentCodes.reduce((sum, componentCode) => {
         const normalizedCode = normalizeProductCode(componentCode);
         if (!normalizedCode) {
           return sum;
         }
 
-        return sum + Math.max(remainingByComponent.get(normalizedCode) ?? 0, 0);
+        return (
+          sum +
+          Math.max(initialAvailableByComponent.get(normalizedCode) ?? 0, 0)
+        );
       }, 0);
 
       return NextResponse.json(
