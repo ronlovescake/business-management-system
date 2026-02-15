@@ -104,7 +104,7 @@ export const BackupPreviewModal = ({
       },
     }}
   >
-    {loading ? (
+    {loading && !previewData ? (
       <Progress value={100} animated />
     ) : previewData?.metadata && previewData?.tables ? (
       <Tabs defaultValue="summary">

@@ -12,7 +12,6 @@ import path from 'path';
 import { parser } from 'stream-json';
 import { pick } from 'stream-json/filters/Pick';
 import { streamArray } from 'stream-json/streamers/StreamArray';
-import { streamValues } from 'stream-json/streamers/StreamValues';
 import { logger } from '@/lib/logger';
 import { createHash } from 'crypto';
 
@@ -49,45 +48,90 @@ const computeSha256 = async (filePath: string) => {
   });
 };
 
-const readJsonValue = async (filePath: string, filter: string) => {
-  return new Promise<unknown>((resolve, reject) => {
-    let settled = false;
-    let found = false;
-    let value: unknown;
+const readSummaryFromCacheOrManifest = (
+  timestamp: string,
+  filename: string
+) => {
+  const summaryPath = path.join(
+    BACKUP_DIR,
+    timestamp,
+    `${filename}.summary.json`
+  );
 
-    const finish = () => {
-      if (settled) {
-        return;
-      }
-      settled = true;
-      resolve(found ? value : undefined);
+  if (fs.existsSync(summaryPath)) {
+    try {
+      const cached = JSON.parse(fs.readFileSync(summaryPath, 'utf8')) as {
+        metadata?: Record<string, unknown>;
+        tables?: Record<string, { count: number }>;
+      };
+      return cached;
+    } catch (error) {
+      logger.warn('Failed to parse backup summary cache', {
+        summaryPath,
+        error,
+      });
+    }
+  }
+
+  const manifestPath = path.join(BACKUP_DIR, timestamp, 'MANIFEST.json');
+  if (!fs.existsSync(manifestPath)) {
+    return null;
+  }
+
+  try {
+    const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8')) as {
+      timestamp?: string;
+      database?: string;
+      format?: string;
+      includeSoftDeleted?: boolean;
+      strategy?: string;
+      baseTimestamp?: string | null;
+      baseFolder?: string | null;
+      changeWindow?: { since: string | null; until: string } | null;
+      recordCounts?: Record<string, number>;
     };
 
-    const fail = (error: unknown) => {
-      if (settled) {
-        return;
-      }
-      settled = true;
-      reject(error);
+    if (!manifest.recordCounts) {
+      return null;
+    }
+
+    const summary = {
+      metadata: {
+        createdAt: manifest.timestamp ?? timestamp,
+        database: manifest.database ?? 'unknown',
+        format: manifest.format ?? 'json',
+        version: '1.1',
+        includeSoftDeleted: manifest.includeSoftDeleted ?? false,
+        strategy: manifest.strategy ?? 'full',
+        baseTimestamp: manifest.baseTimestamp ?? null,
+        baseFolder: manifest.baseFolder ?? null,
+        changeWindow: manifest.changeWindow ?? null,
+      },
+      tables: Object.fromEntries(
+        Object.entries(manifest.recordCounts).map(([name, count]) => [
+          name,
+          { count },
+        ])
+      ),
     };
 
-    const fileStream = fs.createReadStream(filePath);
-    const jsonStream = fileStream
-      .pipe(parser())
-      .pipe(pick({ filter }))
-      .pipe(streamValues());
+    try {
+      fs.writeFileSync(summaryPath, JSON.stringify(summary, null, 2));
+    } catch (error) {
+      logger.warn('Failed to write backup summary cache', {
+        summaryPath,
+        error,
+      });
+    }
 
-    jsonStream.on('data', (data: { value: unknown }) => {
-      found = true;
-      value = data.value;
-      fileStream.destroy();
+    return summary;
+  } catch (error) {
+    logger.warn('Failed to read manifest for summary', {
+      manifestPath,
+      error,
     });
-
-    jsonStream.on('end', finish);
-    jsonStream.on('close', finish);
-    jsonStream.on('error', fail);
-    fileStream.on('error', fail);
-  });
+    return null;
+  }
 };
 
 const readTableSample = async (
@@ -202,41 +246,48 @@ export async function GET(
       return NextResponse.json({ error: 'File not found' }, { status: 404 });
     }
 
-    // Verify file checksum if available in manifest
-    try {
-      const manifestPath = path.join(BACKUP_DIR, timestamp, 'MANIFEST.json');
-      if (fs.existsSync(manifestPath)) {
-        const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8')) as {
-          files?: Array<{ name: string; checksum?: string }>;
-          integrity?: { fileChecksums?: Record<string, string> };
-        };
+    const isPreviewMode = mode === 'summary' || mode === 'table';
 
-        const fileEntry = manifest.files?.find(
-          (entry) => entry.name === filename
-        );
-        const expectedChecksum =
-          fileEntry?.checksum ?? manifest.integrity?.fileChecksums?.[filename];
+    // Verify file checksum if available in manifest (skip for lightweight preview modes).
+    if (!isPreviewMode) {
+      try {
+        const manifestPath = path.join(BACKUP_DIR, timestamp, 'MANIFEST.json');
+        if (fs.existsSync(manifestPath)) {
+          const manifest = JSON.parse(
+            fs.readFileSync(manifestPath, 'utf8')
+          ) as {
+            files?: Array<{ name: string; checksum?: string }>;
+            integrity?: { fileChecksums?: Record<string, string> };
+          };
 
-        if (expectedChecksum) {
-          const actualChecksum = await computeSha256(filePath);
-          if (actualChecksum !== expectedChecksum) {
-            return NextResponse.json(
-              { error: 'Backup file integrity check failed' },
-              { status: 409 }
-            );
+          const fileEntry = manifest.files?.find(
+            (entry) => entry.name === filename
+          );
+          const expectedChecksum =
+            fileEntry?.checksum ??
+            manifest.integrity?.fileChecksums?.[filename];
+
+          if (expectedChecksum) {
+            const actualChecksum = await computeSha256(filePath);
+            if (actualChecksum !== expectedChecksum) {
+              return NextResponse.json(
+                { error: 'Backup file integrity check failed' },
+                { status: 409 }
+              );
+            }
           }
         }
+      } catch (error) {
+        logger.warn('Backup file integrity validation failed', {
+          timestamp,
+          filename,
+          error,
+        });
+        return NextResponse.json(
+          { error: 'Failed to validate backup file integrity' },
+          { status: 500 }
+        );
       }
-    } catch (error) {
-      logger.warn('Backup file integrity validation failed', {
-        timestamp,
-        filename,
-        error,
-      });
-      return NextResponse.json(
-        { error: 'Failed to validate backup file integrity' },
-        { status: 500 }
-      );
     }
 
     // Lightweight JSON modes for large backups
@@ -269,75 +320,11 @@ export async function GET(
       }
 
       if (mode === 'summary') {
-        const summaryPath = path.join(
-          BACKUP_DIR,
-          timestamp,
-          `${filename}.summary.json`
-        );
-        if (fs.existsSync(summaryPath)) {
-          const cached = fs.readFileSync(summaryPath, 'utf8');
-          return NextResponse.json(JSON.parse(cached), {
+        const summary = readSummaryFromCacheOrManifest(timestamp, filename);
+        if (summary) {
+          return NextResponse.json(summary, {
             headers: { 'Cache-Control': 'no-store' },
           });
-        }
-
-        const manifestPath = path.join(BACKUP_DIR, timestamp, 'MANIFEST.json');
-        if (fs.existsSync(manifestPath)) {
-          try {
-            const manifest = JSON.parse(
-              fs.readFileSync(manifestPath, 'utf8')
-            ) as {
-              timestamp?: string;
-              database?: string;
-              format?: string;
-              includeSoftDeleted?: boolean;
-              strategy?: string;
-              baseTimestamp?: string | null;
-              baseFolder?: string | null;
-              changeWindow?: { since: string | null; until: string } | null;
-              recordCounts?: Record<string, number>;
-            };
-
-            if (manifest.recordCounts) {
-              const summary = {
-                metadata: {
-                  createdAt: manifest.timestamp ?? timestamp,
-                  database: manifest.database ?? 'unknown',
-                  format: manifest.format ?? 'json',
-                  version: '1.1',
-                  includeSoftDeleted: manifest.includeSoftDeleted ?? false,
-                  strategy: manifest.strategy ?? 'full',
-                  baseTimestamp: manifest.baseTimestamp ?? null,
-                  baseFolder: manifest.baseFolder ?? null,
-                  changeWindow: manifest.changeWindow ?? null,
-                },
-                tables: Object.fromEntries(
-                  Object.entries(manifest.recordCounts).map(([name, count]) => [
-                    name,
-                    { count },
-                  ])
-                ),
-              };
-
-              try {
-                fs.writeFileSync(summaryPath, JSON.stringify(summary, null, 2));
-              } catch (error) {
-                logger.warn('Failed to write backup summary cache', {
-                  summaryPath,
-                  error,
-                });
-              }
-
-              return NextResponse.json(summary, {
-                headers: { 'Cache-Control': 'no-store' },
-              });
-            }
-          } catch (error) {
-            logger.warn('Failed to read manifest for summary', {
-              manifestPath,
-              error,
-            });
-          }
         }
 
         return NextResponse.json(
@@ -350,12 +337,9 @@ export async function GET(
 
       // mode === 'table'
       const tableName = requestedTable as string;
-      const metadata = await readJsonValue(filePath, 'metadata');
-      const rawCount = await readJsonValue(
-        filePath,
-        `tables.${tableName}.count`
-      );
-      const total = typeof rawCount === 'number' ? rawCount : undefined;
+      const summary = readSummaryFromCacheOrManifest(timestamp, filename);
+      const metadata = summary?.metadata;
+      const total = summary?.tables?.[tableName]?.count;
       const sliced = await readTableSample(filePath, tableName, offset, limit);
 
       if (!sliced.length && (total === undefined || total === 0)) {

@@ -126,6 +126,23 @@ export function BackupRestoreTab() {
   const TABLE_SAMPLE_LIMIT = 250;
   const MAX_CLIENT_EXPORT_ROWS = 5000;
 
+  const fetchWithTimeout = useCallback(
+    async (input: RequestInfo | URL, init?: RequestInit, timeoutMs = 30000) => {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), timeoutMs);
+
+      try {
+        return await fetch(input, {
+          ...init,
+          signal: controller.signal,
+        });
+      } finally {
+        clearTimeout(timeout);
+      }
+    },
+    []
+  );
+
   const reserveUniqueSheetName = useCallback(
     (baseName: string, usedNames?: Set<string>) => {
       const fallback = 'Sheet';
@@ -157,7 +174,7 @@ export function BackupRestoreTab() {
         offset = 0,
       }: { limit?: number; offset?: number } = {}
     ) => {
-      const response = await fetch(
+      const response = await fetchWithTimeout(
         `/api/backup/${encodeURIComponent(timestamp)}/${encodeURIComponent(jsonFile)}?mode=table&table=${encodeURIComponent(table)}&limit=${encodeURIComponent(String(limit))}&offset=${encodeURIComponent(String(offset))}`
       );
 
@@ -183,7 +200,7 @@ export function BackupRestoreTab() {
 
       return payload;
     },
-    [TABLE_SAMPLE_LIMIT]
+    [TABLE_SAMPLE_LIMIT, fetchWithTimeout]
   );
   const autoBackupIntervalRef = useRef<NodeJS.Timeout>();
   const strategyOptions = useMemo(
@@ -409,7 +426,7 @@ export function BackupRestoreTab() {
         }
 
         // Fetch lightweight summary (counts only), then load a small sample for the first table.
-        const response = await fetch(
+        const response = await fetchWithTimeout(
           `/api/backup/${encodeURIComponent(backup.timestamp)}/${encodeURIComponent(jsonFile)}?mode=summary`
         );
         if (!response.ok) {
@@ -426,7 +443,18 @@ export function BackupRestoreTab() {
         setPreviewJsonFile(jsonFile);
 
         if (firstTable) {
-          await fetchTableSample(backup.timestamp, jsonFile, firstTable);
+          void fetchTableSample(backup.timestamp, jsonFile, firstTable).catch(
+            (sampleError) => {
+              showNotification({
+                title: 'Preview Table Load Delayed',
+                message:
+                  sampleError instanceof Error
+                    ? sampleError.message
+                    : 'Could not pre-load the first table sample.',
+                color: 'yellow',
+              });
+            }
+          );
         }
       } catch (error) {
         showNotification({
@@ -441,7 +469,7 @@ export function BackupRestoreTab() {
         setPreviewLoading(false);
       }
     },
-    [fetchTableSample, pageTab]
+    [fetchTableSample, fetchWithTimeout, pageTab]
   );
 
   const handleBackupDateFilterChange = useCallback(
@@ -558,7 +586,15 @@ export function BackupRestoreTab() {
       return;
     }
 
-    if (!sidebarSelectedTable || sidebarSelectedTable === selectedTableName) {
+    if (!sidebarSelectedTable) {
+      return;
+    }
+
+    const hasLoadedTableData = Boolean(
+      previewData?.tables?.[sidebarSelectedTable]?.data
+    );
+
+    if (sidebarSelectedTable === selectedTableName && hasLoadedTableData) {
       return;
     }
 
@@ -567,6 +603,7 @@ export function BackupRestoreTab() {
     isAdminBackupRestore,
     sidebarSelectedTable,
     selectedTableName,
+    previewData,
     handleSelectPreviewTable,
   ]);
 
@@ -1205,9 +1242,14 @@ export function BackupRestoreTab() {
     restorePreviewForceOverwrite,
   ]);
 
+  const activeTableName =
+    isAdminBackupRestore && sidebarSelectedTable
+      ? sidebarSelectedTable
+      : selectedTableName;
+
   const selectedTableDetails = useMemo(() => {
-    return getSelectedTableDetails(previewData, selectedTableName);
-  }, [previewData, selectedTableName]);
+    return getSelectedTableDetails(previewData, activeTableName);
+  }, [previewData, activeTableName]);
 
   const restorePreviewEntry = useMemo(() => {
     if (!restorePreviewSelectedTable || !restorePreviewData) {
@@ -1580,12 +1622,12 @@ export function BackupRestoreTab() {
 
       {pageTab === 'tables' && (
         <Stack gap="lg">
-          {previewLoading ? (
+          {previewLoading && !previewData ? (
             <Progress value={100} animated />
           ) : previewData ? (
             <BackupTablesBrowser
               previewData={previewData}
-              selectedTableName={selectedTableName}
+              selectedTableName={activeTableName}
               selectedTableDetails={selectedTableDetails}
               onSelectTable={handleSelectPreviewTable}
               searchQuery={tableSearchQuery}
