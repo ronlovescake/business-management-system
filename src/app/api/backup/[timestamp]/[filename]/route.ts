@@ -14,6 +14,7 @@ import { pick } from 'stream-json/filters/Pick';
 import { streamArray } from 'stream-json/streamers/StreamArray';
 import { logger } from '@/lib/logger';
 import { createHash } from 'crypto';
+import Papa from 'papaparse';
 
 const BACKUP_DIR = path.resolve(process.cwd(), 'backups');
 export const runtime = 'nodejs';
@@ -185,6 +186,33 @@ const readTableSample = async (
   });
 };
 
+const readTableSampleFromCsv = (
+  csvFilePath: string,
+  offset: number,
+  limit: number
+) => {
+  const csvText = fs.readFileSync(csvFilePath, 'utf8');
+  const parsed = Papa.parse<Record<string, unknown>>(csvText, {
+    header: true,
+    skipEmptyLines: true,
+  });
+
+  if (parsed.errors.length) {
+    logger.warn('CSV preview parse issues encountered', {
+      csvFilePath,
+      errors: parsed.errors.slice(0, 3),
+    });
+  }
+
+  const allRows = parsed.data;
+  const sliced = allRows.slice(offset, offset + limit);
+
+  return {
+    sliced,
+    total: allRows.length,
+  };
+};
+
 export async function GET(
   request: NextRequest,
   { params }: { params: { timestamp: string; filename: string } }
@@ -340,13 +368,46 @@ export async function GET(
       const summary = readSummaryFromCacheOrManifest(timestamp, filename);
       const metadata = summary?.metadata;
       const total = summary?.tables?.[tableName]?.count;
-      const sliced = await readTableSample(filePath, tableName, offset, limit);
+      const csvFilePath = path.join(
+        BACKUP_DIR,
+        timestamp,
+        `${tableName}-${timestamp}.csv`
+      );
+
+      let sliced: unknown[] = [];
+      let csvTotal: number | null = null;
+
+      /**
+       * Performance design:
+       * - Prefer per-table CSV sampling for preview because large JSON backups can be
+       *   expensive to stream-scan for a single table and may trigger client aborts.
+       * - Keep JSON sampling as a fallback for compatibility with backups that only
+       *   include JSON (e.g., JSON-only strategy or legacy backups).
+       *
+       * This path intentionally optimizes preview latency while preserving behavior.
+       */
+      if (fs.existsSync(csvFilePath)) {
+        try {
+          const csvSample = readTableSampleFromCsv(csvFilePath, offset, limit);
+          sliced = csvSample.sliced;
+          csvTotal = csvSample.total;
+        } catch (error) {
+          logger.warn('CSV-based table preview failed, falling back to JSON', {
+            csvFilePath,
+            tableName,
+            error,
+          });
+          sliced = await readTableSample(filePath, tableName, offset, limit);
+        }
+      } else {
+        sliced = await readTableSample(filePath, tableName, offset, limit);
+      }
 
       if (!sliced.length && (total === undefined || total === 0)) {
         return NextResponse.json({ error: 'Table not found' }, { status: 404 });
       }
 
-      const resolvedTotal = total ?? sliced.length;
+      const resolvedTotal = total ?? csvTotal ?? sliced.length;
 
       return NextResponse.json(
         {

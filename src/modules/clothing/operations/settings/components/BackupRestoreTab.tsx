@@ -125,11 +125,20 @@ export function BackupRestoreTab() {
 
   const TABLE_SAMPLE_LIMIT = 250;
   const MAX_CLIENT_EXPORT_ROWS = 5000;
+  const PREVIEW_SUMMARY_TIMEOUT_MS = 120000;
+  const PREVIEW_TABLE_TIMEOUT_MS = 180000;
 
   const fetchWithTimeout = useCallback(
     async (input: RequestInfo | URL, init?: RequestInit, timeoutMs = 30000) => {
       const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), timeoutMs);
+      const timeout = setTimeout(() => {
+        controller.abort(
+          new DOMException(
+            `Request timed out after ${Math.round(timeoutMs / 1000)}s`,
+            'TimeoutError'
+          )
+        );
+      }, timeoutMs);
 
       try {
         return await fetch(input, {
@@ -175,7 +184,9 @@ export function BackupRestoreTab() {
       }: { limit?: number; offset?: number } = {}
     ) => {
       const response = await fetchWithTimeout(
-        `/api/backup/${encodeURIComponent(timestamp)}/${encodeURIComponent(jsonFile)}?mode=table&table=${encodeURIComponent(table)}&limit=${encodeURIComponent(String(limit))}&offset=${encodeURIComponent(String(offset))}`
+        `/api/backup/${encodeURIComponent(timestamp)}/${encodeURIComponent(jsonFile)}?mode=table&table=${encodeURIComponent(table)}&limit=${encodeURIComponent(String(limit))}&offset=${encodeURIComponent(String(offset))}`,
+        undefined,
+        PREVIEW_TABLE_TIMEOUT_MS
       );
 
       if (!response.ok) {
@@ -200,7 +211,7 @@ export function BackupRestoreTab() {
 
       return payload;
     },
-    [TABLE_SAMPLE_LIMIT, fetchWithTimeout]
+    [PREVIEW_TABLE_TIMEOUT_MS, TABLE_SAMPLE_LIMIT, fetchWithTimeout]
   );
   const autoBackupIntervalRef = useRef<NodeJS.Timeout>();
   const strategyOptions = useMemo(
@@ -427,7 +438,9 @@ export function BackupRestoreTab() {
 
         // Fetch lightweight summary (counts only), then load a small sample for the first table.
         const response = await fetchWithTimeout(
-          `/api/backup/${encodeURIComponent(backup.timestamp)}/${encodeURIComponent(jsonFile)}?mode=summary`
+          `/api/backup/${encodeURIComponent(backup.timestamp)}/${encodeURIComponent(jsonFile)}?mode=summary`,
+          undefined,
+          PREVIEW_SUMMARY_TIMEOUT_MS
         );
         if (!response.ok) {
           throw new Error(
@@ -457,9 +470,16 @@ export function BackupRestoreTab() {
           );
         }
       } catch (error) {
+        const isTimeoutError =
+          error instanceof DOMException &&
+          (error.name === 'AbortError' || error.name === 'TimeoutError');
         showNotification({
           title: 'Preview Failed',
-          message: error instanceof Error ? error.message : 'Unknown error',
+          message: isTimeoutError
+            ? 'Preview timed out on a large backup. Please retry or open a specific table.'
+            : error instanceof Error
+              ? error.message
+              : 'Unknown error',
           color: 'red',
         });
         setPreviewModalOpen(false);
@@ -469,7 +489,7 @@ export function BackupRestoreTab() {
         setPreviewLoading(false);
       }
     },
-    [fetchTableSample, fetchWithTimeout, pageTab]
+    [PREVIEW_SUMMARY_TIMEOUT_MS, fetchTableSample, fetchWithTimeout, pageTab]
   );
 
   const handleBackupDateFilterChange = useCallback(
@@ -509,9 +529,16 @@ export function BackupRestoreTab() {
           table
         );
       } catch (error) {
+        const isTimeoutError =
+          error instanceof DOMException &&
+          (error.name === 'AbortError' || error.name === 'TimeoutError');
         showNotification({
           title: 'Preview Failed',
-          message: error instanceof Error ? error.message : 'Unknown error',
+          message: isTimeoutError
+            ? 'Table preview timed out. Please retry with fewer rows or wait for load.'
+            : error instanceof Error
+              ? error.message
+              : 'Unknown error',
           color: 'red',
         });
       } finally {
