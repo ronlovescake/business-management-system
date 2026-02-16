@@ -152,7 +152,7 @@ export const ExpenseFormDialog = React.memo(function ExpenseFormDialog({
             <Select
               label="Category"
               data={categories}
-              value={formCategory}
+              value={formCategory || null}
               onChange={(value) => setFormCategory(value || '')}
               required
               searchable

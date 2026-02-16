@@ -428,7 +428,7 @@ export function useHouseholdExpenses() {
     setFormCategory('');
     setFormNotes('');
     setFormReceipt(null);
-    setFormAccountId(null);
+    setFormAccountId(defaultAccountId);
   };
 
   const handleDeleteExpense = async (id: string) => {
