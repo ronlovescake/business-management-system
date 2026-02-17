@@ -1,6 +1,6 @@
 'use client';
 
-import React, { type FormEvent, useMemo, useState } from 'react';
+import React, { type FormEvent, useCallback, useMemo, useState } from 'react';
 import { useDisclosure } from '@mantine/hooks';
 import { showNotification } from '@mantine/notifications';
 import {
@@ -287,30 +287,33 @@ export function InventoryPage({ apiBasePath }: InventoryPageProps) {
     return map;
   }, [filteredData]);
 
-  const getCurrentBucketQuantity = (
-    productCode: string,
-    bucket: 'damaged_hold' | 'scrap' | 'supplier_short' | 'additionals'
-  ): number => {
-    const code = productCode.trim();
-    if (!code) {
-      return 0;
-    }
+  const getCurrentBucketQuantity = useCallback(
+    (
+      productCode: string,
+      bucket: 'damaged_hold' | 'scrap' | 'supplier_short' | 'additionals'
+    ): number => {
+      const code = productCode.trim();
+      if (!code) {
+        return 0;
+      }
 
-    if (bucket === 'supplier_short') {
-      return supplierShortQtyByProduct.get(code) ?? 0;
-    }
+      if (bucket === 'supplier_short') {
+        return supplierShortQtyByProduct.get(code) ?? 0;
+      }
 
-    if (bucket === 'additionals') {
-      return additionalsQtyByProduct.get(code) ?? 0;
-    }
+      if (bucket === 'additionals') {
+        return additionalsQtyByProduct.get(code) ?? 0;
+      }
 
-    const item = inventoryItemByCode.get(code);
-    if (!item) {
-      return 0;
-    }
+      const item = inventoryItemByCode.get(code);
+      if (!item) {
+        return 0;
+      }
 
-    return bucket === 'damaged_hold' ? item.damagedOnHand : item.scrapQty;
-  };
+      return bucket === 'damaged_hold' ? item.damagedOnHand : item.scrapQty;
+    },
+    [additionalsQtyByProduct, inventoryItemByCode, supplierShortQtyByProduct]
+  );
 
   const getLatestBucketNote = (
     productCode: string,
@@ -407,13 +410,7 @@ export function InventoryPage({ apiBasePath }: InventoryPageProps) {
     }
 
     setQuantity(getCurrentBucketQuantity(selectedProduct, toBucket));
-  }, [
-    additionalsQtyByProduct,
-    inventoryItemByCode,
-    selectedProduct,
-    supplierShortQtyByProduct,
-    toBucket,
-  ]);
+  }, [getCurrentBucketQuantity, selectedProduct, toBucket]);
 
   const productOptions = useMemo(
     () =>
