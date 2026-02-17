@@ -31,6 +31,21 @@ export interface BundleBatchFromAPI {
   components: BundleComponentFromAPI[];
 }
 
+export interface MixAndMatchComponentFromAPI {
+  id?: number;
+  productCode: string;
+  includedQuantity: number;
+}
+
+export interface MixAndMatchBatchFromAPI {
+  id: number;
+  postingDate: string;
+  mixAndMatchName: string;
+  mixAndMatchSku: string;
+  price: number;
+  components: MixAndMatchComponentFromAPI[];
+}
+
 export type InventoryBucket =
   | 'sellable'
   | 'damaged_hold'
@@ -66,8 +81,10 @@ export interface InventoryItem {
   onHandReserved: number;
   inTransitUnreserved: number;
   inTransitReserved: number;
+  soldQty: number;
   damagedOnHand: number;
   scrapQty: number;
+  additionalsQty: number;
   onhand: number;
   availableStock: number;
   supplierShortQty: number;

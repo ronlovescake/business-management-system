@@ -2,12 +2,13 @@ import { describe, expect, it } from 'vitest';
 import { buildInventoryItems } from '../inventoryTransforms';
 import type {
   InventoryMovementFromAPI,
+  MixAndMatchBatchFromAPI,
   ProductFromAPI,
   TransactionFromAPI,
 } from '../../types';
 
 describe('buildInventoryItems', () => {
-  it('derives available stock from sellable bucket movements (and does not surface reserved qty)', () => {
+  it('derives available stock from product quantity minus active transaction demand', () => {
     const products: ProductFromAPI[] = [
       {
         id: 'p1',
@@ -59,11 +60,12 @@ describe('buildInventoryItems', () => {
     const abc = items.find((i) => i.productCode === 'ABC-1');
     expect(abc).toBeDefined();
 
-    // sellable: 10 received - 2 moved to reserved = 8
-    expect(abc?.sellableOnHand).toBe(8);
-    expect(abc?.reservedOnHand).toBe(2);
-    expect(abc?.onHandSellable).toBe(8);
-    expect(abc?.onHandReserved).toBe(2);
+    // SELLABLE deducts both RESERVED and SOLD quantities.
+    expect(abc?.sellableOnHand).toBe(4);
+    expect(abc?.reservedOnHand).toBe(4);
+    expect(abc?.soldQty).toBe(2);
+    expect(abc?.onHandSellable).toBe(4);
+    expect(abc?.onHandReserved).toBe(4);
     expect(abc?.inTransitUnreserved).toBe(0);
     expect(abc?.inTransitReserved).toBe(0);
     expect(abc?.damagedOnHand).toBe(0);
@@ -71,13 +73,13 @@ describe('buildInventoryItems', () => {
     expect(abc?.onhand).toBe(10);
     expect(abc?.actualQuantityReceived).toBe(10);
 
-    // availability is based on sellableOnHand only
-    expect(abc?.availableStock).toBe(8);
+    // availability is based on product quantity minus active demand
+    expect(abc?.availableStock).toBe(4);
     expect(abc?.supplierShortQty).toBe(0);
 
-    // revenue counts only fulfilled statuses
-    expect(abc?.totalSales).toBe(20);
-    expect(abc?.endingInventoryValue).toBe(8 * 5);
+    // total sales uses active operational statuses (reserved + fulfilled)
+    expect(abc?.totalSales).toBe(60);
+    expect(abc?.endingInventoryValue).toBe(4 * 5);
   });
 
   it('falls back to product quantity when no sellable movements exist', () => {
@@ -99,21 +101,21 @@ describe('buildInventoryItems', () => {
     expect(xyz).toBeDefined();
     expect(xyz?.sellableOnHand).toBe(7);
     expect(xyz?.reservedOnHand).toBe(0);
-    expect(xyz?.onHandSellable).toBe(0);
+    expect(xyz?.onHandSellable).toBe(7);
     expect(xyz?.onHandReserved).toBe(0);
-    expect(xyz?.inTransitUnreserved).toBe(7);
+    expect(xyz?.inTransitUnreserved).toBe(0);
     expect(xyz?.inTransitReserved).toBe(0);
     expect(xyz?.damagedOnHand).toBe(0);
     expect(xyz?.scrapQty).toBe(0);
-    expect(xyz?.onhand).toBe(0);
-    expect(xyz?.availableStock).toBe(0);
+    expect(xyz?.onhand).toBe(7);
+    expect(xyz?.availableStock).toBe(7);
     expect(xyz?.supplierShortQty).toBe(0);
     expect(xyz?.actualQuantityReceived).toBe(7);
     expect(xyz?.shipmentCode).toBe('S1');
     expect(xyz?.shipmentStatus).toBe('In Transit');
   });
 
-  it('derives in-transit unreserved from movement-adjusted sellable quantity', () => {
+  it('derives in-transit unreserved from product quantity minus active demand', () => {
     const products: ProductFromAPI[] = [
       {
         id: 'p1',
@@ -126,36 +128,27 @@ describe('buildInventoryItems', () => {
       },
     ];
 
-    const movements: InventoryMovementFromAPI[] = [
-      // Receipt ledger into sellable (would otherwise override fallbackQuantity).
+    const transactions: TransactionFromAPI[] = [
       {
-        id: 1,
-        productCode: 'GPF-012426',
-        quantity: 296,
-        fromBucket: 'scrap',
-        toBucket: 'sellable',
-      },
-      // Reservations against incoming shipment.
-      {
-        id: 2,
-        productCode: 'GPF-012426',
-        quantity: 1230,
-        fromBucket: 'scrap',
-        toBucket: 'reserved',
+        id: 't1',
+        'Product Code': 'GPF-012426',
+        Quantity: 1010,
+        'Unit Price': 138,
+        'Order Status': 'In Transit',
       },
     ];
 
-    const items = buildInventoryItems(products, [], [], movements);
+    const items = buildInventoryItems(products, transactions, [], []);
     const gpf = items.find((i) => i.productCode === 'GPF-012426');
 
     expect(gpf).toBeDefined();
-    expect(gpf?.onHandSellable).toBe(0);
-    expect(gpf?.onHandReserved).toBe(0);
-    expect(gpf?.inTransitReserved).toBe(1230);
-    expect(gpf?.inTransitUnreserved).toBe(296);
+    expect(gpf?.onHandSellable).toBe(1790);
+    expect(gpf?.onHandReserved).toBe(1010);
+    expect(gpf?.inTransitReserved).toBe(0);
+    expect(gpf?.inTransitUnreserved).toBe(0);
   });
 
-  it('tracks damaged quantity separately and keeps onhand as sellable+reserved', () => {
+  it('tracks damaged quantity separately and derives sellable from actual quantity', () => {
     const products: ProductFromAPI[] = [
       {
         id: 'p1',
@@ -196,7 +189,7 @@ describe('buildInventoryItems', () => {
     expect(abc?.onhand).toBe(80);
     expect(abc?.availableStock).toBe(80);
     expect(abc?.supplierShortQty).toBe(0);
-    expect(abc?.actualQuantityReceived).toBe(100);
+    expect(abc?.actualQuantityReceived).toBe(80);
   });
 
   it('counts scrap as cumulative write-offs (incoming to scrap from non-scrap buckets)', () => {
@@ -233,9 +226,9 @@ describe('buildInventoryItems', () => {
     const abc = items.find((i) => i.productCode === 'ABC-1');
 
     expect(abc).toBeDefined();
-    expect(abc?.sellableOnHand).toBe(7);
+    expect(abc?.sellableOnHand).toBe(10);
     expect(abc?.scrapQty).toBe(3);
-    expect(abc?.actualQuantityReceived).toBe(7);
+    expect(abc?.actualQuantityReceived).toBe(10);
   });
 
   it('does not auto-create supplier short quantities from PO vs received', () => {
@@ -265,14 +258,14 @@ describe('buildInventoryItems', () => {
     const xyz = items.find((i) => i.productCode === 'XYZ-9');
 
     expect(xyz).toBeDefined();
-    expect(xyz?.onhand).toBe(80);
+    expect(xyz?.onhand).toBe(100);
     expect(xyz?.damagedOnHand).toBe(0);
     expect(xyz?.scrapQty).toBe(0);
     expect(xyz?.supplierShortQty).toBe(0);
     expect(xyz?.actualQuantityReceived).toBe(100);
   });
 
-  it('allows recording supplier short via movements and prefers the manual supplier short qty', () => {
+  it('allows recording supplier short via movements and applies it to actual quantity', () => {
     const products: ProductFromAPI[] = [
       {
         id: 'p1',
@@ -306,14 +299,14 @@ describe('buildInventoryItems', () => {
     const xyz = items.find((i) => i.productCode === 'XYZ-9');
 
     expect(xyz).toBeDefined();
-    // supplier_short is informational and does not reduce on-hand.
-    expect(xyz?.sellableOnHand).toBe(80);
+    // supplier_short reduces actual quantity, so sellable follows the reduced base.
+    expect(xyz?.sellableOnHand).toBe(95);
     // When there is a manual supplier short entry, the UI prefers that value.
     expect(xyz?.supplierShortQty).toBe(5);
     expect(xyz?.actualQuantityReceived).toBe(95);
   });
 
-  it('treats sellable movements as adjustments when there are no sellable receipts', () => {
+  it('applies supplier short against actual quantity when no sellable receipts exist', () => {
     const products: ProductFromAPI[] = [
       {
         id: 'p1',
@@ -340,8 +333,170 @@ describe('buildInventoryItems', () => {
     const abc = items.find((i) => i.productCode === 'ABC-1');
 
     expect(abc).toBeDefined();
-    // supplier_short does not change sellable on-hand.
-    expect(abc?.sellableOnHand).toBe(10);
+    // supplier_short reduces actual quantity, which now drives sellable.
+    expect(abc?.sellableOnHand).toBe(7);
     expect(abc?.actualQuantityReceived).toBe(7);
+  });
+
+  it('counts SOLD only for Ready For Dispatch, Checked Out, and Shipped', () => {
+    const products: ProductFromAPI[] = [
+      {
+        id: 'p1',
+        'Product Code': 'ABC-1',
+        Quantity: 100,
+        COGS: 0,
+        'Actual Price': 5,
+        'Shipment Code': null,
+        'Shipment Status': 'Delivered',
+      },
+    ];
+
+    const transactions: TransactionFromAPI[] = [
+      {
+        id: 't1',
+        'Product Code': 'ABC-1',
+        Quantity: 3,
+        'Unit Price': 10,
+        'Order Status': 'Ready For Dispatch',
+      },
+      {
+        id: 't2',
+        'Product Code': 'ABC-1',
+        Quantity: 2,
+        'Unit Price': 10,
+        'Order Status': 'Checked Out',
+      },
+      {
+        id: 't3',
+        'Product Code': 'ABC-1',
+        Quantity: 4,
+        'Unit Price': 10,
+        'Order Status': 'Shipped',
+      },
+      {
+        id: 't4',
+        'Product Code': 'ABC-1',
+        Quantity: 5,
+        'Unit Price': 10,
+        'Order Status': 'Warehouse',
+      },
+    ];
+
+    const items = buildInventoryItems(products, transactions, [], []);
+    const abc = items.find((i) => i.productCode === 'ABC-1');
+
+    expect(abc).toBeDefined();
+    expect(abc?.soldQty).toBe(9);
+    expect(abc?.reservedOnHand).toBe(5);
+    expect(abc?.sellableOnHand).toBe(86);
+  });
+
+  it('allocates mix-and-match demand from pooled component capacity', () => {
+    const products: ProductFromAPI[] = [
+      {
+        id: 'p-mix',
+        'Product Code': 'Ruffled Onesie (RO-021426)',
+        Quantity: 0,
+        COGS: 0,
+        'Actual Price': 69,
+        'Shipment Code': null,
+        'Shipment Status': 'Delivered',
+      },
+      {
+        id: 'p-a',
+        'Product Code': 'Sleeveless Onesie (SO-020726)',
+        Quantity: 237,
+        COGS: 0,
+        'Actual Price': 0,
+        'Shipment Code': null,
+        'Shipment Status': 'Delivered',
+      },
+      {
+        id: 'p-b',
+        'Product Code': 'Ruffled Onesie (RO-020726)',
+        Quantity: 362,
+        COGS: 0,
+        'Actual Price': 0,
+        'Shipment Code': null,
+        'Shipment Status': 'Delivered',
+      },
+    ];
+
+    const transactions: TransactionFromAPI[] = [
+      {
+        id: 't-mix-1',
+        'Product Code': 'Ruffled Onesie (RO-021426)',
+        Quantity: 589,
+        'Unit Price': 69,
+        'Order Status': 'Warehouse',
+      },
+    ];
+
+    const mixAndMatchBatches: MixAndMatchBatchFromAPI[] = [
+      {
+        id: 1,
+        postingDate: '2026-02-14',
+        mixAndMatchName: 'Ruffled Onesie',
+        mixAndMatchSku: 'Ruffled Onesie (RO-021426)',
+        price: 69,
+        components: [
+          {
+            productCode: 'Sleeveless Onesie (SO-020726)',
+            includedQuantity: 1,
+          },
+          {
+            productCode: 'Ruffled Onesie (RO-020726)',
+            includedQuantity: 1,
+          },
+        ],
+      },
+    ];
+
+    const items = buildInventoryItems(
+      products,
+      transactions,
+      [],
+      [],
+      mixAndMatchBatches
+    );
+
+    const sleeveless = items.find((i) => i.productCode.includes('SO-020726'));
+    const ruffledComponent = items.find((i) =>
+      i.productCode.includes('RO-020726')
+    );
+
+    expect(sleeveless?.sellableOnHand).toBe(0);
+    expect(ruffledComponent?.sellableOnHand).toBe(10);
+  });
+
+  it('keeps Additionals separate from Supplier Short', () => {
+    const products: ProductFromAPI[] = [
+      {
+        id: 'p1',
+        'Product Code': 'Baby Shoes (BS-010826)',
+        Quantity: 400,
+        COGS: 0,
+        'Actual Price': 0,
+        'Shipment Code': null,
+        'Shipment Status': 'Delivered',
+      },
+    ];
+
+    const movements: InventoryMovementFromAPI[] = [
+      {
+        id: 1,
+        productCode: 'Baby Shoes (BS-010826)',
+        quantity: 9,
+        fromBucket: 'supplier_short',
+        toBucket: 'sellable',
+        notes: 'additionals: correction',
+      },
+    ];
+
+    const items = buildInventoryItems(products, [], [], movements);
+    const babyShoes = items.find((i) => i.productCode.includes('BS-010826'));
+
+    expect(babyShoes?.additionalsQty).toBe(9);
+    expect(babyShoes?.supplierShortQty).toBe(0);
   });
 });

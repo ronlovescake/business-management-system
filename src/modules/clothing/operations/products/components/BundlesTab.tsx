@@ -32,6 +32,14 @@ import {
   parseDateValue,
 } from '@/lib/dateInputConfig';
 import { DateInput } from '@mantine/dates';
+import type {
+  InventoryMovementFromAPI,
+  ProductFromAPI,
+  TransactionFromAPI,
+} from '@/modules/clothing/operations/inventory/types';
+import { buildInventoryItems } from '@/modules/clothing/operations/inventory/lib/inventoryTransforms';
+import { normalizeProductCode } from '@/lib/inventory/movements';
+import { buildApiPath } from '@/lib/api/paths';
 
 type BundleComponentRow = {
   clientId: string;
@@ -110,6 +118,71 @@ export function BundlesTab({ apiBasePath }: BundlesTabProps) {
     staleTime: 30 * 1000,
   });
 
+  const { data: movements = [] } = useQuery<InventoryMovementFromAPI[]>({
+    queryKey: ['inventory-movements', apiBasePath ?? 'default'],
+    queryFn: async () => {
+      const response = await fetch(
+        buildApiPath(apiBasePath, '/inventory/movements')
+      );
+      if (!response.ok) {
+        return [];
+      }
+
+      const payload = (await response.json()) as {
+        data?: InventoryMovementFromAPI[];
+      };
+
+      if (Array.isArray(payload)) {
+        return payload as unknown as InventoryMovementFromAPI[];
+      }
+
+      return Array.isArray(payload?.data) ? payload.data : [];
+    },
+    staleTime: 30 * 1000,
+  });
+
+  const { data: transactions = [] } = useQuery<TransactionFromAPI[]>({
+    queryKey: ['transactions', apiBasePath ?? 'default'],
+    queryFn: async () => {
+      const response = await fetch(buildApiPath(apiBasePath, '/transactions'));
+      if (!response.ok) {
+        return [];
+      }
+
+      const payload = (await response.json()) as {
+        data?: TransactionFromAPI[];
+      };
+
+      if (Array.isArray(payload)) {
+        return payload as unknown as TransactionFromAPI[];
+      }
+
+      return Array.isArray(payload?.data) ? payload.data : [];
+    },
+    staleTime: 30 * 1000,
+  });
+
+  const sellableOnHandByCode = useMemo(() => {
+    const inventoryItems = buildInventoryItems(
+      products as unknown as ProductFromAPI[],
+      transactions,
+      [],
+      movements
+    );
+
+    const map = new Map<string, number>();
+    inventoryItems.forEach((item) => {
+      const normalized = normalizeProductCode(item.productCode);
+      if (!normalized) {
+        return;
+      }
+
+      map.set(normalized, Math.max(item.sellableOnHand, 0));
+    });
+
+    return map;
+  }, [movements, products, transactions]);
+
   const productCodeOptions = useMemo(() => {
     const codes = Array.from(
       new Set(
@@ -122,7 +195,8 @@ export function BundlesTab({ apiBasePath }: BundlesTabProps) {
               return false;
             }
 
-            return Number(product.Quantity) > 0;
+            const normalized = normalizeProductCode(product['Product Code']);
+            return (sellableOnHandByCode.get(normalized) ?? 0) > 0;
           })
           .map((product) => product['Product Code'])
           .filter((code): code is string => Boolean(code))
@@ -131,7 +205,7 @@ export function BundlesTab({ apiBasePath }: BundlesTabProps) {
     ).sort((a, b) => a.localeCompare(b));
 
     return codes.map((code) => ({ value: code, label: code }));
-  }, [products]);
+  }, [products, sellableOnHandByCode]);
 
   const filteredBundles = useMemo(() => {
     if (!searchQuery.trim()) {
@@ -461,6 +535,7 @@ export function BundlesTab({ apiBasePath }: BundlesTabProps) {
                     label={idx === 0 ? 'Included Qty' : undefined}
                     min={1}
                     value={c.includedQuantity}
+                    description={`Available: ${sellableOnHandByCode.get(normalizeProductCode(c.productCode)) ?? 0}`}
                     onChange={(value) =>
                       updateComponent(idx, {
                         includedQuantity: typeof value === 'number' ? value : 1,

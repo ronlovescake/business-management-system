@@ -18,28 +18,19 @@ export const InventorySummary = memo(
         </Text>
         <Group gap="lg" wrap="wrap">
           <Text size="sm" c="dimmed">
-            On-hand Total: {numberFormatter.format(totals.onhand)}
+            P.O. Quantity Total: {numberFormatter.format(totals.quantity)}
           </Text>
           <Text size="sm" c="dimmed">
-            On-hand Sellable: {numberFormatter.format(totals.onHandSellable)}
+            Sellable: {numberFormatter.format(totals.availableStock)}
           </Text>
           <Text size="sm" c="dimmed">
-            On-hand Reserved: {numberFormatter.format(totals.onHandReserved)}
-          </Text>
-          <Text size="sm" c="dimmed">
-            In-transit Unreserved:{' '}
-            {numberFormatter.format(totals.inTransitUnreserved)}
-          </Text>
-          <Text size="sm" c="dimmed">
-            In-transit Reserved:{' '}
-            {numberFormatter.format(totals.inTransitReserved)}
+            Reserved: {numberFormatter.format(totals.onHandReserved)}
           </Text>
           <Text size="sm" c="dimmed">
             Damaged: {numberFormatter.format(totals.damagedOnHand)}
           </Text>
           <Text size="sm" c="dimmed">
-            Available (On-hand Sellable):{' '}
-            {numberFormatter.format(totals.availableStock)}
+            Actual Quantity: {numberFormatter.format(totals.onhand)}
           </Text>
           <Text size="sm" c="dimmed">
             Supplier Short: {numberFormatter.format(totals.supplierShortQty)}
@@ -59,7 +50,7 @@ export const InventorySummary = memo(
             {currencyFormatter.format(totals.totalSales)}
           </Text>
           <Text size="sm" c="dimmed">
-            Ending Value (On-hand Sellable):{' '}
+            Ending Value (Sellable):{' '}
             {currencyFormatter.format(totals.endingInventoryValue)}
           </Text>
         </Group>

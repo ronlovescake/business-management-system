@@ -13,6 +13,7 @@ import type {
   InventoryItem,
   InventoryTotals,
   BundleBatchFromAPI,
+  MixAndMatchBatchFromAPI,
   ProductFromAPI,
   TransactionFromAPI,
   InventoryMovementFromAPI,
@@ -23,16 +24,16 @@ const HEADERS = [
   'P.O. QUANTITY',
   'DAMAGED QTY',
   'SUPPLIER SHORT',
-  'ACTUAL QUANTITY RECEIVED',
-  'ON-HAND SELLABLE',
-  'ON-HAND RESERVED',
-  'IN-TRANSIT UNRESERVED',
-  'IN-TRANSIT RESERVED',
+  'ADDITIONALS',
+  'ACTUAL QUANTITY',
+  'RESERVED',
+  'SOLD',
+  'SELLABLE',
   'TOTAL SALES',
   'COGS',
   'NET PROFIT',
   'PERCENTAGE',
-  'ENDING INVENTORY VALUE (ON-HAND SELLABLE)',
+  'ENDING INVENTORY VALUE (SELLABLE)',
   'SHIPMENT STATUS',
   'SHIPMENT CODE',
 ] as const;
@@ -45,6 +46,9 @@ export const useInventoryPage = (apiBasePath?: string) => {
   const [products, setProducts] = useState<ProductFromAPI[]>([]);
   const [transactions, setTransactions] = useState<TransactionFromAPI[]>([]);
   const [bundles, setBundles] = useState<BundleBatchFromAPI[]>([]);
+  const [mixAndMatchBatches, setMixAndMatchBatches] = useState<
+    MixAndMatchBatchFromAPI[]
+  >([]);
   const [movements, setMovements] = useState<InventoryMovementFromAPI[]>([]);
 
   const fetchInventoryData = useCallback(async () => {
@@ -55,11 +59,13 @@ export const useInventoryPage = (apiBasePath?: string) => {
         productsResponse,
         transactionsResponse,
         bundlesResponse,
+        mixAndMatchResponse,
         movementsResponse,
       ] = await Promise.all([
         fetch(buildApiPath(apiBasePath, '/products')),
         fetch(buildApiPath(apiBasePath, '/transactions')),
         fetch(buildApiPath(apiBasePath, '/bundles')),
+        fetch(buildApiPath(apiBasePath, '/mix-and-match')),
         fetch(buildApiPath(apiBasePath, '/inventory/movements')),
       ]);
 
@@ -87,15 +93,23 @@ export const useInventoryPage = (apiBasePath?: string) => {
         );
       }
 
+      if (!mixAndMatchResponse.ok) {
+        throw new Error(
+          `Failed to fetch mix and match: ${mixAndMatchResponse.statusText}`
+        );
+      }
+
       const [
         productsPayload,
         transactionsPayload,
         bundlesPayload,
+        mixAndMatchPayload,
         movementsPayload,
       ] = await Promise.all([
         productsResponse.json(),
         transactionsResponse.json(),
         bundlesResponse.json(),
+        mixAndMatchResponse.json(),
         movementsResponse.json(),
       ]);
 
@@ -103,6 +117,8 @@ export const useInventoryPage = (apiBasePath?: string) => {
       const parsedTransactions =
         extractApiData<TransactionFromAPI>(transactionsPayload);
       const parsedBundles = extractApiData<BundleBatchFromAPI>(bundlesPayload);
+      const parsedMixAndMatchBatches =
+        extractApiData<MixAndMatchBatchFromAPI>(mixAndMatchPayload);
       const parsedMovements =
         extractApiData<InventoryMovementFromAPI>(movementsPayload);
 
@@ -123,6 +139,7 @@ export const useInventoryPage = (apiBasePath?: string) => {
       setProducts(parsedProducts);
       setTransactions(parsedTransactions);
       setBundles(parsedBundles);
+      setMixAndMatchBatches(parsedMixAndMatchBatches);
     } catch (error) {
       logger.error('Failed to load inventory data:', error);
       showNotification({
@@ -140,8 +157,14 @@ export const useInventoryPage = (apiBasePath?: string) => {
   }, [fetchInventoryData]);
 
   const inventoryItems = useMemo<InventoryItem[]>(() => {
-    return buildInventoryItems(products, transactions, bundles, movements);
-  }, [products, transactions, bundles, movements]);
+    return buildInventoryItems(
+      products,
+      transactions,
+      bundles,
+      movements,
+      mixAndMatchBatches
+    );
+  }, [products, transactions, bundles, movements, mixAndMatchBatches]);
 
   const sellableOnHandByCode = useMemo(() => {
     const map = new Map<string, number>();
@@ -244,8 +267,10 @@ export const useInventoryPage = (apiBasePath?: string) => {
   const updateMovement = useCallback(
     async (params: {
       id: number;
-      quantity: number;
+      quantity?: number;
       toBucket?: 'damaged_hold' | 'scrap' | 'supplier_short';
+      postingDate?: string;
+      notes?: string;
     }) => {
       setIsSubmittingMovement(true);
       try {

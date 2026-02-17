@@ -1,7 +1,6 @@
 'use client';
 
-import type { FormEvent } from 'react';
-import { useMemo, useState } from 'react';
+import React, { type FormEvent, useMemo, useState } from 'react';
 import { useDisclosure } from '@mantine/hooks';
 import { showNotification } from '@mantine/notifications';
 import {
@@ -27,6 +26,7 @@ import { InventorySummary } from './InventorySummary';
 import { InventoryTable } from './InventoryTable';
 import { numberFormatter } from '../lib/formatters';
 import { UniversalModal } from '@/components/modals/UniversalModal';
+import { normalizeProductCode } from '@/lib/inventory/movements';
 
 interface InventoryPageProps {
   apiBasePath?: string;
@@ -34,6 +34,7 @@ interface InventoryPageProps {
 
 export function InventoryPage({ apiBasePath }: InventoryPageProps) {
   const ADDITIONALS_NOTE_PREFIX = 'additionals';
+  const ADDITIONALS_NOTE_MARKER = `${ADDITIONALS_NOTE_PREFIX}:`;
 
   const {
     setSearchQuery,
@@ -56,7 +57,7 @@ export function InventoryPage({ apiBasePath }: InventoryPageProps) {
     getSellableOnHand,
   } = useInventoryPage(apiBasePath);
 
-  const [activeTab, setActiveTab] = useState<'inventory' | 'adjustments'>(
+  const [activeTab, setActiveTab] = React.useState<'inventory' | 'adjustments'>(
     'inventory'
   );
 
@@ -72,9 +73,9 @@ export function InventoryPage({ apiBasePath }: InventoryPageProps) {
     new Date().toISOString().slice(0, 10)
   );
   const [quantity, setQuantity] = useState<number | ''>(1);
-  const [toBucket, setToBucket] = useState<'damaged_hold' | 'scrap'>(
-    'damaged_hold'
-  );
+  const [toBucket, setToBucket] = useState<
+    'damaged_hold' | 'scrap' | 'supplier_short' | 'additionals'
+  >('damaged_hold');
   const [notes, setNotes] = useState('');
 
   const [supplierShortProduct, setSupplierShortProduct] = useState<string>('');
@@ -145,8 +146,9 @@ export function InventoryPage({ apiBasePath }: InventoryPageProps) {
       .filter(
         (m) =>
           !m.deletedAt &&
-          m.fromBucket === 'sellable' &&
-          m.toBucket === 'supplier_short'
+          ((m.fromBucket === 'sellable' && m.toBucket === 'supplier_short') ||
+            (m.fromBucket === 'supplier_short' && m.toBucket === 'sellable')) &&
+          !(m.notes ?? '').toLowerCase().startsWith(ADDITIONALS_NOTE_PREFIX)
       )
       .slice()
       .sort((a, b) => {
@@ -161,8 +163,8 @@ export function InventoryPage({ apiBasePath }: InventoryPageProps) {
       .filter(
         (m) =>
           !m.deletedAt &&
-          m.fromBucket === 'supplier_short' &&
-          m.toBucket === 'sellable' &&
+          ((m.fromBucket === 'supplier_short' && m.toBucket === 'sellable') ||
+            (m.fromBucket === 'sellable' && m.toBucket === 'supplier_short')) &&
           (m.notes ?? '').toLowerCase().startsWith(ADDITIONALS_NOTE_PREFIX)
       )
       .slice()
@@ -216,10 +218,13 @@ export function InventoryPage({ apiBasePath }: InventoryPageProps) {
     const map = new Map<string, number>();
     supplierShortMovementsByProduct.forEach((rows, code) => {
       const total = rows.reduce(
-        (sum, movement) => sum + (Number(movement.quantity) || 0),
+        (sum, movement) =>
+          sum +
+          (movement.toBucket === 'supplier_short' ? 1 : -1) *
+            (Number(movement.quantity) || 0),
         0
       );
-      map.set(code, total);
+      map.set(code, Math.max(total, 0));
     });
     return map;
   }, [supplierShortMovementsByProduct]);
@@ -228,13 +233,119 @@ export function InventoryPage({ apiBasePath }: InventoryPageProps) {
     const map = new Map<string, number>();
     additionalsMovementsByProduct.forEach((rows, code) => {
       const total = rows.reduce(
-        (sum, movement) => sum + (Number(movement.quantity) || 0),
+        (sum, movement) =>
+          sum +
+          (movement.fromBucket === 'supplier_short' ? 1 : -1) *
+            (Number(movement.quantity) || 0),
         0
       );
-      map.set(code, total);
+      map.set(code, Math.max(total, 0));
     });
     return map;
   }, [additionalsMovementsByProduct]);
+
+  const adjustmentNotesByProduct = useMemo(() => {
+    const map = new Map<string, string>();
+    const relevantMovements = [
+      ...adjustmentMovements,
+      ...supplierShortMovements,
+      ...additionalsMovements,
+    ].sort((a, b) => Number(b.id) - Number(a.id));
+
+    relevantMovements.forEach((movement) => {
+      const code = normalizeProductCode(movement.productCode);
+      const rawNote = (movement.notes ?? '').trim();
+      const note = rawNote.replace(/^additionals(?:\s*:\s*)?/i, '').trim();
+      if (!code || !note) {
+        return;
+      }
+
+      const existing = map.get(code);
+      if (!existing) {
+        map.set(code, note);
+        return;
+      }
+
+      if (!existing.toLowerCase().includes(note.toLowerCase())) {
+        map.set(code, `${existing}; ${note}`);
+      }
+    });
+
+    return map;
+  }, [adjustmentMovements, supplierShortMovements, additionalsMovements]);
+
+  const inventoryItemByCode = useMemo(() => {
+    const map = new Map<string, (typeof filteredData)[number]>();
+    filteredData.forEach((item) => {
+      const code = item.productCode.trim();
+      if (!code) {
+        return;
+      }
+
+      map.set(code, item);
+    });
+    return map;
+  }, [filteredData]);
+
+  const getCurrentBucketQuantity = (
+    productCode: string,
+    bucket: 'damaged_hold' | 'scrap' | 'supplier_short' | 'additionals'
+  ): number => {
+    const code = productCode.trim();
+    if (!code) {
+      return 0;
+    }
+
+    if (bucket === 'supplier_short') {
+      return supplierShortQtyByProduct.get(code) ?? 0;
+    }
+
+    if (bucket === 'additionals') {
+      return additionalsQtyByProduct.get(code) ?? 0;
+    }
+
+    const item = inventoryItemByCode.get(code);
+    if (!item) {
+      return 0;
+    }
+
+    return bucket === 'damaged_hold' ? item.damagedOnHand : item.scrapQty;
+  };
+
+  const getLatestBucketNote = (
+    productCode: string,
+    bucket: 'damaged_hold' | 'scrap' | 'supplier_short' | 'additionals'
+  ): string => {
+    const normalizedCode = normalizeProductCode(productCode);
+    if (!normalizedCode) {
+      return '';
+    }
+
+    const movementForBucket =
+      bucket === 'additionals'
+        ? additionalsMovements.find(
+            (movement) =>
+              normalizeProductCode(movement.productCode) === normalizedCode
+          )
+        : bucket === 'supplier_short'
+          ? supplierShortMovements.find(
+              (movement) =>
+                normalizeProductCode(movement.productCode) === normalizedCode &&
+                movement.toBucket === 'supplier_short'
+            )
+          : adjustmentMovements.find(
+              (movement) =>
+                normalizeProductCode(movement.productCode) === normalizedCode &&
+                movement.toBucket === bucket
+            );
+
+    const rawNote = (movementForBucket?.notes ?? '').trim();
+    if (!rawNote) {
+      return '';
+    }
+
+    return rawNote.replace(/^additionals(?:\s*:\s*)?/i, '').trim();
+  };
 
   const editingProductMovements = useMemo(() => {
     if (!editingProductCode) {
@@ -276,6 +387,34 @@ export function InventoryPage({ apiBasePath }: InventoryPageProps) {
     });
   }, [filteredData]);
 
+  const openAdjustmentForProduct = (productCode: string) => {
+    const code = productCode.trim();
+    if (!code) {
+      return;
+    }
+
+    setSelectedProduct(code);
+    setPostingDate(new Date().toISOString().slice(0, 10));
+    setToBucket('damaged_hold');
+    setNotes(getLatestBucketNote(code, 'damaged_hold'));
+    adjustmentModalHandlers.open();
+  };
+
+  React.useEffect(() => {
+    if (!selectedProduct) {
+      setQuantity(0);
+      return;
+    }
+
+    setQuantity(getCurrentBucketQuantity(selectedProduct, toBucket));
+  }, [
+    additionalsQtyByProduct,
+    inventoryItemByCode,
+    selectedProduct,
+    supplierShortQtyByProduct,
+    toBucket,
+  ]);
+
   const productOptions = useMemo(
     () =>
       products
@@ -287,11 +426,106 @@ export function InventoryPage({ apiBasePath }: InventoryPageProps) {
 
   const handleMovementSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    if (!selectedProduct || !quantity || quantity <= 0) {
+    if (!selectedProduct || quantity === '' || Number(quantity) < 0) {
       return;
     }
 
-    if (Number(quantity) > selectedOnHand) {
+    const targetQty = Number(quantity);
+    const currentQty = getCurrentBucketQuantity(selectedProduct, toBucket);
+    const deltaQty = targetQty - currentQty;
+    const trimmedNotes = notes.trim();
+    const normalizedProductCode = normalizeProductCode(selectedProduct);
+    const additionalsFormattedNotes = trimmedNotes
+      ? `${ADDITIONALS_NOTE_MARKER} ${trimmedNotes}`
+      : ADDITIONALS_NOTE_MARKER;
+
+    if (deltaQty === 0) {
+      const candidateMovements = editableMovements
+        .filter((movement) => {
+          if (
+            normalizeProductCode(movement.productCode) !== normalizedProductCode
+          ) {
+            return false;
+          }
+
+          if (toBucket === 'additionals') {
+            return (movement.notes ?? '')
+              .toLowerCase()
+              .startsWith(ADDITIONALS_NOTE_PREFIX);
+          }
+
+          if (toBucket === 'supplier_short') {
+            return (
+              movement.toBucket === 'supplier_short' &&
+              !(movement.notes ?? '')
+                .toLowerCase()
+                .startsWith(ADDITIONALS_NOTE_PREFIX)
+            );
+          }
+
+          return movement.toBucket === toBucket;
+        })
+        .sort((a, b) => Number(b.id) - Number(a.id));
+
+      const latestMatchingMovement = candidateMovements[0];
+
+      if (!trimmedNotes && !(latestMatchingMovement?.notes ?? '').trim()) {
+        showNotification({
+          title: 'No changes',
+          message: 'Selected bucket already matches the target quantity.',
+          color: 'blue',
+        });
+        adjustmentModalHandlers.close();
+        return;
+      }
+
+      if (!latestMatchingMovement) {
+        showNotification({
+          title: 'Unable to save note',
+          message:
+            'No matching adjustment entry found for note-only update. Change target quantity to create an entry.',
+          color: 'red',
+        });
+        return;
+      }
+
+      try {
+        await updateMovement({
+          id: latestMatchingMovement.id,
+          postingDate: postingDate.trim() || undefined,
+          notes:
+            toBucket === 'additionals'
+              ? additionalsFormattedNotes
+              : trimmedNotes,
+        });
+
+        showNotification({
+          title: 'Saved',
+          message: 'Adjustment note updated',
+          color: 'green',
+        });
+
+        setNotes('');
+        adjustmentModalHandlers.close();
+      } catch (error) {
+        showNotification({
+          title: 'Error',
+          message:
+            error instanceof Error
+              ? error.message
+              : 'Failed to update adjustment note',
+          color: 'red',
+        });
+      }
+
+      return;
+    }
+
+    if (
+      deltaQty > 0 &&
+      toBucket !== 'additionals' &&
+      deltaQty > selectedOnHand
+    ) {
       showNotification({
         title: 'Quantity exceeds sellable on-hand',
         message: `Available sellable units for ${selectedProduct}: ${selectedOnHand}`,
@@ -301,14 +535,34 @@ export function InventoryPage({ apiBasePath }: InventoryPageProps) {
     }
 
     try {
-      await createMovement({
-        productCode: selectedProduct,
-        quantity: Number(quantity),
-        fromBucket: 'sellable',
-        toBucket,
-        postingDate: postingDate.trim() || undefined,
-        notes: notes.trim() || undefined,
-      });
+      if (deltaQty > 0) {
+        await createMovement({
+          productCode: selectedProduct,
+          quantity: deltaQty,
+          fromBucket:
+            toBucket === 'additionals' ? 'supplier_short' : 'sellable',
+          toBucket: toBucket === 'additionals' ? 'sellable' : toBucket,
+          postingDate: postingDate.trim() || undefined,
+          notes:
+            toBucket === 'additionals'
+              ? additionalsFormattedNotes
+              : trimmedNotes || undefined,
+        });
+      } else {
+        const reverseQty = Math.abs(deltaQty);
+
+        await createMovement({
+          productCode: selectedProduct,
+          quantity: reverseQty,
+          fromBucket: toBucket === 'additionals' ? 'sellable' : toBucket,
+          toBucket: toBucket === 'additionals' ? 'supplier_short' : 'sellable',
+          postingDate: postingDate.trim() || undefined,
+          notes:
+            toBucket === 'additionals'
+              ? additionalsFormattedNotes
+              : trimmedNotes || undefined,
+        });
+      }
 
       showNotification({
         title: 'Saved',
@@ -316,7 +570,7 @@ export function InventoryPage({ apiBasePath }: InventoryPageProps) {
         color: 'green',
       });
 
-      setQuantity(1);
+      setQuantity(0);
       setNotes('');
       adjustmentModalHandlers.close();
     } catch (error) {
@@ -376,8 +630,8 @@ export function InventoryPage({ apiBasePath }: InventoryPageProps) {
 
     const trimmedNotes = additionalsNotes.trim();
     const finalNotes = trimmedNotes
-      ? `${ADDITIONALS_NOTE_PREFIX}: ${trimmedNotes}`
-      : ADDITIONALS_NOTE_PREFIX;
+      ? `${ADDITIONALS_NOTE_MARKER} ${trimmedNotes}`
+      : ADDITIONALS_NOTE_MARKER;
 
     try {
       await createMovement({
@@ -424,36 +678,6 @@ export function InventoryPage({ apiBasePath }: InventoryPageProps) {
         'damaged_hold'
     );
     editModalHandlers.open();
-  };
-
-  const openEditLatestForProduct = (productCode: string) => {
-    const rows = adjustmentMovementsByProduct.get(productCode.trim()) ?? [];
-    const latest = rows[0];
-    if (!latest) {
-      showNotification({
-        title: 'No entries',
-        message: 'No adjustment entries found for this product.',
-        color: 'yellow',
-      });
-      return;
-    }
-
-    openEditMovement(latest.id);
-  };
-
-  const openEditLatestSupplierShortForProduct = (productCode: string) => {
-    const rows = supplierShortMovementsByProduct.get(productCode.trim()) ?? [];
-    const latest = rows[0];
-    if (!latest) {
-      showNotification({
-        title: 'No entries',
-        message: 'No supplier short entries found for this product.',
-        color: 'yellow',
-      });
-      return;
-    }
-
-    openEditMovement(latest.id);
   };
 
   const handleEditSubmit = async (event: FormEvent<HTMLFormElement>) => {
@@ -537,40 +761,6 @@ export function InventoryPage({ apiBasePath }: InventoryPageProps) {
     }
   };
 
-  const handleDeleteLatestForProduct = async (productCode: string) => {
-    const rows = adjustmentMovementsByProduct.get(productCode.trim()) ?? [];
-    const latest = rows[0];
-    if (!latest) {
-      return;
-    }
-
-    await handleDeleteMovement(latest.id);
-  };
-
-  const handleDeleteLatestSupplierShortForProduct = async (
-    productCode: string
-  ) => {
-    const rows = supplierShortMovementsByProduct.get(productCode.trim()) ?? [];
-    const latest = rows[0];
-    if (!latest) {
-      return;
-    }
-
-    await handleDeleteMovement(latest.id);
-  };
-
-  const handleDeleteLatestAdditionalsForProduct = async (
-    productCode: string
-  ) => {
-    const rows = additionalsMovementsByProduct.get(productCode.trim()) ?? [];
-    const latest = rows[0];
-    if (!latest) {
-      return;
-    }
-
-    await handleDeleteMovement(latest.id);
-  };
-
   if (isLoading) {
     return (
       <Stack gap="md">
@@ -600,7 +790,7 @@ export function InventoryPage({ apiBasePath }: InventoryPageProps) {
       <UniversalModal
         opened={adjustmentModalOpened}
         onClose={adjustmentModalHandlers.close}
-        title="Damaged / Scrap Adjustment"
+        title="ADJUSTMENTS"
         size="lg"
         centered
         closeOnEscape={!isSubmittingMovement}
@@ -609,7 +799,7 @@ export function InventoryPage({ apiBasePath }: InventoryPageProps) {
         <form onSubmit={handleMovementSubmit}>
           <Stack gap="sm">
             <Text size="sm" c="dimmed">
-              Move quantity out of SELLABLE into DAMAGED_HOLD or SCRAP.
+              Move inventory between adjustment buckets.
             </Text>
 
             <Select
@@ -630,7 +820,7 @@ export function InventoryPage({ apiBasePath }: InventoryPageProps) {
             />
 
             <NumberInput
-              label="Quantity"
+              label="Target Quantity"
               min={0}
               required
               value={quantity}
@@ -646,16 +836,25 @@ export function InventoryPage({ apiBasePath }: InventoryPageProps) {
               data={[
                 {
                   value: 'damaged_hold',
-                  label: 'Damaged Hold (keep aside)',
+                  label: 'Damaged Hold (Keep aside)',
                 },
                 { value: 'scrap', label: 'Scrap (write off)' },
+                { value: 'supplier_short', label: 'Supplier short' },
+                { value: 'additionals', label: 'Additionals' },
               ]}
               value={toBucket}
-              onChange={(value) =>
-                setToBucket(
-                  (value as 'damaged_hold' | 'scrap') ?? 'damaged_hold'
-                )
-              }
+              onChange={(value) => {
+                const nextBucket =
+                  (value as
+                    | 'damaged_hold'
+                    | 'scrap'
+                    | 'supplier_short'
+                    | 'additionals') ?? 'damaged_hold';
+                setToBucket(nextBucket);
+                if (selectedProduct) {
+                  setNotes(getLatestBucketNote(selectedProduct, nextBucket));
+                }
+              }}
             />
 
             <Textarea
@@ -677,7 +876,7 @@ export function InventoryPage({ apiBasePath }: InventoryPageProps) {
               <Button
                 type="submit"
                 loading={isSubmittingMovement}
-                disabled={!selectedProduct || !quantity}
+                disabled={!selectedProduct || quantity === ''}
               >
                 Save Adjustment
               </Button>
@@ -963,28 +1162,6 @@ export function InventoryPage({ apiBasePath }: InventoryPageProps) {
             onExport={handleExportCSV}
             onAddNew={handleAddNew}
             isImporting={isImporting}
-            searchAddon={
-              <Group gap="xs" wrap="nowrap">
-                <Button
-                  variant="light"
-                  onClick={() => {
-                    setActiveTab('adjustments');
-                    adjustmentModalHandlers.open();
-                  }}
-                >
-                  Mark Damaged Qty
-                </Button>
-                <Button
-                  variant="light"
-                  onClick={() => {
-                    setActiveTab('adjustments');
-                    supplierShortModalHandlers.open();
-                  }}
-                >
-                  Mark Supplier Short
-                </Button>
-              </Group>
-            }
           />
 
           <StandardTableContainer
@@ -1013,20 +1190,8 @@ export function InventoryPage({ apiBasePath }: InventoryPageProps) {
                   DAMAGED_HOLD, SCRAP, SUPPLIER_SHORT, or record ADDITIONALS.
                 </Text>
                 <Group justify="flex-end">
-                  <Button
-                    variant="default"
-                    onClick={supplierShortModalHandlers.open}
-                  >
-                    New Supplier Short
-                  </Button>
-                  <Button
-                    variant="default"
-                    onClick={additionalsModalHandlers.open}
-                  >
-                    New Additionals
-                  </Button>
                   <Button onClick={adjustmentModalHandlers.open}>
-                    New Damaged / Scrap
+                    Adjustment
                   </Button>
                 </Group>
               </Stack>
@@ -1040,7 +1205,7 @@ export function InventoryPage({ apiBasePath }: InventoryPageProps) {
                   'SCRAP',
                   'SUPPLIER SHORT',
                   'ADDITIONALS',
-                  'ACTIONS',
+                  'NOTES',
                 ]}
                 emptyState="No adjustment entries yet."
                 colSpan={6}
@@ -1088,9 +1253,19 @@ export function InventoryPage({ apiBasePath }: InventoryPageProps) {
                   .map((item) => (
                     <Table.Tr key={item.id}>
                       <Table.Td style={{ textAlign: 'left' }}>
-                        <Text size="sm" c="#495057">
-                          {item.productCode}
-                        </Text>
+                        <Button
+                          variant="subtle"
+                          size="compact-sm"
+                          px={0}
+                          style={{ height: 'auto' }}
+                          onDoubleClick={() =>
+                            openAdjustmentForProduct(item.productCode)
+                          }
+                        >
+                          <Text size="sm" c="#495057">
+                            {item.productCode}
+                          </Text>
+                        </Button>
                       </Table.Td>
                       <Table.Td style={{ textAlign: 'center' }}>
                         <Text size="sm" c="#495057">
@@ -1120,89 +1295,12 @@ export function InventoryPage({ apiBasePath }: InventoryPageProps) {
                           )}
                         </Text>
                       </Table.Td>
-                      <Table.Td style={{ textAlign: 'center' }}>
-                        <Group justify="center" gap="xs" wrap="nowrap">
-                          <Button
-                            size="xs"
-                            variant="light"
-                            onClick={() =>
-                              openEditLatestForProduct(item.productCode)
-                            }
-                            disabled={
-                              (
-                                adjustmentMovementsByProduct.get(
-                                  item.productCode.trim()
-                                ) ?? []
-                              ).length === 0
-                            }
-                          >
-                            Edit Damaged/Scrap
-                          </Button>
-                          <Button
-                            size="xs"
-                            variant="light"
-                            onClick={() =>
-                              openEditLatestSupplierShortForProduct(
-                                item.productCode
-                              )
-                            }
-                            disabled={
-                              (
-                                supplierShortMovementsByProduct.get(
-                                  item.productCode.trim()
-                                ) ?? []
-                              ).length === 0
-                            }
-                          >
-                            Edit Supplier Short
-                          </Button>
-                          <Button
-                            size="xs"
-                            color="red"
-                            variant="light"
-                            onClick={() =>
-                              void handleDeleteLatestForProduct(
-                                item.productCode
-                              )
-                            }
-                            disabled={isSubmittingMovement}
-                          >
-                            Delete Damaged/Scrap
-                          </Button>
-                          <Button
-                            size="xs"
-                            color="red"
-                            variant="light"
-                            onClick={() =>
-                              void handleDeleteLatestSupplierShortForProduct(
-                                item.productCode
-                              )
-                            }
-                            disabled={isSubmittingMovement}
-                          >
-                            Delete Supplier Short
-                          </Button>
-                          <Button
-                            size="xs"
-                            color="red"
-                            variant="light"
-                            onClick={() =>
-                              void handleDeleteLatestAdditionalsForProduct(
-                                item.productCode
-                              )
-                            }
-                            disabled={
-                              isSubmittingMovement ||
-                              (
-                                additionalsMovementsByProduct.get(
-                                  item.productCode.trim()
-                                ) ?? []
-                              ).length === 0
-                            }
-                          >
-                            Delete Additionals
-                          </Button>
-                        </Group>
+                      <Table.Td style={{ textAlign: 'left' }}>
+                        <Text size="sm" c="#495057">
+                          {adjustmentNotesByProduct.get(
+                            normalizeProductCode(item.productCode)
+                          ) || '—'}
+                        </Text>
                       </Table.Td>
                     </Table.Tr>
                   ))}

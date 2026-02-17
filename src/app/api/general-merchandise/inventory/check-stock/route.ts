@@ -3,13 +3,10 @@ import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
 import {
-  buildReservedDeltaMap,
-  buildSellableDeltaMap,
-  buildSellableReceiptCodeSet,
-  getSellableOnHand,
+  buildBucketDeltaMap,
   normalizeProductCode,
 } from '@/lib/inventory/movements';
-import { isReservedStatus } from '@/lib/inventory/statuses';
+import { isFulfilledStatus, isReservedStatus } from '@/lib/inventory/statuses';
 
 export const dynamic = 'force-dynamic';
 
@@ -58,7 +55,62 @@ type MovementRecord = {
     | 'supplier_short'
     | 'opening_inventory'
     | 'sold';
+  notes?: string | null;
 };
+
+function isActiveDemandStatus(value: string | null | undefined): boolean {
+  return isReservedStatus(value) || isFulfilledStatus(value);
+}
+
+function buildActualQuantityMap(params: {
+  baseQuantityMap: Map<string, number>;
+  movements: MovementRecord[];
+}) {
+  const { baseQuantityMap, movements } = params;
+  const damagedDeltaByProduct = buildBucketDeltaMap(movements, 'damaged_hold');
+  const supplierShortDeltaByProduct = buildBucketDeltaMap(
+    movements,
+    'supplier_short'
+  );
+  const additionalsByProduct = new Map<string, number>();
+
+  movements.forEach((movement) => {
+    const code = normalizeProductCode(movement.productCode);
+    if (!code || !Number.isFinite(movement.quantity)) {
+      return;
+    }
+
+    if (
+      movement.fromBucket === 'supplier_short' &&
+      movement.toBucket === 'sellable' &&
+      (movement.notes ?? '').toLowerCase().startsWith('additionals')
+    ) {
+      const current = additionalsByProduct.get(code) ?? 0;
+      additionalsByProduct.set(code, current + movement.quantity);
+    }
+  });
+
+  const actualQuantityMap = new Map<string, number>();
+  const allCodes = new Set<string>([
+    ...Array.from(baseQuantityMap.keys()),
+    ...Array.from(damagedDeltaByProduct.keys()),
+    ...Array.from(supplierShortDeltaByProduct.keys()),
+    ...Array.from(additionalsByProduct.keys()),
+  ]);
+
+  allCodes.forEach((code) => {
+    const base = baseQuantityMap.get(code) ?? 0;
+    const damaged = damagedDeltaByProduct.get(code) ?? 0;
+    const supplierShort = supplierShortDeltaByProduct.get(code) ?? 0;
+    const additionals = additionalsByProduct.get(code) ?? 0;
+    actualQuantityMap.set(
+      code,
+      Math.max(base + additionals - supplierShort - damaged, 0)
+    );
+  });
+
+  return actualQuantityMap;
+}
 
 type TransactionRecord = {
   productCode: string | null;
@@ -168,8 +220,7 @@ function accumulateDemand(
   const bundleDemandBySku = new Map<string, number>();
 
   transactions.forEach((transaction) => {
-    const reservedStatus = isReservedStatus(transaction.orderStatus);
-    if (!reservedStatus) {
+    if (!isActiveDemandStatus(transaction.orderStatus)) {
       return;
     }
 
@@ -312,17 +363,14 @@ export async function POST(request: NextRequest) {
             deletedAt: null,
             productCode: { in: movementCodes },
           },
+          select: {
+            productCode: true,
+            quantity: true,
+            fromBucket: true,
+            toBucket: true,
+            notes: true,
+          },
         })) as unknown as MovementRecord[];
-      // `supplier_short` movements are informational and must not reduce on-hand.
-      // However, we *do* allow supplier_short -> sellable to represent “additionals”.
-      const movementsForStockBalances = movements.filter(
-        (movement) => movement.toBucket !== 'supplier_short'
-      );
-      const sellableDelta = buildSellableDeltaMap(movementsForStockBalances);
-      const reservedDelta = buildReservedDeltaMap(movementsForStockBalances);
-      const sellableReceiptCodes = buildSellableReceiptCodeSet(
-        movementsForStockBalances
-      );
 
       const transactions =
         await gmPrisma.generalMerchandiseTransaction.findMany({
@@ -359,14 +407,10 @@ export async function POST(request: NextRequest) {
         }
       });
 
-      const getSellableOnHandWithFallback = (code: string) =>
-        getSellableOnHand({
-          productCode: code,
-          sellableDeltaByProduct: sellableDelta,
-          fallbackQuantity:
-            productQuantityMap.get(normalizeProductCode(code)) ?? 0,
-          sellableReceiptCodes,
-        });
+      const actualQuantityMap = buildActualQuantityMap({
+        baseQuantityMap: productQuantityMap,
+        movements,
+      });
 
       const bundleSellableSupplyBySku = new Map<string, number>();
       [productCode, ...bundleSkusSharingComponents]
@@ -375,7 +419,7 @@ export async function POST(request: NextRequest) {
         .forEach((bundleSku) => {
           bundleSellableSupplyBySku.set(
             bundleSku,
-            getSellableOnHandWithFallback(bundleSku)
+            actualQuantityMap.get(bundleSku) ?? 0
           );
         });
 
@@ -396,12 +440,8 @@ export async function POST(request: NextRequest) {
           return;
         }
 
-        const supply = getSellableOnHandWithFallback(
-          component.componentProductCode
-        );
-        const demandRaw = componentDemandByProduct.get(normalizedCode) ?? 0;
-        const reservedOnHand = reservedDelta.get(normalizedCode) ?? 0;
-        const demand = Math.max(demandRaw - reservedOnHand, 0);
+        const supply = actualQuantityMap.get(normalizedCode) ?? 0;
+        const demand = componentDemandByProduct.get(normalizedCode) ?? 0;
         const available = supply - demand;
 
         const availableBundles = Math.floor(
@@ -418,16 +458,11 @@ export async function POST(request: NextRequest) {
         ? Math.max(limitingAvailable, 0)
         : 0;
 
-      const bundleSellableSupply = getSellableOnHandWithFallback(productCode);
+      const bundleSellableSupply =
+        actualQuantityMap.get(normalizedProductCode) ?? 0;
       const bundleDemandRaw = bundleDemandBySku.get(normalizedProductCode) ?? 0;
-      const bundleReservedOnHand =
-        reservedDelta.get(normalizedProductCode) ?? 0;
-      const bundleReservedQty = Math.max(
-        bundleDemandRaw - bundleReservedOnHand,
-        0
-      );
       const assembledAvailable = Math.max(
-        bundleSellableSupply - bundleReservedQty,
+        bundleSellableSupply - bundleDemandRaw,
         0
       );
 
@@ -488,17 +523,14 @@ export async function POST(request: NextRequest) {
           deletedAt: null,
           productCode: { in: movementCodes },
         },
+        select: {
+          productCode: true,
+          quantity: true,
+          fromBucket: true,
+          toBucket: true,
+          notes: true,
+        },
       })) as unknown as MovementRecord[];
-    // `supplier_short` movements are informational and must not reduce on-hand.
-    // However, we *do* allow supplier_short -> sellable to represent “additionals”.
-    const movementsForStockBalances = movements.filter(
-      (movement) => movement.toBucket !== 'supplier_short'
-    );
-    const sellableDelta = buildSellableDeltaMap(movementsForStockBalances);
-    const sellableReceiptCodes = buildSellableReceiptCodeSet(
-      movementsForStockBalances
-    );
-    const reservedDelta = buildReservedDeltaMap(movementsForStockBalances);
 
     const bundleProducts = bundleSkusThatUseProduct.length
       ? await gmPrisma.generalMerchandiseProduct.findMany({
@@ -518,6 +550,17 @@ export async function POST(request: NextRequest) {
       }
     });
 
+    const productBaseQuantityMap = new Map<string, number>(bundleQuantityMap);
+    productBaseQuantityMap.set(
+      normalizedProductCode,
+      Math.max(product.quantity ?? 0, 0)
+    );
+
+    const actualQuantityMap = buildActualQuantityMap({
+      baseQuantityMap: productBaseQuantityMap,
+      movements,
+    });
+
     const bundleSellableSupplyBySku = new Map<string, number>();
     bundleSkusThatUseProduct.forEach((bundleSku) => {
       const normalizedSku = normalizeProductCode(bundleSku);
@@ -527,12 +570,7 @@ export async function POST(request: NextRequest) {
 
       bundleSellableSupplyBySku.set(
         normalizedSku,
-        getSellableOnHand({
-          productCode: bundleSku,
-          sellableDeltaByProduct: sellableDelta,
-          fallbackQuantity: bundleQuantityMap.get(normalizedSku) ?? 0,
-          sellableReceiptCodes,
-        })
+        actualQuantityMap.get(normalizedSku) ?? 0
       );
     });
 
@@ -544,15 +582,8 @@ export async function POST(request: NextRequest) {
 
     const totalOrderRaw =
       componentDemandByProduct.get(normalizedProductCode) ?? 0;
-    const reservedOnHand =
-      reservedDelta.get(normalizeProductCode(productCode)) ?? 0;
-    const totalOrder = Math.max(totalOrderRaw - reservedOnHand, 0);
-    const onhand = getSellableOnHand({
-      productCode,
-      sellableDeltaByProduct: sellableDelta,
-      fallbackQuantity: product.quantity ?? 0,
-      sellableReceiptCodes,
-    });
+    const totalOrder = Math.max(totalOrderRaw, 0);
+    const onhand = actualQuantityMap.get(normalizedProductCode) ?? 0;
     const availableStock = onhand - totalOrder;
 
     return NextResponse.json(

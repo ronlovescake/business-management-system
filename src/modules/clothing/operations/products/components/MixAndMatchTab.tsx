@@ -31,14 +31,12 @@ import { buildApiPath } from '@/lib/api/paths';
 import { confirmTripleDelete } from '@/utils/confirmTripleDelete';
 import type {
   InventoryMovementFromAPI,
+  MixAndMatchBatchFromAPI,
   ProductFromAPI,
+  TransactionFromAPI,
 } from '@/modules/clothing/operations/inventory/types';
-import {
-  buildSellableDeltaMap,
-  buildSellableReceiptCodeSet,
-  getSellableOnHand,
-  normalizeProductCode,
-} from '@/lib/inventory/movements';
+import { normalizeProductCode } from '@/lib/inventory/movements';
+import { buildInventoryItems } from '@/modules/clothing/operations/inventory/lib/inventoryTransforms';
 
 type MixAndMatchRow = {
   id: number;
@@ -62,19 +60,6 @@ type MixAndMatchFormState = {
   mixAndMatchSku: string;
   price: number;
   components: MixAndMatchComponentRow[];
-};
-
-type MixAndMatchApiRow = {
-  id: number;
-  postingDate: string;
-  mixAndMatchName: string;
-  mixAndMatchSku: string;
-  price: number;
-  components: Array<{
-    id: number;
-    productCode: string;
-    includedQuantity: number;
-  }>;
 };
 
 async function confirmTripleDeleteMixAndMatch(
@@ -162,7 +147,7 @@ export function MixAndMatchTab({ apiBasePath }: MixAndMatchTabProps) {
     [apiBasePath]
   );
 
-  const { data: mixAndMatchRows = [] } = useQuery<MixAndMatchApiRow[]>({
+  const { data: mixAndMatchRows = [] } = useQuery<MixAndMatchBatchFromAPI[]>({
     queryKey: mixAndMatchQueryKey,
     queryFn: async () => {
       const response = await fetch(buildApiPath(apiBasePath, '/mix-and-match'));
@@ -170,7 +155,7 @@ export function MixAndMatchTab({ apiBasePath }: MixAndMatchTabProps) {
         return [];
       }
 
-      return (await response.json()) as MixAndMatchApiRow[];
+      return (await response.json()) as MixAndMatchBatchFromAPI[];
     },
     staleTime: 30 * 1000,
   });
@@ -209,33 +194,48 @@ export function MixAndMatchTab({ apiBasePath }: MixAndMatchTabProps) {
     staleTime: 30 * 1000,
   });
 
+  const { data: transactions = [] } = useQuery<TransactionFromAPI[]>({
+    queryKey: ['transactions', apiBasePath ?? 'default'],
+    queryFn: async () => {
+      const response = await fetch(buildApiPath(apiBasePath, '/transactions'));
+      if (!response.ok) {
+        return [];
+      }
+
+      const payload = (await response.json()) as {
+        data?: TransactionFromAPI[];
+      };
+
+      if (Array.isArray(payload)) {
+        return payload as unknown as TransactionFromAPI[];
+      }
+
+      return Array.isArray(payload?.data) ? payload.data : [];
+    },
+    staleTime: 30 * 1000,
+  });
+
   const sellableOnHandByCode = useMemo(() => {
-    const movementRows = movements.filter(
-      (movement) => movement.toBucket !== 'supplier_short'
+    const inventoryItems = buildInventoryItems(
+      products as unknown as ProductFromAPI[],
+      transactions,
+      [],
+      movements,
+      mixAndMatchRows
     );
-    const sellableDeltaByProduct = buildSellableDeltaMap(movementRows);
-    const sellableReceiptCodes = buildSellableReceiptCodeSet(movementRows);
 
     const map = new Map<string, number>();
-    (products as unknown as ProductFromAPI[]).forEach((product) => {
-      const productCode = product['Product Code'] || '';
-      const normalized = normalizeProductCode(productCode);
+    inventoryItems.forEach((item) => {
+      const normalized = normalizeProductCode(item.productCode);
       if (!normalized) {
         return;
       }
 
-      const sellableOnHand = getSellableOnHand({
-        productCode,
-        sellableDeltaByProduct,
-        fallbackQuantity: product.Quantity || 0,
-        sellableReceiptCodes,
-      });
-
-      map.set(normalized, Math.max(sellableOnHand, 0));
+      map.set(normalized, Math.max(item.sellableOnHand, 0));
     });
 
     return map;
-  }, [movements, products]);
+  }, [mixAndMatchRows, movements, products, transactions]);
 
   const availableQtyByClientId = useMemo(() => {
     const map = new Map<string, number>();
@@ -247,28 +247,31 @@ export function MixAndMatchTab({ apiBasePath }: MixAndMatchTabProps) {
   }, [form.components, sellableOnHandByCode]);
 
   const productCodeOptions = useMemo(() => {
+    const selectedCodes = form.components
+      .map((component) => component.productCode.trim())
+      .filter(Boolean);
+
+    const availableCodes = products
+      .filter((product) => {
+        const status = (product['Shipment Status'] ?? '').trim().toLowerCase();
+
+        if (status !== 'delivered' && status !== 'in transit') {
+          return false;
+        }
+
+        const normalized = normalizeProductCode(product['Product Code']);
+        return (sellableOnHandByCode.get(normalized) ?? 0) > 0;
+      })
+      .map((product) => product['Product Code'])
+      .filter((code): code is string => Boolean(code))
+      .map((code) => String(code));
+
     const codes = Array.from(
-      new Set(
-        products
-          .filter((product) => {
-            const status = (product['Shipment Status'] ?? '')
-              .trim()
-              .toLowerCase();
-
-            if (status !== 'delivered' && status !== 'in transit') {
-              return false;
-            }
-
-            return Number(product.Quantity) > 0;
-          })
-          .map((product) => product['Product Code'])
-          .filter((code): code is string => Boolean(code))
-          .map((code) => String(code))
-      )
+      new Set([...availableCodes, ...selectedCodes])
     ).sort((a, b) => a.localeCompare(b));
 
     return codes.map((code) => ({ value: code, label: code }));
-  }, [products]);
+  }, [form.components, products, sellableOnHandByCode]);
 
   const canSubmit =
     form.postingDate.trim() &&
@@ -404,7 +407,7 @@ export function MixAndMatchTab({ apiBasePath }: MixAndMatchTabProps) {
         throw new Error('Failed to save mix & match');
       }
 
-      return (await response.json()) as MixAndMatchApiRow;
+      return (await response.json()) as MixAndMatchBatchFromAPI;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: mixAndMatchQueryKey });
