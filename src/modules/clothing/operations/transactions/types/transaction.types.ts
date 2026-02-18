@@ -129,6 +129,7 @@ export interface DistributionConfirmationData {
  */
 export interface TransactionStatistics {
   totalTransactions: number;
+  totalQuantity: number;
   totalRevenue: number;
   inTransitTotal: number;
   warehouseTotal: number;

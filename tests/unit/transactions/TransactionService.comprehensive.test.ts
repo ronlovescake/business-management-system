@@ -484,6 +484,11 @@ describe('TransactionService - Comprehensive Tests', () => {
       expect(stats.totalTransactions).toBe(3);
     });
 
+    it('should calculate total quantity', () => {
+      const stats = TransactionService.calculateStatistics(mockTransactions);
+      expect(stats.totalQuantity).toBe(35);
+    });
+
     it('should calculate total revenue excluding cancelled orders', () => {
       const stats = TransactionService.calculateStatistics(mockTransactions);
       // (10 × 100) + (5 × 200) = 2000 (cancelled order excluded)
@@ -508,6 +513,7 @@ describe('TransactionService - Comprehensive Tests', () => {
     it('should handle empty transactions array', () => {
       const stats = TransactionService.calculateStatistics([]);
       expect(stats.totalTransactions).toBe(0);
+      expect(stats.totalQuantity).toBe(0);
       expect(stats.totalRevenue).toBe(0);
       expect(stats.uniqueCustomers).toBe(0);
     });

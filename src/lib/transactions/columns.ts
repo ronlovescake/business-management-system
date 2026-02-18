@@ -90,7 +90,7 @@ export const buildTransactionColumns = ({
   },
   {
     title: 'NOTES',
-    width: 300,
+    width: 280,
     id: 'notes',
     className: 'ht-truncate',
   },

@@ -407,7 +407,9 @@ export function HandsontableGrid<T extends object>({
       }
 
       if (columnDef.id === stretchColumnId) {
-        return stretchedWidth;
+        const baseWidth = columnDef.width ?? stretchedWidth;
+        const maxStretchedWidth = baseWidth + 160;
+        return Math.min(stretchedWidth, maxStretchedWidth);
       }
 
       return columnDef.width ?? stretchedWidth;

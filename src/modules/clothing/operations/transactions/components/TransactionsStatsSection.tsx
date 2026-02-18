@@ -48,6 +48,14 @@ const cardDefinitions: CardDefinition[] = [
     backgroundColor: 'var(--mantine-color-green-6)',
   },
   {
+    title: 'Total Quantity',
+    key: 'totalQuantity',
+    formatter: (value) => value.toLocaleString(),
+    icon: <IconPackage size={18} />,
+    color: 'green',
+    backgroundColor: 'var(--mantine-color-green-6)',
+  },
+  {
     title: 'Total Revenue',
     key: 'totalRevenue',
     formatter: formatCurrency,

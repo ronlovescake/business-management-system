@@ -25,7 +25,7 @@
     "test:integration": "vitest run --config vitest.config.integration.ts",
     "test:hardening": "vitest run --config vitest.config.hardening.ts",
     "pretest:coverage": "node -e \"require('fs').mkdirSync('coverage/.tmp', { recursive: true })\"",
-    "test:coverage": "vitest run --coverage",
+    "test:coverage": "vitest run --config vitest.config.coverage.ts --coverage",
     "test:full": "npm run lint && npm run typecheck && npm run test:unit && npm run test:integration && npm run test:hardening && npm run test:coverage",
     "test:e2e": "playwright test",
     "test:e2e:chromium": "playwright test --project=chromium",
