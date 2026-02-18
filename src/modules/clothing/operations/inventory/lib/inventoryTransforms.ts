@@ -39,6 +39,7 @@ export function buildInventoryItems(
   mixAndMatchBatches: MixAndMatchBatchFromAPI[] = []
 ): InventoryItem[] {
   const ADDITIONALS_NOTE_PREFIX = 'additionals';
+  const TRANSFER_NOTE_PREFIX = 'transfer';
 
   // Operational inventory source of truth:
   // - baseline supply from Products quantity
@@ -54,6 +55,7 @@ export function buildInventoryItems(
   const mixSoldQtyByProduct = new Map<string, number>();
   const scrapQtyByProduct = new Map<string, number>();
   const additionalsQtyByProduct = new Map<string, number>();
+  const transferSellableDeltaByProduct = new Map<string, number>();
   const totalSalesByProduct = new Map<string, number>();
 
   const soldOrderStatuses = new Set([
@@ -131,9 +133,13 @@ export function buildInventoryItems(
     const isAdditionalsMovement = (movement.notes ?? '')
       .toLowerCase()
       .startsWith(ADDITIONALS_NOTE_PREFIX);
+    const isTransferMovement = (movement.notes ?? '')
+      .toLowerCase()
+      .startsWith(TRANSFER_NOTE_PREFIX);
 
     if (
       !isAdditionalsMovement &&
+      !isTransferMovement &&
       ((movement.fromBucket === 'sellable' &&
         movement.toBucket === 'supplier_short') ||
         (movement.fromBucket === 'supplier_short' &&
@@ -146,6 +152,32 @@ export function buildInventoryItems(
         normalizedProductCode,
         currentSupplierShortQty + qty * direction
       );
+    }
+
+    if (
+      isTransferMovement &&
+      ((movement.fromBucket === 'sellable' &&
+        movement.toBucket === 'supplier_short') ||
+        (movement.fromBucket === 'supplier_short' &&
+          movement.toBucket === 'sellable'))
+    ) {
+      const direction =
+        movement.fromBucket === 'sellable' &&
+        movement.toBucket === 'supplier_short'
+          ? -1
+          : movement.fromBucket === 'supplier_short' &&
+              movement.toBucket === 'sellable'
+            ? 1
+            : 0;
+
+      if (direction !== 0) {
+        const currentTransferDelta =
+          transferSellableDeltaByProduct.get(normalizedProductCode) ?? 0;
+        transferSellableDeltaByProduct.set(
+          normalizedProductCode,
+          currentTransferDelta + qty * direction
+        );
+      }
     }
 
     if (isAdditionalsMovement) {
@@ -195,6 +227,8 @@ export function buildInventoryItems(
       additionalsQtyByProduct.get(normalizedProductCode) || 0,
       0
     );
+    const transferSellableDelta =
+      transferSellableDeltaByProduct.get(normalizedProductCode) || 0;
     const committedQty = committedQtyByProduct.get(normalizedProductCode) || 0;
     const soldQty = soldQtyByProduct.get(normalizedProductCode) || 0;
 
@@ -203,7 +237,7 @@ export function buildInventoryItems(
       0
     );
     const directSellableQty = Math.max(
-      actualQuantityReceived - committedQty - soldQty,
+      actualQuantityReceived - committedQty - soldQty + transferSellableDelta,
       0
     );
 
@@ -315,6 +349,8 @@ export function buildInventoryItems(
       additionalsQtyByProduct.get(normalizedProductCode) || 0,
       0
     );
+    const transferSellableDelta =
+      transferSellableDeltaByProduct.get(normalizedProductCode) || 0;
     const actualQuantityReceived =
       actualQuantityByProduct.get(normalizedProductCode) ??
       Math.max(
@@ -322,7 +358,7 @@ export function buildInventoryItems(
         0
       );
     const sellableOnHand = Math.max(
-      actualQuantityReceived - committedQty - soldQty,
+      actualQuantityReceived - committedQty - soldQty + transferSellableDelta,
       0
     );
     const reservedOnHand = Math.max(committedQty, 0);

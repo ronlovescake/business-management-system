@@ -32,11 +32,20 @@ interface InventoryPageProps {
   apiBasePath?: string;
 }
 
+type AdjustmentBucket =
+  | 'damaged_hold'
+  | 'scrap'
+  | 'supplier_short'
+  | 'additionals';
+
 export function InventoryPage({ apiBasePath }: InventoryPageProps) {
   const ADDITIONALS_NOTE_PREFIX = 'additionals';
   const ADDITIONALS_NOTE_MARKER = `${ADDITIONALS_NOTE_PREFIX}:`;
+  const TRANSFER_NOTE_PREFIX = 'transfer';
+  const TRANSFER_NOTE_MARKER = `${TRANSFER_NOTE_PREFIX}:`;
 
   const {
+    searchQuery,
     setSearchQuery,
     isImporting,
     isLoading,
@@ -72,11 +81,17 @@ export function InventoryPage({ apiBasePath }: InventoryPageProps) {
   const [postingDate, setPostingDate] = useState<string>(
     new Date().toISOString().slice(0, 10)
   );
-  const [quantity, setQuantity] = useState<number | ''>(1);
-  const [toBucket, setToBucket] = useState<
-    'damaged_hold' | 'scrap' | 'supplier_short' | 'additionals'
-  >('damaged_hold');
+  const [bucketQuantities, setBucketQuantities] = useState<
+    Record<AdjustmentBucket, number | ''>
+  >({
+    damaged_hold: 0,
+    scrap: 0,
+    supplier_short: 0,
+    additionals: 0,
+  });
   const [notes, setNotes] = useState('');
+  const [transferToProduct, setTransferToProduct] = useState<string>('');
+  const [transferQty, setTransferQty] = useState<number | ''>(0);
 
   const [supplierShortProduct, setSupplierShortProduct] = useState<string>('');
   const [supplierShortPostingDate, setSupplierShortPostingDate] =
@@ -148,7 +163,8 @@ export function InventoryPage({ apiBasePath }: InventoryPageProps) {
           !m.deletedAt &&
           ((m.fromBucket === 'sellable' && m.toBucket === 'supplier_short') ||
             (m.fromBucket === 'supplier_short' && m.toBucket === 'sellable')) &&
-          !(m.notes ?? '').toLowerCase().startsWith(ADDITIONALS_NOTE_PREFIX)
+          !(m.notes ?? '').toLowerCase().startsWith(ADDITIONALS_NOTE_PREFIX) &&
+          !(m.notes ?? '').toLowerCase().startsWith(TRANSFER_NOTE_PREFIX)
       )
       .slice()
       .sort((a, b) => {
@@ -156,7 +172,20 @@ export function InventoryPage({ apiBasePath }: InventoryPageProps) {
         const bId = Number(b.id);
         return bId - aId;
       });
-  }, [movements]);
+  }, [movements, TRANSFER_NOTE_PREFIX]);
+
+  const transferMovements = useMemo(() => {
+    return (movements ?? [])
+      .filter(
+        (m) =>
+          !m.deletedAt &&
+          ((m.fromBucket === 'sellable' && m.toBucket === 'supplier_short') ||
+            (m.fromBucket === 'supplier_short' && m.toBucket === 'sellable')) &&
+          (m.notes ?? '').toLowerCase().startsWith(TRANSFER_NOTE_PREFIX)
+      )
+      .slice()
+      .sort((a, b) => Number(b.id) - Number(a.id));
+  }, [movements, TRANSFER_NOTE_PREFIX]);
 
   const additionalsMovements = useMemo(() => {
     return (movements ?? [])
@@ -244,6 +273,185 @@ export function InventoryPage({ apiBasePath }: InventoryPageProps) {
     return map;
   }, [additionalsMovementsByProduct]);
 
+  const parseTransferEndpoints = useCallback(
+    (rawNotes: string): { fromProductCode: string; toProductCode: string } => {
+      const notesValue = rawNotes.trim();
+      if (!notesValue.toLowerCase().startsWith(TRANSFER_NOTE_MARKER)) {
+        return { fromProductCode: '', toProductCode: '' };
+      }
+
+      const fromMatch = notesValue.match(/from:\s*([^;]+)/i);
+      const toMatch = notesValue.match(/to:\s*([^;]+)/i);
+
+      return {
+        fromProductCode: normalizeProductCode(fromMatch?.[1] ?? ''),
+        toProductCode: normalizeProductCode(toMatch?.[1] ?? ''),
+      };
+    },
+    [TRANSFER_NOTE_MARKER]
+  );
+
+  const getTransferPairKey = useCallback((fromCode: string, toCode: string) => {
+    return `${fromCode}=>${toCode}`;
+  }, []);
+
+  const transferOutByPair = useMemo(() => {
+    const map = new Map<string, number>();
+
+    transferMovements.forEach((movement) => {
+      if (
+        movement.fromBucket !== 'sellable' ||
+        movement.toBucket !== 'supplier_short'
+      ) {
+        return;
+      }
+
+      const transferEndpoints = parseTransferEndpoints(movement.notes ?? '');
+      const fromProductCode = transferEndpoints.fromProductCode;
+      const toProductCode = transferEndpoints.toProductCode;
+      const movementProductCode = normalizeProductCode(movement.productCode);
+
+      if (
+        !fromProductCode ||
+        !toProductCode ||
+        !movementProductCode ||
+        movementProductCode !== fromProductCode
+      ) {
+        return;
+      }
+
+      const quantity = Math.max(0, Number(movement.quantity) || 0);
+      if (quantity <= 0) {
+        return;
+      }
+
+      const key = getTransferPairKey(fromProductCode, toProductCode);
+      map.set(key, (map.get(key) ?? 0) + quantity);
+    });
+
+    return map;
+  }, [getTransferPairKey, parseTransferEndpoints, transferMovements]);
+
+  const getCurrentTransferQuantity = useCallback(
+    (fromProductCode: string, toProductCode: string): number => {
+      const normalizedFromCode = normalizeProductCode(fromProductCode);
+      const normalizedToCode = normalizeProductCode(toProductCode);
+
+      if (
+        !normalizedFromCode ||
+        !normalizedToCode ||
+        normalizedFromCode === normalizedToCode
+      ) {
+        return 0;
+      }
+
+      const forwardQty =
+        transferOutByPair.get(
+          getTransferPairKey(normalizedFromCode, normalizedToCode)
+        ) ?? 0;
+      const reverseQty =
+        transferOutByPair.get(
+          getTransferPairKey(normalizedToCode, normalizedFromCode)
+        ) ?? 0;
+
+      return Math.max(forwardQty - reverseQty, 0);
+    },
+    [getTransferPairKey, transferOutByPair]
+  );
+
+  const transferOutByProduct = useMemo(() => {
+    const summaryByProduct = new Map<string, Map<string, number>>();
+    const formattedByProduct = new Map<string, string>();
+    const quantityByProduct = new Map<string, number>();
+
+    transferOutByPair.forEach((forwardQty, key) => {
+      const [sourceCode = '', destinationCode = ''] = key.split('=>');
+      if (!sourceCode || !destinationCode || forwardQty <= 0) {
+        return;
+      }
+
+      const reverseQty =
+        transferOutByPair.get(
+          getTransferPairKey(destinationCode, sourceCode)
+        ) ?? 0;
+      const netQty = Math.max(forwardQty - reverseQty, 0);
+      if (netQty <= 0) {
+        return;
+      }
+
+      const byDestination = summaryByProduct.get(sourceCode) ?? new Map();
+      byDestination.set(destinationCode, netQty);
+      summaryByProduct.set(sourceCode, byDestination);
+    });
+
+    const destinationsBySource = new Map<
+      string,
+      Array<{ destinationCode: string; quantity: number }>
+    >();
+
+    summaryByProduct.forEach((byDestination, sourceCode) => {
+      let totalQuantity = 0;
+      const destinationEntries = Array.from(byDestination.entries())
+        .map(([destinationCode, quantity]) => ({ destinationCode, quantity }))
+        .sort((left, right) => right.quantity - left.quantity);
+
+      destinationsBySource.set(sourceCode, destinationEntries);
+
+      const formattedEntries = destinationEntries.map(
+        ({ destinationCode, quantity }) => {
+          totalQuantity += quantity;
+          return `${numberFormatter.format(quantity)} / ${destinationCode}`;
+        }
+      );
+
+      formattedByProduct.set(sourceCode, formattedEntries.join('; '));
+      quantityByProduct.set(sourceCode, totalQuantity);
+    });
+
+    return { formattedByProduct, quantityByProduct, destinationsBySource };
+  }, [getTransferPairKey, transferOutByPair]);
+
+  const transferInByProduct = useMemo(() => {
+    const summaryByProduct = new Map<string, Map<string, number>>();
+    const formattedByProduct = new Map<string, string>();
+    const quantityByProduct = new Map<string, number>();
+
+    transferOutByPair.forEach((forwardQty, key) => {
+      const [sourceCode = '', destinationCode = ''] = key.split('=>');
+      if (!sourceCode || !destinationCode || forwardQty <= 0) {
+        return;
+      }
+
+      const reverseQty =
+        transferOutByPair.get(
+          getTransferPairKey(destinationCode, sourceCode)
+        ) ?? 0;
+      const netQty = Math.max(forwardQty - reverseQty, 0);
+      if (netQty <= 0) {
+        return;
+      }
+
+      const bySource = summaryByProduct.get(destinationCode) ?? new Map();
+      bySource.set(sourceCode, netQty);
+      summaryByProduct.set(destinationCode, bySource);
+    });
+
+    summaryByProduct.forEach((bySource, destinationCode) => {
+      let totalQuantity = 0;
+      const formattedEntries = Array.from(bySource.entries()).map(
+        ([sourceCode, quantity]) => {
+          totalQuantity += quantity;
+          return `${numberFormatter.format(quantity)} / ${sourceCode}`;
+        }
+      );
+
+      formattedByProduct.set(destinationCode, formattedEntries.join('; '));
+      quantityByProduct.set(destinationCode, totalQuantity);
+    });
+
+    return { formattedByProduct, quantityByProduct };
+  }, [getTransferPairKey, transferOutByPair]);
+
   const adjustmentNotesByProduct = useMemo(() => {
     const map = new Map<string, string>();
     const relevantMovements = [
@@ -315,40 +523,155 @@ export function InventoryPage({ apiBasePath }: InventoryPageProps) {
     [additionalsQtyByProduct, inventoryItemByCode, supplierShortQtyByProduct]
   );
 
-  const getLatestBucketNote = (
-    productCode: string,
-    bucket: 'damaged_hold' | 'scrap' | 'supplier_short' | 'additionals'
-  ): string => {
-    const normalizedCode = normalizeProductCode(productCode);
-    if (!normalizedCode) {
-      return '';
+  const adjustmentSellablePreview = useMemo(() => {
+    if (!selectedProduct) {
+      return {
+        currentByBucket: {
+          damaged_hold: 0,
+          scrap: 0,
+          supplier_short: 0,
+          additionals: 0,
+        } as Record<AdjustmentBucket, number>,
+        targetByBucket: {
+          damaged_hold: 0,
+          scrap: 0,
+          supplier_short: 0,
+          additionals: 0,
+        } as Record<AdjustmentBucket, number>,
+        deltaByBucket: {
+          damaged_hold: 0,
+          scrap: 0,
+          supplier_short: 0,
+          additionals: 0,
+        } as Record<AdjustmentBucket, number>,
+        plannedSellableIn: 0,
+        plannedSellableOut: 0,
+        currentTransferQuantity: 0,
+        targetTransferQuantity: 0,
+        transferDelta: 0,
+        plannedTransferIn: 0,
+        plannedTransferOut: 0,
+        projectedSellableOnHand: 0,
+      };
     }
 
-    const movementForBucket =
-      bucket === 'additionals'
-        ? additionalsMovements.find(
-            (movement) =>
-              normalizeProductCode(movement.productCode) === normalizedCode
+    const currentByBucket: Record<AdjustmentBucket, number> = {
+      damaged_hold: getCurrentBucketQuantity(selectedProduct, 'damaged_hold'),
+      scrap: getCurrentBucketQuantity(selectedProduct, 'scrap'),
+      supplier_short: getCurrentBucketQuantity(
+        selectedProduct,
+        'supplier_short'
+      ),
+      additionals: getCurrentBucketQuantity(selectedProduct, 'additionals'),
+    };
+
+    const targetByBucket: Record<AdjustmentBucket, number> = {
+      damaged_hold: Math.max(0, Number(bucketQuantities.damaged_hold || 0)),
+      scrap: Math.max(0, Number(bucketQuantities.scrap || 0)),
+      supplier_short: Math.max(0, Number(bucketQuantities.supplier_short || 0)),
+      additionals: Math.max(0, Number(bucketQuantities.additionals || 0)),
+    };
+
+    const deltaByBucket: Record<AdjustmentBucket, number> = {
+      damaged_hold: targetByBucket.damaged_hold - currentByBucket.damaged_hold,
+      scrap: targetByBucket.scrap - currentByBucket.scrap,
+      supplier_short:
+        targetByBucket.supplier_short - currentByBucket.supplier_short,
+      additionals: targetByBucket.additionals - currentByBucket.additionals,
+    };
+
+    const plannedSellableIn =
+      Math.max(-deltaByBucket.damaged_hold, 0) +
+      Math.max(-deltaByBucket.scrap, 0) +
+      Math.max(-deltaByBucket.supplier_short, 0) +
+      Math.max(deltaByBucket.additionals, 0);
+
+    const plannedSellableOut =
+      Math.max(deltaByBucket.damaged_hold, 0) +
+      Math.max(deltaByBucket.scrap, 0) +
+      Math.max(deltaByBucket.supplier_short, 0) +
+      Math.max(-deltaByBucket.additionals, 0);
+
+    const normalizedSourceProductCode = normalizeProductCode(selectedProduct);
+    const normalizedTransferDestinationCode =
+      normalizeProductCode(transferToProduct);
+    const currentTransferQuantity =
+      normalizedSourceProductCode && normalizedTransferDestinationCode
+        ? getCurrentTransferQuantity(
+            normalizedSourceProductCode,
+            normalizedTransferDestinationCode
           )
-        : bucket === 'supplier_short'
-          ? supplierShortMovements.find(
+        : 0;
+    const targetTransferQuantity = Math.max(0, Number(transferQty || 0));
+    const transferDelta = targetTransferQuantity - currentTransferQuantity;
+    const plannedTransferOut = Math.max(transferDelta, 0);
+    const plannedTransferIn = Math.max(-transferDelta, 0);
+
+    return {
+      currentByBucket,
+      targetByBucket,
+      deltaByBucket,
+      plannedSellableIn,
+      plannedSellableOut,
+      currentTransferQuantity,
+      targetTransferQuantity,
+      transferDelta,
+      plannedTransferIn,
+      plannedTransferOut,
+      projectedSellableOnHand:
+        selectedOnHand +
+        plannedSellableIn +
+        plannedTransferIn -
+        plannedSellableOut -
+        plannedTransferOut,
+    };
+  }, [
+    bucketQuantities,
+    getCurrentBucketQuantity,
+    getCurrentTransferQuantity,
+    selectedOnHand,
+    selectedProduct,
+    transferToProduct,
+    transferQty,
+  ]);
+
+  const getLatestBucketNote = useCallback(
+    (
+      productCode: string,
+      bucket: 'damaged_hold' | 'scrap' | 'supplier_short' | 'additionals'
+    ): string => {
+      const normalizedCode = normalizeProductCode(productCode);
+      if (!normalizedCode) {
+        return '';
+      }
+
+      const movementForBucket =
+        bucket === 'additionals'
+          ? additionalsMovements.find(
               (movement) =>
-                normalizeProductCode(movement.productCode) === normalizedCode &&
-                movement.toBucket === 'supplier_short'
+                normalizeProductCode(movement.productCode) === normalizedCode
             )
-          : adjustmentMovements.find(
-              (movement) =>
-                normalizeProductCode(movement.productCode) === normalizedCode &&
-                movement.toBucket === bucket
-            );
+          : bucket === 'supplier_short'
+            ? supplierShortMovements.find(
+                (movement) =>
+                  normalizeProductCode(movement.productCode) ===
+                    normalizedCode && movement.toBucket === 'supplier_short'
+              )
+            : adjustmentMovements.find(
+                (movement) =>
+                  normalizeProductCode(movement.productCode) ===
+                    normalizedCode && movement.toBucket === bucket
+              );
 
-    const rawNote = (movementForBucket?.notes ?? '').trim();
-    if (!rawNote) {
-      return '';
-    }
+      const rawNote = (movementForBucket?.notes ?? '').trim();
+      if (!rawNote) {
+        return '';
+      }
 
-    return rawNote.replace(/^additionals(?:\s*:\s*)?/i, '').trim();
-  };
+      return rawNote.replace(/^additionals(?:\s*:\s*)?/i, '').trim();
+    },
+    [additionalsMovements, adjustmentMovements, supplierShortMovements]
+  );
 
   const editingProductMovements = useMemo(() => {
     if (!editingProductCode) {
@@ -390,6 +713,56 @@ export function InventoryPage({ apiBasePath }: InventoryPageProps) {
     });
   }, [filteredData]);
 
+  const singleFilteredProductCode = useMemo(() => {
+    const uniqueProductCodes = Array.from(
+      new Set(
+        filteredData
+          .map((item) => item.productCode.trim())
+          .filter((code) => code.length > 0)
+      )
+    );
+
+    return uniqueProductCodes.length === 1 ? uniqueProductCodes[0] : null;
+  }, [filteredData]);
+
+  const handleAdjustmentProductChange = useCallback(
+    (value: string | null) => {
+      const nextProductCode = (value ?? '').trim();
+      setSelectedProduct(nextProductCode);
+      setSearchQuery(nextProductCode);
+      setTransferToProduct((previousProductCode) =>
+        normalizeProductCode(previousProductCode) ===
+        normalizeProductCode(nextProductCode)
+          ? ''
+          : previousProductCode
+      );
+
+      if (nextProductCode) {
+        setNotes(getLatestBucketNote(nextProductCode, 'damaged_hold'));
+      }
+    },
+    [getLatestBucketNote, setSearchQuery]
+  );
+
+  const openAdjustmentModalFromFilter = useCallback(() => {
+    const defaultProductCode = singleFilteredProductCode || searchQuery.trim();
+
+    if (defaultProductCode) {
+      setSelectedProduct(defaultProductCode);
+      setNotes(getLatestBucketNote(defaultProductCode, 'damaged_hold'));
+    }
+
+    setPostingDate(new Date().toISOString().slice(0, 10));
+    setTransferToProduct('');
+    setTransferQty(0);
+    adjustmentModalHandlers.open();
+  }, [
+    adjustmentModalHandlers,
+    getLatestBucketNote,
+    searchQuery,
+    singleFilteredProductCode,
+  ]);
+
   const openAdjustmentForProduct = (productCode: string) => {
     const code = productCode.trim();
     if (!code) {
@@ -397,20 +770,50 @@ export function InventoryPage({ apiBasePath }: InventoryPageProps) {
     }
 
     setSelectedProduct(code);
+    setSearchQuery(code);
     setPostingDate(new Date().toISOString().slice(0, 10));
-    setToBucket('damaged_hold');
+    setTransferToProduct('');
+    setTransferQty(0);
     setNotes(getLatestBucketNote(code, 'damaged_hold'));
     adjustmentModalHandlers.open();
   };
 
   React.useEffect(() => {
     if (!selectedProduct) {
-      setQuantity(0);
+      setBucketQuantities({
+        damaged_hold: 0,
+        scrap: 0,
+        supplier_short: 0,
+        additionals: 0,
+      });
       return;
     }
 
-    setQuantity(getCurrentBucketQuantity(selectedProduct, toBucket));
-  }, [getCurrentBucketQuantity, selectedProduct, toBucket]);
+    setBucketQuantities({
+      damaged_hold: getCurrentBucketQuantity(selectedProduct, 'damaged_hold'),
+      scrap: getCurrentBucketQuantity(selectedProduct, 'scrap'),
+      supplier_short: getCurrentBucketQuantity(
+        selectedProduct,
+        'supplier_short'
+      ),
+      additionals: getCurrentBucketQuantity(selectedProduct, 'additionals'),
+    });
+  }, [getCurrentBucketQuantity, selectedProduct]);
+
+  React.useEffect(() => {
+    if (!selectedProduct) {
+      setTransferToProduct('');
+      setTransferQty(0);
+      return;
+    }
+
+    setTransferToProduct((previousProductCode) =>
+      normalizeProductCode(previousProductCode) ===
+      normalizeProductCode(selectedProduct)
+        ? ''
+        : previousProductCode
+    );
+  }, [selectedProduct]);
 
   const productOptions = useMemo(
     () =>
@@ -421,107 +824,223 @@ export function InventoryPage({ apiBasePath }: InventoryPageProps) {
     [products]
   );
 
-  const handleMovementSubmit = async (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    if (!selectedProduct || quantity === '' || Number(quantity) < 0) {
+  const transferToOptions = useMemo(() => {
+    const selectedCode = normalizeProductCode(selectedProduct);
+    if (!selectedCode) {
+      return productOptions;
+    }
+
+    return productOptions.filter(
+      (option) => normalizeProductCode(option.value) !== selectedCode
+    );
+  }, [productOptions, selectedProduct]);
+
+  const productOptionValueByNormalizedCode = useMemo(() => {
+    const map = new Map<string, string>();
+    productOptions.forEach((option) => {
+      const normalizedCode = normalizeProductCode(option.value);
+      if (normalizedCode && !map.has(normalizedCode)) {
+        map.set(normalizedCode, option.value);
+      }
+    });
+    return map;
+  }, [productOptions]);
+
+  const handleTransferToChange = useCallback(
+    (value: string | null) => {
+      const nextTransferToProduct = (value ?? '').trim();
+      setTransferToProduct(nextTransferToProduct);
+
+      if (!selectedProduct || !nextTransferToProduct) {
+        setTransferQty(0);
+        return;
+      }
+
+      setTransferQty(
+        getCurrentTransferQuantity(selectedProduct, nextTransferToProduct)
+      );
+    },
+    [getCurrentTransferQuantity, selectedProduct]
+  );
+
+  React.useEffect(() => {
+    const normalizedSourceProductCode = normalizeProductCode(selectedProduct);
+    if (!normalizedSourceProductCode) {
+      setTransferQty(0);
       return;
     }
 
-    const targetQty = Number(quantity);
-    const currentQty = getCurrentBucketQuantity(selectedProduct, toBucket);
-    const deltaQty = targetQty - currentQty;
+    const normalizedDestinationProductCode =
+      normalizeProductCode(transferToProduct);
+
+    if (!normalizedDestinationProductCode) {
+      const defaultDestination = transferOutByProduct.destinationsBySource.get(
+        normalizedSourceProductCode
+      )?.[0];
+
+      if (defaultDestination) {
+        const canonicalDestinationCode =
+          productOptionValueByNormalizedCode.get(
+            defaultDestination.destinationCode
+          ) ?? defaultDestination.destinationCode;
+
+        setTransferToProduct((previousProductCode) => {
+          const normalizedPrevious = normalizeProductCode(previousProductCode);
+          return normalizedPrevious === defaultDestination.destinationCode
+            ? previousProductCode
+            : canonicalDestinationCode;
+        });
+      } else {
+        setTransferQty(0);
+      }
+
+      return;
+    }
+
+    const currentTransferQuantity = getCurrentTransferQuantity(
+      normalizedSourceProductCode,
+      normalizedDestinationProductCode
+    );
+
+    setTransferQty((previousQty) => {
+      const previousValue = Number(previousQty || 0);
+      return previousValue === currentTransferQuantity
+        ? previousQty
+        : currentTransferQuantity;
+    });
+  }, [
+    getCurrentTransferQuantity,
+    productOptionValueByNormalizedCode,
+    selectedProduct,
+    transferOutByProduct.destinationsBySource,
+    transferToProduct,
+  ]);
+
+  const handleMovementSubmit = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!selectedProduct) {
+      return;
+    }
+
     const trimmedNotes = notes.trim();
-    const normalizedProductCode = normalizeProductCode(selectedProduct);
     const additionalsFormattedNotes = trimmedNotes
       ? `${ADDITIONALS_NOTE_MARKER} ${trimmedNotes}`
       : ADDITIONALS_NOTE_MARKER;
 
-    if (deltaQty === 0) {
-      const candidateMovements = editableMovements
-        .filter((movement) => {
-          if (
-            normalizeProductCode(movement.productCode) !== normalizedProductCode
-          ) {
-            return false;
-          }
+    const buckets: AdjustmentBucket[] = [
+      'damaged_hold',
+      'scrap',
+      'supplier_short',
+      'additionals',
+    ];
 
-          if (toBucket === 'additionals') {
-            return (movement.notes ?? '')
-              .toLowerCase()
-              .startsWith(ADDITIONALS_NOTE_PREFIX);
-          }
+    const {
+      deltaByBucket,
+      plannedSellableIn,
+      plannedSellableOut,
+      transferDelta,
+      plannedTransferIn,
+      plannedTransferOut,
+      targetTransferQuantity,
+      targetByBucket,
+    } = adjustmentSellablePreview;
 
-          if (toBucket === 'supplier_short') {
-            return (
-              movement.toBucket === 'supplier_short' &&
-              !(movement.notes ?? '')
-                .toLowerCase()
-                .startsWith(ADDITIONALS_NOTE_PREFIX)
-            );
-          }
+    const sourceProductCode = selectedProduct.trim();
+    const transferDestinationProductCode = transferToProduct.trim();
+    const normalizedSourceProductCode = normalizeProductCode(sourceProductCode);
+    const normalizedTransferDestinationCode = normalizeProductCode(
+      transferDestinationProductCode
+    );
 
-          return movement.toBucket === toBucket;
-        })
-        .sort((a, b) => Number(b.id) - Number(a.id));
-
-      const latestMatchingMovement = candidateMovements[0];
-
-      if (!trimmedNotes && !(latestMatchingMovement?.notes ?? '').trim()) {
+    if (targetTransferQuantity > 0 || transferDelta !== 0) {
+      if (!normalizedTransferDestinationCode) {
         showNotification({
-          title: 'No changes',
-          message: 'Selected bucket already matches the target quantity.',
-          color: 'blue',
-        });
-        adjustmentModalHandlers.close();
-        return;
-      }
-
-      if (!latestMatchingMovement) {
-        showNotification({
-          title: 'Unable to save note',
+          title: 'Transfer destination required',
           message:
-            'No matching adjustment entry found for note-only update. Change target quantity to create an entry.',
+            'Select Transfer To product code when transfer quantity is set.',
           color: 'red',
         });
         return;
       }
 
-      try {
-        await updateMovement({
-          id: latestMatchingMovement.id,
-          postingDate: postingDate.trim() || undefined,
-          notes:
-            toBucket === 'additionals'
-              ? additionalsFormattedNotes
-              : trimmedNotes,
-        });
-
+      if (normalizedTransferDestinationCode === normalizedSourceProductCode) {
         showNotification({
-          title: 'Saved',
-          message: 'Adjustment note updated',
-          color: 'green',
-        });
-
-        setNotes('');
-        adjustmentModalHandlers.close();
-      } catch (error) {
-        showNotification({
-          title: 'Error',
+          title: 'Invalid transfer destination',
           message:
-            error instanceof Error
-              ? error.message
-              : 'Failed to update adjustment note',
+            'Transfer To must be a different product code from the source product.',
           color: 'red',
         });
+        return;
+      }
+    }
+
+    const hasDelta = buckets.some((bucket) => deltaByBucket[bucket] !== 0);
+
+    const hasTransfer = transferDelta !== 0;
+
+    if (!hasDelta && !hasTransfer) {
+      const normalizedSelectedProductCode =
+        normalizeProductCode(selectedProduct);
+      const currentNotes =
+        adjustmentNotesByProduct.get(normalizedSelectedProductCode)?.trim() ||
+        '';
+
+      if (trimmedNotes !== currentNotes) {
+        const latestMovementForSelectedProduct = [
+          ...adjustmentMovements,
+          ...supplierShortMovements,
+          ...additionalsMovements,
+        ]
+          .sort((left, right) => Number(right.id) - Number(left.id))
+          .find(
+            (movement) =>
+              normalizeProductCode(movement.productCode) ===
+              normalizedSelectedProductCode
+          );
+
+        if (latestMovementForSelectedProduct) {
+          try {
+            await updateMovement({
+              id: latestMovementForSelectedProduct.id,
+              notes: trimmedNotes || undefined,
+            });
+
+            showNotification({
+              title: 'Saved',
+              message: 'Adjustment note updated',
+              color: 'green',
+            });
+
+            setNotes(trimmedNotes);
+            adjustmentModalHandlers.close();
+            return;
+          } catch (error) {
+            showNotification({
+              title: 'Error',
+              message:
+                error instanceof Error
+                  ? error.message
+                  : 'Failed to update adjustment note',
+              color: 'red',
+            });
+            return;
+          }
+        }
       }
 
+      showNotification({
+        title: 'No changes',
+        message:
+          'All adjustment targets and transfer values already match current values.',
+        color: 'blue',
+      });
+      adjustmentModalHandlers.close();
       return;
     }
 
     if (
-      deltaQty > 0 &&
-      toBucket !== 'additionals' &&
-      deltaQty > selectedOnHand
+      plannedSellableOut + plannedTransferOut >
+      selectedOnHand + plannedSellableIn + plannedTransferIn
     ) {
       showNotification({
         title: 'Quantity exceeds sellable on-hand',
@@ -531,34 +1050,140 @@ export function InventoryPage({ apiBasePath }: InventoryPageProps) {
       return;
     }
 
-    try {
-      if (deltaQty > 0) {
-        await createMovement({
+    if (transferDelta < 0 && normalizedTransferDestinationCode) {
+      const destinationSellableOnHand = getSellableOnHand(
+        transferDestinationProductCode
+      );
+      const reverseTransferQuantity = Math.abs(transferDelta);
+
+      if (reverseTransferQuantity > destinationSellableOnHand) {
+        showNotification({
+          title: 'Transfer exceeds destination sellable on-hand',
+          message: `Available sellable units for ${normalizedTransferDestinationCode}: ${destinationSellableOnHand}`,
+          color: 'red',
+        });
+        return;
+      }
+    }
+
+    type MovementPayload = {
+      productCode: string;
+      quantity: number;
+      fromBucket: 'sellable' | 'damaged_hold' | 'scrap' | 'supplier_short';
+      toBucket: 'sellable' | 'damaged_hold' | 'scrap' | 'supplier_short';
+      postingDate?: string;
+      notes?: string;
+    };
+
+    const inboundToSellable: MovementPayload[] = [];
+    const outboundFromSellable: MovementPayload[] = [];
+
+    buckets.forEach((bucket) => {
+      const delta = deltaByBucket[bucket];
+      if (delta === 0) {
+        return;
+      }
+
+      if (bucket === 'additionals') {
+        if (delta > 0) {
+          inboundToSellable.push({
+            productCode: selectedProduct,
+            quantity: delta,
+            fromBucket: 'supplier_short',
+            toBucket: 'sellable',
+            postingDate: postingDate.trim() || undefined,
+            notes: additionalsFormattedNotes,
+          });
+        } else {
+          outboundFromSellable.push({
+            productCode: selectedProduct,
+            quantity: Math.abs(delta),
+            fromBucket: 'sellable',
+            toBucket: 'supplier_short',
+            postingDate: postingDate.trim() || undefined,
+            notes: additionalsFormattedNotes,
+          });
+        }
+        return;
+      }
+
+      if (delta > 0) {
+        outboundFromSellable.push({
           productCode: selectedProduct,
-          quantity: deltaQty,
-          fromBucket:
-            toBucket === 'additionals' ? 'supplier_short' : 'sellable',
-          toBucket: toBucket === 'additionals' ? 'sellable' : toBucket,
+          quantity: delta,
+          fromBucket: 'sellable',
+          toBucket: bucket,
           postingDate: postingDate.trim() || undefined,
-          notes:
-            toBucket === 'additionals'
-              ? additionalsFormattedNotes
-              : trimmedNotes || undefined,
+          notes: trimmedNotes || undefined,
         });
       } else {
-        const reverseQty = Math.abs(deltaQty);
-
-        await createMovement({
+        inboundToSellable.push({
           productCode: selectedProduct,
-          quantity: reverseQty,
-          fromBucket: toBucket === 'additionals' ? 'sellable' : toBucket,
-          toBucket: toBucket === 'additionals' ? 'supplier_short' : 'sellable',
+          quantity: Math.abs(delta),
+          fromBucket: bucket,
+          toBucket: 'sellable',
           postingDate: postingDate.trim() || undefined,
-          notes:
-            toBucket === 'additionals'
-              ? additionalsFormattedNotes
-              : trimmedNotes || undefined,
+          notes: trimmedNotes || undefined,
         });
+      }
+    });
+
+    if (transferDelta !== 0 && normalizedTransferDestinationCode) {
+      if (transferDelta > 0) {
+        const transferNotes = trimmedNotes
+          ? `${TRANSFER_NOTE_MARKER} from:${normalizedSourceProductCode}; to:${normalizedTransferDestinationCode}; note:${trimmedNotes}`
+          : `${TRANSFER_NOTE_MARKER} from:${normalizedSourceProductCode}; to:${normalizedTransferDestinationCode}`;
+
+        outboundFromSellable.push({
+          productCode: sourceProductCode,
+          quantity: transferDelta,
+          fromBucket: 'sellable',
+          toBucket: 'supplier_short',
+          postingDate: postingDate.trim() || undefined,
+          notes: transferNotes,
+        });
+
+        inboundToSellable.push({
+          productCode: transferDestinationProductCode,
+          quantity: transferDelta,
+          fromBucket: 'supplier_short',
+          toBucket: 'sellable',
+          postingDate: postingDate.trim() || undefined,
+          notes: transferNotes,
+        });
+      } else {
+        const reverseTransferQuantity = Math.abs(transferDelta);
+        const reverseTransferNotes = trimmedNotes
+          ? `${TRANSFER_NOTE_MARKER} from:${normalizedTransferDestinationCode}; to:${normalizedSourceProductCode}; note:${trimmedNotes}`
+          : `${TRANSFER_NOTE_MARKER} from:${normalizedTransferDestinationCode}; to:${normalizedSourceProductCode}`;
+
+        outboundFromSellable.push({
+          productCode: transferDestinationProductCode,
+          quantity: reverseTransferQuantity,
+          fromBucket: 'sellable',
+          toBucket: 'supplier_short',
+          postingDate: postingDate.trim() || undefined,
+          notes: reverseTransferNotes,
+        });
+
+        inboundToSellable.push({
+          productCode: sourceProductCode,
+          quantity: reverseTransferQuantity,
+          fromBucket: 'supplier_short',
+          toBucket: 'sellable',
+          postingDate: postingDate.trim() || undefined,
+          notes: reverseTransferNotes,
+        });
+      }
+    }
+
+    try {
+      for (const movement of inboundToSellable) {
+        await createMovement(movement);
+      }
+
+      for (const movement of outboundFromSellable) {
+        await createMovement(movement);
       }
 
       showNotification({
@@ -567,7 +1192,14 @@ export function InventoryPage({ apiBasePath }: InventoryPageProps) {
         color: 'green',
       });
 
-      setQuantity(0);
+      setBucketQuantities({
+        damaged_hold: targetByBucket.damaged_hold,
+        scrap: targetByBucket.scrap,
+        supplier_short: targetByBucket.supplier_short,
+        additionals: targetByBucket.additionals,
+      });
+      setTransferToProduct('');
+      setTransferQty(0);
       setNotes('');
       adjustmentModalHandlers.close();
     } catch (error) {
@@ -806,7 +1438,7 @@ export function InventoryPage({ apiBasePath }: InventoryPageProps) {
               searchable
               required
               value={selectedProduct}
-              onChange={(value) => setSelectedProduct(value ?? '')}
+              onChange={handleAdjustmentProductChange}
             />
 
             <TextInput
@@ -817,41 +1449,72 @@ export function InventoryPage({ apiBasePath }: InventoryPageProps) {
             />
 
             <NumberInput
-              label="Target Quantity"
+              label="Damaged"
               min={0}
               required
-              value={quantity}
-              onChange={(value) => setQuantity((value as number | '') ?? '')}
+              value={bucketQuantities.damaged_hold}
+              onChange={(value) =>
+                setBucketQuantities((previous) => ({
+                  ...previous,
+                  damaged_hold: (value as number | '') ?? '',
+                }))
+              }
             />
 
-            <Text size="sm" c="dimmed">
-              Sellable on-hand: {selectedProduct ? selectedOnHand : 0}
-            </Text>
+            <NumberInput
+              label="Scrap"
+              min={0}
+              required
+              value={bucketQuantities.scrap}
+              onChange={(value) =>
+                setBucketQuantities((previous) => ({
+                  ...previous,
+                  scrap: (value as number | '') ?? '',
+                }))
+              }
+            />
+
+            <NumberInput
+              label="Supplier Short"
+              min={0}
+              required
+              value={bucketQuantities.supplier_short}
+              onChange={(value) =>
+                setBucketQuantities((previous) => ({
+                  ...previous,
+                  supplier_short: (value as number | '') ?? '',
+                }))
+              }
+            />
+
+            <NumberInput
+              label="Additionals"
+              min={0}
+              required
+              value={bucketQuantities.additionals}
+              onChange={(value) =>
+                setBucketQuantities((previous) => ({
+                  ...previous,
+                  additionals: (value as number | '') ?? '',
+                }))
+              }
+            />
 
             <Select
-              label="Destination bucket"
-              data={[
-                {
-                  value: 'damaged_hold',
-                  label: 'Damaged Hold (Keep aside)',
-                },
-                { value: 'scrap', label: 'Scrap (write off)' },
-                { value: 'supplier_short', label: 'Supplier short' },
-                { value: 'additionals', label: 'Additionals' },
-              ]}
-              value={toBucket}
-              onChange={(value) => {
-                const nextBucket =
-                  (value as
-                    | 'damaged_hold'
-                    | 'scrap'
-                    | 'supplier_short'
-                    | 'additionals') ?? 'damaged_hold';
-                setToBucket(nextBucket);
-                if (selectedProduct) {
-                  setNotes(getLatestBucketNote(selectedProduct, nextBucket));
-                }
-              }}
+              label="Transfer To"
+              placeholder="Select destination product code"
+              data={transferToOptions}
+              searchable
+              value={transferToProduct}
+              onChange={handleTransferToChange}
+            />
+
+            <NumberInput
+              label="Transfer Out"
+              description="Quantity to transfer from selected Product Code to Transfer To"
+              min={0}
+              value={transferQty}
+              onChange={(value) => setTransferQty((value as number | '') ?? '')}
             />
 
             <Textarea
@@ -861,6 +1524,15 @@ export function InventoryPage({ apiBasePath }: InventoryPageProps) {
               value={notes}
               onChange={(event) => setNotes(event.currentTarget.value)}
             />
+
+            <Text size="sm" c="dimmed">
+              Sellable on-hand:{' '}
+              {selectedProduct
+                ? numberFormatter.format(
+                    adjustmentSellablePreview.projectedSellableOnHand
+                  )
+                : numberFormatter.format(0)}
+            </Text>
 
             <Group justify="flex-end" mt="sm">
               <Button
@@ -873,7 +1545,7 @@ export function InventoryPage({ apiBasePath }: InventoryPageProps) {
               <Button
                 type="submit"
                 loading={isSubmittingMovement}
-                disabled={!selectedProduct || quantity === ''}
+                disabled={!selectedProduct}
               >
                 Save Adjustment
               </Button>
@@ -1159,6 +1831,11 @@ export function InventoryPage({ apiBasePath }: InventoryPageProps) {
             onExport={handleExportCSV}
             onAddNew={handleAddNew}
             isImporting={isImporting}
+            searchAddon={
+              <Button onClick={openAdjustmentModalFromFilter}>
+                Adjustment
+              </Button>
+            }
           />
 
           <StandardTableContainer
@@ -1174,6 +1851,8 @@ export function InventoryPage({ apiBasePath }: InventoryPageProps) {
               headers={headers}
               data={sortedFilteredData}
               emptyState={emptyStateMessage}
+              transferOutByProduct={transferOutByProduct.formattedByProduct}
+              transferInByProduct={transferInByProduct.formattedByProduct}
             />
           </StandardTableContainer>
         </Tabs.Panel>
@@ -1187,7 +1866,7 @@ export function InventoryPage({ apiBasePath }: InventoryPageProps) {
                   DAMAGED_HOLD, SCRAP, SUPPLIER_SHORT, or record ADDITIONALS.
                 </Text>
                 <Group justify="flex-end">
-                  <Button onClick={adjustmentModalHandlers.open}>
+                  <Button onClick={openAdjustmentModalFromFilter}>
                     Adjustment
                   </Button>
                 </Group>
@@ -1202,10 +1881,12 @@ export function InventoryPage({ apiBasePath }: InventoryPageProps) {
                   'SCRAP',
                   'SUPPLIER SHORT',
                   'ADDITIONALS',
+                  'TRANSFER OUT',
+                  'TRANSFER IN',
                   'NOTES',
                 ]}
                 emptyState="No adjustment entries yet."
-                colSpan={6}
+                colSpan={8}
               >
                 {[...sortedFilteredData]
                   .filter((item) => {
@@ -1214,11 +1895,24 @@ export function InventoryPage({ apiBasePath }: InventoryPageProps) {
                       0;
                     const additionalsQty =
                       additionalsQtyByProduct.get(item.productCode.trim()) ?? 0;
+                    const normalizedProductCode = normalizeProductCode(
+                      item.productCode
+                    );
+                    const transferOutQty =
+                      transferOutByProduct.quantityByProduct.get(
+                        normalizedProductCode
+                      ) ?? 0;
+                    const transferInQty =
+                      transferInByProduct.quantityByProduct.get(
+                        normalizedProductCode
+                      ) ?? 0;
                     return (
                       item.damagedOnHand > 0 ||
                       item.scrapQty > 0 ||
                       manualSupplierShortQty > 0 ||
-                      additionalsQty > 0
+                      additionalsQty > 0 ||
+                      transferOutQty > 0 ||
+                      transferInQty > 0
                     );
                   })
                   .sort((a, b) => {
@@ -1230,16 +1924,42 @@ export function InventoryPage({ apiBasePath }: InventoryPageProps) {
                       additionalsQtyByProduct.get(a.productCode.trim()) ?? 0;
                     const bAdditionalsQty =
                       additionalsQtyByProduct.get(b.productCode.trim()) ?? 0;
+                    const aNormalizedProductCode = normalizeProductCode(
+                      a.productCode
+                    );
+                    const bNormalizedProductCode = normalizeProductCode(
+                      b.productCode
+                    );
+                    const aTransferOutQty =
+                      transferOutByProduct.quantityByProduct.get(
+                        aNormalizedProductCode
+                      ) ?? 0;
+                    const bTransferOutQty =
+                      transferOutByProduct.quantityByProduct.get(
+                        bNormalizedProductCode
+                      ) ?? 0;
+                    const aTransferInQty =
+                      transferInByProduct.quantityByProduct.get(
+                        aNormalizedProductCode
+                      ) ?? 0;
+                    const bTransferInQty =
+                      transferInByProduct.quantityByProduct.get(
+                        bNormalizedProductCode
+                      ) ?? 0;
                     const aTotal =
                       a.damagedOnHand +
                       a.scrapQty +
                       aSupplierShortQty +
-                      aAdditionalsQty;
+                      aAdditionalsQty +
+                      aTransferOutQty +
+                      aTransferInQty;
                     const bTotal =
                       b.damagedOnHand +
                       b.scrapQty +
                       bSupplierShortQty +
-                      bAdditionalsQty;
+                      bAdditionalsQty +
+                      bTransferOutQty +
+                      bTransferInQty;
 
                     if (aTotal !== bTotal) {
                       return bTotal - aTotal;
@@ -1290,6 +2010,20 @@ export function InventoryPage({ apiBasePath }: InventoryPageProps) {
                               item.productCode.trim()
                             ) ?? 0
                           )}
+                        </Text>
+                      </Table.Td>
+                      <Table.Td style={{ textAlign: 'center' }}>
+                        <Text size="sm" c="#495057">
+                          {transferOutByProduct.formattedByProduct.get(
+                            normalizeProductCode(item.productCode)
+                          ) || '—'}
+                        </Text>
+                      </Table.Td>
+                      <Table.Td style={{ textAlign: 'center' }}>
+                        <Text size="sm" c="#495057">
+                          {transferInByProduct.formattedByProduct.get(
+                            normalizeProductCode(item.productCode)
+                          ) || '—'}
                         </Text>
                       </Table.Td>
                       <Table.Td style={{ textAlign: 'left' }}>

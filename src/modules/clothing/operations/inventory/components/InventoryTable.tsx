@@ -2,6 +2,7 @@ import { memo } from 'react';
 import { Table, Text } from '@mantine/core';
 import { StandardDataTable } from '@/components/tables/StandardDataTable';
 import type { InventoryItem } from '../types';
+import { normalizeProductCode } from '@/lib/inventory/movements';
 import {
   currencyFormatter,
   numberFormatter,
@@ -12,10 +13,18 @@ interface InventoryTableProps {
   headers: readonly string[];
   data: InventoryItem[];
   emptyState: string;
+  transferOutByProduct: Map<string, string>;
+  transferInByProduct: Map<string, string>;
 }
 
 export const InventoryTable = memo(
-  ({ headers, data, emptyState }: InventoryTableProps) => {
+  ({
+    headers,
+    data,
+    emptyState,
+    transferOutByProduct,
+    transferInByProduct,
+  }: InventoryTableProps) => {
     return (
       <StandardDataTable
         headers={headers}
@@ -47,6 +56,20 @@ export const InventoryTable = memo(
             <Table.Td style={{ textAlign: 'center' }}>
               <Text size="sm" c="#495057">
                 {numberFormatter.format(item.additionalsQty)}
+              </Text>
+            </Table.Td>
+            <Table.Td style={{ textAlign: 'center' }}>
+              <Text size="sm" c="#495057">
+                {transferOutByProduct.get(
+                  normalizeProductCode(item.productCode)
+                ) || '—'}
+              </Text>
+            </Table.Td>
+            <Table.Td style={{ textAlign: 'center' }}>
+              <Text size="sm" c="#495057">
+                {transferInByProduct.get(
+                  normalizeProductCode(item.productCode)
+                ) || '—'}
               </Text>
             </Table.Td>
             <Table.Td style={{ textAlign: 'center' }}>
