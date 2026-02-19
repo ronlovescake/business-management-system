@@ -34,7 +34,11 @@ export const InventoryTable = memo(
         {data.map((item) => (
           <Table.Tr key={item.id}>
             <Table.Td style={{ textAlign: 'left' }}>
-              <Text size="sm" c="#495057">
+              <Text
+                size="sm"
+                c={item.sellableOnHand > 0 ? 'green' : '#495057'}
+                fw={item.sellableOnHand > 0 ? 600 : 500}
+              >
                 {item.productCode}
               </Text>
             </Table.Td>

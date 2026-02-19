@@ -278,6 +278,12 @@ interface StandardTableControlsProps {
    * Optional: Controlled search input value
    */
   searchValue?: string;
+
+  /**
+   * Optional: Gap value for control groups
+   * @default "sm"
+   */
+  groupGap?: string | number;
 }
 
 export const StandardTableControls = memo(function StandardTableControls({
@@ -297,6 +303,7 @@ export const StandardTableControls = memo(function StandardTableControls({
   expandSearch = false,
   searchAddon,
   searchValue,
+  groupGap = 'sm',
 }: StandardTableControlsProps) {
   const [internalSearchValue, setInternalSearchValue] = useState(
     searchValue ?? ''
@@ -345,11 +352,12 @@ export const StandardTableControls = memo(function StandardTableControls({
     <Group
       justify={expandSearch ? 'flex-start' : 'space-between'}
       wrap="wrap"
+      gap={groupGap}
       style={expandSearch ? { gap: '0.5rem', width: '100%' } : undefined}
     >
       {(!hideSearch || searchAddon) && (
         <Group
-          gap="sm"
+          gap={groupGap}
           align="flex-end"
           style={expandSearch ? { width: '100%' } : { flex: 1 }}
         >
@@ -370,7 +378,7 @@ export const StandardTableControls = memo(function StandardTableControls({
           {searchAddon}
         </Group>
       )}
-      <Group gap="sm">
+      <Group gap={groupGap}>
         {!hideImport && (
           <FileButton onChange={handleImportChange} accept={acceptFileTypes}>
             {(props) => (

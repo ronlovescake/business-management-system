@@ -30,6 +30,7 @@ export const InventoryTableControls = memo(
         onExport={onExport}
         onAddNew={onAddNew}
         isImporting={isImporting}
+        groupGap="md"
         hideImport={!showActions}
         hideExport={!showActions}
         hideAddNew={!showActions}

@@ -38,6 +38,8 @@ type AdjustmentBucket =
   | 'supplier_short'
   | 'additionals';
 
+type SellableFilter = 'all' | 'non_zero_sellable';
+
 export function InventoryPage({ apiBasePath }: InventoryPageProps) {
   const ADDITIONALS_NOTE_PREFIX = 'additionals';
   const ADDITIONALS_NOTE_MARKER = `${ADDITIONALS_NOTE_PREFIX}:`;
@@ -92,6 +94,8 @@ export function InventoryPage({ apiBasePath }: InventoryPageProps) {
   const [notes, setNotes] = useState('');
   const [transferToProduct, setTransferToProduct] = useState<string>('');
   const [transferQty, setTransferQty] = useState<number | ''>(0);
+  const [sellableFilter, setSellableFilter] =
+    useState<SellableFilter>('non_zero_sellable');
 
   const [supplierShortProduct, setSupplierShortProduct] = useState<string>('');
   const [supplierShortPostingDate, setSupplierShortPostingDate] =
@@ -700,8 +704,16 @@ export function InventoryPage({ apiBasePath }: InventoryPageProps) {
     return editableMovements.find((m) => m.id === editingMovementId) ?? null;
   }, [editableMovements, editingMovementId]);
 
+  const sellableFilteredData = useMemo(() => {
+    if (sellableFilter !== 'non_zero_sellable') {
+      return filteredData;
+    }
+
+    return filteredData.filter((item) => item.sellableOnHand !== 0);
+  }, [filteredData, sellableFilter]);
+
   const sortedFilteredData = useMemo(() => {
-    return [...filteredData].sort((a, b) => {
+    return [...sellableFilteredData].sort((a, b) => {
       const aId = Number(a.id);
       const bId = Number(b.id);
 
@@ -711,19 +723,29 @@ export function InventoryPage({ apiBasePath }: InventoryPageProps) {
 
       return b.productCode.localeCompare(a.productCode);
     });
-  }, [filteredData]);
+  }, [sellableFilteredData]);
 
   const singleFilteredProductCode = useMemo(() => {
     const uniqueProductCodes = Array.from(
       new Set(
-        filteredData
+        sellableFilteredData
           .map((item) => item.productCode.trim())
           .filter((code) => code.length > 0)
       )
     );
 
     return uniqueProductCodes.length === 1 ? uniqueProductCodes[0] : null;
-  }, [filteredData]);
+  }, [sellableFilteredData]);
+
+  const inventoryEmptyStateMessage = useMemo(() => {
+    if (sellableFilter !== 'non_zero_sellable') {
+      return emptyStateMessage;
+    }
+
+    return searchQuery
+      ? `No inventory records with non-zero sellable value match "${searchQuery}".`
+      : 'No inventory records with non-zero sellable value.';
+  }, [emptyStateMessage, searchQuery, sellableFilter]);
 
   const handleAdjustmentProductChange = useCallback(
     (value: string | null) => {
@@ -1819,42 +1841,63 @@ export function InventoryPage({ apiBasePath }: InventoryPageProps) {
           setActiveTab((value as typeof activeTab) ?? 'inventory')
         }
       >
+        <InventorySummary
+          filteredCount={sellableFilteredData.length}
+          totalCount={totalItemCount}
+          totals={totals}
+        />
+
         <Tabs.List>
           <Tabs.Tab value="inventory">Inventory</Tabs.Tab>
           <Tabs.Tab value="adjustments">Adjustments</Tabs.Tab>
         </Tabs.List>
 
         <Tabs.Panel value="inventory" pt="md">
-          <InventoryTableControls
-            onSearch={setSearchQuery}
-            onImport={handleImportCSV}
-            onExport={handleExportCSV}
-            onAddNew={handleAddNew}
-            isImporting={isImporting}
-            searchAddon={
-              <Button onClick={openAdjustmentModalFromFilter}>
-                Adjustment
-              </Button>
-            }
-          />
-
-          <StandardTableContainer
-            summary={
-              <InventorySummary
-                filteredCount={filteredData.length}
-                totalCount={totalItemCount}
-                totals={totals}
-              />
-            }
-          >
-            <InventoryTable
-              headers={headers}
-              data={sortedFilteredData}
-              emptyState={emptyStateMessage}
-              transferOutByProduct={transferOutByProduct.formattedByProduct}
-              transferInByProduct={transferInByProduct.formattedByProduct}
+          <Stack gap="md">
+            <InventoryTableControls
+              onSearch={setSearchQuery}
+              onImport={handleImportCSV}
+              onExport={handleExportCSV}
+              onAddNew={handleAddNew}
+              isImporting={isImporting}
+              searchAddon={
+                <Group gap="sm" wrap="nowrap">
+                  <Select
+                    w={280}
+                    placeholder="Sellable filter"
+                    data={[
+                      {
+                        value: 'all',
+                        label: 'All Product Codes',
+                      },
+                      {
+                        value: 'non_zero_sellable',
+                        label: 'Non-zero Sellable Value',
+                      },
+                    ]}
+                    value={sellableFilter}
+                    onChange={(value) =>
+                      setSellableFilter((value as SellableFilter) ?? 'all')
+                    }
+                    allowDeselect={false}
+                  />
+                  <Button onClick={openAdjustmentModalFromFilter}>
+                    Adjustment
+                  </Button>
+                </Group>
+              }
             />
-          </StandardTableContainer>
+
+            <StandardTableContainer>
+              <InventoryTable
+                headers={headers}
+                data={sortedFilteredData}
+                emptyState={inventoryEmptyStateMessage}
+                transferOutByProduct={transferOutByProduct.formattedByProduct}
+                transferInByProduct={transferInByProduct.formattedByProduct}
+              />
+            </StandardTableContainer>
+          </Stack>
         </Tabs.Panel>
 
         <Tabs.Panel value="adjustments" pt="md">
