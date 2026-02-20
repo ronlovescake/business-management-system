@@ -1,0 +1,265 @@
+{
+  "date": "2026-02-21",
+  "dist": {
+    "gte500": 140,
+    "gte800": 54,
+    "gte1000": 27,
+    "gte1200": 15,
+    "gte1500": 1
+  },
+  "top20": [
+    {
+      "file": "src/app/trucking/employees/payroll/hooks/usePayroll.ts",
+      "lines": 1667
+    },
+    {
+      "file": "src/components/ui/HandsontableGrid.tsx",
+      "lines": 1467
+    },
+    {
+      "file": "src/lib/openapi/spec.ts",
+      "lines": 1449
+    },
+    {
+      "file": "src/lib/payroll/trucking/deductions.ts",
+      "lines": 1431
+    },
+    {
+      "file": "src/lib/payroll/deductions.ts",
+      "lines": 1415
+    },
+    {
+      "file": "src/lib/payroll/deductionsGeneralMerchandise.ts",
+      "lines": 1409
+    },
+    {
+      "file": "src/components/navigation/HeaderQuickActions.tsx",
+      "lines": 1406
+    },
+    {
+      "file": "src/modules/clothing/operations/settings/components/BackupRestoreTab.tsx",
+      "lines": 1399
+    },
+    {
+      "file": "src/app/trucking/employees/leave-tracker/hooks/useLeaveTracker.ts",
+      "lines": 1324
+    },
+    {
+      "file": "src/app/clothing/employees/leave-tracker/hooks/useLeaveTracker.ts",
+      "lines": 1320
+    },
+    {
+      "file": "src/app/clothing/employees/payroll/hooks/usePayroll.ts",
+      "lines": 1318
+    },
+    {
+      "file": "src/modules/clothing/employees/payroll/hooks/usePayroll.ts",
+      "lines": 1286
+    },
+    {
+      "file": "src/app/trucking/employees/schedules/hooks/useSchedules.ts",
+      "lines": 1280
+    },
+    {
+      "file": "src/app/trucking/employees/attendance/hooks/useAttendance.ts",
+      "lines": 1240
+    },
+    {
+      "file": "src/app/api/backup/route.ts",
+      "lines": 1238
+    },
+    {
+      "file": "src/app/clothing/employees/attendance/hooks/useAttendance.ts",
+      "lines": 1184
+    },
+    {
+      "file": "src/app/clothing/employees/schedules/hooks/useSchedules.ts",
+      "lines": 1181
+    },
+    {
+      "file": "src/lib/accounting/general-merchandise/inventory-cogs.ts",
+      "lines": 1179
+    },
+    {
+      "file": "src/modules/clothing/operations/checkout-links/hooks/useCheckoutLinksPage.ts",
+      "lines": 1128
+    },
+    {
+      "file": "src/modules/transactions/api/service.ts",
+      "lines": 1128
+    }
+  ],
+  "dup": {
+    "appPages": {
+      "shared": 38,
+      "exact": 1,
+      "ratio": 2.63,
+      "missing": false
+    },
+    "apiRoutes": {
+      "shared": 77,
+      "exact": 0,
+      "ratio": 0,
+      "missing": false
+    },
+    "moduleOps": {
+      "shared": 21,
+      "exact": 0,
+      "ratio": 0,
+      "missing": false
+    },
+    "moduleLedger": {
+      "shared": 7,
+      "exact": 0,
+      "ratio": 0,
+      "missing": false
+    }
+  },
+  "risk": {
+    "asUnknownAs": 0,
+    "todoFixme": 0,
+    "eslintNoAny": 0
+  },
+  "coverage": [
+    {
+      "path": "src/modules/clothing/operations",
+      "status": "covered",
+      "files": 301
+    },
+    {
+      "path": "src/modules/clothing/ledger",
+      "status": "covered",
+      "files": 13
+    },
+    {
+      "path": "src/modules/clothing/employees",
+      "status": "covered",
+      "files": 32
+    },
+    {
+      "path": "src/modules/general-merchandise/operations",
+      "status": "covered",
+      "files": 24
+    },
+    {
+      "path": "src/modules/general-merchandise/ledger",
+      "status": "covered",
+      "files": 7
+    },
+    {
+      "path": "src/modules/general-merchandise/employees",
+      "status": "covered",
+      "files": 1
+    },
+    {
+      "path": "src/modules/trucking",
+      "status": "covered",
+      "files": 61
+    },
+    {
+      "path": "src/modules/household",
+      "status": "covered",
+      "files": 20
+    },
+    {
+      "path": "src/modules",
+      "status": "covered",
+      "files": 567
+    },
+    {
+      "path": "src/app/clothing",
+      "status": "covered",
+      "files": 194
+    },
+    {
+      "path": "src/app/general-merchandise",
+      "status": "covered",
+      "files": 43
+    },
+    {
+      "path": "src/app/trucking",
+      "status": "covered",
+      "files": 110
+    },
+    {
+      "path": "src/app/personal",
+      "status": "covered",
+      "files": 35
+    },
+    {
+      "path": "src/app/api",
+      "status": "covered",
+      "files": 261
+    },
+    {
+      "path": "src/app",
+      "status": "covered",
+      "files": 687
+    },
+    {
+      "path": "src/lib",
+      "status": "covered",
+      "files": 118
+    },
+    {
+      "path": "src/components",
+      "status": "covered",
+      "files": 94
+    },
+    {
+      "path": "src/core",
+      "status": "covered",
+      "files": 24
+    },
+    {
+      "path": "src/shared",
+      "status": "covered",
+      "files": 2
+    },
+    {
+      "path": "src/services",
+      "status": "covered",
+      "files": 19
+    },
+    {
+      "path": "src/hooks",
+      "status": "covered",
+      "files": 10
+    },
+    {
+      "path": "src/utils",
+      "status": "covered",
+      "files": 5
+    },
+    {
+      "path": "src/constants",
+      "status": "covered",
+      "files": 6
+    },
+    {
+      "path": "src/types",
+      "status": "covered",
+      "files": 7
+    },
+    {
+      "path": "src/pages",
+      "status": "covered",
+      "files": 1
+    },
+    {
+      "path": "tests",
+      "status": "covered",
+      "files": 84
+    },
+    {
+      "path": "src/styles",
+      "status": "covered",
+      "files": 3
+    },
+    {
+      "path": "src/middleware.ts",
+      "status": "covered",
+      "files": 1
+    }
+  ]
+}

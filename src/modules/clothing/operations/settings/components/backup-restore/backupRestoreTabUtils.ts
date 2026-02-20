@@ -241,6 +241,27 @@ export const getRestorePreviewSelectedRowData = (
   };
 };
 
+export const getAllRestoreTables = (previewData: BackupData | null) => {
+  if (!previewData) {
+    return [];
+  }
+  return Object.keys(previewData.tables);
+};
+
+export const toggleRestoreTableSelection = (
+  currentSelection: string[],
+  table: string,
+  isChecked: boolean
+) => {
+  if (isChecked) {
+    if (currentSelection.includes(table)) {
+      return currentSelection;
+    }
+    return [...currentSelection, table];
+  }
+  return currentSelection.filter((selectedTable) => selectedTable !== table);
+};
+
 export const fetchWithTimeout = async (
   input: RequestInfo | URL,
   init?: RequestInit,

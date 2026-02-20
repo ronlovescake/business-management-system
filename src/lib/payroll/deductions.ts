@@ -24,6 +24,14 @@ import {
   determineCycleFromDate,
   ensureNextPayday,
 } from './cashAdvanceSchedule';
+import {
+  mergeCashAdvanceUpdate,
+  selectThirteenthMonthTarget,
+} from './deductionUpdateHelpers';
+import {
+  calculateAttendanceDeductionEngine,
+  calculateLwopDeductionEngine,
+} from './payrollDeductionCalculationEngine';
 
 const getPayrollPeriodRange = (
   payroll: Payroll
@@ -369,47 +377,6 @@ const buildCashAdvanceIndex = async (
   return { byEmployeeId, byEmployeeName };
 };
 
-const mergeCashAdvanceUpdate = (
-  store: Map<string, Prisma.CashAdvanceRecordUpdateInput>,
-  id: string,
-  update: Prisma.CashAdvanceRecordUpdateInput
-) => {
-  const existing = store.get(id);
-  if (existing) {
-    store.set(id, { ...existing, ...update });
-    return;
-  }
-  store.set(id, update);
-};
-
-const selectThirteenthMonthTarget = (
-  candidates: Array<{
-    payroll: Payroll;
-    start: Date | null;
-    end: Date | null;
-  }>,
-  _approvedDate: Date | null,
-  _paidDate: Date | null
-) => {
-  if (candidates.length === 0) {
-    return null;
-  }
-
-  // Always select the latest (current) pay period only
-  // Do NOT apply 13th month to previous/past periods
-  const latest = candidates.reduce((latestCandidate, candidate) => {
-    if (!latestCandidate.end) {
-      return candidate;
-    }
-    if (!candidate.end) {
-      return latestCandidate;
-    }
-    return candidate.end > latestCandidate.end ? candidate : latestCandidate;
-  }, candidates[0]);
-
-  return latest;
-};
-
 const applyThirteenthMonthAdjustments = async (
   payrolls: Payroll[]
 ): Promise<Payroll[]> => {
@@ -704,54 +671,17 @@ const calculateLwopForPayroll = (
   unpaidDays: number;
   dailyRate: number;
   deduction: number;
-} => {
-  const { start: periodStart, end: periodEnd } = getPayrollPeriodRange(payroll);
-
-  if (!periodStart || !periodEnd) {
-    return { unpaidDays: 0, dailyRate: 0, deduction: 0 };
-  }
-
-  if (!entry) {
-    return { unpaidDays: 0, dailyRate: 0, deduction: 0 };
-  }
-
-  const effectiveMonthlySalary = getEffectiveMonthlySalary(payroll, entry);
-
-  if (effectiveMonthlySalary <= 0) {
-    return { unpaidDays: 0, dailyRate: 0, deduction: 0 };
-  }
-
-  const dailyRate = roundToCents(effectiveMonthlySalary / 26);
-
-  if (entry.leaves.length === 0) {
-    return { unpaidDays: 0, dailyRate, deduction: 0 };
-  }
-
-  const unpaidDays = entry.leaves.reduce((total, leave) => {
-    const leaveStart = parseDate(leave.startDate);
-    const leaveEnd = parseDate(leave.endDate);
-
-    if (!leaveStart || !leaveEnd) {
-      return total;
-    }
-
-    return (
-      total +
-      getOverlapScheduledDays(
-        payroll.employeeId,
-        periodStart,
-        periodEnd,
-        leaveStart,
-        leaveEnd,
-        schedules
-      )
-    );
-  }, 0);
-
-  const deduction = unpaidDays > 0 ? roundToCents(dailyRate * unpaidDays) : 0;
-
-  return { unpaidDays, dailyRate, deduction };
-};
+} =>
+  calculateLwopDeductionEngine({
+    payroll,
+    entry,
+    schedules,
+    getPayrollPeriodRange,
+    getEffectiveMonthlySalary,
+    parseDate,
+    getOverlapScheduledDays,
+    roundToCents,
+  });
 
 const applyLwopAdjustments = async (
   payrolls: Payroll[],
@@ -895,152 +825,27 @@ interface AttendanceDeductionResult {
   deduction: number;
 }
 
-// Attendance statuses that should never trigger late/undertime penalties.
-const DEDUCTION_EXEMPT_ATTENDANCE_STATUSES = new Set(['on-leave']);
-
 const calculateAbsentsLatesForPayroll = (
   payroll: Payroll,
   entry: EmployeeMapEntry | undefined,
   attendanceRecords: MinimalAttendance[] = [],
   scheduleRecords: MinimalSchedule[] = []
-): AttendanceDeductionResult => {
-  const { start: periodStart, end: periodEnd } = getPayrollPeriodRange(payroll);
-
-  if (!periodStart || !periodEnd) {
-    return { absentDays: 0, lateMinutes: 0, undertimeMinutes: 0, deduction: 0 };
-  }
-
-  const effectiveMonthlySalary = getEffectiveMonthlySalary(payroll, entry);
-
-  if (effectiveMonthlySalary <= 0) {
-    return { absentDays: 0, lateMinutes: 0, undertimeMinutes: 0, deduction: 0 };
-  }
-
-  const dailyRate = roundToCents(effectiveMonthlySalary / 26);
-  const ratePerMinute = dailyRate / MINUTES_PER_DAY;
-
-  const isWithinPeriod = (dateStr: string) => {
-    const dateValue = parseDate(dateStr);
-    if (!dateValue) {
-      return false;
-    }
-    return dateValue >= periodStart && dateValue <= periodEnd;
-  };
-
-  const attendanceInPeriod = attendanceRecords.filter((record) =>
-    isWithinPeriod(record.date)
-  );
-
-  const schedulesInPeriod = scheduleRecords.filter((record) =>
-    isWithinPeriod(record.date)
-  );
-
-  const attendanceByDate = attendanceInPeriod.reduce<
-    Map<string, MinimalAttendance[]>
-  >((acc, record) => {
-    const list = acc.get(record.date) ?? [];
-    list.push(record);
-    acc.set(record.date, list);
-    return acc;
-  }, new Map());
-
-  const scheduleByDate = schedulesInPeriod.reduce<
-    Map<string, MinimalSchedule[]>
-  >((acc, record) => {
-    const list = acc.get(record.date) ?? [];
-    list.push(record);
-    acc.set(record.date, list);
-    return acc;
-  }, new Map());
-
-  const absenceDates = new Set<string>();
-
-  // Only count absences for dates up to today (don't penalize future scheduled days without attendance)
-  const today = toDateOnlyUtc(new Date());
-
-  for (const schedule of schedulesInPeriod) {
-    const scheduleDate = parseDate(schedule.date);
-
-    // Skip future dates - can't be absent from something that hasn't happened yet
-    if (!scheduleDate || scheduleDate > today) {
-      continue;
-    }
-
-    const dayAttendance = attendanceByDate.get(schedule.date);
-
-    if (!dayAttendance || dayAttendance.length === 0) {
-      absenceDates.add(schedule.date);
-      continue;
-    }
-
-    const hasNonAbsentRecord = dayAttendance.some(
-      (record) => record.status !== 'absent'
-    );
-
-    if (!hasNonAbsentRecord) {
-      absenceDates.add(schedule.date);
-    }
-  }
-
-  for (const record of attendanceInPeriod) {
-    const recordDate = parseDate(record.date);
-
-    // Only count absences for dates up to today
-    if (record.status === 'absent' && recordDate && recordDate <= today) {
-      absenceDates.add(record.date);
-    }
-  }
-
-  let lateMinutes = 0;
-  let undertimeMinutes = 0;
-
-  for (const record of attendanceInPeriod) {
-    if (record.status === 'absent') {
-      continue;
-    }
-
-    if (DEDUCTION_EXEMPT_ATTENDANCE_STATUSES.has(record.status)) {
-      continue;
-    }
-
-    const scheduleForDay = scheduleByDate.get(record.date)?.[0];
-    const scheduledStart = parseTimeToMinutes(
-      scheduleForDay?.startTime ?? DEFAULT_SHIFT_START
-    );
-    const scheduledEnd = parseTimeToMinutes(
-      scheduleForDay?.endTime ?? DEFAULT_SHIFT_END
-    );
-
-    const actualIn = parseTimeToMinutes(record.timeIn);
-    const actualOut = parseTimeToMinutes(record.timeOut);
-
-    if (actualIn !== null && scheduledStart !== null) {
-      const diff = actualIn - scheduledStart;
-      if (diff > 0) {
-        lateMinutes += diff;
-      }
-    }
-
-    if (actualOut !== null && scheduledEnd !== null) {
-      const diff = scheduledEnd - actualOut;
-      if (diff > 0) {
-        undertimeMinutes += diff;
-      }
-    }
-  }
-
-  const absentDays = absenceDates.size;
-  const absenceDeduction =
-    absentDays > 0 ? roundToCents(dailyRate * absentDays) : 0;
-  const lateDeductionMinutes = lateMinutes + undertimeMinutes;
-  const lateDeduction =
-    lateDeductionMinutes > 0
-      ? roundToCents(ratePerMinute * lateDeductionMinutes)
-      : 0;
-  const deduction = roundToCents(absenceDeduction + lateDeduction);
-
-  return { absentDays, lateMinutes, undertimeMinutes, deduction };
-};
+): AttendanceDeductionResult =>
+  calculateAttendanceDeductionEngine({
+    payroll,
+    entry,
+    attendanceRecords,
+    scheduleRecords,
+    getPayrollPeriodRange,
+    getEffectiveMonthlySalary,
+    parseDate,
+    parseTimeToMinutes,
+    roundToCents,
+    toDateOnlyUtc,
+    minutesPerDay: MINUTES_PER_DAY,
+    defaultShiftStart: DEFAULT_SHIFT_START,
+    defaultShiftEnd: DEFAULT_SHIFT_END,
+  });
 
 const applyAttendanceAdjustments = async (
   payrolls: Payroll[],

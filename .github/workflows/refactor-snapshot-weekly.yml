@@ -1,0 +1,37 @@
+name: Weekly Refactor Snapshot
+
+on:
+  schedule:
+    - cron: '0 3 * * 1'
+  workflow_dispatch:
+
+jobs:
+  snapshot:
+    name: Generate refactor snapshot artifact
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Generate snapshot files
+        run: |
+          mkdir -p artifacts/refactor-snapshot
+          node scripts/refactor-snapshot-report.js > artifacts/refactor-snapshot/summary.md
+          node scripts/guardrails-check.js > artifacts/refactor-snapshot/guardrails.txt 2>&1 || true
+
+      - name: Upload refactor snapshot artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: refactor-snapshot-${{ github.run_id }}
+          path: artifacts/refactor-snapshot/
+          if-no-files-found: error
+          retention-days: 30

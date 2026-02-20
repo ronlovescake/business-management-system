@@ -22,6 +22,10 @@ import {
   normalizeIdentifier,
   type EmployeeDirectoryEntry,
 } from './payrollHookUtils';
+import {
+  buildPayrollExportCsv,
+  parsePayrollImportRows,
+} from './payrollCsvHelpers';
 import { getCurrentDateISO } from '@/utils/date';
 import { getSwal } from '@/lib/alerts';
 
@@ -983,66 +987,10 @@ export function usePayroll() {
       const Swal = await getSwal();
       try {
         const text = (e.target?.result as string) ?? '';
-        const lines = text
-          .split(/\r?\n/)
-          .map((line) => line.trim())
-          .filter(Boolean);
-
-        if (lines.length <= 1) {
-          return;
-        }
-
-        const [, ...rows] = lines; // drop header
-
-        const unmatchedEmployees = new Set<string>();
-
-        const payload = rows.map((row) => {
-          const columns = row.split(',');
-          const employee = columns[0]?.trim() ?? '';
-          const payPeriod = columns[1]?.trim() ?? '';
-          const [periodStart = '', periodEnd = ''] = payPeriod
-            .split(' to ')
-            .map((value) => value.trim());
-
-          const employeeRecord = resolveEmployeeRecord(employee);
-
-          const parseNumber = (value: string | undefined) => {
-            const parsed = parseFloat((value ?? '').trim() || '0');
-            return Number.isFinite(parsed) ? parsed : 0;
-          };
-
-          const status = columns[18]?.trim().toLowerCase() || 'pending';
-
-          if (!employeeRecord) {
-            unmatchedEmployees.add(employee);
-          }
-
-          return {
-            employeeId: employeeRecord?.employeeId,
-            employeeName: employeeRecord?.name ?? employee,
-            payPeriod,
-            periodStart,
-            periodEnd,
-            basicSalary: parseNumber(columns[2]),
-            allowance: parseNumber(columns[3]),
-            overtime: parseNumber(columns[4]),
-            bonuses: parseNumber(columns[5]),
-            thirteenthMonth: parseNumber(columns[6]),
-            grossPay: parseNumber(columns[7]),
-            sss: parseNumber(columns[8]),
-            philHealth: parseNumber(columns[9]),
-            pagIbig: parseNumber(columns[10]),
-            tax: parseNumber(columns[11]),
-            loans: parseNumber(columns[12]),
-            cashAdvance: parseNumber(columns[13]),
-            lwop: parseNumber(columns[14]),
-            absentsLates: parseNumber(columns[15]),
-            totalDeductions: parseNumber(columns[16]),
-            netPay: parseNumber(columns[17]),
-            status,
-            bankGcash: columns[19]?.trim() ?? '',
-          };
-        });
+        const { payload, unmatchedEmployees } = parsePayrollImportRows(
+          text,
+          resolveEmployeeRecord
+        );
 
         if (payload.length === 0) {
           return;
@@ -1053,12 +1001,10 @@ export function usePayroll() {
         // Invalidate cache to refetch
         queryClient.invalidateQueries({ queryKey: queryKeys.payroll.lists() });
 
-        if (unmatchedEmployees.size > 0) {
+        if (unmatchedEmployees.length > 0) {
           await Swal.fire({
             title: 'Imported with Warnings',
-            text: `Some employees could not be matched: ${Array.from(
-              unmatchedEmployees
-            ).join(
+            text: `Some employees could not be matched: ${unmatchedEmployees.join(
               ', '
             )}. Cash advance deductions applied only to matched employees.`,
             icon: 'warning',
@@ -1083,52 +1029,7 @@ export function usePayroll() {
   };
 
   const handleExportCSV = () => {
-    const headers = [
-      'Employee',
-      'Pay Period',
-      'Basic Salary',
-      'Allowance',
-      'Overtime',
-      'Bonuses',
-      'Gross Pay',
-      'SSS',
-      'PhilHealth',
-      'Pag-IBIG',
-      'Tax',
-      'Loans',
-      'Cash Advance',
-      'LWOP',
-      'Absences/Lates',
-      'Total Deductions',
-      'Net Pay',
-      'Status',
-      'Bank/GCash',
-    ];
-    const rows = filteredPayrolls.map((p) => [
-      p.employee,
-      p.payPeriod,
-      p.basicSalary.toString(),
-      p.allowance.toString(),
-      p.overtime.toString(),
-      p.bonuses.toString(),
-      p.grossPay.toString(),
-      p.sss.toString(),
-      p.philHealth.toString(),
-      p.pagIbig.toString(),
-      p.tax.toString(),
-      p.loans.toString(),
-      p.cashAdvance.toString(),
-      p.lwop.toString(),
-      p.absentsLates.toString(),
-      p.totalDeductions.toString(),
-      p.netPay.toString(),
-      p.status,
-      p.bankGcash,
-    ]);
-
-    const csv = [headers.join(','), ...rows.map((row) => row.join(','))].join(
-      '\n'
-    );
+    const csv = buildPayrollExportCsv(filteredPayrolls);
     const blob = new Blob([csv], { type: 'text/csv' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');

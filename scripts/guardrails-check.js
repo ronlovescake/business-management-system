@@ -42,6 +42,73 @@ function safeRun(command) {
   }
 }
 
+function fileExists(relativePath) {
+  return fs.existsSync(path.join(ROOT, relativePath));
+}
+
+function getLatestRefactorAuditDataPath() {
+  const reportsDir = path.join(ROOT, 'docs', 'reports');
+  if (!fs.existsSync(reportsDir)) {
+    return null;
+  }
+
+  const candidates = fs
+    .readdirSync(reportsDir)
+    .filter(
+      (name) =>
+        /^REFACTOR_AUDIT_DATA_\d{4}-\d{2}-\d{2}\.json$/.test(name) &&
+        fs.existsSync(path.join(reportsDir, name))
+    )
+    .sort();
+
+  if (!candidates.length) {
+    return null;
+  }
+
+  return path.join(reportsDir, candidates[candidates.length - 1]);
+}
+
+function validateGeneralMerchandiseEmployeesScope(errors, warnings) {
+  const gmEmployeesPath = 'src/modules/general-merchandise/employees';
+  if (!fileExists(gmEmployeesPath)) {
+    return;
+  }
+
+  const auditDataPath = getLatestRefactorAuditDataPath();
+  if (!auditDataPath) {
+    warnings.push(
+      `${gmEmployeesPath}: path exists, but no refactor audit data file was found under docs/reports/. Run the repository-wide refactor audit to refresh coverage status.`
+    );
+    return;
+  }
+
+  try {
+    const raw = fs.readFileSync(auditDataPath, 'utf8');
+    const parsed = JSON.parse(raw);
+    const targetScope = 'src/modules/general-merchandise/employees/**';
+    const scopeEntry = Array.isArray(parsed.scope)
+      ? parsed.scope.find((entry) => entry && entry.scope === targetScope)
+      : null;
+
+    if (!scopeEntry) {
+      errors.push(
+        `${path.relative(ROOT, auditDataPath)}: missing required scope entry ${targetScope} while ${gmEmployeesPath} exists.`
+      );
+      return;
+    }
+
+    if (scopeEntry.status !== 'covered') {
+      errors.push(
+        `${path.relative(ROOT, auditDataPath)}: ${targetScope} is ${scopeEntry.status} but ${gmEmployeesPath} exists. Re-run the repository-wide refactor audit and update the report.`
+      );
+    }
+  } catch (error) {
+    errors.push(
+      `${path.relative(ROOT, auditDataPath)}: unable to parse refactor audit data (${error instanceof Error ? error.message : String(error)}).`
+    );
+  }
+}
+
 function getBaseRef() {
   if (process.env.GUARDRAILS_BASE && process.env.GUARDRAILS_BASE.trim()) {
     return process.env.GUARDRAILS_BASE.trim();
@@ -156,7 +223,20 @@ function main() {
   const errors = [];
   const warnings = [];
 
+  validateGeneralMerchandiseEmployeesScope(errors, warnings);
+
   if (!changedFiles.length) {
+    if (warnings.length) {
+      console.log('⚠️ Guardrails warnings:');
+      warnings.forEach((warning) => console.log(`  - ${warning}`));
+    }
+
+    if (errors.length) {
+      console.error('❌ Guardrails violations found:');
+      errors.forEach((error) => console.error(`  - ${error}`));
+      process.exit(1);
+    }
+
     console.log('✅ Guardrails: no changed files detected.');
     process.exit(0);
   }

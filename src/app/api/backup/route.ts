@@ -10,17 +10,22 @@ import { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/db';
 import { getDatabaseUrl } from '@/lib/env';
 import fs from 'fs';
-import fsPromises from 'fs/promises';
 import path from 'path';
 import { logger } from '@/lib/logger';
 import * as Papa from 'papaparse';
 import * as XLSX from 'xlsx';
 import { spawn } from 'child_process';
 import {
-  computeFileSha256,
   isValidTimestampFolderName,
   requireBackupRestoreAdmin,
 } from '../backup-restore/sharedRouteUtils';
+import {
+  buildFileChecksums,
+  isStrictMissingTablesEnabled,
+  verifyFileChecksums,
+  writeFileAtomic,
+  writeWorkbookToFile,
+} from './backupRouteFileOps';
 import {
   describeFiles,
   findLatestBackupByStrategy,
@@ -61,52 +66,6 @@ const LOG_TABLES = [
   { name: 'change_log', model: 'changeLog', dateField: 'createdAt' },
   { name: 'audit_logs', model: 'auditLog', dateField: 'timestamp' },
 ] as const;
-
-function writeWorkbookToFile(workbook: XLSX.WorkBook, filePath: string) {
-  const buffer = XLSX.write(workbook, {
-    bookType: 'xlsx',
-    type: 'buffer',
-    compression: true,
-  });
-  return writeFileAtomic(filePath, buffer as Buffer);
-}
-
-async function writeFileAtomic(filePath: string, content: string | Buffer) {
-  const tempPath = `${filePath}.tmp-${process.pid}-${Date.now()}`;
-  await fsPromises.writeFile(tempPath, content);
-  await fsPromises.rename(tempPath, filePath);
-}
-
-async function buildFileChecksums(filePaths: string[]) {
-  const checksums: Record<string, string> = {};
-
-  for (const filePath of filePaths) {
-    const checksum = await computeFileSha256(filePath);
-    checksums[path.basename(filePath)] = checksum;
-  }
-
-  return checksums;
-}
-
-async function verifyFileChecksums(
-  filePaths: string[],
-  expectedChecksums: Record<string, string>
-) {
-  for (const filePath of filePaths) {
-    const fileName = path.basename(filePath);
-    const expected = expectedChecksums[fileName];
-    if (!expected) {
-      return false;
-    }
-
-    const actual = await computeFileSha256(filePath);
-    if (actual !== expected) {
-      return false;
-    }
-  }
-
-  return true;
-}
 
 function isValidStrategy(value: unknown): value is BackupStrategy {
   return value === 'full' || value === 'differential' || value === 'log';
@@ -373,19 +332,6 @@ function reserveUniqueSheetName(baseName: string, usedNames: Set<string>) {
 
   usedNames.add(candidate);
   return candidate;
-}
-
-function parseBooleanFlag(value: string | undefined) {
-  if (!value) {
-    return false;
-  }
-
-  const normalized = value.trim().toLowerCase();
-  return normalized === '1' || normalized === 'true' || normalized === 'yes';
-}
-
-function isStrictMissingTablesEnabled() {
-  return parseBooleanFlag(process.env.BACKUP_STRICT_TABLES);
 }
 
 function buildTableQueryOptions(

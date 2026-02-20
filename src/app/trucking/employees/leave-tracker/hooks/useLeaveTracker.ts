@@ -11,6 +11,7 @@ import type {
 } from '../types';
 import type { Schedule } from '../../schedules/types';
 import { dayjs } from '@/utils/date';
+import { escapeCSV, parseCSVLine } from '@/components/expenses';
 
 const TIMEZONE = 'Asia/Manila';
 
@@ -997,27 +998,6 @@ export default function useLeaveTracker() {
             return;
           }
 
-          const parseCSVLine = (line: string): string[] => {
-            const result: string[] = [];
-            let current = '';
-            let inQuotes = false;
-
-            for (let i = 0; i < line.length; i++) {
-              const char = line[i];
-
-              if (char === '"') {
-                inQuotes = !inQuotes;
-              } else if (char === ',' && !inQuotes) {
-                result.push(current.trim());
-                current = '';
-              } else {
-                current += char;
-              }
-            }
-            result.push(current.trim());
-            return result;
-          };
-
           const headers = parseCSVLine(lines[0]).map((h) =>
             h.toLowerCase().replace(/\s+/g, '')
           );
@@ -1202,21 +1182,6 @@ export default function useLeaveTracker() {
       'Approved By',
       'Notes',
     ];
-
-    const escapeCSV = (value: string | number | null | undefined): string => {
-      if (value === null || value === undefined) {
-        return '';
-      }
-      const stringValue = String(value);
-      if (
-        stringValue.includes(',') ||
-        stringValue.includes('"') ||
-        stringValue.includes('\n')
-      ) {
-        return `"${stringValue.replace(/"/g, '""')}"`;
-      }
-      return stringValue;
-    };
 
     const rows = filteredRequests.map((request: LeaveRequest) => [
       escapeCSV(request.employeeId),

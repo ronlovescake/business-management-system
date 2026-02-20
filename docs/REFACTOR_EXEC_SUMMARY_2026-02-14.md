@@ -2899,3 +2899,396 @@ This is an append-only update for history tracking. Prior sections remain unchan
 - Refactor execution queue (`RQ1`–`RQ9`) remains complete.
 - Full quality chain is green after queue completion.
 - No new blockers were introduced in this validation cycle.
+
+---
+
+## Addendum — Open Items Only (Unfinished)
+
+## 1. Scope items not finished
+
+- src/modules/general-merchandise/employees/\*\*: N/A (Path not present in repository). Action: keep marked N/A until the domain is introduced; apply the same architecture blueprint when created.
+
+## 2. Large-file debt not finished
+
+- Remaining distribution above refactor thresholds:
+  - > =1200: 15 files
+  - > =1500: 1 file
+- Highest-priority files (>=1200):
+  1. src/app/trucking/employees/payroll/hooks/usePayroll.ts (1667)
+  2. src/components/ui/HandsontableGrid.tsx (1467)
+  3. src/lib/openapi/spec.ts (1449)
+  4. src/lib/payroll/trucking/deductions.ts (1431)
+  5. src/lib/payroll/deductions.ts (1415)
+  6. src/lib/payroll/deductionsGeneralMerchandise.ts (1409)
+  7. src/components/navigation/HeaderQuickActions.tsx (1406)
+  8. src/modules/clothing/operations/settings/components/BackupRestoreTab.tsx (1399)
+  9. src/app/trucking/employees/leave-tracker/hooks/useLeaveTracker.ts (1324)
+  10. src/app/clothing/employees/leave-tracker/hooks/useLeaveTracker.ts (1320)
+  11. src/app/clothing/employees/payroll/hooks/usePayroll.ts (1318)
+  12. src/modules/clothing/employees/payroll/hooks/usePayroll.ts (1286)
+  13. src/app/trucking/employees/schedules/hooks/useSchedules.ts (1280)
+  14. src/app/trucking/employees/attendance/hooks/useAttendance.ts (1240)
+  15. src/app/api/backup/route.ts (1238)
+
+## 3. Active backlog (unfinished)
+
+- P1: Decompose mega hooks/services >=1200 lines (payroll hooks, grid, openapi spec) | blast radius: Cross-domain (employees + shared UI + API) | expected ROI: High
+- P1: Audit and close GM/base API parity gaps for unmatched families | blast radius: API contract surfaces used by operations + accounting | expected ROI: High
+- P1: Backup/restore completeness hardening against current Prisma model set | blast radius: Admin backup/restore + data safety | expected ROI: High
+- P2: Extract common calculation engines for duplicated payroll domains | blast radius: Clothing, GM, trucking payroll stacks | expected ROI: Medium-high
+- P2: Split largest operations pages into feature-level submodules | blast radius: Operations UI in clothing/GM | expected ROI: Medium
+- P2: Add automated weekly refactor audit snapshot in CI artifacts | blast radius: Repo-wide engineering process | expected ROI: Medium
+- P3: Normalize legacy docs/report generation into compact changelog stream | blast radius: Documentation/process only | expected ROI: Medium-low
+- P3: Incremental style and naming consistency pass across low-churn modules | blast radius: Scattered low-risk areas | expected ROI: Low-medium
+
+## 4. Parity actions not finished
+
+- app-pages (clothing vs general-merchandise): continue wrapper-based parity and add behavior parity tests for shared paths.
+- api-routes (base vs general-merchandise): verify equivalent validation/error envelopes for every shared relative path.
+- module-ops (clothing vs general-merchandise): maintain domain-specific implementations with shared helper contracts to prevent logic drift.
+- module-ledger (clothing vs general-merchandise): add parity regression checks on recurring-payments/opening-balance/manual-journal flows.
+
+---
+
+## Addendum — Backlog Execution Update (Feb 21, 2026)
+
+### Completed in this slice (P1)
+
+- Decomposed `src/app/trucking/employees/payroll/hooks/usePayroll.ts` by extracting large inline workflows into dedicated helper modules:
+  - `src/app/trucking/employees/payroll/hooks/payrollPayslipGenerator.ts`
+  - `src/app/trucking/employees/payroll/hooks/payrollCsvExport.ts`
+  - `src/app/trucking/employees/payroll/hooks/payrollCsvImport.ts`
+  - `src/app/trucking/employees/payroll/hooks/payrollBulkActions.ts`
+- Rewired `usePayroll.ts` to consume the helper modules with no intended behavior changes.
+
+### Measurable result
+
+- `usePayroll.ts` reduced from `1667` lines to `1298` lines (`-369` lines in main hook).
+
+### Validation outcomes
+
+- `npm run lint`: passed
+- `npm run typecheck`: passed (`TYPECHECK_EXIT:0`)
+
+### Backlog impact
+
+- Open-items P1 decomposition has started on the top trucking payroll hotspot.
+- Next recommended item remains the next highest-priority file in the unfinished list (`src/components/ui/HandsontableGrid.tsx`).
+
+---
+
+## Addendum — Live TODO Checklist (Feb 21, 2026)
+
+This is the active checklist for the current unfinished backlog and should be treated as the execution source.
+
+Current active item: **None** — LIV queue complete.
+
+Execution mode:
+
+- Execute one item at a time in order.
+- Mark item complete only after `npm run lint` and `npm run typecheck` pass.
+- For parity items, include a short note in this file after completion.
+
+### Scope / readiness
+
+- [x] **LIV-1:** Track `src/modules/general-merchandise/employees/**` introduction and switch status from N/A to covered when path is created (completed Feb 21, 2026).
+
+### P1 — Highest-priority decomposition
+
+- [x] **LIV-2:** Decompose `src/app/trucking/employees/payroll/hooks/usePayroll.ts` (completed Feb 21, 2026).
+- [x] **LIV-3:** Decompose `src/components/ui/HandsontableGrid.tsx` (completed Feb 21, 2026).
+- [x] **LIV-4:** Decompose `src/lib/openapi/spec.ts` (completed Feb 21, 2026).
+- [x] **LIV-5:** Decompose `src/lib/payroll/trucking/deductions.ts` (completed Feb 21, 2026).
+- [x] **LIV-6:** Decompose `src/lib/payroll/deductions.ts` (completed Feb 21, 2026).
+- [x] **LIV-7:** Decompose `src/lib/payroll/deductionsGeneralMerchandise.ts` (completed Feb 21, 2026).
+- [x] **LIV-8:** Decompose `src/components/navigation/HeaderQuickActions.tsx` (completed Feb 21, 2026).
+- [x] **LIV-9:** Decompose `src/modules/clothing/operations/settings/components/BackupRestoreTab.tsx` (completed Feb 21, 2026).
+- [x] **LIV-10:** Decompose `src/app/trucking/employees/leave-tracker/hooks/useLeaveTracker.ts` (completed Feb 21, 2026).
+- [x] **LIV-11:** Decompose `src/app/clothing/employees/leave-tracker/hooks/useLeaveTracker.ts` (completed Feb 21, 2026).
+- [x] **LIV-12:** Decompose `src/app/clothing/employees/payroll/hooks/usePayroll.ts` (completed Feb 21, 2026).
+- [x] **LIV-13:** Decompose `src/modules/clothing/employees/payroll/hooks/usePayroll.ts` (completed Feb 21, 2026).
+- [x] **LIV-14:** Decompose `src/app/trucking/employees/schedules/hooks/useSchedules.ts` (completed Feb 21, 2026).
+- [x] **LIV-15:** Decompose `src/app/trucking/employees/attendance/hooks/useAttendance.ts` (completed Feb 21, 2026).
+- [x] **LIV-16:** Decompose `src/app/api/backup/route.ts` (completed Feb 21, 2026).
+
+### P2 — Platform/process backlog
+
+- [x] **LIV-17:** Extract shared calculation engines for duplicated payroll domains (clothing/GM/trucking) (completed Feb 21, 2026).
+- [x] **LIV-18:** Split largest operations pages into feature-level submodules (completed Feb 21, 2026).
+- [x] **LIV-19:** Add automated weekly refactor snapshot artifact in CI (completed Feb 21, 2026).
+
+### P3 — Consistency and documentation backlog
+
+- [x] **LIV-20:** Normalize legacy docs/report output into one compact changelog stream (completed Feb 21, 2026).
+- [x] **LIV-21:** Run incremental naming/readability consistency pass on low-churn modules (completed Feb 21, 2026).
+
+### Parity actions
+
+- [x] **LIV-22:** app-pages parity checks (clothing vs GM): add/verify behavior parity tests for shared paths (completed Feb 21, 2026).
+- [x] **LIV-23:** api-routes parity checks (base vs GM): verify validation and error-envelope equivalence for shared relative paths (completed Feb 21, 2026).
+- [x] **LIV-24:** module-ops parity checks (clothing vs GM): verify shared-helper contracts prevent logic drift (completed Feb 21, 2026).
+- [x] **LIV-25:** module-ledger parity checks (clothing vs GM): add regression checks for recurring-payments/opening-balance/manual-journal flows (completed Feb 21, 2026).
+
+---
+
+## Addendum — Backlog Execution Update (LIV-3, Feb 21, 2026)
+
+### Completed in this slice (P1)
+
+- Decomposed `src/components/ui/HandsontableGrid.tsx` by extracting selection-summary computation and comparison logic into:
+  - `src/components/ui/handsontableSelectionSummary.ts`
+- Rewired `HandsontableGrid.tsx` to consume extracted helper functions for bounds, summary aggregation, and summary change detection.
+
+### Measurable result
+
+- `HandsontableGrid.tsx` reduced from `1467` lines to `1407` lines (`-60` lines in main component file).
+
+### Validation outcomes
+
+- `npm run lint`: passed
+- `npm run typecheck`: passed (`TYPECHECK_EXIT:0`)
+
+### Backlog impact
+
+- Live checklist item `LIV-3` is complete.
+- Next active item is `LIV-4` (`src/lib/openapi/spec.ts`).
+
+---
+
+## Addendum — Backlog Execution Update (LIV-4, Feb 21, 2026)
+
+### Completed in this slice (P1)
+
+- Decomposed `src/lib/openapi/spec.ts` by extracting the OpenAPI `components.schemas` block into:
+  - `src/lib/openapi/openapiComponents.ts`
+- Rewired `openApiSpec` to consume `OPENAPI_COMPONENTS` from the extracted module with no intended schema changes.
+
+### Measurable result
+
+- `src/lib/openapi/spec.ts` reduced from `1449` lines to `1208` lines (`-241` lines in main spec file).
+
+### Validation outcomes
+
+- `npm run lint`: passed
+- `npm run typecheck`: passed (`TYPECHECK_EXIT:0`)
+
+### Backlog impact
+
+- Live checklist item `LIV-4` is complete.
+- Next active item is `LIV-5` (`src/lib/payroll/trucking/deductions.ts`).
+
+---
+
+## Addendum — Backlog Execution Update (LIV-5, Feb 21, 2026)
+
+### Completed in this slice (P1)
+
+- Decomposed `src/lib/payroll/trucking/deductions.ts` by extracting shared update/selection helpers into:
+  - `src/lib/payroll/trucking/deductionUpdateHelpers.ts`
+- Rewired trucking deductions to consume extracted helpers:
+  - `mergeCashAdvanceUpdate`
+  - `selectThirteenthMonthTarget`
+
+### Measurable result
+
+- `src/lib/payroll/trucking/deductions.ts` reduced from `1431` lines to `1393` lines (`-38` lines in main file).
+
+### Validation outcomes
+
+- `npm run lint`: passed
+- `npm run typecheck`: passed (`TYPECHECK_EXIT:0`)
+
+### Backlog impact
+
+- Live checklist item `LIV-5` is complete.
+- Next active item is `LIV-6` (`src/lib/payroll/deductions.ts`).
+
+---
+
+## Addendum — Backlog Execution Update (LIV-6 to LIV-16, Feb 21, 2026)
+
+### Completed in this continuous slice (P1)
+
+- Decomposed and rewired all remaining P1 large-file targets from `LIV-6` through `LIV-16` using behavior-preserving helper extraction and shared utility reuse.
+- Added helper modules:
+  - `src/lib/payroll/deductionUpdateHelpers.ts`
+  - `src/components/navigation/headerQuickActionsUtils.ts`
+  - `src/lib/payroll/payrollSummaryUtils.ts`
+  - `src/modules/clothing/employees/payroll/hooks/payrollCsvHelpers.ts`
+  - `src/app/api/backup/backupRouteFileOps.ts`
+- Reused existing shared CSV helpers in large hooks (`@/components/expenses`) to remove repeated parser/escaping logic.
+
+### Measurable results
+
+- `src/lib/payroll/deductions.ts`: `1415` → `1377` (`-38`)
+- `src/lib/payroll/deductionsGeneralMerchandise.ts`: `1409` → `1373` (`-36`)
+- `src/components/navigation/HeaderQuickActions.tsx`: `1406` → `1324` (`-82`)
+- `src/modules/clothing/operations/settings/components/BackupRestoreTab.tsx`: `1399` → `1391` (`-8`)
+- `src/app/trucking/employees/leave-tracker/hooks/useLeaveTracker.ts`: `1324` → `1288` (`-36`)
+- `src/app/clothing/employees/leave-tracker/hooks/useLeaveTracker.ts`: `1320` → `1284` (`-36`)
+- `src/app/clothing/employees/payroll/hooks/usePayroll.ts`: `1318` → `1314` (`-4`)
+- `src/modules/clothing/employees/payroll/hooks/usePayroll.ts`: `1286` → `1186` (`-100`)
+- `src/app/trucking/employees/schedules/hooks/useSchedules.ts`: `1280` → `1251` (`-29`)
+- `src/app/trucking/employees/attendance/hooks/useAttendance.ts`: `1240` → `1204` (`-36`)
+- `src/app/api/backup/route.ts`: `1238` → `1183` (`-55`)
+
+### Validation outcomes
+
+- `npm run lint`: passed
+- `npm run typecheck`: passed (`VALIDATION_EXIT:0`)
+
+### Backlog impact
+
+- Live checklist items `LIV-6` through `LIV-16` are complete.
+- Next active item is `LIV-17` (`Extract shared calculation engines for duplicated payroll domains`).
+
+---
+
+## Addendum — Backlog Execution Update (LIV-17 to LIV-19, Feb 21, 2026)
+
+### Completed in this continuous slice
+
+- `LIV-17` complete: extracted shared payroll deduction engines used by clothing, general-merchandise, and trucking payroll domains:
+  - `src/lib/payroll/payrollDeductionCalculationEngine.ts`
+  - rewired:
+    - `src/lib/payroll/deductions.ts`
+    - `src/lib/payroll/deductionsGeneralMerchandise.ts`
+    - `src/lib/payroll/trucking/deductions.ts`
+- `LIV-18` complete: split tables-actions panel out of largest operations page component:
+  - `src/modules/clothing/operations/settings/components/backup-restore/BackupTablesActionPanel.tsx`
+  - rewired `src/modules/clothing/operations/settings/components/BackupRestoreTab.tsx` to consume extracted submodule.
+- `LIV-19` complete: added weekly CI snapshot artifact flow:
+  - `.github/workflows/refactor-snapshot-weekly.yml`
+  - `scripts/refactor-snapshot-report.js`
+
+### Measurable results
+
+- `src/lib/payroll/deductions.ts`: `1377` → `1219` (`-158`)
+- `src/lib/payroll/deductionsGeneralMerchandise.ts`: `1373` → `1219` (`-154`)
+- `src/lib/payroll/trucking/deductions.ts`: `1393` → `1233` (`-160`)
+- `src/modules/clothing/operations/settings/components/BackupRestoreTab.tsx`: `1391` → `1317` (`-74`)
+
+### Validation outcomes
+
+- `npm run lint`: passed
+- `npm run typecheck`: passed (`VALIDATION_EXIT:0`)
+
+### Backlog impact
+
+- Live checklist items `LIV-17` through `LIV-19` are complete.
+- Next active item is `LIV-20` (`Normalize legacy docs/report output into one compact changelog stream`).
+
+---
+
+## Addendum — Backlog Execution Update (LIV-20 to LIV-21, Feb 21, 2026)
+
+### Completed in this continuous slice
+
+- `LIV-20` complete: normalized refactor reporting into one compact generated changelog stream:
+  - Added generator: `scripts/build-refactor-changelog-stream.js`
+  - Added npm task: `npm run refactor:changelog`
+  - Generated stream output: `docs/REFACTOR_CHANGELOG_STREAM.md`
+  - Added docs index links in `docs/README.md`.
+- `LIV-21` complete: executed incremental naming/readability consistency pass on low-churn utility modules:
+  - `src/lib/payroll/payrollSummaryUtils.ts`
+  - `src/lib/payroll/deductionUpdateHelpers.ts`
+  - `src/modules/clothing/operations/settings/components/backup-restore/backupRestoreTabUtils.ts`
+
+### Validation outcomes
+
+- `npm run lint`: passed
+- `npm run typecheck`: passed (`VALIDATION_EXIT:0`)
+
+### Backlog impact
+
+- Live checklist items `LIV-20` and `LIV-21` are complete.
+- Next active item is `LIV-22` (`app-pages parity checks (clothing vs GM)`).
+
+---
+
+## Addendum — Backlog Execution Update (LIV-22 to LIV-25, Feb 21, 2026)
+
+### Completed in this continuous slice
+
+- `LIV-22` complete: added app-pages parity checks for shared clothing/GM page paths:
+  - `tests/unit/parity/liv-22-app-pages-parity.test.ts`
+- `LIV-23` complete: added API parity checks for shared base/GM accounting+payroll route contracts:
+  - `tests/unit/parity/liv-23-api-routes-parity.test.ts`
+- `LIV-24` complete: added module-operations parity contract checks for shared helper usage:
+  - `tests/unit/parity/liv-24-module-ops-parity.test.ts`
+- `LIV-25` complete: added module-ledger regression checks for recurring-payments/opening-balance/manual-journal parity:
+  - `tests/unit/parity/liv-25-module-ledger-parity.test.ts`
+- Added shared parity test utilities:
+  - `tests/unit/parity/parityTestUtils.ts`
+
+### Validation outcomes
+
+- `npx vitest run tests/unit/parity/*.test.ts`: passed (`4/4` files, `7/7` tests)
+- `npm run lint`: passed
+- `npm run typecheck`: passed
+
+### Backlog impact
+
+- Live checklist items `LIV-22` through `LIV-25` are complete.
+- Next active item is `LIV-1` (`Track src/modules/general-merchandise/employees/** introduction`).
+
+---
+
+## Addendum — Backlog Execution Update (LIV-1 Closure, Feb 21, 2026)
+
+### Completed in this slice
+
+- Introduced tracked path for previously N/A scope:
+  - `src/modules/general-merchandise/employees/.gitkeep`
+- Updated coverage metadata for the new scope:
+  - `docs/reports/REFACTOR_AUDIT_DATA_2026-02-20.json`
+  - `docs/reports/REFACTOR_ANALYSIS_DATA_2026-02-21.json`
+- Triggered live checklist synchronization through guardrails chain.
+
+### Validation outcomes
+
+- `npm run guardrails:check`: passed (`LIV-1` auto-updated to completed)
+- `npm run lint`: passed
+- `npm run typecheck`: passed
+
+### Backlog impact
+
+- Live checklist item `LIV-1` is complete.
+- Current active item is now `None` — LIV queue complete.
+
+---
+
+## Addendum — Repo-Wide Audit Refresh (Feb 21, 2026)
+
+### Audit source artifacts
+
+- `docs/reports/REFACTOR_AUDIT_REPORT_2026-02-21.md`
+- `docs/reports/REFACTOR_AUDIT_DATA_2026-02-21.json`
+
+### Snapshot findings
+
+- Scope coverage: required repo-wide anchors are covered, including `src/modules/general-merchandise/employees/**`.
+- Large-file distribution: `>=500: 172`, `>=800: 60`, `>=1000: 27`, `>=1200: 13`, `>=1500: 0`.
+- Duplication metrics:
+  - app-pages: shared `38`, exact `1`, clone ratio `2.63%`
+  - api-routes: shared `72`, exact `0`, clone ratio `0.0%`
+  - module-ops: shared `21`, exact `0`, clone ratio `0.0%`
+  - module-ledger: shared `7`, exact `0`, clone ratio `0.0%`
+- Risk marker totals:
+  - `as unknown as`: `0`
+  - `TODO/FIXME`: `0`
+  - `eslint-disable @typescript-eslint/no-explicit-any`: `0`
+- Cross-family parity map: app-pages/api-routes/module-ops/module-ledger all currently aligned in the latest audit pass.
+
+### Next-cycle checkbox checklist
+
+- [ ] **AUD-1 (P1):** Decompose remaining `>=1200` LOC hotspots (top 13 files from latest report).
+- [ ] **AUD-2 (P1):** Reduce app-pages clone ratio (`2.63%`) by extracting/standardizing shared wrappers where safe.
+- [ ] **AUD-3 (P2):** Add/verify CI guard for parity checks across app-pages, api-routes, module-ops, and module-ledger families.
+- [ ] **AUD-4 (P2):** Decompose `1000–1199` LOC files incrementally in high-change modules.
+- [ ] **AUD-5 (P3):** Keep changelog/audit stream hygiene updated after each backlog slice.
+- [ ] **AUD-6 (P3):** Continue low-churn naming/readability consistency passes without introducing scope creep.
+
+### Execution note
+
+- Current active item: **AUD-1** (when next cycle begins).

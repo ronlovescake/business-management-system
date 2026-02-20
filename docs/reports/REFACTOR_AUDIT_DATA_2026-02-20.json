@@ -1,0 +1,496 @@
+{
+  "date": "2026-02-20",
+  "scope": [
+    {
+      "scope": "src/modules/clothing/operations/**",
+      "status": "covered",
+      "count": 301
+    },
+    {
+      "scope": "src/modules/clothing/ledger/**",
+      "status": "covered",
+      "count": 13
+    },
+    {
+      "scope": "src/modules/clothing/employees/**",
+      "status": "covered",
+      "count": 32
+    },
+    {
+      "scope": "src/modules/general-merchandise/operations/**",
+      "status": "covered",
+      "count": 24
+    },
+    {
+      "scope": "src/modules/general-merchandise/ledger/**",
+      "status": "covered",
+      "count": 7
+    },
+    {
+      "scope": "src/modules/general-merchandise/employees/**",
+      "status": "covered",
+      "count": 1
+    },
+    {
+      "scope": "src/modules/trucking/**",
+      "status": "covered",
+      "count": 61
+    },
+    {
+      "scope": "src/modules/household/**",
+      "status": "covered",
+      "count": 20
+    },
+    {
+      "scope": "src/modules/**",
+      "status": "covered",
+      "count": 567
+    },
+    {
+      "scope": "src/app/clothing/**",
+      "status": "covered",
+      "count": 193
+    },
+    {
+      "scope": "src/app/general-merchandise/**",
+      "status": "covered",
+      "count": 43
+    },
+    {
+      "scope": "src/app/trucking/**",
+      "status": "covered",
+      "count": 110
+    },
+    {
+      "scope": "src/app/personal/**",
+      "status": "covered",
+      "count": 35
+    },
+    {
+      "scope": "src/app/api/**",
+      "status": "covered",
+      "count": 261
+    },
+    {
+      "scope": "src/app/**",
+      "status": "covered",
+      "count": 685
+    },
+    {
+      "scope": "src/lib/**",
+      "status": "covered",
+      "count": 118
+    },
+    {
+      "scope": "src/components/**",
+      "status": "covered",
+      "count": 94
+    },
+    {
+      "scope": "src/core/**",
+      "status": "covered",
+      "count": 24
+    },
+    {
+      "scope": "src/shared/**",
+      "status": "covered",
+      "count": 2
+    },
+    {
+      "scope": "src/services/**",
+      "status": "covered",
+      "count": 19
+    },
+    {
+      "scope": "src/hooks/**",
+      "status": "covered",
+      "count": 10
+    },
+    {
+      "scope": "src/utils/**",
+      "status": "covered",
+      "count": 5
+    },
+    {
+      "scope": "src/constants/**",
+      "status": "covered",
+      "count": 6
+    },
+    {
+      "scope": "src/types/**",
+      "status": "covered",
+      "count": 7
+    },
+    {
+      "scope": "src/pages/**",
+      "status": "covered",
+      "count": 1
+    },
+    {
+      "scope": "tests/**",
+      "status": "covered",
+      "count": 83
+    },
+    {
+      "scope": "src/styles/**",
+      "status": "covered",
+      "count": 3
+    },
+    {
+      "scope": "src/middleware.ts",
+      "status": "covered",
+      "count": 1
+    }
+  ],
+  "large": {
+    "distribution": {
+      "500": 140,
+      "800": 54,
+      "1000": 27,
+      "1200": 15,
+      "1500": 1
+    },
+    "top20": [
+      {
+        "file": "src/app/trucking/employees/payroll/hooks/usePayroll.ts",
+        "lines": 1667
+      },
+      {
+        "file": "src/components/ui/HandsontableGrid.tsx",
+        "lines": 1467
+      },
+      {
+        "file": "src/lib/openapi/spec.ts",
+        "lines": 1449
+      },
+      {
+        "file": "src/lib/payroll/trucking/deductions.ts",
+        "lines": 1431
+      },
+      {
+        "file": "src/lib/payroll/deductions.ts",
+        "lines": 1415
+      },
+      {
+        "file": "src/lib/payroll/deductionsGeneralMerchandise.ts",
+        "lines": 1409
+      },
+      {
+        "file": "src/components/navigation/HeaderQuickActions.tsx",
+        "lines": 1406
+      },
+      {
+        "file": "src/modules/clothing/operations/settings/components/BackupRestoreTab.tsx",
+        "lines": 1399
+      },
+      {
+        "file": "src/app/trucking/employees/leave-tracker/hooks/useLeaveTracker.ts",
+        "lines": 1324
+      },
+      {
+        "file": "src/app/clothing/employees/leave-tracker/hooks/useLeaveTracker.ts",
+        "lines": 1320
+      },
+      {
+        "file": "src/app/clothing/employees/payroll/hooks/usePayroll.ts",
+        "lines": 1318
+      },
+      {
+        "file": "src/modules/clothing/employees/payroll/hooks/usePayroll.ts",
+        "lines": 1286
+      },
+      {
+        "file": "src/app/trucking/employees/schedules/hooks/useSchedules.ts",
+        "lines": 1280
+      },
+      {
+        "file": "src/app/trucking/employees/attendance/hooks/useAttendance.ts",
+        "lines": 1240
+      },
+      {
+        "file": "src/app/api/backup/route.ts",
+        "lines": 1238
+      },
+      {
+        "file": "src/app/clothing/employees/attendance/hooks/useAttendance.ts",
+        "lines": 1184
+      },
+      {
+        "file": "src/app/clothing/employees/schedules/hooks/useSchedules.ts",
+        "lines": 1181
+      },
+      {
+        "file": "src/lib/accounting/general-merchandise/inventory-cogs.ts",
+        "lines": 1179
+      },
+      {
+        "file": "src/modules/clothing/operations/checkout-links/hooks/useCheckoutLinksPage.ts",
+        "lines": 1128
+      },
+      {
+        "file": "src/modules/transactions/api/service.ts",
+        "lines": 1128
+      }
+    ]
+  },
+  "dupMetrics": [
+    {
+      "name": "app-pages",
+      "a": "src/app/clothing",
+      "b": "src/app/general-merchandise",
+      "shared": 38,
+      "exact": 1,
+      "ratio": 2.63
+    },
+    {
+      "name": "api-routes",
+      "a": "src/app/api",
+      "b": "src/app/api/general-merchandise",
+      "shared": 77,
+      "exact": 0,
+      "ratio": 0
+    },
+    {
+      "name": "module-ops",
+      "a": "src/modules/clothing/operations",
+      "b": "src/modules/general-merchandise/operations",
+      "shared": 21,
+      "exact": 0,
+      "ratio": 0
+    },
+    {
+      "name": "module-ledger",
+      "a": "src/modules/clothing/ledger",
+      "b": "src/modules/general-merchandise/ledger",
+      "shared": 7,
+      "exact": 0,
+      "ratio": 0
+    }
+  ],
+  "riskByScope": {
+    "src/modules/clothing/operations/**": {
+      "files": 300,
+      "counts": {
+        "as unknown as": 0,
+        "TODO/FIXME": 0,
+        "eslint-disable @typescript-eslint/no-explicit-any": 0
+      }
+    },
+    "src/modules/clothing/ledger/**": {
+      "files": 13,
+      "counts": {
+        "as unknown as": 0,
+        "TODO/FIXME": 0,
+        "eslint-disable @typescript-eslint/no-explicit-any": 0
+      }
+    },
+    "src/modules/clothing/employees/**": {
+      "files": 32,
+      "counts": {
+        "as unknown as": 0,
+        "TODO/FIXME": 0,
+        "eslint-disable @typescript-eslint/no-explicit-any": 0
+      }
+    },
+    "src/modules/general-merchandise/operations/**": {
+      "files": 24,
+      "counts": {
+        "as unknown as": 0,
+        "TODO/FIXME": 0,
+        "eslint-disable @typescript-eslint/no-explicit-any": 0
+      }
+    },
+    "src/modules/general-merchandise/ledger/**": {
+      "files": 7,
+      "counts": {
+        "as unknown as": 0,
+        "TODO/FIXME": 0,
+        "eslint-disable @typescript-eslint/no-explicit-any": 0
+      }
+    },
+    "src/modules/general-merchandise/employees/**": {
+      "files": 0,
+      "counts": {
+        "as unknown as": 0,
+        "TODO/FIXME": 0,
+        "eslint-disable @typescript-eslint/no-explicit-any": 0
+      }
+    },
+    "src/modules/trucking/**": {
+      "files": 61,
+      "counts": {
+        "as unknown as": 0,
+        "TODO/FIXME": 0,
+        "eslint-disable @typescript-eslint/no-explicit-any": 0
+      }
+    },
+    "src/modules/household/**": {
+      "files": 20,
+      "counts": {
+        "as unknown as": 0,
+        "TODO/FIXME": 0,
+        "eslint-disable @typescript-eslint/no-explicit-any": 0
+      }
+    },
+    "src/modules/**": {
+      "files": 565,
+      "counts": {
+        "as unknown as": 0,
+        "TODO/FIXME": 0,
+        "eslint-disable @typescript-eslint/no-explicit-any": 0
+      }
+    },
+    "src/app/clothing/**": {
+      "files": 193,
+      "counts": {
+        "as unknown as": 0,
+        "TODO/FIXME": 0,
+        "eslint-disable @typescript-eslint/no-explicit-any": 0
+      }
+    },
+    "src/app/general-merchandise/**": {
+      "files": 43,
+      "counts": {
+        "as unknown as": 0,
+        "TODO/FIXME": 0,
+        "eslint-disable @typescript-eslint/no-explicit-any": 0
+      }
+    },
+    "src/app/trucking/**": {
+      "files": 110,
+      "counts": {
+        "as unknown as": 0,
+        "TODO/FIXME": 0,
+        "eslint-disable @typescript-eslint/no-explicit-any": 0
+      }
+    },
+    "src/app/personal/**": {
+      "files": 35,
+      "counts": {
+        "as unknown as": 0,
+        "TODO/FIXME": 0,
+        "eslint-disable @typescript-eslint/no-explicit-any": 0
+      }
+    },
+    "src/app/api/**": {
+      "files": 260,
+      "counts": {
+        "as unknown as": 0,
+        "TODO/FIXME": 0,
+        "eslint-disable @typescript-eslint/no-explicit-any": 0
+      }
+    },
+    "src/app/**": {
+      "files": 683,
+      "counts": {
+        "as unknown as": 0,
+        "TODO/FIXME": 0,
+        "eslint-disable @typescript-eslint/no-explicit-any": 0
+      }
+    },
+    "src/lib/**": {
+      "files": 118,
+      "counts": {
+        "as unknown as": 0,
+        "TODO/FIXME": 0,
+        "eslint-disable @typescript-eslint/no-explicit-any": 0
+      }
+    },
+    "src/components/**": {
+      "files": 93,
+      "counts": {
+        "as unknown as": 0,
+        "TODO/FIXME": 0,
+        "eslint-disable @typescript-eslint/no-explicit-any": 0
+      }
+    },
+    "src/core/**": {
+      "files": 24,
+      "counts": {
+        "as unknown as": 0,
+        "TODO/FIXME": 0,
+        "eslint-disable @typescript-eslint/no-explicit-any": 0
+      }
+    },
+    "src/shared/**": {
+      "files": 2,
+      "counts": {
+        "as unknown as": 0,
+        "TODO/FIXME": 0,
+        "eslint-disable @typescript-eslint/no-explicit-any": 0
+      }
+    },
+    "src/services/**": {
+      "files": 19,
+      "counts": {
+        "as unknown as": 0,
+        "TODO/FIXME": 0,
+        "eslint-disable @typescript-eslint/no-explicit-any": 0
+      }
+    },
+    "src/hooks/**": {
+      "files": 10,
+      "counts": {
+        "as unknown as": 0,
+        "TODO/FIXME": 0,
+        "eslint-disable @typescript-eslint/no-explicit-any": 0
+      }
+    },
+    "src/utils/**": {
+      "files": 5,
+      "counts": {
+        "as unknown as": 0,
+        "TODO/FIXME": 0,
+        "eslint-disable @typescript-eslint/no-explicit-any": 0
+      }
+    },
+    "src/constants/**": {
+      "files": 6,
+      "counts": {
+        "as unknown as": 0,
+        "TODO/FIXME": 0,
+        "eslint-disable @typescript-eslint/no-explicit-any": 0
+      }
+    },
+    "src/types/**": {
+      "files": 7,
+      "counts": {
+        "as unknown as": 0,
+        "TODO/FIXME": 0,
+        "eslint-disable @typescript-eslint/no-explicit-any": 0
+      }
+    },
+    "src/pages/**": {
+      "files": 1,
+      "counts": {
+        "as unknown as": 0,
+        "TODO/FIXME": 0,
+        "eslint-disable @typescript-eslint/no-explicit-any": 0
+      }
+    },
+    "tests/**": {
+      "files": 83,
+      "counts": {
+        "as unknown as": 0,
+        "TODO/FIXME": 0,
+        "eslint-disable @typescript-eslint/no-explicit-any": 0
+      }
+    },
+    "src/styles/**": {
+      "files": 0,
+      "counts": {
+        "as unknown as": 0,
+        "TODO/FIXME": 0,
+        "eslint-disable @typescript-eslint/no-explicit-any": 0
+      }
+    },
+    "src/middleware.ts": {
+      "files": 1,
+      "counts": {
+        "as unknown as": 0,
+        "TODO/FIXME": 0,
+        "eslint-disable @typescript-eslint/no-explicit-any": 0
+      }
+    }
+  }
+}

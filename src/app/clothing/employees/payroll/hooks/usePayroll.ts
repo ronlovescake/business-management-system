@@ -14,6 +14,10 @@ import {
   calculatePayrollTotals,
   parsePayrollPeriodLabel,
 } from '@/lib/payroll/form-utils';
+import {
+  derivePayrollFilterPeriods,
+  derivePayrollSummary,
+} from '@/lib/payroll/payrollSummaryUtils';
 import type { Payroll, PayrollFormData } from '../types';
 import { getCurrentDateISO } from '@/utils/date';
 import { getSwal } from '@/lib/alerts';
@@ -72,19 +76,12 @@ export function usePayroll(apiBasePath?: string) {
   });
 
   // Computed Values
-  const totalPayrolls = payrolls.length;
-  const pendingPayrolls = payrolls.filter((p) => p.status === 'pending').length;
-  const approvedPayrolls = payrolls.filter(
-    (p) => p.status === 'approved'
-  ).length;
-  const totalNetPay = payrolls
-    .filter((p) => p.status === 'paid')
-    .reduce((sum, p) => sum + p.netPay, 0);
+  const { totalPayrolls, pendingPayrolls, approvedPayrolls, totalNetPay } =
+    useMemo(() => derivePayrollSummary(payrolls), [payrolls]);
 
   // Get unique pay periods for filter
   const payPeriods = useMemo(() => {
-    const periods = Array.from(new Set(payrolls.map((p) => p.payPeriod)));
-    return ['all', ...periods];
+    return derivePayrollFilterPeriods(payrolls);
   }, [payrolls]);
 
   const payPeriodOptions = useMemo(

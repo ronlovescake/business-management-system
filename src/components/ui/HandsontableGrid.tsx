@@ -26,6 +26,11 @@ import { showNotification } from '@mantine/notifications';
 import { IconUpload, IconSearch } from '@tabler/icons-react';
 import { StatsCardGrid, type StatCard } from './StatsCardGrid';
 import { logger } from '@/lib/logger';
+import {
+  buildSelectionSummaryBounds,
+  calculateSelectionSummary,
+  hasSelectionSummaryChanged,
+} from './handsontableSelectionSummary';
 
 export type TableColumnAlignment = 'left' | 'center' | 'right';
 export type HandsontableColumnType = 'text' | 'numeric' | 'dropdown';
@@ -298,12 +303,8 @@ export function HandsontableGrid<T extends object>({
         return;
       }
 
-      if (
-        typeof row !== 'number' ||
-        typeof col !== 'number' ||
-        row < 0 ||
-        col < 0
-      ) {
+      const bounds = buildSelectionSummaryBounds({ row, col, row2, col2 });
+      if (!bounds.valid) {
         if (lastSelectionSummaryRef.current) {
           lastSelectionSummaryRef.current = null;
           onSelectionSummaryChange(null);
@@ -320,79 +321,19 @@ export function HandsontableGrid<T extends object>({
         return;
       }
 
-      const startRow = Math.min(row, row2 ?? row);
-      const endRow = Math.max(row, row2 ?? row);
-      const startCol = Math.min(col, col2 ?? col);
-      const endCol = Math.max(col, col2 ?? col);
+      const summary = calculateSelectionSummary({
+        startRow: bounds.startRow,
+        endRow: bounds.endRow,
+        startCol: bounds.startCol,
+        endCol: bounds.endCol,
+        getDataAtCell: (summaryRow, summaryCol) =>
+          hotInstance.getDataAtCell(summaryRow, summaryCol),
+      });
 
-      let numericCount = 0;
-      let numericSum = 0;
-      let textCount = 0;
-      let cellCount = 0;
-
-      for (let r = startRow; r <= endRow; r += 1) {
-        for (let c = startCol; c <= endCol; c += 1) {
-          const cellValue = hotInstance.getDataAtCell(r, c);
-
-          if (cellValue === null || cellValue === undefined) {
-            continue;
-          }
-
-          if (typeof cellValue === 'number') {
-            if (!Number.isNaN(cellValue)) {
-              cellCount += 1;
-              numericCount += 1;
-              numericSum += cellValue;
-            }
-            continue;
-          }
-
-          if (typeof cellValue === 'string') {
-            const trimmed = cellValue.trim();
-            if (!trimmed) {
-              continue;
-            }
-
-            const normalized = Number(trimmed.replace(/,/g, ''));
-            cellCount += 1;
-
-            if (!Number.isNaN(normalized)) {
-              numericCount += 1;
-              numericSum += normalized;
-            } else {
-              textCount += 1;
-            }
-            continue;
-          }
-
-          if (typeof cellValue === 'boolean') {
-            cellCount += 1;
-            textCount += 1;
-            continue;
-          }
-
-          const fallbackValue = String(cellValue).trim();
-          if (fallbackValue) {
-            cellCount += 1;
-            textCount += 1;
-          }
-        }
-      }
-
-      const summary: SelectionSummary = {
-        numericCount,
-        numericSum,
-        textCount,
-        cellCount,
-      };
-
-      const previous = lastSelectionSummaryRef.current;
-      const hasChanged =
-        !previous ||
-        previous.numericCount !== summary.numericCount ||
-        previous.numericSum !== summary.numericSum ||
-        previous.textCount !== summary.textCount ||
-        previous.cellCount !== summary.cellCount;
+      const hasChanged = hasSelectionSummaryChanged(
+        lastSelectionSummaryRef.current,
+        summary
+      );
 
       if (!hasChanged) {
         return;

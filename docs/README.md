@@ -40,6 +40,11 @@ Most historical markdown files now live under dedicated subfolders so the reposi
 
 Add new documents to the appropriate folder and drop a short link in this README when something notable appears.
 
+Notable refactor tracking docs:
+
+- [REFACTOR_EXEC_SUMMARY_2026-02-14.md](./REFACTOR_EXEC_SUMMARY_2026-02-14.md) — append-only execution source of truth.
+- [REFACTOR_CHANGELOG_STREAM.md](./REFACTOR_CHANGELOG_STREAM.md) — compact generated stream of backlog execution updates.
+
 ---
 
 ## �📊 What This Framework Provides

@@ -23,13 +23,9 @@ import { usePathname } from 'next/navigation';
 import {
   IconDatabase,
   IconClock,
-  IconFileTypeCsv,
   IconAlertCircle,
-  IconFileSpreadsheet,
-  IconFileText,
   IconHistory,
   IconTable,
-  IconDownload,
 } from '@tabler/icons-react';
 import type {
   Backup,
@@ -51,8 +47,8 @@ import { BackupTablesBrowser } from './backup-restore/BackupTablesBrowser';
 import { BackupPreviewModal } from './backup-restore/BackupPreviewModal';
 import { RestorePreviewModal } from './backup-restore/RestorePreviewModal';
 import { useBackupRestoreSidebarStore } from './backup-restore/backupRestoreSidebarStore';
-import { StandardTableControls } from '@/components/tables/StandardDataTable';
 import { useBackupDownloadHandlers } from './backup-restore/useBackupDownloadHandlers';
+import { BackupTablesActionPanel } from './backup-restore/BackupTablesActionPanel';
 import {
   ControlPanelCard,
   type ControlPanelTabConfig,
@@ -61,11 +57,13 @@ import {
   areBackupSidebarTablesEqual,
   buildBackupTableSampleUrl,
   fetchWithTimeout,
+  getAllRestoreTables,
   getRestorePreviewChangeTypeOptions,
   getRestorePreviewRowOptions,
   getRestorePreviewSelectedRowData,
   getRestorePreviewTableOptions,
   getSelectedTableDetails,
+  toggleRestoreTableSelection,
 } from './backup-restore/backupRestoreTabUtils';
 
 export function BackupRestoreTab() {
@@ -612,10 +610,7 @@ export function BackupRestoreTab() {
   });
 
   const handleSelectAllTables = () => {
-    if (!previewData) {
-      return;
-    }
-    setRestoreSelection(Object.keys(previewData.tables));
+    setRestoreSelection(getAllRestoreTables(previewData));
   };
 
   const handleClearSelectedTables = () => {
@@ -623,15 +618,9 @@ export function BackupRestoreTab() {
   };
 
   const toggleTableSelection = (table: string, checked: boolean) => {
-    setRestoreSelection((prev) => {
-      if (checked) {
-        if (prev.includes(table)) {
-          return prev;
-        }
-        return [...prev, table];
-      }
-      return prev.filter((t) => t !== table);
-    });
+    setRestoreSelection((prev) =>
+      toggleRestoreTableSelection(prev, table, checked)
+    );
   };
 
   const handleRestore = useCallback(async () => {
@@ -1028,92 +1017,22 @@ export function BackupRestoreTab() {
       label: 'Tables',
       leftSection: <IconTable size={16} />,
       panel: (
-        <Group gap="sm" align="center" wrap="wrap">
-          <div style={{ flex: 1, minWidth: 240 }}>
-            <StandardTableControls
-              searchPlaceholder="Search rows..."
-              onSearch={setTableSearchQuery}
-              searchValue={tableSearchQuery}
-              hideImport
-              hideExport
-              hideAddNew
-              expandSearch
-              searchAddon={
-                <Select
-                  placeholder="Backup date"
-                  data={backupDateOptions}
-                  value={selectedBackup?.timestamp ?? null}
-                  onChange={handleBackupDateFilterChange}
-                  clearable
-                  style={{ minWidth: 220 }}
-                />
-              }
-            />
-          </div>
-
-          <Group gap="xs" wrap="wrap">
-            <Button
-              leftSection={<IconFileTypeCsv size={16} />}
-              onClick={() =>
-                selectedTableName
-                  ? void handleDownloadCSV(selectedTableName)
-                  : undefined
-              }
-              disabled={!selectedTableName || !previewData}
-            >
-              Download CSV
-            </Button>
-            <Button
-              leftSection={<IconFileSpreadsheet size={16} />}
-              onClick={() =>
-                selectedTableName
-                  ? void handleDownloadXLSX(selectedTableName)
-                  : undefined
-              }
-              disabled={!selectedTableName || !previewData}
-            >
-              Download XLSX
-            </Button>
-            <Button
-              leftSection={<IconDatabase size={16} />}
-              onClick={() =>
-                selectedBackup
-                  ? void handleDownloadJSON(selectedBackup)
-                  : undefined
-              }
-              disabled={!selectedBackup}
-            >
-              Download JSON
-            </Button>
-            <Button
-              leftSection={<IconFileText size={16} />}
-              onClick={() =>
-                selectedBackup
-                  ? void handleDownloadSQL(selectedBackup)
-                  : undefined
-              }
-              disabled={!selectedBackup}
-            >
-              Download SQL
-            </Button>
-            <Button
-              leftSection={<IconDownload size={16} />}
-              color="green"
-              onClick={() => {
-                if (!selectedBackup || !previewData) {
-                  return;
-                }
-                void handleDownloadAllCSV();
-                void handleDownloadAllXLSX();
-                void handleDownloadJSON(selectedBackup);
-                void handleDownloadSQL(selectedBackup);
-              }}
-              disabled={!selectedBackup || !previewData}
-            >
-              Download All
-            </Button>
-          </Group>
-        </Group>
+        <BackupTablesActionPanel
+          tableSearchQuery={tableSearchQuery}
+          onSearchQueryChange={setTableSearchQuery}
+          backupDateOptions={backupDateOptions}
+          selectedBackupTimestamp={selectedBackup?.timestamp ?? null}
+          onBackupDateFilterChange={handleBackupDateFilterChange}
+          selectedTableName={selectedTableName}
+          previewData={previewData}
+          selectedBackup={selectedBackup}
+          onDownloadCSV={handleDownloadCSV}
+          onDownloadXLSX={handleDownloadXLSX}
+          onDownloadJSON={handleDownloadJSON}
+          onDownloadSQL={handleDownloadSQL}
+          onDownloadAllCSV={handleDownloadAllCSV}
+          onDownloadAllXLSX={handleDownloadAllXLSX}
+        />
       ),
     },
   ];

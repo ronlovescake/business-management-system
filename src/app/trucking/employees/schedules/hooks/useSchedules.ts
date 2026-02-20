@@ -4,6 +4,7 @@ import { showError } from '@/lib/alerts';
 import { logger } from '@/lib/logger';
 import { api, ApiError } from '@/lib/api/client';
 import { queryKeys } from '@/lib/queryKeys';
+import { escapeCSV, parseCSVLine } from '@/components/expenses';
 import { getCurrentDateISO, toISODate } from '@/utils/date';
 import { dateFormatterShort, formatTimeString } from '@/utils/dateFormatters';
 import type {
@@ -986,27 +987,6 @@ export function useSchedules() {
           return;
         }
 
-        const parseCSVLine = (line: string): string[] => {
-          const result: string[] = [];
-          let current = '';
-          let inQuotes = false;
-
-          for (let i = 0; i < line.length; i++) {
-            const char = line[i];
-
-            if (char === '"') {
-              inQuotes = !inQuotes;
-            } else if (char === ',' && !inQuotes) {
-              result.push(current.trim());
-              current = '';
-            } else {
-              current += char;
-            }
-          }
-          result.push(current.trim());
-          return result;
-        };
-
         const headers = parseCSVLine(lines[0]).map((h) =>
           h.toLowerCase().replace(/\s+/g, '')
         );
@@ -1173,15 +1153,7 @@ export function useSchedules() {
           schedule.notes || '',
         ];
 
-        return row
-          .map((field) => {
-            const stringField = String(field);
-            if (stringField.includes(',') || stringField.includes('"')) {
-              return `"${stringField.replace(/"/g, '""')}"`;
-            }
-            return stringField;
-          })
-          .join(',');
+        return row.map((field) => escapeCSV(field)).join(',');
       }),
     ].join('\n');
 

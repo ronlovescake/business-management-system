@@ -1,0 +1,243 @@
+export const OPENAPI_COMPONENTS = {
+  schemas: {
+    Error: {
+      type: 'object',
+      properties: {
+        error: { type: 'string' },
+        code: { type: 'string' },
+        details: { type: 'string' },
+        timestamp: { type: 'string', format: 'date-time' },
+      },
+      required: ['error'],
+    },
+    Customer: {
+      type: 'object',
+      properties: {
+        id: { type: 'string' },
+        name: { type: 'string' },
+        businessName: { type: 'string' },
+        phone: { type: 'string', nullable: true },
+        email: { type: 'string', nullable: true },
+        address: { type: 'string', nullable: true },
+        notes: { type: 'string', nullable: true },
+        createdAt: { type: 'string', format: 'date-time' },
+        updatedAt: { type: 'string', format: 'date-time' },
+        deletedAt: { type: 'string', format: 'date-time', nullable: true },
+      },
+    },
+    CustomerInput: {
+      type: 'object',
+      properties: {
+        name: { type: 'string', minLength: 1, maxLength: 255 },
+        businessName: { type: 'string', minLength: 1, maxLength: 255 },
+        phone: { type: 'string', nullable: true },
+        email: { type: 'string', format: 'email', nullable: true },
+        address: { type: 'string', nullable: true },
+        notes: { type: 'string', nullable: true },
+      },
+      required: ['name', 'businessName'],
+    },
+    Product: {
+      type: 'object',
+      properties: {
+        id: { type: 'string' },
+        productCode: { type: 'string' },
+        description: { type: 'string' },
+        category: { type: 'string', nullable: true },
+        unit: { type: 'string' },
+        createdAt: { type: 'string', format: 'date-time' },
+        updatedAt: { type: 'string', format: 'date-time' },
+        deletedAt: { type: 'string', format: 'date-time', nullable: true },
+      },
+    },
+    ProductInput: {
+      type: 'object',
+      properties: {
+        productCode: { type: 'string', minLength: 1, maxLength: 50 },
+        description: { type: 'string', minLength: 1, maxLength: 500 },
+        category: { type: 'string', nullable: true },
+        unit: { type: 'string', minLength: 1, maxLength: 20 },
+      },
+      required: ['productCode', 'description', 'unit'],
+    },
+    Price: {
+      type: 'object',
+      properties: {
+        id: { type: 'string' },
+        productId: { type: 'string' },
+        customerId: { type: 'string' },
+        price: { type: 'number', format: 'decimal' },
+        effectiveDate: { type: 'string', format: 'date' },
+        createdAt: { type: 'string', format: 'date-time' },
+        updatedAt: { type: 'string', format: 'date-time' },
+      },
+    },
+    PriceInput: {
+      type: 'object',
+      properties: {
+        productId: { type: 'string' },
+        customerId: { type: 'string' },
+        price: { type: 'number', minimum: 0 },
+        effectiveDate: { type: 'string', format: 'date' },
+      },
+      required: ['productId', 'customerId', 'price', 'effectiveDate'],
+    },
+    Transaction: {
+      type: 'object',
+      properties: {
+        id: { type: 'string' },
+        customerId: { type: 'string' },
+        transactionDate: { type: 'string', format: 'date' },
+        status: {
+          type: 'string',
+          enum: ['Pending', 'Completed', 'Cancelled'],
+        },
+        totalAmount: { type: 'number', format: 'decimal' },
+        notes: { type: 'string', nullable: true },
+        createdAt: { type: 'string', format: 'date-time' },
+      },
+    },
+    TransactionInput: {
+      type: 'object',
+      properties: {
+        customerId: { type: 'string' },
+        transactionDate: { type: 'string', format: 'date' },
+        status: { type: 'string', enum: ['Pending', 'Completed'] },
+        products: {
+          type: 'array',
+          items: {
+            type: 'object',
+            properties: {
+              productId: { type: 'string' },
+              quantity: { type: 'number', minimum: 1 },
+              price: { type: 'number', minimum: 0 },
+            },
+          },
+        },
+      },
+      required: ['customerId', 'transactionDate', 'products'],
+    },
+    Shipment: {
+      type: 'object',
+      properties: {
+        id: { type: 'string' },
+        transactionId: { type: 'string' },
+        shipmentDate: { type: 'string', format: 'date' },
+        status: { type: 'string' },
+        trackingNumber: { type: 'string', nullable: true },
+        createdAt: { type: 'string', format: 'date-time' },
+      },
+    },
+    ShipmentInput: {
+      type: 'object',
+      properties: {
+        transactionId: { type: 'string' },
+        shipmentDate: { type: 'string', format: 'date' },
+        trackingNumber: { type: 'string', nullable: true },
+      },
+      required: ['transactionId', 'shipmentDate'],
+    },
+    Employee: {
+      type: 'object',
+      properties: {
+        id: { type: 'string' },
+        name: { type: 'string' },
+        position: { type: 'string' },
+        department: { type: 'string' },
+        hireDate: { type: 'string', format: 'date' },
+        salary: { type: 'number', format: 'decimal' },
+        status: { type: 'string', enum: ['Active', 'Inactive'] },
+        createdAt: { type: 'string', format: 'date-time' },
+      },
+    },
+    EmployeeInput: {
+      type: 'object',
+      properties: {
+        name: { type: 'string', minLength: 1 },
+        position: { type: 'string', minLength: 1 },
+        department: { type: 'string', minLength: 1 },
+        hireDate: { type: 'string', format: 'date' },
+        salary: { type: 'number', minimum: 0 },
+        status: { type: 'string', enum: ['Active', 'Inactive'] },
+      },
+      required: ['name', 'position', 'department', 'hireDate', 'salary'],
+    },
+    AttendanceInput: {
+      type: 'object',
+      properties: {
+        employeeId: { type: 'string' },
+        date: { type: 'string', format: 'date' },
+        timeIn: { type: 'string', format: 'time' },
+        timeOut: { type: 'string', format: 'time' },
+        status: { type: 'string', enum: ['Present', 'Absent', 'Leave'] },
+      },
+      required: ['employeeId', 'date', 'status'],
+    },
+    ScheduleInput: {
+      type: 'object',
+      properties: {
+        employeeId: { type: 'string' },
+        date: { type: 'string', format: 'date' },
+        shiftType: { type: 'string' },
+        startTime: { type: 'string', format: 'time' },
+        endTime: { type: 'string', format: 'time' },
+      },
+      required: ['employeeId', 'date', 'shiftType'],
+    },
+    PayrollInput: {
+      type: 'object',
+      properties: {
+        employeeId: { type: 'string' },
+        payPeriodStart: { type: 'string', format: 'date' },
+        payPeriodEnd: { type: 'string', format: 'date' },
+        basicSalary: { type: 'number', minimum: 0 },
+        deductions: { type: 'number', minimum: 0, default: 0 },
+        netSalary: { type: 'number', minimum: 0 },
+      },
+      required: [
+        'employeeId',
+        'payPeriodStart',
+        'payPeriodEnd',
+        'basicSalary',
+        'netSalary',
+      ],
+    },
+    LeaveRequestInput: {
+      type: 'object',
+      properties: {
+        employeeId: { type: 'string' },
+        leaveType: { type: 'string' },
+        startDate: { type: 'string', format: 'date' },
+        endDate: { type: 'string', format: 'date' },
+        reason: { type: 'string' },
+      },
+      required: ['employeeId', 'leaveType', 'startDate', 'endDate', 'reason'],
+    },
+    ExpenseInput: {
+      type: 'object',
+      properties: {
+        employeeId: { type: 'string' },
+        category: { type: 'string' },
+        amount: { type: 'number', minimum: 0 },
+        date: { type: 'string', format: 'date' },
+        description: { type: 'string' },
+        receipt: {
+          type: 'string',
+          nullable: true,
+          description: 'Base64 encoded image',
+        },
+      },
+      required: ['employeeId', 'category', 'amount', 'date', 'description'],
+    },
+    CashAdvanceInput: {
+      type: 'object',
+      properties: {
+        employeeId: { type: 'string' },
+        amount: { type: 'number', minimum: 0 },
+        requestDate: { type: 'string', format: 'date' },
+        reason: { type: 'string' },
+      },
+      required: ['employeeId', 'amount', 'requestDate', 'reason'],
+    },
+  },
+} as const;
