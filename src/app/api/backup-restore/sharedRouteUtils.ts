@@ -3,6 +3,28 @@ import { createHash } from 'crypto';
 import { NextResponse } from 'next/server';
 import { requireAdmin } from '@/lib/auth/session';
 
+export const TIMESTAMP_FOLDER_REGEX = /^\d{4}-\d{2}-\d{2}T\d{2}-\d{2}-\d{2}$/;
+
+export function isValidTimestampFolderName(timestamp: string) {
+  return TIMESTAMP_FOLDER_REGEX.test(timestamp);
+}
+
+export function isSafeBackupFilename(filename: string) {
+  if (!filename) {
+    return false;
+  }
+
+  if (
+    filename.includes('..') ||
+    filename.includes('/') ||
+    filename.includes('\\')
+  ) {
+    return false;
+  }
+
+  return true;
+}
+
 export async function requireBackupRestoreAdmin() {
   try {
     await requireAdmin();

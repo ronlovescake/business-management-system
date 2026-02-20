@@ -1,0 +1,367 @@
+{
+  "coverage": [
+    {
+      "path": "src/modules/clothing/operations",
+      "status": "covered",
+      "fileCount": 293
+    },
+    {
+      "path": "src/modules/clothing/ledger",
+      "status": "covered",
+      "fileCount": 13
+    },
+    {
+      "path": "src/modules/clothing/employees",
+      "status": "covered",
+      "fileCount": 32
+    },
+    {
+      "path": "src/modules/general-merchandise/operations",
+      "status": "covered",
+      "fileCount": 24
+    },
+    {
+      "path": "src/modules/general-merchandise/ledger",
+      "status": "covered",
+      "fileCount": 7
+    },
+    {
+      "path": "src/modules/general-merchandise/employees",
+      "status": "N/A",
+      "reason": "path missing",
+      "fileCount": 0
+    },
+    {
+      "path": "src/app/clothing",
+      "status": "covered",
+      "fileCount": 191
+    },
+    {
+      "path": "src/app/general-merchandise",
+      "status": "covered",
+      "fileCount": 43
+    },
+    {
+      "path": "src/app/api",
+      "status": "covered",
+      "fileCount": 258
+    },
+    {
+      "path": "src/lib",
+      "status": "covered",
+      "fileCount": 116
+    },
+    {
+      "path": "src/components",
+      "status": "covered",
+      "fileCount": 93
+    },
+    {
+      "path": "tests",
+      "status": "covered",
+      "fileCount": 82
+    }
+  ],
+  "largeFileDistribution": {
+    ">=500": 123,
+    ">=800": 46,
+    ">=1000": 25,
+    ">=1200": 13,
+    ">=1500": 0
+  },
+  "top20Largest": [
+    {
+      "path": "src/lib/payroll/trucking/deductions.ts",
+      "lines": 1491
+    },
+    {
+      "path": "src/modules/clothing/operations/inventory/components/InventoryPage.tsx",
+      "lines": 1475
+    },
+    {
+      "path": "src/lib/payroll/deductions.ts",
+      "lines": 1475
+    },
+    {
+      "path": "src/lib/payroll/deductionsGeneralMerchandise.ts",
+      "lines": 1469
+    },
+    {
+      "path": "src/components/ui/HandsontableGrid.tsx",
+      "lines": 1460
+    },
+    {
+      "path": "src/lib/openapi/spec.ts",
+      "lines": 1442
+    },
+    {
+      "path": "src/modules/clothing/operations/settings/components/BackupRestoreTab.tsx",
+      "lines": 1420
+    },
+    {
+      "path": "src/components/navigation/HeaderQuickActions.tsx",
+      "lines": 1397
+    },
+    {
+      "path": "src/app/api/backup/route.ts",
+      "lines": 1347
+    },
+    {
+      "path": "src/modules/clothing/employees/payroll/hooks/usePayroll.ts",
+      "lines": 1335
+    },
+    {
+      "path": "src/app/clothing/employees/leave-tracker/hooks/useLeaveTracker.ts",
+      "lines": 1319
+    },
+    {
+      "path": "src/app/clothing/employees/payroll/hooks/usePayroll.ts",
+      "lines": 1317
+    },
+    {
+      "path": "src/lib/accounting/general-merchandise/inventory-cogs.ts",
+      "lines": 1286
+    },
+    {
+      "path": "src/app/clothing/employees/attendance/hooks/useAttendance.ts",
+      "lines": 1183
+    },
+    {
+      "path": "src/app/clothing/employees/schedules/hooks/useSchedules.ts",
+      "lines": 1180
+    },
+    {
+      "path": "src/modules/clothing/operations/checkout-links/hooks/useCheckoutLinksPage.ts",
+      "lines": 1177
+    },
+    {
+      "path": "src/app/api/restore/route.ts",
+      "lines": 1160
+    },
+    {
+      "path": "src/modules/clothing/operations/transactions/components/TransactionPaymentsModal.tsx",
+      "lines": 1113
+    },
+    {
+      "path": "src/app/clothing/employees/team/hooks/useEmployeeDetail.ts",
+      "lines": 1090
+    },
+    {
+      "path": "src/app/clothing/employees/thirteenth-month-pay/hooks/useThirteenthMonthPay.ts",
+      "lines": 1063
+    }
+  ],
+  "riskMarkers": {
+    "as_unknown_as": 0,
+    "todo_fixme": 0,
+    "eslint_no_explicit_any": 0
+  },
+  "duplication": {
+    "modulesOperations": {
+      "sharedRelativePaths": 21,
+      "exactCloneCount": 0,
+      "cloneRatio": 0.0
+    },
+    "modulesLedger": {
+      "sharedRelativePaths": 7,
+      "exactCloneCount": 0,
+      "cloneRatio": 0.0
+    },
+    "modulesEmployees": {
+      "sharedRelativePaths": 0,
+      "exactCloneCount": 0,
+      "cloneRatio": 0.0
+    },
+    "appRoutes": {
+      "sharedRelativePaths": 38,
+      "exactCloneCount": 1,
+      "cloneRatio": 2.63
+    }
+  },
+  "candidateLargeFiles800plus": [
+    {
+      "path": "src/lib/payroll/trucking/deductions.ts",
+      "lines": 1491
+    },
+    {
+      "path": "src/modules/clothing/operations/inventory/components/InventoryPage.tsx",
+      "lines": 1475
+    },
+    {
+      "path": "src/lib/payroll/deductions.ts",
+      "lines": 1475
+    },
+    {
+      "path": "src/lib/payroll/deductionsGeneralMerchandise.ts",
+      "lines": 1469
+    },
+    {
+      "path": "src/components/ui/HandsontableGrid.tsx",
+      "lines": 1460
+    },
+    {
+      "path": "src/lib/openapi/spec.ts",
+      "lines": 1442
+    },
+    {
+      "path": "src/modules/clothing/operations/settings/components/BackupRestoreTab.tsx",
+      "lines": 1420
+    },
+    {
+      "path": "src/components/navigation/HeaderQuickActions.tsx",
+      "lines": 1397
+    },
+    {
+      "path": "src/app/api/backup/route.ts",
+      "lines": 1347
+    },
+    {
+      "path": "src/modules/clothing/employees/payroll/hooks/usePayroll.ts",
+      "lines": 1335
+    },
+    {
+      "path": "src/app/clothing/employees/leave-tracker/hooks/useLeaveTracker.ts",
+      "lines": 1319
+    },
+    {
+      "path": "src/app/clothing/employees/payroll/hooks/usePayroll.ts",
+      "lines": 1317
+    },
+    {
+      "path": "src/lib/accounting/general-merchandise/inventory-cogs.ts",
+      "lines": 1286
+    },
+    {
+      "path": "src/app/clothing/employees/attendance/hooks/useAttendance.ts",
+      "lines": 1183
+    },
+    {
+      "path": "src/app/clothing/employees/schedules/hooks/useSchedules.ts",
+      "lines": 1180
+    },
+    {
+      "path": "src/modules/clothing/operations/checkout-links/hooks/useCheckoutLinksPage.ts",
+      "lines": 1177
+    },
+    {
+      "path": "src/app/api/restore/route.ts",
+      "lines": 1160
+    },
+    {
+      "path": "src/modules/clothing/operations/transactions/components/TransactionPaymentsModal.tsx",
+      "lines": 1113
+    },
+    {
+      "path": "src/app/clothing/employees/team/hooks/useEmployeeDetail.ts",
+      "lines": 1090
+    },
+    {
+      "path": "src/app/clothing/employees/thirteenth-month-pay/hooks/useThirteenthMonthPay.ts",
+      "lines": 1063
+    },
+    {
+      "path": "tests/unit/api/employees.api.test.ts",
+      "lines": 1056
+    },
+    {
+      "path": "src/modules/clothing/operations/products/services/ProductService.ts",
+      "lines": 1023
+    },
+    {
+      "path": "src/app/api/inventory/check-stock/route.ts",
+      "lines": 1019
+    },
+    {
+      "path": "src/components/settings/UserManagementSection.tsx",
+      "lines": 1002
+    },
+    {
+      "path": "src/app/clothing/users/page.tsx",
+      "lines": 1001
+    },
+    {
+      "path": "src/app/api/general-merchandise/accounting/balance-sheet/route.ts",
+      "lines": 996
+    },
+    {
+      "path": "src/modules/clothing/operations/shipments/services/__tests__/ShipmentService.test.ts",
+      "lines": 986
+    },
+    {
+      "path": "src/app/clothing/accounting/ledger/hooks/useLedger.ts",
+      "lines": 981
+    },
+    {
+      "path": "src/app/api/accounting/balance-sheet/route.ts",
+      "lines": 946
+    },
+    {
+      "path": "src/modules/clothing/operations/transactions/hooks/useInvoiceGeneration.ts",
+      "lines": 901
+    },
+    {
+      "path": "tests/unit/api/cash-advances.api.test.ts",
+      "lines": 894
+    },
+    {
+      "path": "src/app/clothing/employees/team/components/EmployeeFormDialog.tsx",
+      "lines": 893
+    },
+    {
+      "path": "src/modules/clothing/operations/settings/change-log/components/ChangeLogPage.tsx",
+      "lines": 887
+    },
+    {
+      "path": "src/modules/clothing/operations/customers/services/CustomerService.ts",
+      "lines": 883
+    },
+    {
+      "path": "src/app/api/general-merchandise/accounting/ledger/route.ts",
+      "lines": 879
+    },
+    {
+      "path": "src/modules/clothing/operations/sorting-distribution/components/SortingDistributionPage.tsx",
+      "lines": 849
+    },
+    {
+      "path": "src/app/clothing/operations/messaging/MessagingClientPage.tsx",
+      "lines": 839
+    },
+    {
+      "path": "src/app/api/accounting/ledger/route.ts",
+      "lines": 839
+    },
+    {
+      "path": "src/modules/clothing/operations/transactions/hooks/useTransactionOperations.ts",
+      "lines": 836
+    },
+    {
+      "path": "src/modules/clothing/operations/transactions/components/TransactionsPage.tsx",
+      "lines": 833
+    },
+    {
+      "path": "src/app/clothing/accounting/ledger/components/RecurringPaymentsPanel.tsx",
+      "lines": 826
+    },
+    {
+      "path": "src/app/clothing/employees/leave-tracker/hooks/__tests__/useLeaveTracker.test.ts",
+      "lines": 826
+    },
+    {
+      "path": "tests/unit/api/schedules.api.test.ts",
+      "lines": 825
+    },
+    {
+      "path": "src/app/clothing/employees/schedules/hooks/__tests__/useSchedules.test.ts",
+      "lines": 819
+    },
+    {
+      "path": "tests/unit/api/leave-requests.api.test.ts",
+      "lines": 817
+    },
+    {
+      "path": "src/modules/clothing/operations/prices/components/PricesPage.tsx",
+      "lines": 809
+    }
+  ]
+}

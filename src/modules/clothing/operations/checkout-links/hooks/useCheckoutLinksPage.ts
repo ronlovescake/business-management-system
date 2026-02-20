@@ -7,6 +7,13 @@ import { api } from '@/lib/api/client';
 import { buildApiPath } from '@/lib/api/paths';
 import { useInvoiceCustomerLookup } from './useInvoiceCustomerLookup';
 import {
+  calculateInvoiceWeights,
+  fetchCheckoutLinksData,
+  fetchCustomerOrders,
+  fetchInvoicesData,
+  fetchProductsData,
+} from './checkoutLinksApi';
+import {
   buildCustomerOrderWeightsByCustomer,
   buildInvoiceWeightsByCustomer,
   buildLocalInvoiceData,
@@ -31,7 +38,6 @@ import type {
   InvoiceData,
   ItemWeightData,
 } from '../types';
-import type { ProductData } from '../../products/types/product.types';
 import type { TransactionData } from '../../transactions/types/transaction.types';
 
 interface InvoiceSettingsResponse {
@@ -136,22 +142,8 @@ export const useCheckoutLinksPage = ({
   const { data: customerOrders = [], isFetching: isCustomerOrdersLoading } =
     useQuery<CustomerOrderData[]>({
       queryKey: ['customer-orders', apiBasePath ?? 'default'],
-      queryFn: async () => {
-        const response = await fetch(
-          resolveApiPath('/invoices/customer-orders')
-        );
-        const result = await response.json();
-
-        if (!response.ok || result?.success !== true) {
-          throw new Error(
-            result?.error || 'Failed to load customer orders. Please retry.'
-          );
-        }
-
-        return Array.isArray(result.orders)
-          ? (result.orders as CustomerOrderData[])
-          : [];
-      },
+      queryFn: async () =>
+        fetchCustomerOrders(resolveApiPath('/invoices/customer-orders')),
       refetchOnWindowFocus: true,
       refetchInterval: 60 * 1000,
       staleTime: 30 * 1000,
@@ -159,31 +151,13 @@ export const useCheckoutLinksPage = ({
 
   const handleCalculateWeights = useCallback(async () => {
     try {
-      const response = await fetch(
-        resolveApiPath('/invoices/calculate-weights'),
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-        }
+      const result = await calculateInvoiceWeights(
+        resolveApiPath('/invoices/calculate-weights')
       );
-
-      const result = await response.json();
-
-      if (!response.ok || !result.success) {
-        throw new Error(
-          result.error || 'Failed to calculate weights. Please retry.'
-        );
-      }
 
       setInvoiceData(result.invoices);
 
-      const calculationResults: Array<{
-        unmatchedProducts?: string[];
-      }> = Array.isArray(result.results)
-        ? (result.results as Array<{ unmatchedProducts?: string[] }>)
-        : [];
+      const calculationResults = result.results;
 
       const totalCalculated = calculationResults.length;
       const withUnmatched = calculationResults.filter(
@@ -219,14 +193,10 @@ export const useCheckoutLinksPage = ({
 
   const loadCheckoutLinks = useCallback(async () => {
     try {
-      const response = await fetch(
+      const data = await fetchCheckoutLinksData(
         resolveCheckoutLinksApiPath('/checkout-links')
       );
-      const result = await response.json();
-
-      if (result.data) {
-        setCheckoutLinks(result.data);
-      }
+      setCheckoutLinks(data);
     } catch (error) {
       showNotification({
         title: 'Error',
@@ -240,15 +210,11 @@ export const useCheckoutLinksPage = ({
 
   const loadInvoices = useCallback(async () => {
     try {
-      const response = await fetch(resolveApiPath('/invoices'));
-      const result = await response.json();
+      const data = await fetchInvoicesData(resolveApiPath('/invoices'));
+      setInvoiceData(data);
 
-      if (result.data) {
-        setInvoiceData(result.data);
-
-        if (result.data.length > 0) {
-          void handleCalculateWeights();
-        }
+      if (data.length > 0) {
+        void handleCalculateWeights();
       }
     } catch (error) {
       showNotification({
@@ -264,23 +230,7 @@ export const useCheckoutLinksPage = ({
     setItemWeightError(null);
 
     try {
-      const response = await fetch(resolveApiPath('/products'));
-
-      if (!response.ok) {
-        throw new Error('Failed to load product weights');
-      }
-
-      const payload = (await response.json()) as
-        | ProductData[]
-        | { data?: ProductData[] }
-        | undefined;
-      let products: ProductData[] = [];
-
-      if (Array.isArray(payload)) {
-        products = payload;
-      } else if (payload && Array.isArray(payload.data)) {
-        products = payload.data;
-      }
+      const products = await fetchProductsData(resolveApiPath('/products'));
 
       const productsWithWeight = products.filter(hasWeightData);
 

@@ -59,6 +59,8 @@ import {
 } from '@/components/ui/ControlPanelCard';
 import {
   areBackupSidebarTablesEqual,
+  buildBackupTableSampleUrl,
+  fetchWithTimeout,
   getRestorePreviewChangeTypeOptions,
   getRestorePreviewRowOptions,
   getRestorePreviewSelectedRowData,
@@ -125,30 +127,6 @@ export function BackupRestoreTab() {
   const PREVIEW_SUMMARY_TIMEOUT_MS = 120000;
   const PREVIEW_TABLE_TIMEOUT_MS = 180000;
 
-  const fetchWithTimeout = useCallback(
-    async (input: RequestInfo | URL, init?: RequestInit, timeoutMs = 30000) => {
-      const controller = new AbortController();
-      const timeout = setTimeout(() => {
-        controller.abort(
-          new DOMException(
-            `Request timed out after ${Math.round(timeoutMs / 1000)}s`,
-            'TimeoutError'
-          )
-        );
-      }, timeoutMs);
-
-      try {
-        return await fetch(input, {
-          ...init,
-          signal: controller.signal,
-        });
-      } finally {
-        clearTimeout(timeout);
-      }
-    },
-    []
-  );
-
   const fetchTableSample = useCallback(
     async (
       timestamp: string,
@@ -160,7 +138,7 @@ export function BackupRestoreTab() {
       }: { limit?: number; offset?: number } = {}
     ) => {
       const response = await fetchWithTimeout(
-        `/api/backup/${encodeURIComponent(timestamp)}/${encodeURIComponent(jsonFile)}?mode=table&table=${encodeURIComponent(table)}&limit=${encodeURIComponent(String(limit))}&offset=${encodeURIComponent(String(offset))}`,
+        buildBackupTableSampleUrl(timestamp, jsonFile, table, limit, offset),
         undefined,
         PREVIEW_TABLE_TIMEOUT_MS
       );
@@ -187,7 +165,7 @@ export function BackupRestoreTab() {
 
       return payload;
     },
-    [PREVIEW_TABLE_TIMEOUT_MS, TABLE_SAMPLE_LIMIT, fetchWithTimeout]
+    [PREVIEW_TABLE_TIMEOUT_MS, TABLE_SAMPLE_LIMIT]
   );
   const autoBackupIntervalRef = useRef<NodeJS.Timeout>();
   const strategyOptions = useMemo(
@@ -465,7 +443,7 @@ export function BackupRestoreTab() {
         setPreviewLoading(false);
       }
     },
-    [PREVIEW_SUMMARY_TIMEOUT_MS, fetchTableSample, fetchWithTimeout, pageTab]
+    [PREVIEW_SUMMARY_TIMEOUT_MS, fetchTableSample, pageTab]
   );
 
   const handleBackupDateFilterChange = useCallback(

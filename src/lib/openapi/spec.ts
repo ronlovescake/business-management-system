@@ -5,12 +5,7 @@
  * Auto-generated types and validation are provided by Zod schemas.
  */
 
-export const openApiSpec: Record<string, unknown> = {
-  openapi: '3.0.0',
-  info: {
-    title: 'Business Management System API',
-    version: '1.0.0',
-    description: `
+const OPENAPI_INFO_DESCRIPTION = `
 # Business Management System API
 
 Complete REST API for managing business operations, employee data, and financial records.
@@ -43,40 +38,51 @@ All endpoints return standardized error responses:
 - \`404 Not Found\` - Resource not found
 - \`409 Conflict\` - Duplicate resource
 - \`500 Internal Server Error\` - Server error
-    `,
+`;
+
+const OPENAPI_SERVERS = [
+  {
+    url: 'http://localhost:3000/api',
+    description: 'Development server',
+  },
+  {
+    url: 'https://yourdomain.com/api',
+    description: 'Production server',
+  },
+] as const;
+
+const OPENAPI_TAGS = [
+  { name: 'System', description: 'System health and utilities' },
+  { name: 'Customers', description: 'Customer management' },
+  { name: 'Products', description: 'Product catalog' },
+  { name: 'Prices', description: 'Product pricing' },
+  { name: 'Transactions', description: 'Sales transactions' },
+  { name: 'Shipments', description: 'Shipment tracking' },
+  { name: 'Employees', description: 'Employee management' },
+  { name: 'Attendance', description: 'Attendance tracking' },
+  { name: 'Schedules', description: 'Work schedules' },
+  { name: 'Payroll', description: 'Payroll processing' },
+  { name: 'Leave Requests', description: 'Leave management' },
+  { name: 'Expenses', description: 'Employee expenses' },
+  { name: 'Cash Advances', description: 'Cash advances' },
+  { name: 'Thirteenth Month', description: 'Thirteenth month pay' },
+  { name: 'Reports', description: 'Document generation' },
+  { name: 'Backup', description: 'Database backup/restore' },
+] as const;
+
+export const openApiSpec: Record<string, unknown> = {
+  openapi: '3.0.0',
+  info: {
+    title: 'Business Management System API',
+    version: '1.0.0',
+    description: OPENAPI_INFO_DESCRIPTION,
     contact: {
       name: 'API Support',
       email: 'support@example.com',
     },
   },
-  servers: [
-    {
-      url: 'http://localhost:3000/api',
-      description: 'Development server',
-    },
-    {
-      url: 'https://yourdomain.com/api',
-      description: 'Production server',
-    },
-  ],
-  tags: [
-    { name: 'System', description: 'System health and utilities' },
-    { name: 'Customers', description: 'Customer management' },
-    { name: 'Products', description: 'Product catalog' },
-    { name: 'Prices', description: 'Product pricing' },
-    { name: 'Transactions', description: 'Sales transactions' },
-    { name: 'Shipments', description: 'Shipment tracking' },
-    { name: 'Employees', description: 'Employee management' },
-    { name: 'Attendance', description: 'Attendance tracking' },
-    { name: 'Schedules', description: 'Work schedules' },
-    { name: 'Payroll', description: 'Payroll processing' },
-    { name: 'Leave Requests', description: 'Leave management' },
-    { name: 'Expenses', description: 'Employee expenses' },
-    { name: 'Cash Advances', description: 'Cash advances' },
-    { name: 'Thirteenth Month', description: 'Thirteenth month pay' },
-    { name: 'Reports', description: 'Document generation' },
-    { name: 'Backup', description: 'Database backup/restore' },
-  ],
+  servers: OPENAPI_SERVERS,
+  tags: OPENAPI_TAGS,
   paths: {
     '/health': {
       get: {

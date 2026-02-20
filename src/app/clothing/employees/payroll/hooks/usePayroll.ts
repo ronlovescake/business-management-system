@@ -17,6 +17,16 @@ import {
 import type { Payroll, PayrollFormData } from '../types';
 import { getCurrentDateISO } from '@/utils/date';
 import { getSwal } from '@/lib/alerts';
+import {
+  generatePayrollPayslipsForPeriod,
+  getPayrollPayslipDownloadError,
+} from './payrollPayslipGenerator';
+import { exportPayrollCsv } from './payrollCsvExport';
+import { importPayrollCsv } from './payrollCsvImport';
+import {
+  runBulkApprovePayrolls,
+  runBulkMarkAllAsPaid,
+} from './payrollBulkActions';
 
 export function usePayroll(apiBasePath?: string) {
   const queryClient = useQueryClient();
@@ -120,75 +130,16 @@ export function usePayroll(apiBasePath?: string) {
       setIsGeneratingPayslips(true);
 
       try {
-        const response = await fetch(
-          resolveApiPath('/payroll/generate-payslips'),
-          {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              periodStart,
-              periodEnd,
-              payPeriodLabel,
-            }),
-          }
-        );
-
-        if (!response.ok) {
-          const errorData = (await response.json().catch(() => null)) as {
-            error?: string;
-          } | null;
-          const message = errorData?.error || 'Failed to generate payslips.';
-          return {
-            success: false,
-            error: message,
-          } as const;
-        }
-
-        if (typeof window === 'undefined') {
-          return {
-            success: false,
-            error: 'Payslip download is only available in the browser.',
-          } as const;
-        }
-
-        const blob = await response.blob();
-        const url = window.URL.createObjectURL(blob);
-        const link = document.createElement('a');
-        const contentDisposition = response.headers.get('Content-Disposition');
-
-        let filename = `payslips-${periodEnd.replace(/[^0-9]/g, '') || 'export'}.zip`;
-
-        if (contentDisposition) {
-          const filenameMatch = contentDisposition.match(
-            /filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/
-          );
-          if (filenameMatch && filenameMatch[1]) {
-            filename = decodeURIComponent(
-              filenameMatch[1].replace(/['"]/g, '')
-            );
-          }
-        }
-
-        link.href = url;
-        link.download = filename;
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        window.URL.revokeObjectURL(url);
-
-        return {
-          success: true,
-        } as const;
+        return await generatePayrollPayslipsForPeriod({
+          resolveApiPath,
+          periodStart,
+          periodEnd,
+          payPeriodLabel,
+        });
       } catch (error) {
-        logger.error('Error generating payslips:', error);
         return {
           success: false,
-          error:
-            error instanceof Error && error.message
-              ? error.message
-              : 'Failed to download payslips. Please try again.',
+          error: getPayrollPayslipDownloadError(error),
         } as const;
       } finally {
         setIsGeneratingPayslips(false);
@@ -1033,101 +984,17 @@ export function usePayroll(apiBasePath?: string) {
 
   const handleApproveAll = async () => {
     const Swal = await getSwal();
-    const pending = filteredPayrolls.filter((p) => p.status === 'pending');
-    if (pending.length === 0) {
-      await Swal.fire({
-        title: 'No Pending Payrolls',
-        text: 'There are no pending payrolls in the current view to approve.',
-        icon: 'info',
-        confirmButtonColor: '#3085d6',
-        confirmButtonText: 'OK',
-        allowOutsideClick: false,
-      });
-      return;
-    }
 
-    const confirm = await Swal.fire({
-      title: 'Approve All Pending Payrolls?',
-      html: `You are about to approve <strong>${pending.length}</strong> payroll record${pending.length === 1 ? '' : 's'}.<br/><br/>`.concat(
-        'This action applies to the records matching your current filters.'
-      ),
-      icon: 'question',
-      showCancelButton: true,
-      confirmButtonColor: '#16a34a',
-      cancelButtonColor: '#6c757d',
-      confirmButtonText: 'Yes, approve all',
-      cancelButtonText: 'Cancel',
-      reverseButtons: true,
-      allowOutsideClick: false,
+    await runBulkApprovePayrolls({
+      payrolls: filteredPayrolls,
+      setIsBulkApproving,
+      fireAlert: (options) => Swal.fire(options),
+      closeAlert: () => Swal.close(),
+      showLoading: () => Swal.showLoading(),
+      updatePayroll: async (payload) => {
+        await updateMutation.mutateAsync(payload);
+      },
     });
-
-    if (!confirm.isConfirmed) {
-      return;
-    }
-
-    setIsBulkApproving(true);
-
-    try {
-      Swal.fire({
-        title: 'Approving...',
-        text: 'Updating payroll statuses. Please wait.',
-        allowOutsideClick: false,
-        showConfirmButton: false,
-        didOpen: () => {
-          Swal.showLoading();
-        },
-      });
-
-      const approvedDate = getCurrentDateISO();
-      const failures: string[] = [];
-
-      for (const payroll of pending) {
-        try {
-          await updateMutation.mutateAsync({
-            id: payroll.id,
-            status: 'approved',
-            approvedBy: 'Current User',
-            approvedDate,
-          });
-        } catch (error) {
-          failures.push(payroll.employee || payroll.id);
-          logger.error('Error approving payroll in bulk:', error);
-        }
-      }
-
-      Swal.close();
-
-      if (failures.length > 0) {
-        await Swal.fire({
-          title: 'Partial Success',
-          text: `Approved ${pending.length - failures.length} record(s). Failed: ${failures.join(', ')}.`,
-          icon: 'warning',
-          confirmButtonColor: '#f59e0b',
-          allowOutsideClick: false,
-        });
-        return;
-      }
-
-      await Swal.fire({
-        title: 'Approved!',
-        text: `Successfully approved ${pending.length} payroll record${pending.length === 1 ? '' : 's'}.`,
-        icon: 'success',
-        confirmButtonColor: '#16a34a',
-        allowOutsideClick: false,
-      });
-    } catch (error) {
-      Swal.close();
-      logger.error('Error approving all payrolls:', error);
-      await Swal.fire({
-        title: 'Approval Failed',
-        text: 'Failed to approve all payrolls. Please try again.',
-        icon: 'error',
-        confirmButtonColor: '#d33',
-        allowOutsideClick: false,
-      });
-    } finally {
-      setIsBulkApproving(false);
-    }
   };
 
   const syncThirteenthMonthStatus = async (
@@ -1263,107 +1130,21 @@ export function usePayroll(apiBasePath?: string) {
 
   const handleMarkAllAsPaid = async () => {
     const Swal = await getSwal();
-    const approved = filteredPayrolls.filter((p) => p.status === 'approved');
-    if (approved.length === 0) {
-      await Swal.fire({
-        title: 'No Approved Payrolls',
-        text: 'There are no approved payrolls in the current view to mark as paid.',
-        icon: 'info',
-        confirmButtonColor: '#3085d6',
-        confirmButtonText: 'OK',
-        allowOutsideClick: false,
-      });
-      return;
-    }
 
-    const totalDisbursement = approved.reduce(
-      (sum, payroll) => sum + (payroll.netPay ?? 0),
-      0
-    );
-
-    const confirm = await Swal.fire({
-      title: 'Mark All as Paid?',
-      html:
-        `You are about to mark <strong>${approved.length}</strong> payroll record${approved.length === 1 ? '' : 's'} as paid.<br/><br/>` +
-        `<strong>Total Disbursement:</strong> ${formatCurrency(totalDisbursement)}<br/><br/>` +
-        '13th month pay entries linked to these payrolls will be updated as well.',
-      icon: 'question',
-      showCancelButton: true,
-      confirmButtonColor: '#0ea5e9',
-      cancelButtonColor: '#6c757d',
-      confirmButtonText: 'Yes, mark all as paid',
-      cancelButtonText: 'Cancel',
-      reverseButtons: true,
-      allowOutsideClick: false,
+    await runBulkMarkAllAsPaid({
+      payrolls: filteredPayrolls,
+      formatCurrency,
+      setIsBulkPaying,
+      fireAlert: (options) => Swal.fire(options),
+      closeAlert: () => Swal.close(),
+      showLoading: () => Swal.showLoading(),
+      syncThirteenthMonthStatus: async (payrollRecord, paidDate) => {
+        await syncThirteenthMonthStatus(payrollRecord as Payroll, paidDate);
+      },
+      updatePayroll: async (payload) => {
+        await updateMutation.mutateAsync(payload);
+      },
     });
-
-    if (!confirm.isConfirmed) {
-      return;
-    }
-
-    setIsBulkPaying(true);
-
-    try {
-      Swal.fire({
-        title: 'Processing...',
-        text: 'Marking payrolls as paid. Please wait.',
-        allowOutsideClick: false,
-        showConfirmButton: false,
-        didOpen: () => {
-          Swal.showLoading();
-        },
-      });
-
-      const paidDate = getCurrentDateISO();
-      const failures: string[] = [];
-
-      for (const payroll of approved) {
-        try {
-          await syncThirteenthMonthStatus(payroll, paidDate);
-          await updateMutation.mutateAsync({
-            id: payroll.id,
-            status: 'paid',
-            paidDate,
-          });
-        } catch (error) {
-          failures.push(payroll.employee || payroll.id);
-          logger.error('Error marking payroll as paid in bulk:', error);
-        }
-      }
-
-      Swal.close();
-
-      if (failures.length > 0) {
-        await Swal.fire({
-          title: 'Partial Success',
-          text: `Updated ${approved.length - failures.length} record(s). Failed: ${failures.join(', ')}.`,
-          icon: 'warning',
-          confirmButtonColor: '#f59e0b',
-          allowOutsideClick: false,
-        });
-        return;
-      }
-
-      await Swal.fire({
-        title: 'Payrolls Paid',
-        text: `Successfully marked ${approved.length} payroll record${approved.length === 1 ? '' : 's'} as paid.`,
-        icon: 'success',
-        confirmButtonColor: '#10b981',
-        allowOutsideClick: false,
-      });
-    } catch (error) {
-      Swal.close();
-      logger.error('Error marking all payrolls as paid:', error);
-      await Swal.fire({
-        title: 'Bulk Update Failed',
-        text: 'Failed to mark payrolls as paid. Please try again.',
-        icon: 'error',
-        confirmButtonColor: '#ef4444',
-        allowOutsideClick: false,
-      });
-    } finally {
-      setIsBulkPaying(false);
-    }
   };
 
   const handleImportCSV = (file: File | null) => {
@@ -1371,163 +1152,17 @@ export function usePayroll(apiBasePath?: string) {
       return;
     }
 
-    const reader = new FileReader();
-    reader.onload = async (e) => {
-      const Swal = await getSwal();
-      try {
-        const text = (e.target?.result as string) ?? '';
-        const lines = text
-          .split(/\r?\n/)
-          .map((line) => line.trim())
-          .filter(Boolean);
-
-        if (lines.length <= 1) {
-          return;
-        }
-
-        const [, ...rows] = lines; // drop header
-
-        const unmatchedEmployees = new Set<string>();
-
-        const payload = rows.map((row) => {
-          const columns = row.split(',');
-          const employee = columns[0]?.trim() ?? '';
-          const payPeriod = columns[1]?.trim() ?? '';
-          const [periodStart = '', periodEnd = ''] = payPeriod
-            .split(' to ')
-            .map((value) => value.trim());
-
-          const employeeRecord = resolveEmployeeRecord(employee);
-
-          const parseNumber = (value: string | undefined) => {
-            const parsed = parseFloat((value ?? '').trim() || '0');
-            return Number.isFinite(parsed) ? parsed : 0;
-          };
-
-          const status = columns[18]?.trim().toLowerCase() || 'pending';
-
-          if (!employeeRecord) {
-            unmatchedEmployees.add(employee);
-          }
-
-          return {
-            employeeId: employeeRecord?.employeeId,
-            employeeName: employeeRecord?.name ?? employee,
-            payPeriod,
-            periodStart,
-            periodEnd,
-            basicSalary: parseNumber(columns[2]),
-            allowance: parseNumber(columns[3]),
-            overtime: parseNumber(columns[4]),
-            bonuses: parseNumber(columns[5]),
-            thirteenthMonth: parseNumber(columns[6]),
-            grossPay: parseNumber(columns[7]),
-            sss: parseNumber(columns[8]),
-            philHealth: parseNumber(columns[9]),
-            pagIbig: parseNumber(columns[10]),
-            tax: parseNumber(columns[11]),
-            loans: parseNumber(columns[12]),
-            cashAdvance: parseNumber(columns[13]),
-            lwop: parseNumber(columns[14]),
-            absentsLates: parseNumber(columns[15]),
-            totalDeductions: parseNumber(columns[16]),
-            netPay: parseNumber(columns[17]),
-            status,
-            bankGcash: columns[19]?.trim() ?? '',
-          };
-        });
-
-        if (payload.length === 0) {
-          return;
-        }
-
-        await api.post(resolveApiPath('/payroll'), payload);
-
-        // Invalidate cache to refetch
-        queryClient.invalidateQueries({ queryKey: payrollQueryKey });
-
-        if (unmatchedEmployees.size > 0) {
-          await Swal.fire({
-            title: 'Imported with Warnings',
-            text: `Some employees could not be matched: ${Array.from(
-              unmatchedEmployees
-            ).join(
-              ', '
-            )}. Cash advance deductions applied only to matched employees.`,
-            icon: 'warning',
-            confirmButtonColor: '#f59e0b',
-            confirmButtonText: 'OK',
-            allowOutsideClick: false,
-          });
-        }
-      } catch (err) {
-        logger.error('Error importing payroll CSV:', err);
-        await Swal.fire({
-          title: 'Import Failed',
-          text: 'Failed to import payroll data. Please try again.',
-          icon: 'error',
-          confirmButtonColor: '#d33',
-          confirmButtonText: 'OK',
-          allowOutsideClick: false,
-        });
-      }
-    };
-    reader.readAsText(file);
+    void importPayrollCsv({
+      file,
+      resolveApiPath,
+      resolveEmployeeRecord,
+      queryClient,
+      payrollQueryKey,
+    });
   };
 
   const handleExportCSV = () => {
-    const headers = [
-      'Employee',
-      'Pay Period',
-      'Basic Salary',
-      'Allowance',
-      'Overtime',
-      'Bonuses',
-      'Gross Pay',
-      'SSS',
-      'PhilHealth',
-      'Pag-IBIG',
-      'Tax',
-      'Loans',
-      'Cash Advance',
-      'LWOP',
-      'Absences/Lates',
-      'Total Deductions',
-      'Net Pay',
-      'Status',
-      'Bank/GCash',
-    ];
-    const rows = filteredPayrolls.map((p) => [
-      p.employee,
-      p.payPeriod,
-      p.basicSalary.toString(),
-      p.allowance.toString(),
-      p.overtime.toString(),
-      p.bonuses.toString(),
-      p.grossPay.toString(),
-      p.sss.toString(),
-      p.philHealth.toString(),
-      p.pagIbig.toString(),
-      p.tax.toString(),
-      p.loans.toString(),
-      p.cashAdvance.toString(),
-      p.lwop.toString(),
-      p.absentsLates.toString(),
-      p.totalDeductions.toString(),
-      p.netPay.toString(),
-      p.status,
-      p.bankGcash,
-    ]);
-
-    const csv = [headers.join(','), ...rows.map((row) => row.join(','))].join(
-      '\n'
-    );
-    const blob = new Blob([csv], { type: 'text/csv' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `payroll-${getCurrentDateISO()}.csv`;
-    a.click();
+    exportPayrollCsv(filteredPayrolls);
   };
 
   const getEmployeeMonthlyContributions = useCallback(

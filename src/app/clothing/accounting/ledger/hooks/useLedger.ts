@@ -11,7 +11,6 @@ import {
 import {
   buildTaggedAccountName,
   isTaggableAccountParent,
-  toTaggableSelection,
 } from '@/lib/accounting/account-tagging';
 import {
   buildManualEntryFormFromLines,
@@ -19,17 +18,30 @@ import {
   getManualEntryDefaultDate,
   validateManualEntryInput,
 } from '@/lib/accounting/manual-entry';
-import { parseManualEntryCsv } from '@/lib/accounting/manual-entry-import';
-import {
-  buildCsvContent,
-  downloadCsvFile,
-  downloadCsvTemplateFile,
-  escapeCsvValue,
-} from '@/lib/accounting/csv';
 import {
   buildLedgerAccounts,
   filterAndSortLedgerEntries,
 } from './ledgerDerivedData';
+import {
+  deleteTransitBuildLedgerEntry,
+  editTransitBuildLedgerEntry,
+} from './ledgerTransitBuildActions';
+import {
+  downloadLedgerCsvTemplate,
+  exportLedgerCsv,
+  importLedgerCsv,
+} from './ledgerCsvHandlers';
+import {
+  applyManualEntryFieldChange,
+  type ManualEntryField,
+} from './ledgerManualEntryForm';
+import {
+  applyOpeningEntryFieldChange,
+  buildOpeningEntryDeleteIds,
+  buildOpeningEntryEditState,
+  createOpeningEntryFormState,
+  type OpeningEntryField,
+} from './ledgerOpeningEntryForm';
 import { getApiDataOrThrow } from '@/lib/api/response';
 import { buildApiPath } from '@/lib/api/paths';
 import type { ApiResponse } from '@/types/api';
@@ -138,19 +150,9 @@ export function useLedger(options: { apiBasePath?: string } = {}) {
   const [editingOpeningEntrySide, setEditingOpeningEntrySide] = useState<
     'debit' | 'credit' | null
   >(null);
-  const [openingEntryForm, setOpeningEntryForm] = useState({
-    date: FALLBACK_OPENING_BALANCE_DATE,
-    ref: 'OPENING',
-    account: '',
-    debit: 0,
-    credit: 0,
-    debitAccount: '',
-    creditAccount: '',
-    debitAccountTag: '',
-    creditAccountTag: '',
-    amount: 0,
-    description: '',
-  });
+  const [openingEntryForm, setOpeningEntryForm] = useState(
+    createOpeningEntryFormState(FALLBACK_OPENING_BALANCE_DATE)
+  );
 
   const [isManualEntryModalOpen, setIsManualEntryModalOpen] = useState(false);
   const [isSavingManualEntry, setIsSavingManualEntry] = useState(false);
@@ -204,184 +206,23 @@ export function useLedger(options: { apiBasePath?: string } = {}) {
 
   const deleteTransitBuildEntry = useCallback(
     async (entry: LedgerEntry) => {
-      const Swal = await getSwal();
-      const shipmentId = entry.transitBuildShipmentId ?? null;
-      const entryIds = entry.transitBuildEntryIds ?? [];
-      if (entryIds.length === 0) {
-        showNotification({
-          title: 'Delete failed',
-          message: 'This transit build-up line is missing identifiers.',
-          color: 'red',
-        });
-        return;
-      }
-
-      const result = await Swal.fire({
-        title: 'Delete transit build-up?',
-        text:
-          entryIds.length === 1
-            ? 'This will remove the transit build-up entry from the ledger.'
-            : 'This will remove all grouped transit build-up entries from the ledger.',
-        icon: 'warning',
-        showCancelButton: true,
-        confirmButtonText: 'Delete',
-        cancelButtonText: 'Cancel',
+      await deleteTransitBuildLedgerEntry({
+        entry,
+        apiPath,
+        refreshLedger,
       });
-
-      if (!result.isConfirmed) {
-        return;
-      }
-
-      try {
-        for (const entryId of entryIds) {
-          const endpoint = shipmentId
-            ? apiPath(`/shipments/${shipmentId}/transit-build`)
-            : apiPath('/accounting/transit-build');
-
-          const res = await fetch(
-            `${endpoint}?entryId=${encodeURIComponent(entryId)}`,
-            { method: 'DELETE' }
-          );
-          if (!res.ok) {
-            throw new Error(`HTTP ${res.status}`);
-          }
-        }
-
-        showNotification({
-          title: 'Deleted',
-          message: 'Transit build-up entry deleted.',
-          color: 'green',
-        });
-
-        await refreshLedger();
-      } catch (error) {
-        logger.error('Transit build-up delete failed', { error, entry });
-        showNotification({
-          title: 'Delete failed',
-          message: 'Unable to delete transit build-up entry.',
-          color: 'red',
-        });
-      }
     },
     [apiPath, refreshLedger]
   );
 
   const editTransitBuildEntry = useCallback(
     async (entry: LedgerEntry) => {
-      const Swal = await getSwal();
-      const shipmentId = entry.transitBuildShipmentId ?? null;
-      const entryIds = entry.transitBuildEntryIds ?? [];
-      if (entryIds.length !== 1) {
-        showNotification({
-          title: 'Edit unavailable',
-          message:
-            entryIds.length > 1
-              ? 'This line is grouped; edit it from Shipments instead.'
-              : 'This transit build-up line is missing identifiers.',
-          color: 'yellow',
-        });
-        return;
-      }
-
-      const entryId = entryIds[0];
-      const currentAmount = Math.max(entry.debit, entry.credit);
-      const currentDate = (entry.date ?? '').slice(0, 10);
-      const currentCreditAccount =
-        entry.transitBuildCreditAccount ??
-        (entry.credit > 0 ? entry.account : '');
-
-      const result = await Swal.fire({
-        title: 'Edit transit build-up',
-        html: `
-          <div style="text-align:left">
-            <label style="display:block;margin:0 0 6px 0;font-weight:600">Posting date</label>
-            <input id="tb-posting-date" type="date" class="swal2-input" style="margin:0 0 12px 0;width:100%" value="${currentDate}" />
-
-            <label style="display:block;margin:0 0 6px 0;font-weight:600">Amount</label>
-            <input id="tb-amount" type="number" step="0.01" class="swal2-input" style="margin:0 0 12px 0;width:100%" value="${Number.isFinite(currentAmount) ? currentAmount : 0}" />
-
-            <label style="display:block;margin:0 0 6px 0;font-weight:600">Credit account</label>
-            <select id="tb-credit-account" class="swal2-select" style="margin:0;width:100%">
-              ${TRANSIT_BUILD_ALLOWED_CREDIT_ACCOUNTS.map((a) => `<option value="${a}" ${a === currentCreditAccount ? 'selected' : ''}>${a}</option>`).join('')}
-            </select>
-          </div>
-        `,
-        showCancelButton: true,
-        confirmButtonText: 'Save',
-        cancelButtonText: 'Cancel',
-        focusConfirm: false,
-        preConfirm: () => {
-          const postingDate = (
-            document.getElementById(
-              'tb-posting-date'
-            ) as HTMLInputElement | null
-          )?.value;
-          const amountRaw = (
-            document.getElementById('tb-amount') as HTMLInputElement | null
-          )?.value;
-          const creditAccount = (
-            document.getElementById(
-              'tb-credit-account'
-            ) as HTMLSelectElement | null
-          )?.value;
-
-          const amount = Number(amountRaw ?? 0);
-          if (!postingDate) {
-            Swal.showValidationMessage('Posting date is required.');
-            return;
-          }
-          if (!Number.isFinite(amount) || amount < 0) {
-            Swal.showValidationMessage('Amount must be 0 or greater.');
-            return;
-          }
-          if (!creditAccount) {
-            Swal.showValidationMessage('Credit account is required.');
-            return;
-          }
-
-          return { postingDate, amount, creditAccount };
-        },
+      await editTransitBuildLedgerEntry({
+        entry,
+        apiPath,
+        refreshLedger,
+        allowedCreditAccounts: TRANSIT_BUILD_ALLOWED_CREDIT_ACCOUNTS,
       });
-
-      if (!result.isConfirmed || !result.value) {
-        return;
-      }
-
-      try {
-        const endpoint = shipmentId
-          ? apiPath(`/shipments/${shipmentId}/transit-build`)
-          : apiPath('/accounting/transit-build');
-
-        const res = await fetch(endpoint, {
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            entryId,
-            postingDate: result.value.postingDate,
-            amount: result.value.amount,
-            creditAccount: result.value.creditAccount,
-          }),
-        });
-
-        if (!res.ok) {
-          throw new Error(`HTTP ${res.status}`);
-        }
-
-        showNotification({
-          title: 'Saved',
-          message: 'Transit build-up entry updated.',
-          color: 'green',
-        });
-
-        await refreshLedger();
-      } catch (error) {
-        logger.error('Transit build-up edit failed', { error, entry });
-        showNotification({
-          title: 'Save failed',
-          message: 'Unable to update transit build-up entry.',
-          color: 'red',
-        });
-      }
     },
     [apiPath, refreshLedger]
   );
@@ -455,72 +296,10 @@ export function useLedger(options: { apiBasePath?: string } = {}) {
   }, [openingBalanceCutoverDate, editingOpeningEntryId]);
 
   const handleOpeningEntryFieldChange = useCallback(
-    (
-      field:
-        | 'date'
-        | 'ref'
-        | 'account'
-        | 'debit'
-        | 'credit'
-        | 'debitAccount'
-        | 'creditAccount'
-        | 'debitAccountTag'
-        | 'creditAccountTag'
-        | 'amount'
-        | 'description',
-      value: string | number | null
-    ) => {
-      setOpeningEntryForm((prev) => {
-        if (field === 'debit') {
-          return {
-            ...prev,
-            debit: Number(value ?? 0),
-            credit: 0,
-          };
-        }
-
-        if (field === 'credit') {
-          return {
-            ...prev,
-            credit: Number(value ?? 0),
-            debit: 0,
-          };
-        }
-
-        if (field === 'amount') {
-          return {
-            ...prev,
-            amount: Number(value ?? 0),
-          };
-        }
-
-        if (field === 'debitAccount') {
-          const nextDebit = String(value ?? '');
-          return {
-            ...prev,
-            debitAccount: nextDebit,
-            debitAccountTag: isTaggableAccountParent(nextDebit)
-              ? prev.debitAccountTag
-              : '',
-          };
-        }
-
-        if (field === 'creditAccount') {
-          const nextCredit = String(value ?? '');
-          return {
-            ...prev,
-            creditAccount: nextCredit,
-            creditAccountTag: isTaggableAccountParent(nextCredit)
-              ? prev.creditAccountTag
-              : '',
-          };
-        }
-
-        return {
-          ...prev,
-          [field]: typeof value === 'number' ? value : (value ?? ''),
-        };
-      });
+    (field: OpeningEntryField, value: string | number | null) => {
+      setOpeningEntryForm((prev) =>
+        applyOpeningEntryFieldChange(prev, field, value)
+      );
     },
     []
   );
@@ -530,98 +309,19 @@ export function useLedger(options: { apiBasePath?: string } = {}) {
     setEditingOpeningEntryDebitId(null);
     setEditingOpeningEntryCreditId(null);
     setEditingOpeningEntrySide(null);
-    setOpeningEntryForm({
-      date: openingBalanceCutoverDate,
-      ref: 'OPENING',
-      account: '',
-      debit: 0,
-      credit: 0,
-      debitAccount: '',
-      creditAccount: '',
-      debitAccountTag: '',
-      creditAccountTag: '',
-      amount: 0,
-      description: '',
-    });
+    setOpeningEntryForm(createOpeningEntryFormState(openingBalanceCutoverDate));
     setIsOpeningEntryModalOpen(true);
   }, [openingBalanceCutoverDate]);
 
   const openOpeningEntryModalForEdit = useCallback(
     (entry: OpeningBalanceEntry) => {
-      const dateKey = entry.date.slice(0, 10);
-      const refKey = entry.ref;
-      const descKey = (entry.description ?? '').trim();
-      const amount = entry.debit > 0 ? entry.debit : entry.credit;
-      const side: 'debit' | 'credit' = entry.debit > 0 ? 'debit' : 'credit';
-
-      const isSameAmount = (value: number) =>
-        Math.abs(Number(value ?? 0) - amount) < 0.00001;
-
-      const counterpart = openingEntries.find((candidate) => {
-        if (candidate.id === entry.id) {
-          return false;
-        }
-        if (candidate.date.slice(0, 10) !== dateKey) {
-          return false;
-        }
-        if (candidate.ref !== refKey) {
-          return false;
-        }
-        if ((candidate.description ?? '').trim() !== descKey) {
-          return false;
-        }
-
-        return side === 'debit'
-          ? candidate.credit > 0 && isSameAmount(candidate.credit)
-          : candidate.debit > 0 && isSameAmount(candidate.debit);
-      });
+      const editState = buildOpeningEntryEditState(entry, openingEntries);
 
       setEditingOpeningEntryId(entry.id);
-      setEditingOpeningEntrySide(side);
-
-      if (counterpart) {
-        const debitLine = side === 'debit' ? entry : counterpart;
-        const creditLine = side === 'debit' ? counterpart : entry;
-
-        const debitSelection = toTaggableSelection(debitLine.account);
-        const creditSelection = toTaggableSelection(creditLine.account);
-
-        setEditingOpeningEntryDebitId(debitLine.id);
-        setEditingOpeningEntryCreditId(creditLine.id);
-
-        setOpeningEntryForm({
-          date: dateKey,
-          ref: refKey,
-          account: entry.account,
-          debit: entry.debit,
-          credit: entry.credit,
-          debitAccount: debitSelection.account,
-          creditAccount: creditSelection.account,
-          debitAccountTag: debitSelection.tag,
-          creditAccountTag: creditSelection.tag,
-          amount,
-          description: entry.description ?? '',
-        });
-      } else {
-        const singleSelection = toTaggableSelection(entry.account);
-
-        setEditingOpeningEntryDebitId(side === 'debit' ? entry.id : null);
-        setEditingOpeningEntryCreditId(side === 'credit' ? entry.id : null);
-
-        setOpeningEntryForm({
-          date: dateKey,
-          ref: refKey,
-          account: entry.account,
-          debit: entry.debit,
-          credit: entry.credit,
-          debitAccount: side === 'debit' ? singleSelection.account : '',
-          creditAccount: side === 'credit' ? singleSelection.account : '',
-          debitAccountTag: side === 'debit' ? singleSelection.tag : '',
-          creditAccountTag: side === 'credit' ? singleSelection.tag : '',
-          amount,
-          description: entry.description ?? '',
-        });
-      }
+      setEditingOpeningEntrySide(editState.side);
+      setEditingOpeningEntryDebitId(editState.debitId);
+      setEditingOpeningEntryCreditId(editState.creditId);
+      setOpeningEntryForm(editState.form);
 
       setIsOpeningEntryModalOpen(true);
     },
@@ -964,73 +664,7 @@ export function useLedger(options: { apiBasePath?: string } = {}) {
   const deleteOpeningEntry = useCallback(
     async (id: string) => {
       try {
-        const entry = openingEntries.find((candidate) => candidate.id === id);
-        const idsToDelete = new Set<string>([id]);
-
-        if (entry) {
-          const dateKey = entry.date.slice(0, 10);
-          const refKey = entry.ref;
-          const descKey = (entry.description ?? '').trim();
-          const entryAccount = entry.account.trim();
-          const amount = entry.debit > 0 ? entry.debit : entry.credit;
-          const side: 'debit' | 'credit' = entry.debit > 0 ? 'debit' : 'credit';
-
-          const isSameAmount = (value: number) =>
-            Math.abs(Number(value ?? 0) - amount) < 0.00001;
-
-          const strictMatch = openingEntries.find((candidate) => {
-            if (candidate.id === entry.id) {
-              return false;
-            }
-            if (candidate.date.slice(0, 10) !== dateKey) {
-              return false;
-            }
-            if (candidate.ref !== refKey) {
-              return false;
-            }
-            if ((candidate.description ?? '').trim() !== descKey) {
-              return false;
-            }
-
-            return side === 'debit'
-              ? candidate.credit > 0 && isSameAmount(candidate.credit)
-              : candidate.debit > 0 && isSameAmount(candidate.debit);
-          });
-          if (strictMatch) {
-            idsToDelete.add(strictMatch.id);
-          } else {
-            const fallbackMatches = openingEntries.filter((candidate) => {
-              if (candidate.id === entry.id) {
-                return false;
-              }
-              if (candidate.date.slice(0, 10) !== dateKey) {
-                return false;
-              }
-              if (candidate.ref !== refKey) {
-                return false;
-              }
-
-              const candidateAccount = candidate.account.trim();
-              if (entryAccount === 'Opening Equity') {
-                if (candidateAccount === 'Opening Equity') {
-                  return false;
-                }
-              } else if (candidateAccount !== 'Opening Equity') {
-                return false;
-              }
-
-              return side === 'debit'
-                ? candidate.credit > 0 && isSameAmount(candidate.credit)
-                : candidate.debit > 0 && isSameAmount(candidate.debit);
-            });
-
-            if (fallbackMatches.length > 0) {
-              idsToDelete.add(fallbackMatches[0].id);
-            }
-          }
-        }
-
-        const deleteIds = Array.from(idsToDelete);
+        const deleteIds = buildOpeningEntryDeleteIds(id, openingEntries);
         await Promise.all(
           deleteIds.map(async (deleteId) => {
             const res = await fetch(
@@ -1056,7 +690,7 @@ export function useLedger(options: { apiBasePath?: string } = {}) {
           color: 'green',
           title: 'Opening entry deleted',
           message:
-            idsToDelete.size > 1
+            deleteIds.length > 1
               ? 'Both opening balance lines were removed.'
               : 'The opening balance line was removed.',
         });
@@ -1121,48 +755,10 @@ export function useLedger(options: { apiBasePath?: string } = {}) {
   }, []);
 
   const handleManualEntryFieldChange = useCallback(
-    (
-      field:
-        | 'date'
-        | 'ref'
-        | 'debitAccount'
-        | 'creditAccount'
-        | 'debitAccountTag'
-        | 'creditAccountTag'
-        | 'amount'
-        | 'description',
-      value: string | number | null
-    ) => {
-      setManualEntryForm((prev) => {
-        const nextValue = value ?? (field === 'amount' ? 0 : '');
-
-        if (field === 'debitAccount') {
-          const nextDebit = String(nextValue);
-          return {
-            ...prev,
-            debitAccount: nextDebit,
-            debitAccountTag: isTaggableAccountParent(nextDebit)
-              ? prev.debitAccountTag
-              : '',
-          };
-        }
-
-        if (field === 'creditAccount') {
-          const nextCredit = String(nextValue);
-          return {
-            ...prev,
-            creditAccount: nextCredit,
-            creditAccountTag: isTaggableAccountParent(nextCredit)
-              ? prev.creditAccountTag
-              : '',
-          };
-        }
-
-        return {
-          ...prev,
-          [field]: nextValue,
-        };
-      });
+    (field: ManualEntryField, value: string | number | null) => {
+      setManualEntryForm((prev) =>
+        applyManualEntryFieldChange(prev, field, value)
+      );
     },
     []
   );
@@ -1316,131 +912,21 @@ export function useLedger(options: { apiBasePath?: string } = {}) {
       return;
     }
 
-    if (file.size > MAX_CSV_FILE_SIZE_BYTES) {
-      showNotification({
-        color: 'red',
-        title: 'Import failed',
-        message: 'CSV file is too large (max 5 MB).',
-      });
-      return;
-    }
-    const reader = new FileReader();
-    reader.onload = async (event) => {
-      try {
-        const text = event.target?.result as string;
-        const { rows, errors } = parseManualEntryCsv(text);
-
-        if (errors.length > 0) {
-          showNotification({
-            color: 'red',
-            title: 'Import failed',
-            message: errors.slice(0, 5).join('\n'),
-          });
-          return;
-        }
-
-        const cappedRows = rows.slice(0, MAX_MANUAL_IMPORT_ROWS);
-        const skippedCount = rows.length - cappedRows.length;
-
-        let successCount = 0;
-        let errorCount = 0;
-
-        for (const entry of cappedRows) {
-          try {
-            const response = await fetch(
-              apiPath('/accounting/manual-journal'),
-              {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(entry),
-              }
-            );
-            if (!response.ok) {
-              errorCount++;
-              continue;
-            }
-            successCount++;
-          } catch (error) {
-            logger.error('Ledger CSV import row failed', { error, entry });
-            errorCount++;
-          }
-        }
-
-        await refreshLedger();
-        showNotification({
-          color: errorCount > 0 ? 'yellow' : 'green',
-          title: 'Ledger import complete',
-          message:
-            `Imported ${successCount} entries` +
-            (errorCount > 0 ? `, ${errorCount} failed.` : '.') +
-            (skippedCount > 0
-              ? ` ${skippedCount} rows skipped (limit ${MAX_MANUAL_IMPORT_ROWS}).`
-              : ''),
-        });
-      } catch (error) {
-        logger.error('Ledger CSV import failed', { error });
-        showNotification({
-          color: 'red',
-          title: 'Import failed',
-          message: 'Unable to import ledger CSV file.',
-        });
-      }
-    };
-    reader.readAsText(file);
+    void importLedgerCsv({
+      file,
+      apiPath,
+      refreshLedger,
+      maxFileSizeBytes: MAX_CSV_FILE_SIZE_BYTES,
+      maxRows: MAX_MANUAL_IMPORT_ROWS,
+    });
   };
 
   const handleExportCSV = () => {
-    if (filteredEntries.length === 0) {
-      showNotification({
-        color: 'red',
-        title: 'Export failed',
-        message: 'No ledger entries to export.',
-      });
-      return;
-    }
-
-    const headers = [
-      'Date',
-      'Ref',
-      'Account',
-      'Debit',
-      'Credit',
-      'Description',
-      'Source Type',
-      'Source Id',
-      'Source Line',
-      'System Generated',
-    ];
-
-    const rows = filteredEntries.map((entry) => [
-      escapeCsvValue(entry.date),
-      escapeCsvValue(entry.ref),
-      escapeCsvValue(entry.account),
-      escapeCsvValue(entry.debit.toFixed(2)),
-      escapeCsvValue(entry.credit.toFixed(2)),
-      escapeCsvValue(entry.description),
-      escapeCsvValue(entry.sourceType || ''),
-      escapeCsvValue(entry.sourceId || ''),
-      escapeCsvValue(entry.sourceLineKey || ''),
-      escapeCsvValue(entry.systemGenerated ? 'yes' : 'no'),
-    ]);
-
-    const csvContent = buildCsvContent(headers, rows);
-    const date = getCurrentDateISO();
-    const filename = `ledger_${date}.csv`;
-    downloadCsvFile(filename, csvContent);
+    exportLedgerCsv({ entries: filteredEntries });
   };
 
   const handleDownloadTemplate = () => {
-    const date = getCurrentDateISO();
-    downloadCsvTemplateFile(`ledger_template_${date}.csv`, [
-      'date',
-      'amount',
-      'ref',
-      'debitAccount',
-      'creditAccount',
-      'description',
-    ]);
+    downloadLedgerCsvTemplate();
   };
 
   return {

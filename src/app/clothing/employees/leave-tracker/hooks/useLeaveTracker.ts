@@ -11,30 +11,16 @@ import type {
   MonthlyBreakdownItem,
 } from '../types';
 import type { Schedule } from '../../schedules/types';
+import {
+  buildEmployeeScheduleIndex,
+  employeeKeys,
+  leaveKeys,
+  scheduleKeys,
+  TIMEZONE,
+} from './leaveTrackerUtils';
 import { dayjs } from '@/utils/date';
 
-const TIMEZONE = 'Asia/Manila';
-
-// Query keys factory
-export const leaveKeys = {
-  all: ['leaveRequests'] as const,
-  lists: () => [...leaveKeys.all, 'list'] as const,
-  list: (filters: {
-    searchQuery?: string;
-    leaveType?: string;
-    status?: string;
-  }) => [...leaveKeys.lists(), filters] as const,
-};
-
-export const scheduleKeys = {
-  all: ['schedules'] as const,
-  lists: () => [...scheduleKeys.all, 'list'] as const,
-};
-
-export const employeeKeys = {
-  all: ['employees'] as const,
-  lists: () => [...employeeKeys.all, 'list'] as const,
-};
+export { employeeKeys, leaveKeys, scheduleKeys };
 
 export default function useLeaveTracker(apiBasePath?: string) {
   const resolveApiPath = useCallback(
@@ -135,19 +121,7 @@ export default function useLeaveTracker(apiBasePath?: string) {
   // Build schedule index
   useEffect(() => {
     if (schedules.length > 0) {
-      const mapped: Record<string, Set<string>> = {};
-
-      schedules.forEach((schedule) => {
-        const date = dayjs(schedule.date).tz(TIMEZONE).format('YYYY-MM-DD');
-        const normalizedEmployeeId = schedule.employeeId.trim();
-
-        if (!mapped[normalizedEmployeeId]) {
-          mapped[normalizedEmployeeId] = new Set();
-        }
-        mapped[normalizedEmployeeId].add(date);
-      });
-
-      setEmployeeScheduleIndex(mapped);
+      setEmployeeScheduleIndex(buildEmployeeScheduleIndex(schedules));
     }
   }, [schedules]);
 

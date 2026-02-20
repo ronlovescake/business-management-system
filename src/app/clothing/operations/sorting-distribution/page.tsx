@@ -1,5 +1,3 @@
-'use client';
-
 /**
  * Sorting Distribution Page Route Handler
  *
@@ -39,7 +37,11 @@
  */
 
 import { SortingDistributionRoutePage } from '@/app/operations/sorting-distribution/_shared/SortingDistributionRoutePage';
+import { renderOperationsPage } from '@/app/operations/_shared/renderOperationsPage';
 
-export default function Page() {
-  return <SortingDistributionRoutePage />;
+export default async function Page() {
+  return renderOperationsPage(
+    '/clothing/operations/sorting-distribution',
+    <SortingDistributionRoutePage />
+  );
 }

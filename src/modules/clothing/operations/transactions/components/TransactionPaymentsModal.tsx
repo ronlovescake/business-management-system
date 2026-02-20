@@ -28,6 +28,11 @@ import {
   type StatusFilterOption,
   type TransactionData,
 } from '../types/transaction.types';
+import {
+  buildBulkPaymentsPayload,
+  getTransactionBaseTotal,
+  toPaymentDrafts,
+} from './transactionPaymentsHelpers';
 
 const HIDDEN_STATUS_PILLS = new Set<StatusFilterOption>([
   'Shipped',
@@ -35,22 +40,6 @@ const HIDDEN_STATUS_PILLS = new Set<StatusFilterOption>([
   'Forfeited',
   'Voided',
 ]);
-
-type PaymentDraft = {
-  transactionId: number;
-  amount: number;
-};
-
-type BulkPaymentsRequest = {
-  payments: Array<{
-    transactionId: number;
-    paymentDate: string;
-    amount: number;
-    method?: string | null;
-    notes?: string | null;
-    isReservation?: boolean;
-  }>;
-};
 
 type AfterSaveMode = 'close' | 'continue';
 
@@ -364,41 +353,15 @@ export function TransactionPaymentsModal({
     []
   );
 
-  const payloadDrafts = useMemo(() => {
-    const drafts: PaymentDraft[] = [];
-
-    for (const [key, rawValue] of Object.entries(amountByTransactionId)) {
-      const transactionId = Number(key);
-      if (!Number.isFinite(transactionId) || transactionId <= 0) {
-        continue;
-      }
-
-      const amount = Number(rawValue);
-      if (!Number.isFinite(amount) || amount <= 0) {
-        continue;
-      }
-
-      drafts.push({ transactionId, amount });
-    }
-
-    return drafts;
-  }, [amountByTransactionId]);
+  const payloadDrafts = useMemo(
+    () => toPaymentDrafts(amountByTransactionId),
+    [amountByTransactionId]
+  );
 
   const totalEntered = useMemo(
     () => payloadDrafts.reduce((sum, p) => sum + p.amount, 0),
     [payloadDrafts]
   );
-
-  const getBaseTotal = useCallback((transaction: TransactionData) => {
-    const paidSoFar = Number(transaction.Adjustment) || 0;
-    const quantity = Number(transaction.Quantity) || 0;
-    const unitPrice = Number(transaction['Unit Price']) || 0;
-    const lineTotalRaw = Number(transaction['Line Total']);
-
-    return Number.isFinite(lineTotalRaw)
-      ? lineTotalRaw
-      : quantity * unitPrice - paidSoFar;
-  }, []);
 
   const handleSubmit = useCallback(
     async (mode: AfterSaveMode) => {
@@ -427,7 +390,7 @@ export function TransactionPaymentsModal({
         if (!transaction) {
           return false;
         }
-        const baseTotal = getBaseTotal(transaction);
+        const baseTotal = getTransactionBaseTotal(transaction);
         return draft.amount > baseTotal + 0.01;
       });
 
@@ -440,16 +403,13 @@ export function TransactionPaymentsModal({
         return;
       }
 
-      const requestPayload: BulkPaymentsRequest = {
-        payments: payloadDrafts.map((draft) => ({
-          transactionId: draft.transactionId,
-          amount: draft.amount,
-          paymentDate: paymentDate.toISOString().slice(0, 10),
-          method,
-          notes: notes.trim() ? notes.trim() : null,
-          isReservation,
-        })),
-      };
+      const requestPayload = buildBulkPaymentsPayload({
+        payloadDrafts,
+        paymentDate,
+        method,
+        notes,
+        isReservation,
+      });
 
       setIsSaving(true);
       try {
@@ -487,7 +447,6 @@ export function TransactionPaymentsModal({
     [
       apiBasePath,
       eligibleTransactions,
-      getBaseTotal,
       isReservation,
       method,
       notes,
@@ -921,7 +880,7 @@ export function TransactionPaymentsModal({
                     // Formula: (Quantity × Unit Price) - Adjustment (paid so far)
                     // The live Add Payment input is subtracted for preview.
                     // ========================================================================
-                    const baseTotal = getBaseTotal(t);
+                    const baseTotal = getTransactionBaseTotal(t);
                     const current = amountByTransactionId[id] ?? 0;
                     const maxPayable = Math.max(baseTotal, 0);
                     const balanceDue = Math.max(baseTotal - current, 0);

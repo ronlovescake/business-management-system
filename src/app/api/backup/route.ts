@@ -18,56 +18,23 @@ import * as XLSX from 'xlsx';
 import { spawn } from 'child_process';
 import {
   computeFileSha256,
+  isValidTimestampFolderName,
   requireBackupRestoreAdmin,
 } from '../backup-restore/sharedRouteUtils';
+import {
+  describeFiles,
+  findLatestBackupByStrategy,
+  parseTimestampToDate,
+  type BackupLookup,
+  type BackupManifestFile,
+  type BackupStrategy,
+} from './backupRouteUtils';
 
 // Force dynamic rendering for this route due to fs operations
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 
 const BACKUP_DIR = path.resolve(process.cwd(), 'backups');
-const TIMESTAMP_FOLDER_REGEX = /^\d{4}-\d{2}-\d{2}T\d{2}-\d{2}-\d{2}$/;
-
-type BackupStrategy = 'full' | 'differential' | 'log';
-
-interface BackupManifestFile {
-  timestamp: string;
-  database: string;
-  format: string;
-  strategy?: BackupStrategy;
-  includeSoftDeleted?: boolean;
-  baseTimestamp?: string | null;
-  baseFolder?: string | null;
-  changeWindow?: {
-    since: string | null;
-    until: string;
-  } | null;
-  files: Array<{
-    name: string;
-    size: number;
-    path: string;
-    checksum?: string;
-  }>;
-  recordCounts?: Record<string, number>;
-  differentialFallbackTables?: string[];
-  logStats?: Record<string, number>;
-  integrity?: {
-    algorithm: 'sha256';
-    verified: boolean;
-    generatedAt: string;
-    fileChecksums: Record<string, string>;
-  };
-}
-
-interface BackupLookup {
-  folder: string;
-  manifest: BackupManifestFile;
-}
-
-type BackupFileDescriptor = {
-  filePath: string;
-  size: number;
-};
 
 type TableAvailabilityCache = Map<string, boolean>;
 
@@ -143,83 +110,6 @@ async function verifyFileChecksums(
 
 function isValidStrategy(value: unknown): value is BackupStrategy {
   return value === 'full' || value === 'differential' || value === 'log';
-}
-
-function sanitizeTimestamp(timestamp: string) {
-  if (TIMESTAMP_FOLDER_REGEX.test(timestamp)) {
-    return timestamp.replace(/T(\d{2})-(\d{2})-(\d{2})$/, 'T$1:$2:$3Z');
-  }
-  return timestamp;
-}
-
-function parseTimestampToDate(timestamp?: string | null) {
-  if (!timestamp) {
-    return null;
-  }
-  const normalized = sanitizeTimestamp(timestamp);
-  const date = new Date(normalized);
-  return Number.isNaN(date.getTime()) ? null : date;
-}
-
-function listBackupFoldersDescending() {
-  if (!fs.existsSync(BACKUP_DIR)) {
-    return [];
-  }
-
-  return fs
-    .readdirSync(BACKUP_DIR, { withFileTypes: true })
-    .filter((entry) => entry.isDirectory())
-    .map((entry) => entry.name)
-    .sort()
-    .reverse();
-}
-
-async function describeFiles(
-  filePaths: string[]
-): Promise<BackupFileDescriptor[]> {
-  if (!filePaths.length) {
-    return [];
-  }
-
-  return Promise.all(
-    filePaths.map(async (filePath) => {
-      try {
-        const stats = await fsPromises.stat(filePath);
-        return { filePath, size: stats.size };
-      } catch (error) {
-        logger.warn('Failed to read file stats', { filePath, error });
-        return { filePath, size: 0 };
-      }
-    })
-  );
-}
-
-function readManifest(folder: string): BackupManifestFile | null {
-  const manifestPath = path.join(BACKUP_DIR, folder, 'MANIFEST.json');
-  if (!fs.existsSync(manifestPath)) {
-    return null;
-  }
-  try {
-    return JSON.parse(
-      fs.readFileSync(manifestPath, 'utf8')
-    ) as BackupManifestFile;
-  } catch (error) {
-    logger.warn('Failed to parse manifest', { folder, error });
-    return null;
-  }
-}
-
-function findLatestBackupByStrategy(
-  strategy: BackupStrategy
-): BackupLookup | null {
-  const folders = listBackupFoldersDescending();
-  for (const folder of folders) {
-    const manifest = readManifest(folder);
-    if (manifest?.strategy === strategy) {
-      return { folder, manifest };
-    }
-  }
-  return null;
 }
 
 // Tables to backup
@@ -798,7 +688,7 @@ export async function POST(request: NextRequest) {
     let changeWindowStart: Date | null = null;
 
     if (strategy === 'differential') {
-      baseReference = findLatestBackupByStrategy('full');
+      baseReference = findLatestBackupByStrategy(BACKUP_DIR, 'full');
       if (!baseReference) {
         logger.warn(
           'Differential backup requested but no full backup exists. Falling back to full backup.'
@@ -810,7 +700,7 @@ export async function POST(request: NextRequest) {
         );
       }
     } else if (strategy === 'log') {
-      baseReference = findLatestBackupByStrategy('log');
+      baseReference = findLatestBackupByStrategy(BACKUP_DIR, 'log');
       changeWindowStart = parseTimestampToDate(
         baseReference?.manifest.changeWindow?.until ??
           baseReference?.manifest.timestamp ??
@@ -1302,7 +1192,7 @@ export async function DELETE(request: NextRequest) {
       );
     }
 
-    if (!TIMESTAMP_FOLDER_REGEX.test(timestamp)) {
+    if (!isValidTimestampFolderName(timestamp)) {
       return NextResponse.json(
         { success: false, error: 'Invalid timestamp format' },
         { status: 400 }

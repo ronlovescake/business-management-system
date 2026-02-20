@@ -95,10 +95,53 @@ type WorkspaceNavSection = {
 };
 
 const STORAGE_KEY = 'bm-open-chat-windows';
+const LEGACY_STORAGE_KEY = 'bm-open-chat-ids';
 const CHAT_WINDOW_WIDTH = 340;
 const CHAT_WINDOW_GAP = 20;
 const CHAT_WINDOW_HEIGHT = 600;
 const MAX_CHAT_WINDOWS = 3;
+
+const showChatWindowsStorageError = (action: 'restore' | 'save') => {
+  showNotification({
+    title: 'Messaging state',
+    message:
+      action === 'restore'
+        ? 'Failed to restore chat windows.'
+        : 'Failed to save chat windows.',
+    color: 'red',
+  });
+};
+
+const parseLegacyChatWindows = (legacyParsed: unknown): ChatWindowState[] => {
+  if (!Array.isArray(legacyParsed)) {
+    return [];
+  }
+
+  return legacyParsed
+    .filter((id: unknown): id is string => typeof id === 'string')
+    .map((id) => ({ id, minimized: false }));
+};
+
+const parseStoredChatWindows = (parsed: unknown): ChatWindowState[] => {
+  if (!Array.isArray(parsed)) {
+    return [];
+  }
+
+  return parsed
+    .map((item) => {
+      if (typeof item === 'string') {
+        return { id: item, minimized: false } satisfies ChatWindowState;
+      }
+      if (item && typeof item === 'object' && typeof item.id === 'string') {
+        return {
+          id: item.id,
+          minimized: Boolean((item as { minimized?: boolean }).minimized),
+        } satisfies ChatWindowState;
+      }
+      return null;
+    })
+    .filter((item): item is ChatWindowState => item !== null);
+};
 
 function useChatWindows() {
   const [openChats, setOpenChats] = useState<ChatWindowState[]>([]);
@@ -115,46 +158,15 @@ function useChatWindows() {
     try {
       const stored = window.localStorage.getItem(STORAGE_KEY);
       if (!stored) {
-        const legacy = window.localStorage.getItem('bm-open-chat-ids');
+        const legacy = window.localStorage.getItem(LEGACY_STORAGE_KEY);
         if (legacy) {
-          const legacyParsed = JSON.parse(legacy);
-          if (Array.isArray(legacyParsed)) {
-            restoredChats = legacyParsed
-              .filter((id: unknown): id is string => typeof id === 'string')
-              .map((id) => ({ id, minimized: false }));
-          }
+          restoredChats = parseLegacyChatWindows(JSON.parse(legacy));
         }
       } else {
-        const parsed = JSON.parse(stored);
-        if (Array.isArray(parsed)) {
-          restoredChats = parsed
-            .map((item) => {
-              if (typeof item === 'string') {
-                return { id: item, minimized: false } satisfies ChatWindowState;
-              }
-              if (
-                item &&
-                typeof item === 'object' &&
-                typeof item.id === 'string'
-              ) {
-                return {
-                  id: item.id,
-                  minimized: Boolean(
-                    (item as { minimized?: boolean }).minimized
-                  ),
-                } satisfies ChatWindowState;
-              }
-              return null;
-            })
-            .filter((item): item is ChatWindowState => item !== null);
-        }
+        restoredChats = parseStoredChatWindows(JSON.parse(stored));
       }
     } catch (error) {
-      showNotification({
-        title: 'Messaging state',
-        message: 'Failed to restore chat windows.',
-        color: 'red',
-      });
+      showChatWindowsStorageError('restore');
     }
 
     if (Array.isArray(restoredChats) && restoredChats.length > 0) {
@@ -172,11 +184,7 @@ function useChatWindows() {
     try {
       window.localStorage.setItem(STORAGE_KEY, JSON.stringify(openChats));
     } catch (error) {
-      showNotification({
-        title: 'Messaging state',
-        message: 'Failed to save chat windows.',
-        color: 'red',
-      });
+      showChatWindowsStorageError('save');
     }
   }, [openChats]);
 

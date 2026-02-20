@@ -241,6 +241,40 @@ export const getRestorePreviewSelectedRowData = (
   };
 };
 
+export const fetchWithTimeout = async (
+  input: RequestInfo | URL,
+  init?: RequestInit,
+  timeoutMs = 30000
+) => {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => {
+    controller.abort(
+      new DOMException(
+        `Request timed out after ${Math.round(timeoutMs / 1000)}s`,
+        'TimeoutError'
+      )
+    );
+  }, timeoutMs);
+
+  try {
+    return await fetch(input, {
+      ...init,
+      signal: controller.signal,
+    });
+  } finally {
+    clearTimeout(timeout);
+  }
+};
+
+export const buildBackupTableSampleUrl = (
+  timestamp: string,
+  jsonFile: string,
+  table: string,
+  limit: number,
+  offset: number
+) =>
+  `/api/backup/${encodeURIComponent(timestamp)}/${encodeURIComponent(jsonFile)}?mode=table&table=${encodeURIComponent(table)}&limit=${encodeURIComponent(String(limit))}&offset=${encodeURIComponent(String(offset))}`;
+
 type FetchTableSample = (
   timestamp: string,
   jsonFile: string,

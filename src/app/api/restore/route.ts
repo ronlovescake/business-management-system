@@ -6,38 +6,27 @@
 
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
-import { isDeepStrictEqual } from 'util';
 import { prisma } from '@/lib/db';
 import fs from 'fs';
 import path from 'path';
 import { logger } from '@/lib/logger';
 import { sortTablesForRestore } from './restore-order';
 import {
+  chunkArray,
+  getChangedFields,
+  normalizeRecord,
+  recordsMatch,
+  type RowRecord,
+} from './restorePreviewUtils';
+import {
   computeFileSha256,
+  isSafeBackupFilename,
+  isValidTimestampFolderName,
   requireBackupRestoreAdmin,
 } from '../backup-restore/sharedRouteUtils';
 const BACKUP_DIR = path.resolve(process.cwd(), 'backups');
-const TIMESTAMP_FOLDER_REGEX = /^\d{4}-\d{2}-\d{2}T\d{2}-\d{2}-\d{2}$/;
 const RESTORE_MUTEX_KEY = '__restore_global__';
 const activeRestoreMutexes = new Set<string>();
-
-const isSafeFilename = (filename: string) => {
-  if (!filename) {
-    return false;
-  }
-
-  if (
-    filename.includes('..') ||
-    filename.includes('/') ||
-    filename.includes('\\')
-  ) {
-    return false;
-  }
-
-  return true;
-};
-
-type RowRecord = Record<string, unknown>;
 
 type RestoreCountResult = { count: number };
 
@@ -83,22 +72,9 @@ const getModelDelegate = (
   return delegate as RestoreModelDelegate;
 };
 
-const FIELDS_TO_IGNORE_IN_COMPARISON = new Set(['id', 'updatedAt']);
-
 const PREVIEW_SAMPLE_LIMIT = 200;
 const FIND_MANY_CHUNK_SIZE = 2000;
 const CREATE_MANY_CHUNK_SIZE = 1000;
-
-const chunkArray = <T>(items: T[], chunkSize: number) => {
-  if (chunkSize <= 0) {
-    return [items];
-  }
-  const chunks: T[][] = [];
-  for (let i = 0; i < items.length; i += chunkSize) {
-    chunks.push(items.slice(i, i + chunkSize));
-  }
-  return chunks;
-};
 
 const ensureModelSupportsDeletedAt = async (
   modelDelegate: RestoreModelDelegate,
@@ -172,97 +148,6 @@ const fetchExistingByIds = async (
   }
 
   return map;
-};
-
-const normalizeValue = (value: unknown): unknown => {
-  if (value === null || value === undefined) {
-    return null;
-  }
-
-  if (value instanceof Date) {
-    return value.toISOString();
-  }
-
-  if (typeof value === 'bigint') {
-    return value.toString();
-  }
-
-  if (Array.isArray(value)) {
-    return value.map((item) => normalizeValue(item));
-  }
-
-  if (typeof value === 'object') {
-    const serializable = value as { toJSON?: () => unknown };
-    if (typeof serializable.toJSON === 'function') {
-      return serializable.toJSON();
-    }
-
-    return Object.fromEntries(
-      Object.entries(value as Record<string, unknown>).map(([key, val]) => [
-        key,
-        normalizeValue(val),
-      ])
-    );
-  }
-
-  return value;
-};
-
-const normalizeRecord = (record: RowRecord): RowRecord =>
-  Object.fromEntries(
-    Object.entries(record).map(([key, value]) => [key, normalizeValue(value)])
-  );
-
-const recordsMatch = (
-  existing: RowRecord,
-  incoming: RowRecord,
-  ignoreFields = FIELDS_TO_IGNORE_IN_COMPARISON
-) => {
-  const keysToCompare = Object.keys(incoming).filter(
-    (key) => !ignoreFields.has(key)
-  );
-
-  const existingSubset = Object.fromEntries(
-    keysToCompare.map((key) => [key, existing[key]])
-  );
-  const incomingSubset = Object.fromEntries(
-    keysToCompare.map((key) => [key, incoming[key]])
-  );
-
-  return isDeepStrictEqual(
-    normalizeRecord(existingSubset),
-    normalizeRecord(incomingSubset)
-  );
-};
-
-const getChangedFields = (
-  existing: RowRecord,
-  incoming: RowRecord,
-  ignoreFields = FIELDS_TO_IGNORE_IN_COMPARISON
-) => {
-  const keysToCompare = Object.keys(incoming).filter(
-    (key) => !ignoreFields.has(key)
-  );
-
-  return Object.fromEntries(
-    keysToCompare
-      .map((key) => {
-        if (
-          isDeepStrictEqual(existing[key], incoming[key]) ||
-          (existing[key] === undefined && incoming[key] === undefined)
-        ) {
-          return null;
-        }
-        return [
-          key,
-          {
-            before: existing[key] ?? null,
-            after: incoming[key] ?? null,
-          },
-        ];
-      })
-      .filter(Boolean) as Array<[string, { before: unknown; after: unknown }]>
-  );
 };
 
 const processTablePreview = async (
@@ -528,14 +413,14 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    if (!TIMESTAMP_FOLDER_REGEX.test(timestamp)) {
+    if (!isValidTimestampFolderName(timestamp)) {
       return NextResponse.json(
         { success: false, error: 'Invalid timestamp format' },
         { status: 400 }
       );
     }
 
-    if (!isSafeFilename(file)) {
+    if (!isSafeBackupFilename(file)) {
       return NextResponse.json(
         { success: false, error: 'Invalid backup filename' },
         { status: 400 }

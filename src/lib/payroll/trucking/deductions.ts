@@ -2,14 +2,19 @@ import type { Prisma } from '@prisma/client';
 import type { TruckingPayroll } from '@prisma/client';
 import { prisma } from '@/lib/db';
 import {
-  extractPeriodBounds,
+  DEFAULT_SHIFT_END,
+  DEFAULT_SHIFT_START,
+  MINUTES_PER_DAY,
   formatDate,
+  getEffectiveMonthlySalary as getSharedEffectiveMonthlySalary,
   getOverlapScheduledDays,
+  getPayrollCycleMetadataFromFields,
+  getPayrollPeriodRangeFromFields,
   normalizeIdentifier,
   parseDate,
-  parsePeriodDate,
   parseTimeToMinutes,
   roundToCents,
+  sumPayrollDeductions,
   toDateOnlyUtc,
   toDecimalValue,
 } from '../deductionsShared';
@@ -22,53 +27,29 @@ import {
 
 const getTruckingPayrollPeriodRange = (
   payroll: TruckingPayroll
-): { start: Date | null; end: Date | null } => {
-  const periodFallback = extractPeriodBounds(payroll.payPeriod);
-  const start = parsePeriodDate(payroll.periodStart, periodFallback.start);
-  const end = parsePeriodDate(payroll.periodEnd, periodFallback.end);
-
-  if (!start || !end || start > end) {
-    return { start: null, end: null };
-  }
-
-  return { start, end };
-};
+): { start: Date | null; end: Date | null } =>
+  getPayrollPeriodRangeFromFields(
+    payroll.payPeriod,
+    payroll.periodStart,
+    payroll.periodEnd
+  );
 
 const getTruckingPayrollCycleMetadata = (
   payroll: TruckingPayroll
 ): { payDate: Date; cycle: CashAdvanceCycle } | null => {
-  const { end } = getTruckingPayrollPeriodRange(payroll);
-  if (!end) {
-    return null;
-  }
-
-  const payDate = toDateOnlyUtc(end);
-  return {
-    payDate,
-    cycle: determineCycleFromDate(payDate),
-  };
+  return getPayrollCycleMetadataFromFields(
+    payroll.payPeriod,
+    payroll.periodStart,
+    payroll.periodEnd,
+    determineCycleFromDate
+  ) as { payDate: Date; cycle: CashAdvanceCycle } | null;
 };
 
 const getEffectiveMonthlySalary = (
   payroll: TruckingPayroll,
   entry: EmployeeMapEntry | undefined
-): number => {
-  if (!entry) {
-    return Number(payroll.basicSalary ?? 0);
-  }
-
-  return Number(
-    entry.employee.currentSalary ??
-      entry.employee.basicSalary ??
-      payroll.basicSalary ??
-      0
-  );
-};
-
-const DEFAULT_SHIFT_START = '08:00';
-const DEFAULT_SHIFT_END = '17:00';
-const HOURS_PER_DAY = 8;
-const MINUTES_PER_DAY = HOURS_PER_DAY * 60;
+): number =>
+  getSharedEffectiveMonthlySalary(payroll.basicSalary, entry?.employee);
 
 /**
  * Count scheduled working days for an employee within a date range
@@ -388,50 +369,6 @@ const buildCashAdvanceIndex = async (
   return { byEmployeeId, byEmployeeName };
 };
 
-const sumDeductions = (
-  payroll: TruckingPayroll,
-  overrides: Partial<
-    Pick<
-      TruckingPayroll,
-      | 'sss'
-      | 'philHealth'
-      | 'pagIbig'
-      | 'tax'
-      | 'loans'
-      | 'cashAdvance'
-      | 'absentsLates'
-      | 'lwop'
-    >
-  > = {}
-): number => {
-  const sssValue = overrides.sss ?? payroll.sss;
-  const philHealthValue = overrides.philHealth ?? payroll.philHealth;
-  const pagIbigValue = overrides.pagIbig ?? payroll.pagIbig;
-  const taxValue = overrides.tax ?? payroll.tax;
-  const loansValue = overrides.loans ?? payroll.loans;
-  const cashAdvanceValue = overrides.cashAdvance ?? payroll.cashAdvance;
-  const absentsLatesValue = overrides.absentsLates ?? payroll.absentsLates;
-  const lwopValue = overrides.lwop ?? payroll.lwop;
-
-  const parts = [
-    sssValue,
-    philHealthValue,
-    pagIbigValue,
-    taxValue,
-    loansValue,
-    cashAdvanceValue,
-    absentsLatesValue,
-    lwopValue,
-  ];
-
-  return roundToCents(
-    parts.reduce(
-      (total, value) => total + (Number.isFinite(value) ? Number(value) : 0),
-      0
-    )
-  );
-};
-
 const mergeCashAdvanceUpdate = (
   store: Map<string, Prisma.TruckingCashAdvanceRecordUpdateInput>,
   id: string,
@@ -603,7 +540,7 @@ const applyThirteenthMonthAdjustments = async (
           desiredAmount
       );
 
-      const totalDeductions = sumDeductions({
+      const totalDeductions = sumPayrollDeductions({
         ...payroll,
         thirteenthMonth: desiredAmount,
       } as TruckingPayroll);
@@ -708,7 +645,7 @@ const applyStatutoryContributionAdjustments = async (
     const currentPagIbig = roundToCents(Number(payroll.pagIbig ?? 0));
     const currentTax = roundToCents(Number(payroll.tax ?? 0));
 
-    const totalDeductions = sumDeductions(payroll, overrides);
+    const totalDeductions = sumPayrollDeductions(payroll, overrides);
     const netPay = roundToCents(
       Math.max(0, Number(payroll.grossPay ?? 0) - totalDeductions)
     );
@@ -887,7 +824,7 @@ const applyLwopAdjustments = async (
       calculateLwopForTruckingPayroll(payroll, entry, employeeSchedules);
 
     // Always recalculate totalDeductions to ensure statutory deductions are included
-    const totalDeductions = sumDeductions(payroll, {
+    const totalDeductions = sumPayrollDeductions(payroll, {
       lwop: deduction,
       absentsLates: payroll.absentsLates,
     });
@@ -1139,7 +1076,7 @@ const applyAttendanceAdjustments = async (
     );
 
     // Always recalculate totalDeductions to ensure statutory deductions are included
-    const totalDeductions = sumDeductions(payroll, {
+    const totalDeductions = sumPayrollDeductions(payroll, {
       absentsLates: deduction,
       lwop: payroll.lwop,
     });
@@ -1393,7 +1330,7 @@ const applyCashAdvanceAdjustments = async (
     const roundedTotal = roundToCents(totalDeduction);
 
     if (currentCashAdvance !== roundedTotal) {
-      const totalDeductions = sumDeductions(payroll, {
+      const totalDeductions = sumPayrollDeductions(payroll, {
         cashAdvance: roundedTotal,
         absentsLates: payroll.absentsLates,
         lwop: payroll.lwop,

@@ -1,7 +1,40 @@
 import { Prisma } from '@prisma/client';
 
+export const DEFAULT_SHIFT_START = '08:00';
+export const DEFAULT_SHIFT_END = '17:00';
+export const HOURS_PER_DAY = 8;
+export const MINUTES_PER_DAY = HOURS_PER_DAY * 60;
+
 export const roundToCents = (value: number): number =>
   Math.round((Number.isFinite(value) ? value : 0) * 100) / 100;
+
+const DEDUCTION_COMPONENT_KEYS = [
+  'sss',
+  'philHealth',
+  'pagIbig',
+  'tax',
+  'loans',
+  'cashAdvance',
+  'absentsLates',
+  'lwop',
+] as const;
+
+type DeductionComponentKey = (typeof DEDUCTION_COMPONENT_KEYS)[number];
+
+type DeductionComponentSource = Partial<
+  Record<DeductionComponentKey, number | null | undefined>
+>;
+
+export const sumPayrollDeductions = (
+  payroll: DeductionComponentSource,
+  overrides: DeductionComponentSource = {}
+): number =>
+  roundToCents(
+    DEDUCTION_COMPONENT_KEYS.reduce((total, key) => {
+      const value = overrides[key] ?? payroll[key];
+      return total + (Number.isFinite(value) ? Number(value) : 0);
+    }, 0)
+  );
 
 export const normalizeIdentifier = (value?: string | null): string =>
   (value ?? '').toString().trim().replace(/\s+/g, ' ').toLowerCase();
@@ -39,6 +72,62 @@ export const parsePeriodDate = (
   }
 
   return parseDate(fallback);
+};
+
+export const getPayrollPeriodRangeFromFields = (
+  payPeriod: string | null | undefined,
+  periodStart: string | null | undefined,
+  periodEnd: string | null | undefined
+): { start: Date | null; end: Date | null } => {
+  const periodFallback = extractPeriodBounds(payPeriod);
+  const start = parsePeriodDate(periodStart, periodFallback.start);
+  const end = parsePeriodDate(periodEnd, periodFallback.end);
+
+  if (!start || !end || start > end) {
+    return { start: null, end: null };
+  }
+
+  return { start, end };
+};
+
+export const getPayrollCycleMetadataFromFields = (
+  payPeriod: string | null | undefined,
+  periodStart: string | null | undefined,
+  periodEnd: string | null | undefined,
+  determineCycle: (payDate: Date) => string
+): { payDate: Date; cycle: string } | null => {
+  const { end } = getPayrollPeriodRangeFromFields(
+    payPeriod,
+    periodStart,
+    periodEnd
+  );
+  if (!end) {
+    return null;
+  }
+
+  const payDate = toDateOnlyUtc(end);
+  return {
+    payDate,
+    cycle: determineCycle(payDate),
+  };
+};
+
+type EmployeeSalaryLike = {
+  currentSalary?: number | null;
+  basicSalary?: number | null;
+};
+
+export const getEffectiveMonthlySalary = (
+  payrollBasicSalary: number | null | undefined,
+  employee?: EmployeeSalaryLike
+): number => {
+  if (!employee) {
+    return Number(payrollBasicSalary ?? 0);
+  }
+
+  return Number(
+    employee.currentSalary ?? employee.basicSalary ?? payrollBasicSalary ?? 0
+  );
 };
 
 export const extractPeriodBounds = (

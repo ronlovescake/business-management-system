@@ -12,13 +12,12 @@
  * - Distribution generation
  */
 
-import { useCallback, useEffect, useMemo, useRef } from 'react';
+import { useCallback, useMemo, useRef } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { showNotification } from '@mantine/notifications';
 import type { NotificationData } from '@mantine/notifications';
 import type { CellEditEvent } from '@/components/ui/HandsontableGrid';
 import { TransactionService } from '../services/TransactionService';
-import { api } from '@/lib/api/client';
 import { buildApiPath } from '@/lib/api/paths';
 import { logger } from '@/lib/logger';
 import { showConfirm, getSwal } from '@/lib/alerts';
@@ -28,19 +27,22 @@ import { OperationsNotificationsService } from '../../notifications/services/Ope
 import { isVoidedOrderStatus } from '@/lib/transactions/order-status';
 import { confirmCustomerReplacement } from './confirmCustomerReplace';
 import {
-  computeRemainingBalance,
   createEmptyTransaction,
   formatTodayInManila,
   hasMinimumCreateFields,
 } from './transactionDraftUtils';
+import { createDraftTransactionFromRow } from './transactionDraftCreation';
+import { useTransactionBatchMode } from './useTransactionBatchMode';
+import { getCellValue } from './transactionCellValueUtils';
+import { importTransactionsFromCsv } from './transactionCsvImport';
+import { handleSimpleTransactionColumnEdit } from './transactionSimpleColumnHandlers';
+import { handleComputedTransactionColumnEdit } from './transactionComputedColumnHandlers';
+import { handleOrderStatusColumnEdit } from './transactionOrderStatusHandler';
+import { handleQuantityColumnEdit } from './transactionQuantityColumnHandler';
 import {
-  buildBatchedTransactions,
-  buildDraftCreatePayload,
-  buildOptimisticTransaction,
   describeTransaction,
   formatCurrencyValue,
   formatNumberValue,
-  getCreateDraftTransactionErrorMessage,
   isPaidOrderStatus,
   truncateText,
 } from './transactionOperationUtils';
@@ -126,70 +128,16 @@ export function useTransactionOperations(
       draft: TransactionData,
       placeholderRow?: TransactionData
     ) => {
-      if (creatingDraftRowsRef.current.has(rowIndex)) {
-        return false;
-      }
-
-      if (!hasMinimumCreateFields(draft)) {
-        return false;
-      }
-
-      creatingDraftRowsRef.current.add(rowIndex);
-      try {
-        const payload = buildDraftCreatePayload(draft);
-
-        await api.post(buildApiPath(apiBasePath, '/transactions'), [payload]);
-
-        // Optimistically add the newly created transaction to the cache so the
-        // grid shows values immediately (no blank flash) while we wait for the
-        // real record with its server ID.
-        const optimisticId = Number(Date.now() * -1);
-        const optimisticTransaction = buildOptimisticTransaction(
-          payload,
-          optimisticId
-        );
-
-        queryClient.setQueryData<TransactionData[] | undefined>(
-          transactionsQueryKey,
-          (existing) =>
-            existing
-              ? [...existing, optimisticTransaction]
-              : [optimisticTransaction]
-        );
-
-        // Clear the placeholder row we just used so it does not linger as a duplicate
-        // display row until the query refresh completes (both the draft object and the
-        // actual placeholder row reference shown in the grid).
-        Object.assign(draft, createEmptyTransaction());
-        if (placeholderRow) {
-          Object.assign(placeholderRow, createEmptyTransaction());
-        }
-        draftRowsRef.current.delete(rowIndex);
-
-        // Refresh shared cache so the new row arrives with a real ID
-        await queryClient.invalidateQueries({
-          queryKey: transactionsQueryKey,
-        });
-
-        showNotification({
-          title: 'Success',
-          message: 'New transaction created',
-          color: 'green',
-        });
-        return true;
-      } catch (error) {
-        logger.error('Failed to create transaction from draft row:', error);
-        const friendlyMessage = getCreateDraftTransactionErrorMessage(error);
-
-        showNotification({
-          title: '❌ Save Failed',
-          message: friendlyMessage,
-          color: 'red',
-        });
-        return false;
-      } finally {
-        creatingDraftRowsRef.current.delete(rowIndex);
-      }
+      return createDraftTransactionFromRow({
+        rowIndex,
+        draft,
+        placeholderRow,
+        creatingDraftRowsRef,
+        draftRowsRef,
+        apiBasePath,
+        queryClient,
+        transactionsQueryKey,
+      });
     },
     [apiBasePath, queryClient, transactionsQueryKey]
   );
@@ -216,95 +164,11 @@ export function useTransactionOperations(
     [apiBasePath, operationsNotificationsQueryKey, queryClient]
   );
 
-  // ============================================================================
-  // BATCH MODE TRACKING
-  // ============================================================================
-
-  const isBatchModeRef = useRef(false);
-  const batchUpdatesRef = useRef<Map<number, Partial<TransactionData>>>(
-    new Map()
-  );
-
-  // 🚀 PERFORMANCE: Create transaction index map for O(1) lookups
-  const transactionIndexMap = useRef<Map<number, number>>(new Map());
-
-  // Update index map when transactions change
-  useCallback(() => {
-    const map = new Map<number, number>();
-    transactions.forEach((transaction, index) => {
-      if (transaction.id !== undefined) {
-        map.set(transaction.id, index);
-      }
-    });
-    transactionIndexMap.current = map;
-  }, [transactions])();
-
-  // Flush batched edits triggered by paste/autofill events.
-  useEffect(() => {
-    const handleBatchStart = () => {
-      logger.debug('🚀 Batch mode STARTED - preparing batched save');
-      isBatchModeRef.current = true;
-      batchUpdatesRef.current.clear();
-    };
-
-    const handleBatchComplete = (event: Event) => {
-      const customEvent = event as CustomEvent<{ count?: number }>;
-      const batchedUpdates = buildBatchedTransactions(
-        transactions,
-        batchUpdatesRef.current
-      );
-
-      if (batchedUpdates.length !== batchUpdatesRef.current.size) {
-        batchUpdatesRef.current.forEach((_data, id) => {
-          const baseline = transactions.find(
-            (transaction) => transaction.id === id
-          );
-          if (!baseline) {
-            logger.warn(
-              `Batch update skipped for missing transaction ID ${String(id)}`
-            );
-          }
-        });
-      }
-
-      if (batchedUpdates.length > 0) {
-        logger.debug(
-          `📤 Flushing ${batchedUpdates.length} batched updates (cells edited: ${customEvent.detail?.count ?? 0})`
-        );
-        bulkUpdate(batchedUpdates);
-        showNotification({
-          title: 'Success',
-          message: `Saved ${batchedUpdates.length} transactions from paste`,
-          color: 'green',
-        });
-
-        logNotification(
-          `Batched edit applied to ${batchedUpdates.length} transactions (${customEvent.detail?.count ?? 0} cells).`,
-          {
-            type: 'batch-update',
-            transactionIds: batchedUpdates
-              .map((update) => update.id)
-              .filter((id): id is number => Number.isFinite(id)),
-            cellsEdited: customEvent.detail?.count ?? null,
-          }
-        );
-      }
-
-      isBatchModeRef.current = false;
-      batchUpdatesRef.current.clear();
-    };
-
-    window.addEventListener('handsontable-batch-start', handleBatchStart);
-    window.addEventListener('handsontable-batch-complete', handleBatchComplete);
-
-    return () => {
-      window.removeEventListener('handsontable-batch-start', handleBatchStart);
-      window.removeEventListener(
-        'handsontable-batch-complete',
-        handleBatchComplete
-      );
-    };
-  }, [transactions, bulkUpdate, logNotification]);
+  const { isBatchModeRef, batchUpdatesRef } = useTransactionBatchMode({
+    transactions,
+    bulkUpdate,
+    logNotification,
+  });
 
   // ============================================================================
   // CELL EDITING HANDLER
@@ -398,60 +262,20 @@ export function useTransactionOperations(
         return transaction;
       };
 
-      // Extract cell value
-      const getCellValue = (_unused?: unknown): string => {
-        if (
-          rawValue === null ||
-          rawValue === undefined ||
-          (typeof rawValue === 'string' &&
-            rawValue.trim().toLowerCase() === 'null')
-        ) {
-          return '';
-        }
-        return String(rawValue);
-      };
+      const simpleColumnHandled = handleSimpleTransactionColumnEdit({
+        columnId,
+        rawValue: newValue,
+        transaction,
+        transactionDescriptor,
+        shouldLog,
+        updateTransactionData,
+        notify,
+        logNotification,
+        truncateText,
+      });
 
-      const getNumericValue = (_unused?: unknown): number => {
-        const strVal = getCellValue();
-        const sanitizedNumeric = strVal.replace(/,/g, '').trim();
-        if (sanitizedNumeric === '') {
-          return 0;
-        }
-        const parsed = Number(sanitizedNumeric);
-        return Number.isFinite(parsed) ? parsed : 0;
-      };
-
-      // ========================================================================
-      // ORDER DATE HANDLER
-      // ========================================================================
-      if (columnId === 'orderDate') {
-        const newDate = getCellValue(newValue);
-        updateTransactionData({ 'Order Date': newDate });
-
-        notify({
-          title: 'Success',
-          message: 'Order Date updated successfully',
-          color: 'green',
-        });
-
-        if (shouldLog) {
-          const previousOrderDate =
-            transaction['Order Date'] && transaction['Order Date'].trim() !== ''
-              ? transaction['Order Date'].trim()
-              : 'blank';
-          const nextOrderDate =
-            newDate && newDate.trim() !== '' ? newDate.trim() : 'blank';
-
-          logNotification(
-            `Order Date updated from ${previousOrderDate} to ${nextOrderDate} for ${transactionDescriptor}.`,
-            {
-              column: 'Order Date',
-              transactionId: transaction.id,
-              previousValue: transaction['Order Date'] ?? '',
-              newValue: newDate,
-            }
-          );
-        }
+      if (simpleColumnHandled) {
+        return;
       }
 
       // ========================================================================
@@ -902,609 +726,64 @@ export function useTransactionOperations(
         }
       }
 
-      // ========================================================================
-      // QUANTITY HANDLER
-      // ⚠️ FINALIZED AUTO-POPULATION & COMPUTATION LOGIC
-      // ========================================================================
-      if (columnId === 'quantity') {
-        const newQuantity = getNumericValue(newValue);
+      const quantityHandled = await handleQuantityColumnEdit({
+        columnId,
+        rawValue: newValue,
+        transaction,
+        transactionDescriptor,
+        shouldLog,
+        apiBasePath,
+        isBatchMode: isBatchModeRef.current,
+        priceTiers,
+        getCurrentTransaction,
+        updateTransactionData,
+        notify,
+        logNotification,
+        formatCurrencyValue,
+        formatNumberValue,
+        fireAlert: (options) => Swal.fire(options),
+      });
 
-        // Get current transaction with any pending batch updates
-        const currentTransaction = getCurrentTransaction();
-
-        // =====================================================================
-        // 🛡️ STOCK CHECK - Validate quantity against available stock
-        // Smart logic:
-        // - If REDUCING quantity: Allow (frees up stock)
-        // - If INCREASING quantity: Check if additional stock available
-        // - If NEW transaction: Check full quantity
-        // Only check if:
-        // 1. Quantity is greater than 0
-        // 2. Product code exists
-        // 3. Not in batch mode
-        // =====================================================================
-        const currentProductCode = currentTransaction['Product Code'] || '';
-        const oldQuantity = transaction.Quantity || 0; // Original quantity before edit
-        const quantityChange = newQuantity - oldQuantity; // Positive = increase, Negative = decrease
-
-        // Only check if INCREASING quantity (quantityChange > 0)
-        if (
-          quantityChange > 0 &&
-          currentProductCode &&
-          currentProductCode.trim() !== '' &&
-          !isBatchModeRef.current
-        ) {
-          try {
-            const stockResponse = await fetch(
-              buildApiPath(apiBasePath, '/inventory/check-stock'),
-              {
-                method: 'POST',
-                headers: {
-                  'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                  productCode: currentProductCode.trim(),
-                  requestedQuantity: quantityChange, // Only check the ADDITIONAL quantity needed
-                }),
-              }
-            );
-
-            if (stockResponse.ok) {
-              const stockInfo = (await stockResponse.json()) as {
-                status: string;
-                message: string;
-                availableStock: number;
-                canFulfill: boolean;
-              };
-
-              // 🔴 SOLD OUT - Block increasing quantity
-              if (stockInfo.status === 'SOLD_OUT') {
-                await Swal.fire({
-                  icon: 'error',
-                  title: '🔴 Insufficient Quantity!',
-                  text: stockInfo.message,
-                  confirmButtonText: 'OK',
-                  confirmButtonColor: '#fa5252',
-                  allowOutsideClick: false,
-                });
-                logger.warn(
-                  `Stock check failed for ${currentProductCode} (adding ${quantityChange} units):`,
-                  stockInfo
-                );
-                return; // Prevent saving the transaction
-              }
-
-              // 🔴 INSUFFICIENT STOCK - Offer to cap to max fulfillable quantity
-              if (stockInfo.status === 'INSUFFICIENT_STOCK') {
-                const remainingAvailable = Number(
-                  stockInfo.availableStock || 0
-                );
-                if (remainingAvailable > 0) {
-                  const maxQuantity = oldQuantity + remainingAvailable;
-                  const result = await Swal.fire({
-                    icon: 'warning',
-                    title: '🔴 Insufficient Quantity!',
-                    text: `${stockInfo.message}\n\nUse max available quantity (${maxQuantity}) to sell out?`,
-                    showCancelButton: true,
-                    confirmButtonText: `Use ${maxQuantity}`,
-                    cancelButtonText: 'Cancel',
-                    confirmButtonColor: '#fab005',
-                    cancelButtonColor: '#adb5bd',
-                    allowOutsideClick: false,
-                  });
-
-                  if (result.isConfirmed) {
-                    // Proceed with maxQuantity; downstream recalculation will run.
-                    return updateTransactionData({ Quantity: maxQuantity });
-                  }
-
-                  return;
-                }
-
-                await Swal.fire({
-                  icon: 'error',
-                  title: '🔴 Insufficient Quantity!',
-                  text: stockInfo.message,
-                  confirmButtonText: 'OK',
-                  confirmButtonColor: '#fa5252',
-                  allowOutsideClick: false,
-                });
-                logger.warn(
-                  `Stock check failed for ${currentProductCode} (adding ${quantityChange} units):`,
-                  stockInfo
-                );
-                return; // Prevent saving the transaction
-              }
-
-              // 🟡 LOW STOCK - Show warning but allow order
-              if (stockInfo.status === 'LOW_STOCK') {
-                await Swal.fire({
-                  icon: 'warning',
-                  title: '🟡 Low Stock Warning',
-                  text: stockInfo.message,
-                  confirmButtonText: 'OK',
-                  confirmButtonColor: '#fab005',
-                  allowOutsideClick: false,
-                });
-                logger.info(
-                  `Low stock warning for ${currentProductCode} (adding ${quantityChange} units):`,
-                  stockInfo
-                );
-                // Continue with order creation
-              }
-            }
-          } catch (error) {
-            logger.error('Stock check failed:', error);
-            // Continue with order creation on error (fail-safe)
-          }
-        } else if (quantityChange < 0) {
-          // User is REDUCING quantity - this FREES UP stock, always allow
-          logger.info(
-            `Reducing quantity for ${currentProductCode}: ${oldQuantity} → ${newQuantity} (freeing ${Math.abs(quantityChange)} units)`
-          );
-        }
-
-        // ⚠️ FINALIZED: Unit Price auto-population
-        const currentDiscount = currentTransaction.Discount || 0;
-        let autoPopulatedUnitPrice = 0;
-        let unitPriceAutoPopulated = false;
-        let unitPriceCleared = false;
-
-        if (newQuantity <= 0) {
-          unitPriceCleared = true;
-        } else if (currentProductCode && newQuantity > 0) {
-          autoPopulatedUnitPrice = TransactionService.calculateUnitPrice(
-            currentProductCode,
-            newQuantity,
-            currentDiscount,
-            priceTiers
-          );
-          unitPriceAutoPopulated = autoPopulatedUnitPrice > 0;
-        }
-
-        // ⚠️ FINALIZED: Line Total calculation
-        const adjustment = currentTransaction.Adjustment || 0;
-        const lineTotal = TransactionService.calculateLineTotal(
-          newQuantity,
-          autoPopulatedUnitPrice,
-          adjustment
-        );
-
-        const updatedFields = {
-          Quantity: newQuantity,
-          'Unit Price': autoPopulatedUnitPrice,
-          'Line Total': lineTotal,
-        };
-
-        updateTransactionData(updatedFields);
-
-        let message = 'Quantity updated successfully';
-        if (unitPriceAutoPopulated) {
-          message = 'Quantity updated and Unit Price auto-populated';
-        } else if (unitPriceCleared) {
-          message = 'Quantity updated and Unit Price cleared';
-        }
-
-        notify({ title: 'Success', message, color: 'green' });
-
-        if (shouldLog) {
-          const previousQuantity = transaction.Quantity ?? 0;
-          let logMessage = `Quantity updated from ${formatNumberValue(previousQuantity)} to ${formatNumberValue(newQuantity)} for ${transactionDescriptor}.`;
-
-          if (unitPriceAutoPopulated) {
-            logMessage += ` Unit Price auto-set to ${formatCurrencyValue(autoPopulatedUnitPrice)}.`;
-          } else if (unitPriceCleared) {
-            logMessage += ' Unit Price cleared.';
-          }
-
-          logMessage += ` Line Total recalculated to ${formatCurrencyValue(lineTotal)}.`;
-
-          logNotification(logMessage, {
-            column: 'Quantity',
-            transactionId: transaction.id,
-            previousValue: previousQuantity,
-            newValue: newQuantity,
-            unitPrice: autoPopulatedUnitPrice,
-            lineTotal,
-            adjustment,
-          });
-        }
+      if (quantityHandled) {
+        return;
       }
 
-      // ========================================================================
-      // UNIT PRICE HANDLER
-      // ⚠️ FINALIZED COMPUTATION LOGIC
-      // ========================================================================
-      if (columnId === 'unitPrice') {
-        const newUnitPrice = getNumericValue(newValue);
+      const computedColumnHandled = handleComputedTransactionColumnEdit({
+        columnId,
+        rawValue: newValue,
+        transaction,
+        transactionDescriptor,
+        shouldLog,
+        priceTiers,
+        getCurrentTransaction,
+        updateTransactionData,
+        notify,
+        logNotification,
+        formatCurrencyValue,
+        formatNumberValue,
+      });
 
-        // Get current transaction with any pending batch updates
-        const currentTransaction = getCurrentTransaction();
-
-        // ⚠️ FINALIZED: Line Total calculation
-        const quantity = currentTransaction.Quantity || 0;
-        const adjustment = currentTransaction.Adjustment || 0;
-        const lineTotal = TransactionService.calculateLineTotal(
-          quantity,
-          newUnitPrice,
-          adjustment
-        );
-
-        const updatedFields = {
-          'Unit Price': newUnitPrice,
-          'Line Total': lineTotal,
-        };
-
-        updateTransactionData(updatedFields);
-
-        notify({
-          title: 'Success',
-          message: 'Unit Price updated successfully',
-          color: 'green',
-        });
-
-        if (shouldLog) {
-          const previousUnitPrice = transaction['Unit Price'] ?? 0;
-
-          logNotification(
-            `Unit Price updated from ${formatCurrencyValue(previousUnitPrice)} to ${formatCurrencyValue(newUnitPrice)} for ${transactionDescriptor}. Line Total recalculated to ${formatCurrencyValue(lineTotal)}.`,
-            {
-              column: 'Unit Price',
-              transactionId: transaction.id,
-              previousValue: previousUnitPrice,
-              newValue: newUnitPrice,
-              quantity,
-              lineTotal,
-            }
-          );
-        }
+      if (computedColumnHandled) {
+        return;
       }
 
-      // ========================================================================
-      // DISCOUNT HANDLER
-      // ⚠️ FINALIZED COMPUTATION LOGIC
-      // ========================================================================
-      if (columnId === 'discount') {
-        const newDiscount = getNumericValue(newValue);
+      const orderStatusHandled = await handleOrderStatusColumnEdit({
+        columnId,
+        rawValue: newValue,
+        transaction,
+        transactionDescriptor,
+        shouldLog,
+        isPaidOrderStatus,
+        isVoidedOrderStatus,
+        formatCurrencyValue,
+        notify,
+        updateTransactionData: (data) => updateTransactionData(data),
+        logNotification,
+        fireAlert: (options) => Swal.fire(options),
+      });
 
-        // Get current transaction with any pending batch updates
-        const currentTransaction = getCurrentTransaction();
-
-        // ⚠️ FINALIZED: Unit Price recalculation
-        const currentProductCode = currentTransaction['Product Code'] || '';
-        const currentQuantity = currentTransaction.Quantity || 0;
-        let recalculatedUnitPrice = currentTransaction['Unit Price'] || 0;
-
-        if (currentProductCode && currentQuantity > 0) {
-          recalculatedUnitPrice = TransactionService.calculateUnitPrice(
-            currentProductCode,
-            currentQuantity,
-            newDiscount,
-            priceTiers
-          );
-        }
-
-        // ⚠️ FINALIZED: Line Total calculation
-        const quantity = currentTransaction.Quantity || 0;
-        const adjustment = currentTransaction.Adjustment || 0;
-        const lineTotal = TransactionService.calculateLineTotal(
-          quantity,
-          recalculatedUnitPrice,
-          adjustment
-        );
-
-        const updatedFields = {
-          'Unit Price': recalculatedUnitPrice,
-          Discount: newDiscount,
-          'Line Total': lineTotal,
-        };
-
-        updateTransactionData(updatedFields);
-
-        notify({
-          title: 'Success',
-          message: 'Discount updated successfully',
-          color: 'green',
-        });
-
-        if (shouldLog) {
-          const previousDiscount = transaction.Discount ?? 0;
-          const previousUnitPrice = transaction['Unit Price'] ?? 0;
-          const previousLineTotal = transaction['Line Total'] ?? 0;
-
-          let logMessage = `Discount updated from ${formatNumberValue(previousDiscount)} to ${formatNumberValue(newDiscount)} for ${transactionDescriptor}.`;
-          logMessage += ` Unit Price recalculated from ${formatCurrencyValue(previousUnitPrice)} to ${formatCurrencyValue(recalculatedUnitPrice)}.`;
-          logMessage += ` Line Total updated from ${formatCurrencyValue(previousLineTotal)} to ${formatCurrencyValue(lineTotal)}.`;
-
-          logNotification(logMessage, {
-            column: 'Discount',
-            transactionId: transaction.id,
-            previousValue: previousDiscount,
-            newValue: newDiscount,
-            unitPrice: recalculatedUnitPrice,
-            lineTotal,
-            quantity: currentQuantity,
-          });
-        }
-      }
-
-      // ========================================================================
-      // ADJUSTMENT HANDLER
-      // ⚠️ FINALIZED COMPUTATION LOGIC
-      // ========================================================================
-      if (columnId === 'adjustment') {
-        const newAdjustment = getNumericValue(newValue);
-
-        // Get current transaction with any pending batch updates
-        const currentTransaction = getCurrentTransaction();
-
-        // ⚠️ FINALIZED: Line Total calculation
-        const quantity = currentTransaction.Quantity || 0;
-        const unitPrice = currentTransaction['Unit Price'] || 0;
-        const lineTotal = TransactionService.calculateLineTotal(
-          quantity,
-          unitPrice,
-          newAdjustment
-        );
-
-        const updatedFields = {
-          Adjustment: newAdjustment,
-          'Line Total': lineTotal,
-        };
-
-        updateTransactionData(updatedFields);
-
-        notify({
-          title: 'Success',
-          message: 'Adjustment updated successfully',
-          color: 'green',
-        });
-
-        if (shouldLog) {
-          const previousAdjustment = transaction.Adjustment ?? 0;
-          const previousLineTotal = transaction['Line Total'] ?? 0;
-
-          logNotification(
-            `Adjustment updated from ${formatCurrencyValue(previousAdjustment)} to ${formatCurrencyValue(newAdjustment)} for ${transactionDescriptor}. Line Total updated from ${formatCurrencyValue(previousLineTotal)} to ${formatCurrencyValue(lineTotal)}.`,
-            {
-              column: 'Adjustment',
-              transactionId: transaction.id,
-              previousValue: previousAdjustment,
-              newValue: newAdjustment,
-              lineTotal,
-              quantity,
-              unitPrice,
-            }
-          );
-        }
-      }
-
-      // ========================================================================
-      // LINE TOTAL HANDLER
-      // ⚠️ FINALIZED COMPUTATION LOGIC
-      // ========================================================================
-      if (columnId === 'lineTotal') {
-        const newLineTotal = getNumericValue(newValue);
-
-        const currentTransaction = getCurrentTransaction();
-        const quantity = currentTransaction.Quantity || 0;
-        const unitPrice = currentTransaction['Unit Price'] || 0;
-        const recalculatedAdjustment = quantity * unitPrice - newLineTotal;
-
-        const updatedFields = {
-          'Line Total': newLineTotal,
-          Adjustment: recalculatedAdjustment,
-        };
-
-        updateTransactionData(updatedFields);
-
-        notify({
-          title: 'Success',
-          message: 'Line Total updated successfully',
-          color: 'green',
-        });
-
-        if (shouldLog) {
-          const previousLineTotal = transaction['Line Total'] ?? 0;
-
-          logNotification(
-            `Line Total updated from ${formatCurrencyValue(previousLineTotal)} to ${formatCurrencyValue(newLineTotal)} for ${transactionDescriptor}. Adjustment recalculated to ${formatCurrencyValue(recalculatedAdjustment)}.`,
-            {
-              column: 'Line Total',
-              transactionId: transaction.id,
-              previousValue: previousLineTotal,
-              newValue: newLineTotal,
-              adjustment: recalculatedAdjustment,
-              quantity,
-              unitPrice,
-            }
-          );
-        }
-      }
-
-      // ========================================================================
-      // ORDER STATUS HANDLER
-      // ========================================================================
-      if (columnId === 'orderStatus') {
-        const dropdownValue = getCellValue(newValue);
-
-        const remaining = computeRemainingBalance(transaction);
-        if (isPaidOrderStatus(dropdownValue) && remaining > 0.01) {
-          await Swal.fire({
-            title: 'Payment not complete',
-            html: `Remaining balance: <strong>₱${remaining.toLocaleString()}</strong>.<br />Record full payment first, or use <strong>Pending Payment</strong> for shipped-but-unpaid orders.`,
-            icon: 'warning',
-            confirmButtonColor: '#3085d6',
-            confirmButtonText: 'OK',
-          });
-          return false;
-        }
-
-        const recordedPayment = Number(transaction.Adjustment) || 0;
-        if (isVoidedOrderStatus(dropdownValue) && recordedPayment > 0.01) {
-          const marker = '/operations/transactions';
-          const pathname = window.location.pathname;
-          const basePath = pathname.includes(marker)
-            ? pathname.slice(0, pathname.indexOf(marker))
-            : '';
-          const customersPath = basePath
-            ? `${basePath}/operations/customers`
-            : '/clothing/operations/customers';
-
-          const result = await Swal.fire({
-            title: 'Refund reminder',
-            html:
-              `This transaction has <strong>${formatCurrencyValue(recordedPayment)}</strong> recorded as a payment/deposit.<br /><br />` +
-              `If you mark it as <strong>Voided</strong>, remember to record any required refunds from the <strong>Customers</strong> page.`,
-            icon: 'warning',
-            showDenyButton: true,
-            showCancelButton: true,
-            confirmButtonText: 'Mark as Voided',
-            denyButtonText: 'Open Customers',
-            cancelButtonText: 'Cancel',
-            confirmButtonColor: '#d33',
-          });
-
-          if (result.isDenied) {
-            window.open(customersPath, '_blank', 'noopener,noreferrer');
-            return false;
-          }
-
-          if (!result.isConfirmed) {
-            return false;
-          }
-        }
-
-        updateTransactionData({ 'Order Status': dropdownValue });
-
-        notify({
-          title: 'Success',
-          message: 'Order Status updated successfully',
-          color: 'green',
-        });
-
-        if (shouldLog) {
-          const previousStatus = transaction['Order Status'] ?? 'Unspecified';
-          const nextStatus = dropdownValue || 'Unspecified';
-
-          logNotification(
-            `Order Status changed from ${previousStatus} to ${nextStatus} for ${transactionDescriptor}.`,
-            {
-              column: 'Order Status',
-              transactionId: transaction.id,
-              previousValue: transaction['Order Status'] ?? '',
-              newValue: dropdownValue,
-            }
-          );
-        }
-      }
-
-      // ========================================================================
-      // NOTES HANDLER
-      // ========================================================================
-      if (columnId === 'notes') {
-        const notesValue = getCellValue(newValue);
-
-        updateTransactionData({ Notes: notesValue });
-
-        notify({
-          title: 'Success',
-          message: 'Notes updated successfully',
-          color: 'green',
-        });
-
-        if (shouldLog) {
-          const previousNotes = transaction.Notes ?? '';
-          const nextNotes = notesValue ?? '';
-
-          logNotification(
-            `Notes updated for ${transactionDescriptor}. Previous: "${truncateText(previousNotes)}" • New: "${truncateText(nextNotes)}"`,
-            {
-              column: 'Notes',
-              transactionId: transaction.id,
-              previousValue: previousNotes,
-              newValue: nextNotes,
-            }
-          );
-        }
-      }
-
-      // ========================================================================
-      // INVOICE DATE HANDLER
-      // ========================================================================
-      if (columnId === 'invoiceDate') {
-        const invoiceDateValue = getCellValue(newValue).trim();
-
-        updateTransactionData({ 'Invoice Date': invoiceDateValue });
-
-        notify({
-          title: 'Success',
-          message: 'Invoice Date updated successfully',
-          color: 'green',
-        });
-
-        if (shouldLog) {
-          logNotification(
-            `Invoice Date updated for ${transactionDescriptor}.`,
-            {
-              column: 'Invoice Date',
-              transactionId: transaction.id,
-              previousValue: transaction['Invoice Date'] ?? '',
-              newValue: invoiceDateValue,
-            }
-          );
-        }
-      }
-
-      // ========================================================================
-      // PACKED DATE HANDLER
-      // ========================================================================
-      if (columnId === 'packedDate') {
-        const packedDateValue = getCellValue(newValue).trim();
-
-        updateTransactionData({ 'Packed Date': packedDateValue });
-
-        notify({
-          title: 'Success',
-          message: 'Packed Date updated successfully',
-          color: 'green',
-        });
-
-        if (shouldLog) {
-          logNotification(`Packed Date updated for ${transactionDescriptor}.`, {
-            column: 'Packed Date',
-            transactionId: transaction.id,
-            previousValue: transaction['Packed Date'] ?? '',
-            newValue: packedDateValue,
-          });
-        }
-      }
-
-      // ========================================================================
-      // SHIPMENT CODE HANDLER
-      // ========================================================================
-      if (columnId === 'shipmentCode') {
-        const shipmentCodeValue = getCellValue(newValue).trim();
-
-        updateTransactionData({ 'Shipment Code': shipmentCodeValue });
-
-        notify({
-          title: 'Success',
-          message: 'Shipment Code updated successfully',
-          color: 'green',
-        });
-
-        if (shouldLog) {
-          logNotification(
-            `Shipment Code updated for ${transactionDescriptor}.`,
-            {
-              column: 'Shipment Code',
-              transactionId: transaction.id,
-              previousValue: transaction['Shipment Code'] ?? '',
-              newValue: shipmentCodeValue,
-            }
-          );
-        }
+      if (orderStatusHandled) {
+        return;
       }
     },
     [
@@ -1518,6 +797,8 @@ export function useTransactionOperations(
       ensureDraftRow,
       createDraftTransaction,
       apiBasePath,
+      batchUpdatesRef,
+      isBatchModeRef,
     ]
   );
 
@@ -1531,57 +812,12 @@ export function useTransactionOperations(
 
   const handleCSVImport = useCallback(
     async (file: File) => {
-      try {
-        const text = await file.text();
-        const importedTransactions =
-          TransactionService.transformCSVToTransactions(text);
-
-        if (importedTransactions.length === 0) {
-          showNotification({
-            title: '⚠️ Import Warning',
-            message: 'No valid transaction data found in the CSV file',
-            color: 'yellow',
-            autoClose: 4000,
-          });
-          return;
-        }
-
-        // Send to API
-        const result = await api.post<{ count: number }>(
-          buildApiPath(apiBasePath, '/transactions'),
-          importedTransactions
-        );
-
-        // Reload transactions
-        const reloadedData = await api.get<TransactionData[]>(
-          buildApiPath(apiBasePath, '/transactions')
-        );
-        bulkUpdate(reloadedData);
-
-        showNotification({
-          title: '✅ Import Successful',
-          message: `${result.count} transactions imported with auto-calculated Unit Price and Line Total`,
-          color: 'green',
-          autoClose: 5000,
-        });
-
-        logNotification(
-          `${result.count} transactions imported from ${file.name}.`,
-          {
-            type: 'csv-import',
-            rowsImported: result.count,
-            fileName: file.name,
-          }
-        );
-      } catch (error) {
-        logger.error('Import error:', error);
-        showNotification({
-          title: '❌ Import Failed',
-          message: 'Failed to parse CSV file. Please check the file format.',
-          color: 'red',
-          autoClose: 4000,
-        });
-      }
+      await importTransactionsFromCsv({
+        file,
+        apiBasePath,
+        bulkUpdate,
+        logNotification,
+      });
     },
     [apiBasePath, bulkUpdate, logNotification]
   );

@@ -15,6 +15,12 @@ import {
   type EmployeeFormData,
 } from '../types';
 import type { ApiResponse } from '@/types/api';
+import {
+  extractSuffixFromName,
+  parseNumberOrZero,
+  parseOptionalNumericInput,
+  toOptionalNumber,
+} from './employeeDetailUtils';
 
 /**
  * Custom hook for employee detail page - React Query version
@@ -72,20 +78,6 @@ export function useEmployeeDetail(employeeId: string, apiBasePath?: string) {
     [apiBasePath]
   );
 
-  const extractSuffixFromName = (fullName?: string | null) => {
-    if (!fullName) {
-      return '';
-    }
-    const commaMatch = fullName.match(/,\s*(.+)$/);
-    if (commaMatch?.[1]) {
-      return commaMatch[1];
-    }
-    const parts = fullName.trim().split(/\s+/);
-    const lastPart = parts[parts.length - 1]?.toLowerCase();
-    const common = new Set(['jr', 'jr.', 'sr', 'sr.', 'ii', 'iii', 'iv', 'v']);
-    return lastPart && common.has(lastPart) ? parts[parts.length - 1] : '';
-  };
-
   // Main employee query
   const employeeDetailQueryKey = useMemo(
     () => [...queryKeys.employees.detail(employeeId), apiBasePath ?? 'default'],
@@ -98,12 +90,6 @@ export function useEmployeeDetail(employeeId: string, apiBasePath?: string) {
       const data = await api.get<Employee>(
         resolveApiPath(`/employees/${employeeId}`)
       );
-
-      // Transform database response to match Employee type
-      const toOptionalNumber = (value: unknown) => {
-        const parsed = Number(value);
-        return Number.isFinite(parsed) ? parsed : undefined;
-      };
 
       const transformedEmployee: Employee = {
         ...data,
@@ -126,12 +112,6 @@ export function useEmployeeDetail(employeeId: string, apiBasePath?: string) {
 
   const normalizedEmployeeId = employee?.employeeId?.trim() || '';
   const normalizedEmployeeKey = normalizedEmployeeId.toLowerCase();
-
-  // Helper functions for data transformation
-  const parseNumber = (value: unknown) => {
-    const parsed = Number(value);
-    return Number.isFinite(parsed) ? parsed : 0;
-  };
 
   const allowedAttendanceStatuses = useMemo(
     () => new Set(['present', 'late', 'absent', 'on-leave']),
@@ -226,12 +206,12 @@ export function useEmployeeDetail(employeeId: string, apiBasePath?: string) {
                 periodStart: record.periodStart ?? null,
                 periodEnd: record.periodEnd ?? null,
                 status,
-                grossPay: parseNumber(record.grossPay),
-                netPay: parseNumber(record.netPay),
-                totalDeductions: parseNumber(record.totalDeductions),
-                cashAdvance: parseNumber(record.cashAdvance),
-                basicSalary: parseNumber(record.basicSalary),
-                allowance: parseNumber(record.allowance),
+                grossPay: parseNumberOrZero(record.grossPay),
+                netPay: parseNumberOrZero(record.netPay),
+                totalDeductions: parseNumberOrZero(record.totalDeductions),
+                cashAdvance: parseNumberOrZero(record.cashAdvance),
+                basicSalary: parseNumberOrZero(record.basicSalary),
+                allowance: parseNumberOrZero(record.allowance),
                 createdAt: record.createdAt ?? undefined,
               } satisfies EmployeePayrollRecord;
             })
@@ -293,7 +273,7 @@ export function useEmployeeDetail(employeeId: string, apiBasePath?: string) {
                   lunchEnd: record.lunchEnd ?? undefined,
                   break2Start: record.break2Start ?? undefined,
                   break2End: record.break2End ?? undefined,
-                  totalHours: parseNumber(record.totalHours),
+                  totalHours: parseNumberOrZero(record.totalHours),
                   status,
                   details: record.details ?? undefined,
                   notes: record.notes ?? undefined,
@@ -352,7 +332,7 @@ export function useEmployeeDetail(employeeId: string, apiBasePath?: string) {
                 leaveType,
                 startDate: String(record.startDate ?? ''),
                 endDate: String(record.endDate ?? ''),
-                numberOfDays: parseNumber(record.numberOfDays),
+                numberOfDays: parseNumberOrZero(record.numberOfDays),
                 reason: String(record.reason ?? ''),
                 status,
                 paymentStatus,
@@ -402,11 +382,11 @@ export function useEmployeeDetail(employeeId: string, apiBasePath?: string) {
               : false
           )
           .map((record) => {
-            const amount = parseNumber(record.amount);
-            const settledAmount = parseNumber(record.settledAmount);
+            const amount = parseNumberOrZero(record.amount);
+            const settledAmount = parseNumberOrZero(record.settledAmount);
             const remainingBalance =
               record.remainingBalance !== undefined
-                ? parseNumber(record.remainingBalance)
+                ? parseNumberOrZero(record.remainingBalance)
                 : Math.max(amount - settledAmount, 0);
             const status = allowedCashAdvanceStatuses.has(record.status)
               ? (record.status as CashAdvance['status'])
@@ -434,7 +414,7 @@ export function useEmployeeDetail(employeeId: string, apiBasePath?: string) {
               monthlyPayment:
                 record.monthlyPayment !== null &&
                 record.monthlyPayment !== undefined
-                  ? parseNumber(record.monthlyPayment)
+                  ? parseNumberOrZero(record.monthlyPayment)
                   : undefined,
               remainingBalance,
               settledAmount,
@@ -607,11 +587,11 @@ export function useEmployeeDetail(employeeId: string, apiBasePath?: string) {
               recordId,
             year,
             status,
-            totalBasicSalary: parseNumber(raw.totalBasicSalary),
-            totalLwop: parseNumber(raw.totalLwop),
-            totalAbsencesLates: parseNumber(raw.totalAbsencesLates),
-            netBasicSalary: parseNumber(raw.netBasicSalary),
-            thirteenthMonthPay: parseNumber(raw.thirteenthMonthPay),
+            totalBasicSalary: parseNumberOrZero(raw.totalBasicSalary),
+            totalLwop: parseNumberOrZero(raw.totalLwop),
+            totalAbsencesLates: parseNumberOrZero(raw.totalAbsencesLates),
+            netBasicSalary: parseNumberOrZero(raw.netBasicSalary),
+            thirteenthMonthPay: parseNumberOrZero(raw.thirteenthMonthPay),
             monthsWorked,
             calculatedDate: safeString(raw.calculatedDate),
             approvedDate: safeString(raw.approvedDate),
@@ -705,18 +685,6 @@ export function useEmployeeDetail(employeeId: string, apiBasePath?: string) {
         throw new Error('No employee to update');
       }
 
-      const parseOptionalNumber = (value?: string) => {
-        if (!value) {
-          return null;
-        }
-        const trimmed = value.trim();
-        if (trimmed.length === 0) {
-          return null;
-        }
-        const parsed = Number.parseFloat(trimmed);
-        return Number.isFinite(parsed) ? parsed : null;
-      };
-
       const payload = {
         employeeId: formData.employeeId,
         // Name fields - use the actual form data
@@ -751,18 +719,18 @@ export function useEmployeeDetail(employeeId: string, apiBasePath?: string) {
         currentSalary: formData.currentSalary
           ? parseFloat(formData.currentSalary)
           : parseFloat(formData.basicSalary) || 0,
-        allowance: parseOptionalNumber(formData.allowance),
+        allowance: parseOptionalNumericInput(formData.allowance),
         paymentSchedule: formData.paymentSchedule || null,
-        sssMonthlyContribution: parseOptionalNumber(
+        sssMonthlyContribution: parseOptionalNumericInput(
           formData.sssMonthlyContribution
         ),
-        philHealthMonthlyContribution: parseOptionalNumber(
+        philHealthMonthlyContribution: parseOptionalNumericInput(
           formData.philHealthMonthlyContribution
         ),
-        pagibigMonthlyContribution: parseOptionalNumber(
+        pagibigMonthlyContribution: parseOptionalNumericInput(
           formData.pagibigMonthlyContribution
         ),
-        taxMonthlyContribution: parseOptionalNumber(
+        taxMonthlyContribution: parseOptionalNumericInput(
           formData.taxMonthlyContribution
         ),
         // Government IDs
