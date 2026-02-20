@@ -1,0 +1,250 @@
+{
+  "generatedAt": "2026-02-20",
+  "scopeCounts": {
+    "src/modules/clothing/operations/**": {
+      "status": "covered",
+      "count": 299
+    },
+    "src/modules/clothing/ledger/**": {
+      "status": "covered",
+      "count": 13
+    },
+    "src/modules/clothing/employees/**": {
+      "status": "covered",
+      "count": 32
+    },
+    "src/modules/general-merchandise/operations/**": {
+      "status": "covered",
+      "count": 24
+    },
+    "src/modules/general-merchandise/ledger/**": {
+      "status": "covered",
+      "count": 7
+    },
+    "src/modules/general-merchandise/employees/**": {
+      "status": "N/A",
+      "reason": "path missing",
+      "count": 0
+    },
+    "src/app/clothing/**": {
+      "status": "covered",
+      "count": 193
+    },
+    "src/app/general-merchandise/**": {
+      "status": "covered",
+      "count": 43
+    },
+    "src/app/api/**": {
+      "status": "covered",
+      "count": 260
+    },
+    "src/lib/**": {
+      "status": "covered",
+      "count": 117
+    },
+    "src/components/**": {
+      "status": "covered",
+      "count": 93
+    },
+    "tests/**": {
+      "status": "covered",
+      "count": 82
+    }
+  },
+  "largeFileDistribution": {
+    ">=500": 123,
+    ">=800": 46,
+    ">=1000": 23,
+    ">=1200": 11,
+    ">=1500": 0
+  },
+  "top20Largest": [
+    {
+      "path": "src/components/ui/HandsontableGrid.tsx",
+      "lines": 1467
+    },
+    {
+      "path": "src/lib/openapi/spec.ts",
+      "lines": 1449
+    },
+    {
+      "path": "src/lib/payroll/trucking/deductions.ts",
+      "lines": 1431
+    },
+    {
+      "path": "src/lib/payroll/deductions.ts",
+      "lines": 1415
+    },
+    {
+      "path": "src/lib/payroll/deductionsGeneralMerchandise.ts",
+      "lines": 1409
+    },
+    {
+      "path": "src/components/navigation/HeaderQuickActions.tsx",
+      "lines": 1406
+    },
+    {
+      "path": "src/modules/clothing/operations/settings/components/BackupRestoreTab.tsx",
+      "lines": 1399
+    },
+    {
+      "path": "src/app/clothing/employees/leave-tracker/hooks/useLeaveTracker.ts",
+      "lines": 1320
+    },
+    {
+      "path": "src/app/clothing/employees/payroll/hooks/usePayroll.ts",
+      "lines": 1318
+    },
+    {
+      "path": "src/modules/clothing/employees/payroll/hooks/usePayroll.ts",
+      "lines": 1286
+    },
+    {
+      "path": "src/app/api/backup/route.ts",
+      "lines": 1238
+    },
+    {
+      "path": "src/app/clothing/employees/attendance/hooks/useAttendance.ts",
+      "lines": 1184
+    },
+    {
+      "path": "src/app/clothing/employees/schedules/hooks/useSchedules.ts",
+      "lines": 1181
+    },
+    {
+      "path": "src/lib/accounting/general-merchandise/inventory-cogs.ts",
+      "lines": 1179
+    },
+    {
+      "path": "src/modules/clothing/operations/checkout-links/hooks/useCheckoutLinksPage.ts",
+      "lines": 1128
+    },
+    {
+      "path": "src/modules/clothing/operations/transactions/components/TransactionPaymentsModal.tsx",
+      "lines": 1073
+    },
+    {
+      "path": "src/app/api/restore/route.ts",
+      "lines": 1061
+    },
+    {
+      "path": "src/app/clothing/employees/team/hooks/useEmployeeDetail.ts",
+      "lines": 1059
+    },
+    {
+      "path": "tests/unit/api/employees.api.test.ts",
+      "lines": 1057
+    },
+    {
+      "path": "src/modules/clothing/operations/products/services/ProductService.ts",
+      "lines": 1024
+    }
+  ],
+  "duplicationFamilies": [
+    {
+      "family": "modules-operations",
+      "sharedRelativePaths": 21,
+      "exactCloneCount": 0,
+      "cloneRatioPercent": 0.0
+    },
+    {
+      "family": "modules-ledger",
+      "sharedRelativePaths": 7,
+      "exactCloneCount": 0,
+      "cloneRatioPercent": 0.0
+    },
+    {
+      "family": "modules-employees",
+      "status": "N/A",
+      "reason": "counterpart path missing"
+    },
+    {
+      "family": "app-operations",
+      "sharedRelativePaths": 18,
+      "exactCloneCount": 1,
+      "cloneRatioPercent": 5.56
+    },
+    {
+      "family": "app-accounting",
+      "sharedRelativePaths": 6,
+      "exactCloneCount": 0,
+      "cloneRatioPercent": 0.0
+    },
+    {
+      "family": "app-employees",
+      "sharedRelativePaths": 14,
+      "exactCloneCount": 0,
+      "cloneRatioPercent": 0.0
+    }
+  ],
+  "duplicationAppAggregate": {
+    "sharedRelativePaths": 38,
+    "exactCloneCount": 1,
+    "cloneRatioPercent": 2.63
+  },
+  "riskTotals": {
+    "as unknown as": 0,
+    "TODO/FIXME": 0,
+    "eslint-disable @typescript-eslint/no-explicit-any": 0
+  },
+  "riskByScope": {
+    "src/modules/clothing/operations/**": {
+      "as unknown as": 0,
+      "TODO/FIXME": 0,
+      "eslint-disable @typescript-eslint/no-explicit-any": 0
+    },
+    "src/modules/clothing/ledger/**": {
+      "as unknown as": 0,
+      "TODO/FIXME": 0,
+      "eslint-disable @typescript-eslint/no-explicit-any": 0
+    },
+    "src/modules/clothing/employees/**": {
+      "as unknown as": 0,
+      "TODO/FIXME": 0,
+      "eslint-disable @typescript-eslint/no-explicit-any": 0
+    },
+    "src/modules/general-merchandise/operations/**": {
+      "as unknown as": 0,
+      "TODO/FIXME": 0,
+      "eslint-disable @typescript-eslint/no-explicit-any": 0
+    },
+    "src/modules/general-merchandise/ledger/**": {
+      "as unknown as": 0,
+      "TODO/FIXME": 0,
+      "eslint-disable @typescript-eslint/no-explicit-any": 0
+    },
+    "src/modules/general-merchandise/employees/**": {
+      "status": "N/A"
+    },
+    "src/app/clothing/**": {
+      "as unknown as": 0,
+      "TODO/FIXME": 0,
+      "eslint-disable @typescript-eslint/no-explicit-any": 0
+    },
+    "src/app/general-merchandise/**": {
+      "as unknown as": 0,
+      "TODO/FIXME": 0,
+      "eslint-disable @typescript-eslint/no-explicit-any": 0
+    },
+    "src/app/api/**": {
+      "as unknown as": 0,
+      "TODO/FIXME": 0,
+      "eslint-disable @typescript-eslint/no-explicit-any": 0
+    },
+    "src/lib/**": {
+      "as unknown as": 0,
+      "TODO/FIXME": 0,
+      "eslint-disable @typescript-eslint/no-explicit-any": 0
+    },
+    "src/components/**": {
+      "as unknown as": 0,
+      "TODO/FIXME": 0,
+      "eslint-disable @typescript-eslint/no-explicit-any": 0
+    },
+    "tests/**": {
+      "as unknown as": 0,
+      "TODO/FIXME": 0,
+      "eslint-disable @typescript-eslint/no-explicit-any": 0
+    }
+  }
+}

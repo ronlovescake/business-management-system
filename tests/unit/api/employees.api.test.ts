@@ -1,6 +1,10 @@
 import { vi, describe, it, expect, beforeEach } from 'vitest';
 import { NextRequest } from 'next/server';
 import { mockLogger } from '@/core/testing/test-helpers';
+import {
+  buildEmployeeFixture,
+  buildEmployeePairFixture,
+} from './employees.api.test.utils';
 
 // Mock Prisma before importing the route
 const mockPrisma = vi.hoisted(() => ({
@@ -37,46 +41,7 @@ describe('Employees API - GET /api/employees', () => {
   });
 
   it('should fetch all employees (excluding soft-deleted)', async () => {
-    const mockEmployees = [
-      {
-        id: 1,
-        employeeId: 'EMP-0001',
-        name: 'John Doe',
-        firstName: 'John',
-        lastName: 'Doe',
-        middleName: null,
-        department: 'Operations',
-        position: 'Manager',
-        jobTitle: 'General Manager',
-        status: 'active',
-        hireDate: '2025-01-01',
-        phone: '09123456789',
-        contact: '09123456789',
-        email: 'john@example.com',
-        basicSalary: 50000,
-        currentSalary: 55000,
-        deletedAt: null,
-      },
-      {
-        id: 2,
-        employeeId: 'EMP-0002',
-        name: 'Jane Smith',
-        firstName: 'Jane',
-        lastName: 'Smith',
-        middleName: null,
-        department: 'IT',
-        position: 'Developer',
-        jobTitle: 'Senior Developer',
-        status: 'active',
-        hireDate: '2025-02-01',
-        phone: '09198765432',
-        contact: '09198765432',
-        email: 'jane@example.com',
-        basicSalary: 45000,
-        currentSalary: 48000,
-        deletedAt: null,
-      },
-    ];
+    const mockEmployees = buildEmployeePairFixture();
 
     mockPrisma.employee.findMany.mockResolvedValue(mockEmployees);
 
@@ -98,26 +63,7 @@ describe('Employees API - GET /api/employees', () => {
   });
 
   it('should filter by department', async () => {
-    const mockEmployees = [
-      {
-        id: 1,
-        employeeId: 'EMP-0001',
-        name: 'John Doe',
-        firstName: 'John',
-        lastName: 'Doe',
-        middleName: null,
-        department: 'Operations',
-        position: 'Manager',
-        jobTitle: 'General Manager',
-        status: 'active',
-        hireDate: '2025-01-01',
-        phone: '09123456789',
-        contact: '09123456789',
-        email: 'john@example.com',
-        basicSalary: 50000,
-        deletedAt: null,
-      },
-    ];
+    const mockEmployees = [buildEmployeeFixture()];
 
     mockPrisma.employee.findMany.mockResolvedValue(mockEmployees);
 
@@ -142,26 +88,7 @@ describe('Employees API - GET /api/employees', () => {
   });
 
   it('should filter by status', async () => {
-    const mockEmployees = [
-      {
-        id: 1,
-        employeeId: 'EMP-0001',
-        name: 'John Doe',
-        firstName: 'John',
-        lastName: 'Doe',
-        middleName: null,
-        department: 'Operations',
-        position: 'Manager',
-        jobTitle: 'General Manager',
-        status: 'active',
-        hireDate: '2025-01-01',
-        phone: '09123456789',
-        contact: '09123456789',
-        email: 'john@example.com',
-        basicSalary: 50000,
-        deletedAt: null,
-      },
-    ];
+    const mockEmployees = [buildEmployeeFixture()];
 
     mockPrisma.employee.findMany.mockResolvedValue(mockEmployees);
 
@@ -186,26 +113,7 @@ describe('Employees API - GET /api/employees', () => {
   });
 
   it('should search across multiple fields', async () => {
-    const mockEmployees = [
-      {
-        id: 1,
-        employeeId: 'EMP-0001',
-        name: 'John Doe',
-        firstName: 'John',
-        lastName: 'Doe',
-        middleName: null,
-        department: 'Operations',
-        position: 'Manager',
-        jobTitle: 'General Manager',
-        status: 'active',
-        hireDate: '2025-01-01',
-        phone: '09123456789',
-        contact: '09123456789',
-        email: 'john@example.com',
-        basicSalary: 50000,
-        deletedAt: null,
-      },
-    ];
+    const mockEmployees = [buildEmployeeFixture()];
 
     mockPrisma.employee.findMany.mockResolvedValue(mockEmployees);
 

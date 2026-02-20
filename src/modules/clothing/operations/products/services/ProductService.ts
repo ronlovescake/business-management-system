@@ -32,8 +32,6 @@ import { getCurrentDateISO } from '@/utils/date';
 import {
   TRANSACTION_FEE_RATE,
   SUGGESTED_PRICE_MARKUP,
-  SKIP_WORDS,
-  PRODUCT_CODE_SPECIAL_CASES,
   TWO_DECIMAL_COLUMNS,
   CENTER_ALIGN_COLUMNS,
   LEFT_ALIGN_COLUMNS,
@@ -46,6 +44,10 @@ import { buildApiPath } from '@/lib/api/paths';
 import { ensureArray } from '@/lib/api/normalize';
 import { logger } from '@/lib/logger';
 import type { ApiResponse } from '@/types/api';
+import {
+  buildAgeRangeLabel,
+  generateFormattedProductCode,
+} from './productServiceHelpers';
 
 /**
  * Product Service Class
@@ -108,72 +110,7 @@ export class ProductService {
    * Example: "Kids T-Shirt 2-PC" + "2024-10-12" → "Kids T-Shirt 2-PC (KTS2S-2024-10-12)"
    */
   static generateProductCode(productName: string, postingDate: string): string {
-    if (!productName || !postingDate) {
-      return '';
-    }
-
-    // Split product name into words
-    const words = productName.trim().split(/\s+/);
-
-    let initials = '';
-
-    for (const word of words) {
-      const lowerWord = word.toLowerCase();
-
-      // Skip non-alphanumeric words (like "/", "&", etc.) except for special cases with hyphens
-      if (!/[a-zA-Z0-9]/.test(word)) {
-        continue;
-      }
-
-      // Check for special cases (2-PC, 3-PC, 4-PC)
-      if (PRODUCT_CODE_SPECIAL_CASES[word]) {
-        initials += PRODUCT_CODE_SPECIAL_CASES[word];
-        continue;
-      }
-
-      // Skip common words
-      const skipWordsArray = SKIP_WORDS as readonly string[];
-      if (skipWordsArray.includes(lowerWord)) {
-        continue;
-      }
-
-      // For words with special characters like "H&M", "Rabbit+Bear", extract all uppercase letters
-      if (/[&/.+]/.test(word)) {
-        // Extract all uppercase letters from the word
-        const uppercaseLetters = word.match(/[A-Z]/g) ?? [];
-        if (uppercaseLetters.length > 0) {
-          initials += uppercaseLetters.join('');
-        } else {
-          // If no uppercase, take first letter of each alphanumeric part
-          const parts = word.split(/[^a-zA-Z0-9]+/);
-          for (const part of parts) {
-            if (part.length > 0) {
-              initials += part[0].toUpperCase();
-            }
-          }
-        }
-      } else {
-        // Take first letter (uppercase)
-        if (word.length > 0) {
-          initials += word[0].toUpperCase();
-        }
-      }
-    }
-
-    // Convert date from ISO format (YYYY-MM-DD) to MMDDYY (no dashes)
-    let formattedDate = postingDate;
-    if (/^\d{4}-\d{2}-\d{2}$/.test(postingDate)) {
-      const [year, month, day] = postingDate.split('-');
-      // Use last 2 digits of year (YY format)
-      formattedDate = `${month}${day}${year.slice(2)}`;
-    } else if (/^\d{2}-\d{2}-\d{4}$/.test(postingDate)) {
-      // If already in MM-DD-YYYY format, remove dashes and use last 2 digits of year
-      const [month, day, year] = postingDate.split('-');
-      formattedDate = `${month}${day}${year.slice(2)}`;
-    }
-
-    // Format: "Product Name (INITIALS-MMDDYY)"
-    return `${productName} (${initials}-${formattedDate})`;
+    return generateFormattedProductCode(productName, postingDate);
   }
 
   /**
@@ -225,22 +162,7 @@ export class ProductService {
         ? form.paymentCardId.trim()
         : null;
 
-    // Combine age range fields into a single string
-    // Supports: "0-12 months", "12 years", "0-12 years", etc.
-    let ageRange = '';
-    if (form.ageRangeStart && form.ageRangeEnd && form.ageRangeUnit) {
-      // Both start and end: "0-12 months"
-      ageRange = `${form.ageRangeStart}-${form.ageRangeEnd} ${form.ageRangeUnit}`;
-    } else if (form.ageRangeEnd && form.ageRangeUnit) {
-      // Only end and unit: "12 years"
-      ageRange = `${form.ageRangeEnd} ${form.ageRangeUnit}`;
-    } else if (form.ageRangeStart && form.ageRangeUnit) {
-      // Only start and unit: "12 years"
-      ageRange = `${form.ageRangeStart} ${form.ageRangeUnit}`;
-    } else {
-      // Fallback to old ageRange field if exists
-      ageRange = form.ageRange || '';
-    }
+    const ageRange = buildAgeRangeLabel(form);
 
     return {
       id: existingProduct?.id,

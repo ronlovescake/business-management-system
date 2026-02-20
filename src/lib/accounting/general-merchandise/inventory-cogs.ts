@@ -1,6 +1,19 @@
 import { prisma } from '@/lib/db';
 import { parseDate } from '@/lib/accounting/date-utils';
 import { isInTransitShipmentStatus } from '@/lib/inventory/shipment-status';
+import {
+  dateKeyToIso,
+  extractAutoSaleTransactionId,
+  formatQty,
+  INVENTORY_ASSET_BUCKETS,
+  isWithin,
+  normalizeIdSegment,
+  pickMovementDate,
+  pickUnitCostFromProductRow,
+  summarizeCustomerNames,
+  summarizeSignedTransitions,
+  toDateKey,
+} from './inventoryCogsHelpers';
 
 export type DerivedJournalEntry = {
   id: string;
@@ -17,127 +30,6 @@ const INVENTORY_ACCOUNT = 'Stock on Hand';
 const INVENTORY_IN_TRANSIT_ACCOUNT = 'Inventory in Transit';
 const OPENING_EQUITY_ACCOUNT = 'Opening Equity';
 const CURRENT_PERIOD_EARNINGS_ACCOUNT = 'Current Period Earnings';
-
-const INVENTORY_ASSET_BUCKETS = new Set([
-  'sellable',
-  'reserved',
-  'damaged_hold',
-  'assembly_wip',
-]);
-
-function toDateKey(date: Date): string {
-  return date.toISOString().slice(0, 10);
-}
-
-function dateKeyToIso(dateKey: string): string {
-  return `${dateKey}T00:00:00.000Z`;
-}
-
-function isWithin(date: Date, from: Date, to: Date | null): boolean {
-  if (date < from) {
-    return false;
-  }
-  if (to && date > to) {
-    return false;
-  }
-  return true;
-}
-
-function pickMovementDate(params: {
-  postingDate: string | null;
-  createdAt: Date;
-}): Date {
-  return parseDate(params.postingDate) ?? params.createdAt;
-}
-
-function pickUnitCost(actualPrice: number | null | undefined): number {
-  const cost = Number(actualPrice ?? 0);
-  return Number.isFinite(cost) && cost > 0 ? cost : 0;
-}
-
-function pickUnitCostFromProductRow(row: {
-  landedUnitCost?: number | null;
-  cogs?: number | null;
-  quantity?: number | null;
-}): number {
-  const base = pickUnitCost(row.landedUnitCost);
-  if (base > 0) {
-    return base;
-  }
-
-  const cogs = Number(row.cogs ?? 0);
-  const qty = Number(row.quantity ?? 0);
-  if (!Number.isFinite(cogs) || cogs <= 0) {
-    return 0;
-  }
-  if (!Number.isFinite(qty) || qty <= 0) {
-    return 0;
-  }
-
-  return pickUnitCost(cogs / qty);
-}
-
-function normalizeIdSegment(value: string): string {
-  return (value ?? '')
-    .trim()
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '_')
-    .replace(/^_+|_+$/g, '')
-    .slice(0, 80);
-}
-
-function formatQty(qty: number): string {
-  if (!Number.isFinite(qty)) {
-    return '0';
-  }
-  const rounded = Math.round(qty * 1000) / 1000;
-  if (Number.isInteger(rounded)) {
-    return String(rounded);
-  }
-  return String(rounded).replace(/0+$/, '').replace(/\.$/, '');
-}
-
-function summarizeSignedTransitions(transitions: Map<string, number>): string {
-  const parts = Array.from(transitions.entries())
-    .map(([label, qty]) => {
-      const q = Number(qty);
-      if (!Number.isFinite(q) || q === 0) {
-        return null;
-      }
-      const sign = q > 0 ? '+' : '';
-      return `${label} ${sign}${formatQty(q)}`;
-    })
-    .filter(Boolean) as string[];
-
-  return parts.join('; ');
-}
-
-function extractAutoSaleTransactionId(
-  notes: string | null | undefined
-): number | null {
-  const raw = (notes ?? '').trim();
-  if (!raw) {
-    return null;
-  }
-  const match = raw.match(/\bauto-sale\s+txn\s+(\d+)\b/i);
-  if (!match) {
-    return null;
-  }
-  const id = Number(match[1]);
-  return Number.isFinite(id) && id > 0 ? id : null;
-}
-
-function summarizeCustomerNames(names: string[]): string {
-  const cleaned = names.map((n) => n.trim()).filter(Boolean);
-  if (cleaned.length === 0) {
-    return '';
-  }
-  const unique = Array.from(new Set(cleaned));
-  if (unique.length <= 10) {
-    return unique.join(', ');
-  }
-  return `${unique.slice(0, 10).join(', ')} +${unique.length - 10} more`;
-}
 
 async function getUnitCostByProductCode(productCodes: string[]) {
   const codes = Array.from(

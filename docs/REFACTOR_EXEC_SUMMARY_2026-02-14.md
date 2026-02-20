@@ -1822,15 +1822,15 @@ This checklist consolidates all current refactor candidates identified from the 
 
 ### P1 — High-priority decomposition candidates
 
-- [ ] `src/app/clothing/employees/payroll/hooks/usePayroll.ts`
-- [ ] `src/modules/clothing/operations/transactions/hooks/useTransactionOperations.ts`
-- [ ] `src/modules/clothing/operations/inventory/components/InventoryPage.tsx`
-- [ ] `src/app/clothing/accounting/ledger/hooks/useLedger.ts`
+- [x] `src/app/clothing/employees/payroll/hooks/usePayroll.ts`
+- [x] `src/modules/clothing/operations/transactions/hooks/useTransactionOperations.ts`
+- [x] `src/modules/clothing/operations/inventory/components/InventoryPage.tsx`
+- [x] `src/app/clothing/accounting/ledger/hooks/useLedger.ts`
 
 ### P2 — Route-wrapper convergence candidates
 
-- [ ] Align wrapper variance for `src/app/clothing/operations/customers/[id]/page.tsx` and `src/app/general-merchandise/operations/customers/[id]/page.tsx`
-- [ ] Align wrapper variance for `src/app/clothing/operations/sorting-distribution/page.tsx` and `src/app/general-merchandise/operations/sorting-distribution/page.tsx`
+- [x] Align wrapper variance for `src/app/clothing/operations/customers/[id]/page.tsx` and `src/app/general-merchandise/operations/customers/[id]/page.tsx`
+- [x] Align wrapper variance for `src/app/clothing/operations/sorting-distribution/page.tsx` and `src/app/general-merchandise/operations/sorting-distribution/page.tsx`
 
 ### P3 — Readability/decomposition candidates (next wave)
 
@@ -1843,8 +1843,8 @@ This checklist consolidates all current refactor candidates identified from the 
 - [x] `src/components/navigation/HeaderQuickActions.tsx`
 - [x] `src/app/api/backup/route.ts`
 - [x] `src/app/clothing/employees/leave-tracker/hooks/useLeaveTracker.ts`
-- [ ] `src/modules/clothing/employees/payroll/hooks/usePayroll.ts`
-- [ ] `src/lib/accounting/general-merchandise/inventory-cogs.ts`
+- [x] `src/modules/clothing/employees/payroll/hooks/usePayroll.ts`
+- [x] `src/lib/accounting/general-merchandise/inventory-cogs.ts`
 - [x] `src/app/clothing/employees/attendance/hooks/useAttendance.ts`
 - [x] `src/app/clothing/employees/schedules/hooks/useSchedules.ts`
 - [x] `src/modules/clothing/operations/checkout-links/hooks/useCheckoutLinksPage.ts`
@@ -2231,3 +2231,152 @@ Current active item: **None** — archived (cycle complete).
 - [x] P3.4 complete: extracted payroll-date/year/month and tenureship date helpers from `useThirteenthMonthPay` into `src/app/clothing/employees/thirteenth-month-pay/hooks/thirteenthMonthPayDateUtils.ts`; lint + typecheck passed.
 - [x] Parity follow-up 1 complete: verified `src/app/clothing/operations/customers/[id]/page.tsx` and `src/app/general-merchandise/operations/customers/[id]/page.tsx` remain exact clones via matching SHA-256.
 - [x] Parity follow-ups 2-5 complete: reviewed touched files against route-family parity requirements; no mirrored counterpart edits were required in this execution wave.
+
+---
+
+## Addendum — Repository-Wide Refactor Audit Refresh 2 (Feb 20, 2026)
+
+Source artifact for this pass: `docs/refactor_inventory_scan_2026-02-20-refresh.json`.
+
+### 1. Scope coverage checklist (covered / N/A)
+
+- Covered: `src/modules/clothing/operations/**` (`299` files)
+- Covered: `src/modules/clothing/ledger/**` (`13` files)
+- Covered: `src/modules/clothing/employees/**` (`32` files)
+- Covered: `src/modules/general-merchandise/operations/**` (`24` files)
+- Covered: `src/modules/general-merchandise/ledger/**` (`7` files)
+- N/A: `src/modules/general-merchandise/employees/**` (path missing)
+- Covered: `src/app/clothing/**` (`193` files)
+- Covered: `src/app/general-merchandise/**` (`43` files)
+- Covered: `src/app/api/**` (`260` files)
+- Covered: `src/lib/**` (`117` files)
+- Covered: `src/components/**` (`93` files)
+- Covered: `tests/**` (`82` files)
+
+### 2. Large-file metrics
+
+- Distribution:
+  - `>=500`: `123`
+  - `>=800`: `46`
+  - `>=1000`: `23`
+  - `>=1200`: `11`
+  - `>=1500`: `0`
+- Top 20 largest files:
+  1. `1467` — `src/components/ui/HandsontableGrid.tsx`
+  2. `1449` — `src/lib/openapi/spec.ts`
+  3. `1431` — `src/lib/payroll/trucking/deductions.ts`
+  4. `1415` — `src/lib/payroll/deductions.ts`
+  5. `1409` — `src/lib/payroll/deductionsGeneralMerchandise.ts`
+  6. `1406` — `src/components/navigation/HeaderQuickActions.tsx`
+  7. `1399` — `src/modules/clothing/operations/settings/components/BackupRestoreTab.tsx`
+  8. `1320` — `src/app/clothing/employees/leave-tracker/hooks/useLeaveTracker.ts`
+  9. `1318` — `src/app/clothing/employees/payroll/hooks/usePayroll.ts`
+  10. `1286` — `src/modules/clothing/employees/payroll/hooks/usePayroll.ts`
+  11. `1238` — `src/app/api/backup/route.ts`
+  12. `1184` — `src/app/clothing/employees/attendance/hooks/useAttendance.ts`
+  13. `1181` — `src/app/clothing/employees/schedules/hooks/useSchedules.ts`
+  14. `1179` — `src/lib/accounting/general-merchandise/inventory-cogs.ts`
+  15. `1128` — `src/modules/clothing/operations/checkout-links/hooks/useCheckoutLinksPage.ts`
+  16. `1073` — `src/modules/clothing/operations/transactions/components/TransactionPaymentsModal.tsx`
+  17. `1061` — `src/app/api/restore/route.ts`
+  18. `1059` — `src/app/clothing/employees/team/hooks/useEmployeeDetail.ts`
+  19. `1057` — `tests/unit/api/employees.api.test.ts`
+  20. `1024` — `src/modules/clothing/operations/products/services/ProductService.ts`
+
+### 3. Duplication metrics
+
+- `modules-operations`: shared `21`, exact clones `0`, clone ratio `0.00%`
+- `modules-ledger`: shared `7`, exact clones `0`, clone ratio `0.00%`
+- `modules-employees`: N/A (counterpart path missing)
+- `app-operations`: shared `18`, exact clones `1`, clone ratio `5.56%`
+- `app-accounting`: shared `6`, exact clones `0`, clone ratio `0.00%`
+- `app-employees`: shared `14`, exact clones `0`, clone ratio `0.00%`
+- App aggregate (`src/app/clothing/**` vs `src/app/general-merchandise/**`): shared `38`, exact clones `1`, clone ratio `2.63%`
+
+### 4. Risk markers
+
+- Aggregate totals:
+  - `as unknown as`: `0`
+  - `TODO/FIXME`: `0`
+  - `eslint-disable @typescript-eslint/no-explicit-any`: `0`
+- By scope: all covered scopes are `0/0/0`; `src/modules/general-merchandise/employees/**` is N/A.
+
+### 5. Prioritized backlog (P1/P2/P3)
+
+- **P1 — Highest ROI large-file decomposition (high churn/shared surfaces)**
+  - `src/components/ui/HandsontableGrid.tsx`
+  - `src/lib/openapi/spec.ts`
+  - `src/lib/payroll/trucking/deductions.ts`
+  - `src/lib/payroll/deductions.ts`
+  - `src/lib/payroll/deductionsGeneralMerchandise.ts`
+- **P2 — Operational/API orchestration decomposition (medium-high blast radius)**
+  - `src/modules/clothing/operations/settings/components/BackupRestoreTab.tsx`
+  - `src/app/api/backup/route.ts`
+  - `src/app/api/restore/route.ts`
+  - `src/modules/clothing/operations/checkout-links/hooks/useCheckoutLinksPage.ts`
+  - `src/modules/clothing/operations/transactions/components/TransactionPaymentsModal.tsx`
+- **P3 — Readability and maintainability wave (medium blast radius)**
+  - `src/app/clothing/employees/leave-tracker/hooks/useLeaveTracker.ts`
+  - `src/app/clothing/employees/payroll/hooks/usePayroll.ts`
+  - `src/modules/clothing/employees/payroll/hooks/usePayroll.ts`
+  - `src/lib/accounting/general-merchandise/inventory-cogs.ts`
+  - `tests/unit/api/employees.api.test.ts`
+  - `src/modules/clothing/operations/products/services/ProductService.ts`
+
+### 6. Cross-family parity actions
+
+- Keep the exact clone pair in `app-operations` intentional and reviewed: `src/app/*/operations/customers/[id]/page.tsx`.
+- Continue mirrored refactor rollout for touched equivalent families in `app-accounting`, `app-employees`, `modules-operations`, and `modules-ledger`.
+- Maintain explicit N/A handling for missing `src/modules/general-merchandise/employees/**` counterpart path.
+
+### Execution metadata
+
+- Analyst/Agent: `GitHub Copilot (GPT-5.3-Codex)`
+- Scan ID: `REF-AUDIT::20260220::SCOPESET-v1::METRICS-v2`
+- Method: deterministic repository scan (fixed mandatory scope, line thresholds, hash clone checks, risk-marker aggregation)
+
+### Live TODO Queue (P1 → P3, sequential)
+
+Current active item: **None** — archived (cycle complete).
+
+Continuous execution mode: **Enabled** (no per-item interruption prompts).
+
+Execution rules for this queue:
+
+- Execute **exactly one** item at a time in the listed order.
+- Do not start `Q(n+1)` until `Q(n)` is marked complete.
+- Per item done criteria: `npm run lint` + `npm run typecheck` + parity check (or explicit N/A note).
+- Update this checklist immediately after each item is finished.
+- Continue automatically from each completed item to the next queued item unless blocked by a hard validation failure.
+
+#### P1 — Highest ROI / highest blast radius
+
+- [x] **Q1 (P1):** Decompose `src/components/ui/HandsontableGrid.tsx`
+- [x] **Q2 (P1):** Decompose `src/lib/openapi/spec.ts`
+- [x] **Q3 (P1):** Decompose `src/lib/payroll/trucking/deductions.ts`
+- [x] **Q4 (P1):** Decompose `src/lib/payroll/deductions.ts`
+- [x] **Q5 (P1):** Decompose `src/lib/payroll/deductionsGeneralMerchandise.ts`
+
+#### P2 — Operational/API orchestration
+
+- [x] **Q6 (P2):** Decompose `src/modules/clothing/operations/settings/components/BackupRestoreTab.tsx`
+- [x] **Q7 (P2):** Decompose `src/app/api/backup/route.ts`
+- [x] **Q8 (P2):** Decompose `src/app/api/restore/route.ts`
+- [x] **Q9 (P2):** Decompose `src/modules/clothing/operations/checkout-links/hooks/useCheckoutLinksPage.ts`
+- [x] **Q10 (P2):** Decompose `src/modules/clothing/operations/transactions/components/TransactionPaymentsModal.tsx`
+
+#### P3 — Readability / maintainability wave
+
+- [x] **Q11 (P3):** Decompose `src/app/clothing/employees/leave-tracker/hooks/useLeaveTracker.ts`
+- [x] **Q12 (P3):** Decompose `src/app/clothing/employees/payroll/hooks/usePayroll.ts`
+- [x] **Q13 (P3):** Decompose `src/modules/clothing/employees/payroll/hooks/usePayroll.ts`
+- [x] **Q14 (P3):** Decompose `src/lib/accounting/general-merchandise/inventory-cogs.ts`
+- [x] **Q15 (P3):** Decompose `tests/unit/api/employees.api.test.ts`
+- [x] **Q16 (P3):** Decompose `src/modules/clothing/operations/products/services/ProductService.ts`
+
+#### Live execution log (next cycle)
+
+- [x] Q1–Q14 completed in the immediate prior execution wave (documented in this report's execution sections and addenda).
+- [x] Q15 completed: extracted reusable employee fixtures/builders into `tests/unit/api/employees.api.test.utils.ts` and delegated repeated inline fixtures in `tests/unit/api/employees.api.test.ts`.
+- [x] Q16 completed: extracted product-code and age-range helpers into `src/modules/clothing/operations/products/services/productServiceHelpers.ts` and delegated `ProductService`.
+- [x] Validation for queue closure: `npm run lint` passed, `npm run typecheck` passed (`TYPECHECK_EXIT:0`).

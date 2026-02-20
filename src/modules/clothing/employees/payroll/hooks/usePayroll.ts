@@ -10,6 +10,13 @@ import {
 import { queryKeys } from '@/lib/queryKeys';
 import type { Payroll, PayrollFormData } from '../types';
 import {
+  buildEmployeeOptions,
+  derivePayrollSummary,
+  derivePayPeriods,
+  filterPayrolls,
+  formatPayrollCurrency,
+  formatPayrollDate,
+  getPayrollStatusColor,
   mapEmployeeDirectoryEntries,
   mapPayrollRecords,
   normalizeIdentifier,
@@ -45,22 +52,7 @@ export function usePayroll() {
   );
 
   const employeeOptions = useMemo(() => {
-    const names = new Set<string>();
-    employees.forEach((entry) => {
-      const resolvedName = (entry.name || '').trim();
-      if (resolvedName) {
-        names.add(resolvedName);
-        return;
-      }
-
-      const fallback =
-        `${entry.firstName ?? ''} ${entry.lastName ?? ''}`.trim();
-      if (fallback) {
-        names.add(fallback);
-      }
-    });
-
-    return Array.from(names).sort((a, b) => a.localeCompare(b));
+    return buildEmployeeOptions(employees);
   }, [employees]);
 
   const currentUserName = useMemo(() => {
@@ -138,35 +130,15 @@ export function usePayroll() {
 
   // Computed Values
   const filteredPayrolls = useMemo(() => {
-    return payrolls.filter((payroll) => {
-      const matchesSearch =
-        payroll.employee.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        payroll.payPeriod.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        payroll.bankGcash.toLowerCase().includes(searchQuery.toLowerCase());
-
-      const matchesStatus =
-        statusFilter === 'all' || payroll.status === statusFilter;
-
-      const matchesPayPeriod =
-        payPeriodFilter === 'all' || payroll.payPeriod === payPeriodFilter;
-
-      return matchesSearch && matchesStatus && matchesPayPeriod;
-    });
+    return filterPayrolls(payrolls, searchQuery, statusFilter, payPeriodFilter);
   }, [payrolls, searchQuery, statusFilter, payPeriodFilter]);
 
-  const totalPayrolls = payrolls.length;
-  const pendingPayrolls = payrolls.filter((p) => p.status === 'pending').length;
-  const approvedPayrolls = payrolls.filter(
-    (p) => p.status === 'approved'
-  ).length;
-  const totalNetPay = payrolls
-    .filter((p) => p.status === 'paid')
-    .reduce((sum, p) => sum + p.netPay, 0);
+  const { totalPayrolls, pendingPayrolls, approvedPayrolls, totalNetPay } =
+    useMemo(() => derivePayrollSummary(payrolls), [payrolls]);
 
   // Get unique pay periods for filter
   const payPeriods = useMemo(() => {
-    const periods = Array.from(new Set(payrolls.map((p) => p.payPeriod)));
-    return ['all', ...periods];
+    return derivePayPeriods(payrolls);
   }, [payrolls]);
 
   const payPeriodOptions = useMemo(
@@ -175,33 +147,11 @@ export function usePayroll() {
   );
 
   // Utility Functions
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-    });
-  };
+  const formatDate = formatPayrollDate;
 
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-PH', {
-      style: 'currency',
-      currency: 'PHP',
-    }).format(amount);
-  };
+  const formatCurrency = formatPayrollCurrency;
 
-  const getStatusColor = (status: Payroll['status']) => {
-    switch (status) {
-      case 'pending':
-        return 'orange';
-      case 'approved':
-        return 'green';
-      case 'paid':
-        return 'blue';
-      default:
-        return 'gray';
-    }
-  };
+  const getStatusColor = getPayrollStatusColor;
 
   const parsePayPeriodLabel = parsePayrollPeriodLabel;
 

@@ -138,3 +138,95 @@ export const mapPayrollRecord = (record: Record<string, unknown>): Payroll => {
 export const mapPayrollRecords = (
   data: Array<Record<string, unknown>>
 ): Payroll[] => data.map(mapPayrollRecord);
+
+export const buildEmployeeOptions = (
+  employees: EmployeeDirectoryEntry[]
+): string[] => {
+  const names = new Set<string>();
+  employees.forEach((entry) => {
+    const resolvedName = (entry.name || '').trim();
+    if (resolvedName) {
+      names.add(resolvedName);
+      return;
+    }
+
+    const fallback = `${entry.firstName ?? ''} ${entry.lastName ?? ''}`.trim();
+    if (fallback) {
+      names.add(fallback);
+    }
+  });
+
+  return Array.from(names).sort((a, b) => a.localeCompare(b));
+};
+
+export const filterPayrolls = (
+  payrolls: Payroll[],
+  searchQuery: string,
+  statusFilter: string,
+  payPeriodFilter: string
+): Payroll[] => {
+  const normalizedQuery = searchQuery.toLowerCase();
+  return payrolls.filter((payroll) => {
+    const matchesSearch =
+      payroll.employee.toLowerCase().includes(normalizedQuery) ||
+      payroll.payPeriod.toLowerCase().includes(normalizedQuery) ||
+      payroll.bankGcash.toLowerCase().includes(normalizedQuery);
+
+    const matchesStatus =
+      statusFilter === 'all' || payroll.status === statusFilter;
+
+    const matchesPayPeriod =
+      payPeriodFilter === 'all' || payroll.payPeriod === payPeriodFilter;
+
+    return matchesSearch && matchesStatus && matchesPayPeriod;
+  });
+};
+
+export const derivePayrollSummary = (payrolls: Payroll[]) => {
+  const totalPayrolls = payrolls.length;
+  const pendingPayrolls = payrolls.filter((p) => p.status === 'pending').length;
+  const approvedPayrolls = payrolls.filter(
+    (p) => p.status === 'approved'
+  ).length;
+  const totalNetPay = payrolls
+    .filter((p) => p.status === 'paid')
+    .reduce((sum, p) => sum + p.netPay, 0);
+
+  return {
+    totalPayrolls,
+    pendingPayrolls,
+    approvedPayrolls,
+    totalNetPay,
+  };
+};
+
+export const derivePayPeriods = (payrolls: Payroll[]): string[] => {
+  const periods = Array.from(new Set(payrolls.map((p) => p.payPeriod)));
+  return ['all', ...periods];
+};
+
+export const formatPayrollDate = (dateString: string) =>
+  new Date(dateString).toLocaleDateString('en-US', {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
+  });
+
+export const formatPayrollCurrency = (amount: number) =>
+  new Intl.NumberFormat('en-PH', {
+    style: 'currency',
+    currency: 'PHP',
+  }).format(amount);
+
+export const getPayrollStatusColor = (status: Payroll['status']) => {
+  switch (status) {
+    case 'pending':
+      return 'orange';
+    case 'approved':
+      return 'green';
+    case 'paid':
+      return 'blue';
+    default:
+      return 'gray';
+  }
+};
