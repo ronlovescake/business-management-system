@@ -543,11 +543,11 @@ export function TransactionPaymentsModal({
       opened={opened}
       onClose={handleClose}
       title="Record Payments"
-      size="100%"
+      size="80%"
       styles={{
         content: {
-          // Increase width ~25% (1700px -> 2125px) while still respecting viewport.
-          maxWidth: '2125px',
+          // Reduced overall modal width by 20%.
+          maxWidth: '1700px',
         },
         header: {
           position: 'sticky',
@@ -717,7 +717,7 @@ export function TransactionPaymentsModal({
                     </Table.Th>
                     <Table.Th
                       style={{
-                        width: 130,
+                        width: 80,
                         textAlign: 'center',
                         verticalAlign: 'middle',
                         backgroundColor: '#f1f3f5',
@@ -758,7 +758,7 @@ export function TransactionPaymentsModal({
                     </Table.Th>
                     <Table.Th
                       style={{
-                        width: 120,
+                        width: 80,
                         textAlign: 'center',
                         verticalAlign: 'middle',
                         backgroundColor: '#f1f3f5',
@@ -768,17 +768,27 @@ export function TransactionPaymentsModal({
                     </Table.Th>
                     <Table.Th
                       style={{
-                        width: 120,
+                        width: 80,
                         textAlign: 'center',
                         verticalAlign: 'middle',
                         backgroundColor: '#f1f3f5',
                       }}
                     >
-                      Payment
+                      Line Total
                     </Table.Th>
                     <Table.Th
                       style={{
-                        width: 140,
+                        width: 80,
+                        textAlign: 'center',
+                        verticalAlign: 'middle',
+                        backgroundColor: '#f1f3f5',
+                      }}
+                    >
+                      Adjustments
+                    </Table.Th>
+                    <Table.Th
+                      style={{
+                        width: 80,
                         textAlign: 'center',
                         verticalAlign: 'middle',
                         backgroundColor: '#f1f3f5',
@@ -799,7 +809,7 @@ export function TransactionPaymentsModal({
 
                     <Table.Th
                       style={{
-                        width: 180,
+                        width: 80,
                         textAlign: 'center',
                         verticalAlign: 'middle',
                         backgroundColor: '#f1f3f5',
@@ -810,7 +820,7 @@ export function TransactionPaymentsModal({
 
                     <Table.Th
                       style={{
-                        width: 160,
+                        width: 80,
                         textAlign: 'center',
                         verticalAlign: 'middle',
                         backgroundColor: '#f1f3f5',
@@ -821,7 +831,7 @@ export function TransactionPaymentsModal({
 
                     <Table.Th
                       style={{
-                        width: 140,
+                        width: 80,
                         textAlign: 'center',
                         verticalAlign: 'middle',
                         backgroundColor: '#f1f3f5',
@@ -848,11 +858,18 @@ export function TransactionPaymentsModal({
                           <Table.Td>&nbsp;</Table.Td>
                           <Table.Td>&nbsp;</Table.Td>
                           <Table.Td>&nbsp;</Table.Td>
-                          <Table.Td>
+                          <Table.Td>&nbsp;</Table.Td>
+                          <Table.Td
+                            style={{
+                              verticalAlign: 'middle',
+                              paddingLeft: 4,
+                              paddingRight: 4,
+                            }}
+                          >
                             <div
                               style={{
                                 display: 'flex',
-                                justifyContent: 'flex-end',
+                                justifyContent: 'center',
                               }}
                             >
                               <NumberInput
@@ -863,7 +880,7 @@ export function TransactionPaymentsModal({
                                 prefix="₱"
                                 disabled
                                 styles={{ input: { textAlign: 'right' } }}
-                                style={{ width: 140 }}
+                                style={{ width: '100%' }}
                               />
                             </div>
                           </Table.Td>
@@ -898,8 +915,22 @@ export function TransactionPaymentsModal({
 
                     return (
                       <Table.Tr key={id} style={{ height: ROW_HEIGHT }}>
-                        <Table.Td>{id}</Table.Td>
-                        <Table.Td>{t['Order Date']}</Table.Td>
+                        <Table.Td
+                          style={{
+                            textAlign: 'center',
+                            verticalAlign: 'middle',
+                          }}
+                        >
+                          {id}
+                        </Table.Td>
+                        <Table.Td
+                          style={{
+                            textAlign: 'center',
+                            verticalAlign: 'middle',
+                          }}
+                        >
+                          {t['Order Date']}
+                        </Table.Td>
                         <Table.Td style={{ whiteSpace: 'nowrap' }}>
                           {t.Customers || '—'}
                         </Table.Td>
@@ -916,7 +947,7 @@ export function TransactionPaymentsModal({
                         </Table.Td>
                         <Table.Td
                           style={{
-                            textAlign: 'right',
+                            textAlign: 'center',
                             verticalAlign: 'middle',
                           }}
                         >
@@ -924,7 +955,15 @@ export function TransactionPaymentsModal({
                         </Table.Td>
                         <Table.Td
                           style={{
-                            textAlign: 'right',
+                            textAlign: 'center',
+                            verticalAlign: 'middle',
+                          }}
+                        >
+                          ₱{grossTotal.toLocaleString()}
+                        </Table.Td>
+                        <Table.Td
+                          style={{
+                            textAlign: 'center',
                             verticalAlign: 'middle',
                           }}
                         >
@@ -932,7 +971,7 @@ export function TransactionPaymentsModal({
                         </Table.Td>
                         <Table.Td
                           style={{
-                            textAlign: 'right',
+                            textAlign: 'center',
                             verticalAlign: 'middle',
                           }}
                         >
@@ -991,14 +1030,16 @@ export function TransactionPaymentsModal({
 
                         <Table.Td
                           style={{
-                            textAlign: 'right',
+                            textAlign: 'center',
                             verticalAlign: 'middle',
+                            paddingLeft: 4,
+                            paddingRight: 4,
                           }}
                         >
                           <div
                             style={{
                               display: 'flex',
-                              justifyContent: 'flex-end',
+                              justifyContent: 'center',
                             }}
                           >
                             <NumberInput
@@ -1013,10 +1054,6 @@ export function TransactionPaymentsModal({
                                   ? 'Payment exceeds balance due'
                                   : undefined
                               }
-                              onMouseDown={(event) => {
-                                event.preventDefault();
-                                event.currentTarget.focus();
-                              }}
                               onFocus={(event) => {
                                 event.currentTarget.select();
                               }}
@@ -1028,7 +1065,7 @@ export function TransactionPaymentsModal({
                                   textAlign: 'right',
                                 },
                               }}
-                              style={{ width: 140 }}
+                              style={{ width: '100%' }}
                             />
                           </div>
                         </Table.Td>
