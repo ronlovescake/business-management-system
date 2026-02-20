@@ -861,12 +861,21 @@ This is an append-only update for history tracking. Prior sections remain unchan
 
 - R5 is **completed** (Feb 20, 2026).
 - Full-scope audit outputs were regenerated with measurable baselines and parity actions.
-- Queue status updated below to reflect R1–R5 completion for this cycle.
+- The queue below is retained as historical execution trace and may include
+  in-flight checkbox states captured during execution.
+
+### Cycle closure (authoritative)
+
+- **Refactor cycle status:** Closed (Feb 20, 2026).
+- **Validation status:** Full gate chain passed (`lint`, `typecheck`, `unit`,
+  `integration`, `hardening`, `coverage`; exit code `0`).
+- **Authoritative backlog source:** Use the latest prioritized backlog in
+  **Addendum — Compact Refactor Audit Snapshot (Feb 20, 2026)**.
 
 ### Continuous Refactor TODO Queue (Sequential)
 
-Use this queue to run refactors continuously in strict order.
-Only start the next item after the current item is fully completed and validated.
+Historical execution queue retained for traceability.
+For new work planning, use the compact snapshot backlog above.
 
 Current active item: **None** — this cycle queue is complete (Feb 20, 2026).
 
