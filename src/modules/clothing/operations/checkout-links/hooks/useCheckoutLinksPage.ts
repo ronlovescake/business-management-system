@@ -353,6 +353,22 @@ export const useCheckoutLinksPage = ({
     return buildLocalInvoiceDateOptions(transactionsWithInvoiceDate);
   }, [transactionsWithInvoiceDate]);
 
+  useEffect(() => {
+    setLocalInvoiceDateFilter((currentFilter) => {
+      const latestInvoiceDate = localInvoiceDateOptions[0] ?? null;
+
+      if (!latestInvoiceDate) {
+        return null;
+      }
+
+      if (currentFilter && localInvoiceDateOptions.includes(currentFilter)) {
+        return currentFilter;
+      }
+
+      return latestInvoiceDate;
+    });
+  }, [localInvoiceDateOptions]);
+
   const filteredItemWeightData = useMemo(() => {
     return filterItemWeightData(itemWeightData, itemWeightSearchQuery);
   }, [itemWeightData, itemWeightSearchQuery]);
