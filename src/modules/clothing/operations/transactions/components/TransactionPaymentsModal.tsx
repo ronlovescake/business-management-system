@@ -13,6 +13,7 @@ import {
   Table,
   Text,
   TextInput,
+  Tooltip,
 } from '@mantine/core';
 import { DateInput } from '@mantine/dates';
 import { showNotification } from '@mantine/notifications';
@@ -57,6 +58,8 @@ export function TransactionPaymentsModal({
   customerNames,
   defaultCustomerName,
   onCustomerChange,
+  defaultProductCode,
+  onProductCodeChange,
   apiBasePath,
   selectedStatuses,
   onStatusFilter,
@@ -67,6 +70,8 @@ export function TransactionPaymentsModal({
   customerNames: string[];
   defaultCustomerName?: string | null;
   onCustomerChange?: (customerName: string | null) => void;
+  defaultProductCode?: string | null;
+  onProductCodeChange?: (productCode: string | null) => void;
   apiBasePath?: string;
   selectedStatuses: Set<string>;
   onStatusFilter: (status: string) => void;
@@ -143,6 +148,14 @@ export function TransactionPaymentsModal({
     [onCustomerChange]
   );
 
+  const handleProductCodeChange = useCallback(
+    (value: string | null) => {
+      setSelectedProductCode(value);
+      onProductCodeChange?.(value);
+    },
+    [onProductCodeChange]
+  );
+
   useEffect(() => {
     if (!opened) {
       return;
@@ -197,6 +210,36 @@ export function TransactionPaymentsModal({
       .sort((a, b) => a.localeCompare(b))
       .map((code) => ({ value: code, label: code }));
   }, [transactions]);
+
+  useEffect(() => {
+    if (!opened) {
+      return;
+    }
+
+    if (!defaultProductCode || selectedProductCode) {
+      return;
+    }
+
+    const normalizedDefault = defaultProductCode.trim().toLowerCase();
+    if (!normalizedDefault) {
+      return;
+    }
+
+    const match = productCodeOptions.find(
+      (option) => option.value.trim().toLowerCase() === normalizedDefault
+    );
+
+    if (match?.value) {
+      setSelectedProductCode(match.value);
+      onProductCodeChange?.(match.value);
+    }
+  }, [
+    defaultProductCode,
+    onProductCodeChange,
+    opened,
+    productCodeOptions,
+    selectedProductCode,
+  ]);
 
   const statusFilterPills = useMemo(() => {
     return (
@@ -585,7 +628,7 @@ export function TransactionPaymentsModal({
               nothingFoundMessage="No matching products"
               data={productCodeOptions}
               value={selectedProductCode}
-              onChange={setSelectedProductCode}
+              onChange={handleProductCodeChange}
               clearable
             />
 
@@ -912,6 +955,20 @@ export function TransactionPaymentsModal({
                       Math.max(reservationFee, 0),
                       maxPayable
                     );
+                    const hasExistingReservationPayment = paidSoFar > 0;
+                    const isReservationFeeDisabled =
+                      reservationFeePayable <= 0 ||
+                      hasExistingReservationPayment;
+                    const reservationFeeTooltipLabel =
+                      hasExistingReservationPayment
+                        ? 'Reservation fee already recorded'
+                        : reservationFeePayable <= 0
+                          ? 'No reservation fee available'
+                          : '';
+                    const isFullPaymentDisabled = maxPayable <= 0;
+                    const fullPaymentTooltipLabel = isFullPaymentDisabled
+                      ? 'No balance due'
+                      : '';
 
                     return (
                       <Table.Tr key={id} style={{ height: ROW_HEIGHT }}>
@@ -987,45 +1044,89 @@ export function TransactionPaymentsModal({
                         </Table.Td>
 
                         <Table.Td style={{ textAlign: 'center' }}>
-                          <Button
-                            size="xs"
-                            variant="light"
-                            disabled={reservationFeePayable <= 0}
-                            onClick={() => {
-                              setReservationTouched(true);
-                              setIsReservation(true);
-
-                              if (!notes.trim()) {
-                                setNotes('Reservation fee');
-                              }
-
-                              setAmountByTransactionId((prev) => ({
-                                ...prev,
-                                [id]: reservationFeePayable,
-                              }));
-                            }}
+                          <Tooltip
+                            label={reservationFeeTooltipLabel}
+                            disabled={!isReservationFeeDisabled}
                           >
-                            ₱{reservationFeePayable.toLocaleString()}
-                          </Button>
+                            <span>
+                              <Button
+                                size="xs"
+                                variant="light"
+                                aria-disabled={isReservationFeeDisabled}
+                                tabIndex={isReservationFeeDisabled ? -1 : 0}
+                                styles={{
+                                  root: {
+                                    opacity: isReservationFeeDisabled
+                                      ? 0.55
+                                      : undefined,
+                                    cursor: isReservationFeeDisabled
+                                      ? 'default'
+                                      : 'pointer',
+                                  },
+                                }}
+                                onClick={() => {
+                                  if (isReservationFeeDisabled) {
+                                    return;
+                                  }
+
+                                  setReservationTouched(true);
+                                  setIsReservation(true);
+
+                                  if (!notes.trim()) {
+                                    setNotes('Reservation fee');
+                                  }
+
+                                  setAmountByTransactionId((prev) => ({
+                                    ...prev,
+                                    [id]: reservationFeePayable,
+                                  }));
+                                }}
+                              >
+                                ₱{reservationFeePayable.toLocaleString()}
+                              </Button>
+                            </span>
+                          </Tooltip>
                         </Table.Td>
 
                         <Table.Td style={{ textAlign: 'center' }}>
-                          <Button
-                            size="xs"
-                            variant="light"
-                            disabled={maxPayable <= 0}
-                            onClick={() => {
-                              setReservationTouched(true);
-                              setIsReservation(false);
-
-                              setAmountByTransactionId((prev) => ({
-                                ...prev,
-                                [id]: maxPayable,
-                              }));
-                            }}
+                          <Tooltip
+                            label={fullPaymentTooltipLabel}
+                            disabled={!isFullPaymentDisabled}
                           >
-                            ₱{maxPayable.toLocaleString()}
-                          </Button>
+                            <span>
+                              <Button
+                                size="xs"
+                                variant="light"
+                                aria-disabled={isFullPaymentDisabled}
+                                tabIndex={isFullPaymentDisabled ? -1 : 0}
+                                styles={{
+                                  root: {
+                                    opacity: isFullPaymentDisabled
+                                      ? 0.55
+                                      : undefined,
+                                    cursor: isFullPaymentDisabled
+                                      ? 'default'
+                                      : 'pointer',
+                                  },
+                                }}
+                                onClick={() => {
+                                  if (isFullPaymentDisabled) {
+                                    return;
+                                  }
+
+                                  setReservationTouched(true);
+                                  setIsReservation(false);
+
+                                  setAmountByTransactionId((prev) => ({
+                                    ...prev,
+                                    [id]: maxPayable,
+                                  }));
+                                }}
+                              >
+                                ₱{maxPayable.toLocaleString()}
+                              </Button>
+                            </span>
+                          </Tooltip>
                         </Table.Td>
 
                         <Table.Td

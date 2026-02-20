@@ -191,6 +191,18 @@ export function TransactionsPage({ apiBasePath }: TransactionsPageProps) {
     [activeTab, handleSearch]
   );
 
+  const syncProductCodeFilter = useCallback(
+    (productCode: string | null) => {
+      const query = productCode?.trim() ?? '';
+      setTabSearchQueries((prev) => {
+        const next = { ...prev, main: query, [activeTab]: query };
+        return next;
+      });
+      handleSearch(query);
+    },
+    [activeTab, handleSearch]
+  );
+
   useEffect(() => {
     const activeQuery = tabSearchQueries[activeTab] ?? '';
     handleSearch(activeQuery);
@@ -593,6 +605,16 @@ export function TransactionsPage({ apiBasePath }: TransactionsPageProps) {
     return unique.length === 1 ? unique[0] : null;
   }, [cappedFilteredTransactions]);
 
+  const defaultPaymentsProductCode = useMemo(() => {
+    const candidates = cappedFilteredTransactions
+      .filter((transaction) => transaction.id && transaction['Product Code'])
+      .map((transaction) => String(transaction['Product Code']).trim())
+      .filter((code) => code.length > 0);
+
+    const unique = Array.from(new Set(candidates));
+    return unique.length === 1 ? unique[0] : null;
+  }, [cappedFilteredTransactions]);
+
   const customerLookupBasePath =
     apiBasePath === '/api/general-merchandise' ? apiBasePath : apiBasePath;
 
@@ -741,6 +763,8 @@ export function TransactionsPage({ apiBasePath }: TransactionsPageProps) {
           customerNames={customerNames}
           defaultCustomerName={defaultPaymentsCustomer}
           onCustomerChange={syncCustomerFilter}
+          defaultProductCode={defaultPaymentsProductCode}
+          onProductCodeChange={syncProductCodeFilter}
           apiBasePath={apiBasePath}
           selectedStatuses={selectedStatuses}
           onStatusFilter={handleStatusFilter}
