@@ -58,7 +58,7 @@ describe('useHouseholdExpenses', () => {
           },
         ],
       }),
-    }) as unknown as typeof fetch;
+    }) as typeof fetch;
   });
 
   it('supports consecutive save-and-add-new submissions without losing default account', async () => {

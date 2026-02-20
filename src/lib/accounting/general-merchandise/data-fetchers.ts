@@ -204,13 +204,11 @@ export async function fetchGeneralMerchandiseRecognizedTransactions(): Promise<
 export async function fetchGeneralMerchandiseApprovedExpenses(): Promise<
   GeneralMerchandiseExpenseRow[]
 > {
-  const expenseModel = (
-    prisma as unknown as {
-      generalMerchandiseExpense?: {
+  const expenseModel = Reflect.get(prisma, 'generalMerchandiseExpense') as
+    | {
         findMany?: (args: unknown) => Promise<unknown>;
-      };
-    }
-  ).generalMerchandiseExpense;
+      }
+    | undefined;
 
   if (!expenseModel?.findMany) {
     logger.warn(
@@ -274,13 +272,14 @@ export async function fetchGeneralMerchandiseTransactionRefunds(): Promise<
 export async function fetchGeneralMerchandiseTransactionPayments(): Promise<
   TransactionPaymentWithTransaction[]
 > {
-  const transactionPayment = (
-    prisma as unknown as {
-      generalMerchandiseTransactionPayment?: {
+  const transactionPayment = Reflect.get(
+    prisma,
+    'generalMerchandiseTransactionPayment'
+  ) as
+    | {
         findMany?: (args: unknown) => Promise<unknown>;
-      };
-    }
-  ).generalMerchandiseTransactionPayment;
+      }
+    | undefined;
 
   if (!transactionPayment?.findMany) {
     logger.warn(
@@ -329,13 +328,14 @@ export async function fetchGeneralMerchandiseManualJournalLines(params: {
 }): Promise<ManualJournalLine[]> {
   const { from, to } = params;
 
-  const journalModel = (
-    prisma as unknown as {
-      generalMerchandiseAccountingJournalLine?: {
+  const journalModel = Reflect.get(
+    prisma,
+    'generalMerchandiseAccountingJournalLine'
+  ) as
+    | {
         findMany?: (args: unknown) => Promise<unknown>;
-      };
-    }
-  ).generalMerchandiseAccountingJournalLine;
+      }
+    | undefined;
 
   if (!journalModel?.findMany) {
     logger.warn(

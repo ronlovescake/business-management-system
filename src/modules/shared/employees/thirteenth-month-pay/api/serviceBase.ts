@@ -28,6 +28,8 @@ type ThirteenthMonthPayRepositoryLike<
 
 type DatedStatusRecord = {
   id: string;
+  employeeName?: string | null;
+  year?: number | null;
   approvedDate?: string | null;
   paidDate?: string | null;
 };
@@ -60,7 +62,7 @@ export class ThirteenthMonthPayServiceBase<
     try {
       return await this.repository.findMany({
         orderBy: [{ employeeName: 'asc' }, { year: 'desc' }],
-      } as unknown as FindOptions<TEntity>);
+      });
     } catch (error) {
       logger.error('Failed to fetch 13th month pay records', { error });
       throw new Error('Failed to fetch records');

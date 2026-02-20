@@ -11,7 +11,7 @@ describe('accounting data-fetchers - getPaidAtDate', () => {
       statusChanges: [
         { newStatus: 'shipped', changedAt: new Date('2026-01-14') },
       ],
-    } as unknown as Parameters<typeof getPaidAtDate>[0];
+    } as Parameters<typeof getPaidAtDate>[0];
 
     const paidAt = getPaidAtDate(tx);
 
@@ -24,7 +24,7 @@ describe('accounting data-fetchers - getPaidAtDate', () => {
       statusChanges: [
         { newStatus: 'shipped', changedAt: new Date('2026-01-14') },
       ],
-    } as unknown as Parameters<typeof getPaidAtDate>[0];
+    } as Parameters<typeof getPaidAtDate>[0];
 
     const paidAt = getPaidAtDate(tx);
 
@@ -38,7 +38,7 @@ describe('accounting data-fetchers - getPaidAtDate', () => {
         { newStatus: 'shipped', changedAt: new Date('2026-01-10') },
         { newStatus: 'shipped', changedAt: new Date('2026-01-11') },
       ],
-    } as unknown as Parameters<typeof getPaidAtDate>[0];
+    } as Parameters<typeof getPaidAtDate>[0];
 
     const paidAt = getPaidAtDate(tx);
 
@@ -51,7 +51,7 @@ describe('accounting data-fetchers - getPaidAtDate', () => {
       statusChanges: [
         { newStatus: 'shipped', changedAt: new Date('2026-02-10') },
       ],
-    } as unknown as Parameters<typeof getPaidAtDate>[0];
+    } as Parameters<typeof getPaidAtDate>[0];
 
     const paidAt = getPaidAtDate(tx);
 

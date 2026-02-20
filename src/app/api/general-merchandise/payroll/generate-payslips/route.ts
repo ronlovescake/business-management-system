@@ -61,9 +61,9 @@ type PayslipContext = {
   netPay: number;
 };
 
-const gmPrisma = prisma as unknown as {
-  generalMerchandisePayroll: typeof prisma.payroll;
-};
+type GMPayrollPayslipClient = Pick<typeof prisma, 'generalMerchandisePayroll'>;
+
+const gmClient: GMPayrollPayslipClient = prisma;
 
 function ensureHelpersRegistered() {
   if (helpersRegistered) {
@@ -169,7 +169,7 @@ function formatDateRange(start?: string | null, end?: string | null): string {
 
 async function buildPayslipContext(
   record: Awaited<
-    ReturnType<typeof gmPrisma.generalMerchandisePayroll.findMany>
+    ReturnType<typeof gmClient.generalMerchandisePayroll.findMany>
   >[number],
   periodStart?: string,
   periodEnd?: string
@@ -293,7 +293,7 @@ export const POST = withErrorHandler(async (request: NextRequest) => {
   const { periodStart, periodEnd, payrollIds, payPeriodLabel } =
     validation.data;
 
-  const payrolls = await gmPrisma.generalMerchandisePayroll.findMany({
+  const payrolls = await gmClient.generalMerchandisePayroll.findMany({
     where: {
       deletedAt: null,
       periodStart,

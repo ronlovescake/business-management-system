@@ -7,11 +7,14 @@ import { logger } from '@/lib/logger';
 import { sanitizers } from '@/lib/security/sanitize';
 import { postExpenseForShipment } from '@/modules/shipments/api/expenses';
 
-const gmPrisma = prisma as unknown as {
-  generalMerchandiseShipment: typeof prisma.shipment;
-  generalMerchandiseProduct: typeof prisma.product;
-  generalMerchandiseTransaction: typeof prisma.transaction;
-};
+type GMShipmentDetailClient = Pick<
+  typeof prisma,
+  | 'generalMerchandiseShipment'
+  | 'generalMerchandiseProduct'
+  | 'generalMerchandiseTransaction'
+>;
+
+const gmClient: GMShipmentDetailClient = prisma;
 
 function getOrderStatusFromShipmentStatus(
   shipmentStatus: string
@@ -155,7 +158,7 @@ export const GET = withErrorHandler<RouteContext>(
       return idResult.error;
     }
 
-    const shipment = await gmPrisma.generalMerchandiseShipment.findUnique({
+    const shipment = await gmClient.generalMerchandiseShipment.findUnique({
       where: { id: idResult.id },
     });
 
@@ -179,7 +182,7 @@ export const PUT = withErrorHandler<RouteContext>(
     const shipmentData = convertShipmentDataToDB(body);
 
     const currentShipment =
-      await gmPrisma.generalMerchandiseShipment.findUnique({
+      await gmClient.generalMerchandiseShipment.findUnique({
         where: { id: idResult.id },
       });
 
@@ -187,13 +190,13 @@ export const PUT = withErrorHandler<RouteContext>(
       return ApiResponse.notFound('Shipment');
     }
 
-    const updatedShipment = await gmPrisma.generalMerchandiseShipment.update({
+    const updatedShipment = await gmClient.generalMerchandiseShipment.update({
       where: { id: idResult.id },
       data: shipmentData,
     });
 
     if (currentShipment.shipmentCode) {
-      await gmPrisma.generalMerchandiseProduct.updateMany({
+      await gmClient.generalMerchandiseProduct.updateMany({
         where: {
           shipmentCode: currentShipment.shipmentCode,
         },
@@ -218,7 +221,7 @@ export const PUT = withErrorHandler<RouteContext>(
       );
 
       const productsForShipment =
-        await gmPrisma.generalMerchandiseProduct.findMany({
+        await gmClient.generalMerchandiseProduct.findMany({
           where: {
             shipmentCode: currentShipment.shipmentCode,
           },
@@ -232,7 +235,7 @@ export const PUT = withErrorHandler<RouteContext>(
         .filter((code): code is string => Boolean(code));
 
       const updateResult =
-        await gmPrisma.generalMerchandiseTransaction.updateMany({
+        await gmClient.generalMerchandiseTransaction.updateMany({
           where: {
             deletedAt: null,
             AND: [

@@ -79,27 +79,35 @@ const mapTrip = (trip: unknown) => {
   };
 };
 
-type TripFindManyArgs = {
-  where: { deletedAt: null };
-  orderBy: Array<{ date: 'asc' | 'desc' } | { createdAt: 'asc' | 'desc' }>;
-};
-
-type TripCreateArgs = {
-  data: Record<string, unknown>;
-};
-
 type TripDelegate = {
-  findMany?: (args: TripFindManyArgs) => Promise<unknown[]>;
-  create?: (args: TripCreateArgs) => Promise<unknown>;
+  findMany?: (args: unknown) => Promise<unknown[]>;
+  create?: (args: unknown) => Promise<unknown>;
 };
 
 const tripDelegate = (): TripDelegate | null => {
-  const client = prisma as unknown as Record<string, unknown>;
-  const delegate = client.truckingTrip;
-  if (!isRecord(delegate)) {
+  const delegate = Reflect.get(prisma, 'truckingTrip');
+  if (!delegate || typeof delegate !== 'object') {
     return null;
   }
-  return delegate as TripDelegate;
+
+  const findMany = Reflect.get(delegate, 'findMany');
+  const create = Reflect.get(delegate, 'create');
+
+  return {
+    findMany:
+      typeof findMany === 'function'
+        ? (args: unknown) =>
+            (findMany as (args: unknown) => Promise<unknown[]>).call(
+              delegate,
+              args
+            )
+        : undefined,
+    create:
+      typeof create === 'function'
+        ? (args: unknown) =>
+            (create as (args: unknown) => Promise<unknown>).call(delegate, args)
+        : undefined,
+  };
 };
 
 export async function GET() {

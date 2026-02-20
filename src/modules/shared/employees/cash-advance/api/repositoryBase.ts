@@ -58,11 +58,11 @@ export class CashAdvanceRepositoryBase<
   }
 
   private buildWhere(input: CashAdvanceWhereShape): WhereInput<TEntity> {
-    return input as unknown as WhereInput<TEntity>;
+    return input as WhereInput<TEntity>;
   }
 
   private buildOrderByRequestDateDesc(): OrderByInput<TEntity> {
-    return { requestDate: 'desc' } as unknown as OrderByInput<TEntity>;
+    return { requestDate: 'desc' } as OrderByInput<TEntity>;
   }
 
   async findWithFilters(filters: CashAdvanceQueryInput): Promise<TEntity[]> {

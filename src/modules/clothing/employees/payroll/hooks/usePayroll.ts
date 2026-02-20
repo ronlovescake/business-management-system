@@ -9,23 +9,14 @@ import {
 } from '@/lib/payroll/form-utils';
 import { queryKeys } from '@/lib/queryKeys';
 import type { Payroll, PayrollFormData } from '../types';
+import {
+  mapEmployeeDirectoryEntries,
+  mapPayrollRecords,
+  normalizeIdentifier,
+  type EmployeeDirectoryEntry,
+} from './payrollHookUtils';
 import { getCurrentDateISO } from '@/utils/date';
 import { getSwal } from '@/lib/alerts';
-
-interface EmployeeDirectoryEntry {
-  id: string;
-  employeeId: string;
-  name: string;
-  firstName?: string | null;
-  lastName?: string | null;
-  sssMonthlyContribution?: number | null;
-  philHealthMonthlyContribution?: number | null;
-  pagibigMonthlyContribution?: number | null;
-  taxMonthlyContribution?: number | null;
-}
-
-const normalizeIdentifier = (value: string | undefined | null) =>
-  (value ?? '').toString().trim().replace(/\s+/g, ' ').toLowerCase();
 
 export function usePayroll() {
   const { data: session } = useSession();
@@ -116,37 +107,8 @@ export function usePayroll() {
     const fetchEmployees = async () => {
       try {
         const data = await api.get<unknown[]>('/api/employees');
-        const toOptionalNumber = (value: unknown) => {
-          const parsed = Number(value);
-          return Number.isFinite(parsed) ? parsed : undefined;
-        };
-        const directory = Array.isArray(data)
-          ? data.map((item: unknown) => {
-              const record = item as Record<string, unknown>;
-              return {
-                id:
-                  record.id !== undefined && record.id !== null
-                    ? String(record.id)
-                    : '',
-                employeeId: String(record.employeeId ?? ''),
-                name:
-                  record.name ??
-                  `${record.firstName ?? ''} ${record.lastName ?? ''}`,
-                firstName: record.firstName ?? null,
-                lastName: record.lastName ?? null,
-                sssMonthlyContribution:
-                  toOptionalNumber(record.sssMonthlyContribution) ?? null,
-                philHealthMonthlyContribution:
-                  toOptionalNumber(record.philHealthMonthlyContribution) ??
-                  null,
-                pagibigMonthlyContribution:
-                  toOptionalNumber(record.pagibigMonthlyContribution) ?? null,
-                taxMonthlyContribution:
-                  toOptionalNumber(record.taxMonthlyContribution) ?? null,
-              };
-            })
-          : [];
-        setEmployees(directory as EmployeeDirectoryEntry[]);
+        const directory = mapEmployeeDirectoryEntries(data);
+        setEmployees(directory);
       } catch (error) {
         logger.error('Error fetching employees for payroll directory:', error);
       }
@@ -164,93 +126,7 @@ export function usePayroll() {
     queryKey: queryKeys.payroll.list(filters),
     queryFn: async () => {
       const data = await api.get<Record<string, unknown>[]>('/api/payroll');
-
-      const toNumber = (value: unknown): number => {
-        if (value === null || value === undefined) {
-          return 0;
-        }
-        if (typeof value === 'number') {
-          return value;
-        }
-        if (typeof value === 'string') {
-          const parsed = parseFloat(value);
-          return isNaN(parsed) ? 0 : parsed;
-        }
-        if (typeof value === 'object' && 'toString' in (value as object)) {
-          const parsed = parseFloat(
-            (value as { toString(): string }).toString()
-          );
-          return isNaN(parsed) ? 0 : parsed;
-        }
-        return 0;
-      };
-
-      // Map database records to Payroll type
-      const mappedPayrolls = data.map((record: Record<string, unknown>) => {
-        const basicSalary = toNumber(record.basicSalary);
-        const allowance = toNumber(record.allowance);
-        const overtime = toNumber(record.overtime);
-        const bonuses = toNumber(record.bonuses);
-        const thirteenthMonth = toNumber(record.thirteenthMonth);
-        const grossPay = toNumber(record.grossPay);
-        const sss = toNumber(record.sss);
-        const philHealth = toNumber(record.philHealth);
-        const pagIbig = toNumber(record.pagIbig);
-        const tax = toNumber(record.tax);
-        const loans = toNumber(record.loans);
-        const cashAdvance = toNumber(record.cashAdvance);
-        const lwop = toNumber(
-          record.lwop !== undefined && record.lwop !== null
-            ? record.lwop
-            : record.deduction
-        );
-        const absentsLates = toNumber(record.absentsLates);
-
-        const derivedTotalDeductions =
-          sss +
-          philHealth +
-          pagIbig +
-          tax +
-          loans +
-          cashAdvance +
-          lwop +
-          absentsLates;
-        const derivedNetPay = Math.max(0, grossPay - derivedTotalDeductions);
-
-        const totalDeductions = toNumber(record.totalDeductions);
-        const netPay = toNumber(record.netPay);
-
-        return {
-          id: String(record.id ?? ''),
-          employee: String(record.employeeName ?? ''),
-          employeeId: record.employeeId ? String(record.employeeId) : null,
-          payPeriod: String(record.payPeriod ?? ''),
-          basicSalary,
-          allowance,
-          overtime,
-          bonuses,
-          grossPay,
-          thirteenthMonth,
-          sss,
-          philHealth,
-          pagIbig,
-          tax,
-          loans,
-          cashAdvance,
-          lwop,
-          absentsLates,
-          totalDeductions:
-            totalDeductions > 0 ? totalDeductions : derivedTotalDeductions,
-          netPay: netPay > 0 ? netPay : derivedNetPay,
-          status: record.status as 'pending' | 'approved' | 'paid',
-          bankGcash: String(record.bankGcash ?? ''),
-          approvedBy: record.approvedBy,
-          approvedDate: record.approvedDate,
-          paidDate: record.paidDate,
-        };
-      });
-
-      return mappedPayrolls as Payroll[];
+      return mapPayrollRecords(data);
     },
     staleTime: 30 * 1000,
   });

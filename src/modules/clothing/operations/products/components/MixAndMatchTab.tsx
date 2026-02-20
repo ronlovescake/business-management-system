@@ -27,6 +27,7 @@ import {
 } from '@/lib/dateInputConfig';
 import { DateInput } from '@mantine/dates';
 import { ProductService } from '../services/ProductService';
+import type { ProductData } from '../types/product.types';
 import { buildApiPath } from '@/lib/api/paths';
 import { confirmTripleDelete } from '@/utils/confirmTripleDelete';
 import type {
@@ -36,7 +37,10 @@ import type {
   TransactionFromAPI,
 } from '@/modules/clothing/operations/inventory/types';
 import { normalizeProductCode } from '@/lib/inventory/movements';
-import { buildInventoryItems } from '@/modules/clothing/operations/inventory/lib/inventoryTransforms';
+import {
+  buildInventoryItems,
+  extractApiData,
+} from '@/modules/clothing/operations/inventory/lib/inventoryTransforms';
 
 type MixAndMatchRow = {
   id: number;
@@ -61,6 +65,18 @@ type MixAndMatchFormState = {
   price: number;
   components: MixAndMatchComponentRow[];
 };
+
+function toInventoryProduct(product: ProductData): ProductFromAPI {
+  return {
+    id: String(product.id ?? ''),
+    'Product Code': product['Product Code'] ?? null,
+    Quantity: Number(product.Quantity ?? 0),
+    COGS: Number(product.COGS ?? 0),
+    'Actual Price': Number(product['Actual Price'] ?? 0),
+    'Shipment Code': product['Shipment Code'] ?? null,
+    'Shipment Status': product['Shipment Status'] ?? null,
+  };
+}
 
 async function confirmTripleDeleteMixAndMatch(
   mixAndMatchLabel: string
@@ -202,22 +218,16 @@ export function MixAndMatchTab({ apiBasePath }: MixAndMatchTabProps) {
         return [];
       }
 
-      const payload = (await response.json()) as {
-        data?: TransactionFromAPI[];
-      };
-
-      if (Array.isArray(payload)) {
-        return payload as unknown as TransactionFromAPI[];
-      }
-
-      return Array.isArray(payload?.data) ? payload.data : [];
+      const payload = (await response.json()) as unknown;
+      return extractApiData<TransactionFromAPI>(payload);
     },
     staleTime: 30 * 1000,
   });
 
   const sellableOnHandByCode = useMemo(() => {
+    const inventoryProducts = products.map(toInventoryProduct);
     const inventoryItems = buildInventoryItems(
-      products as unknown as ProductFromAPI[],
+      inventoryProducts,
       transactions,
       [],
       movements,

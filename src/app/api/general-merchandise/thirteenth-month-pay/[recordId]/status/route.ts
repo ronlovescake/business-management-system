@@ -3,9 +3,12 @@ import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
 
-const gmPrisma = prisma as unknown as {
-  generalMerchandiseThirteenthMonthPayRecord: typeof prisma.thirteenthMonthPayRecord;
-};
+type GMThirteenthMonthStatusClient = Pick<
+  typeof prisma,
+  'generalMerchandiseThirteenthMonthPayRecord'
+>;
+
+const gmClient: GMThirteenthMonthStatusClient = prisma;
 
 export async function PATCH(
   request: NextRequest,
@@ -32,7 +35,7 @@ export async function PATCH(
     }
 
     const record =
-      await gmPrisma.generalMerchandiseThirteenthMonthPayRecord.findFirst({
+      await gmClient.generalMerchandiseThirteenthMonthPayRecord.findFirst({
         where: { recordId },
       });
 
@@ -49,7 +52,7 @@ export async function PATCH(
     }
 
     const updated =
-      await gmPrisma.generalMerchandiseThirteenthMonthPayRecord.update({
+      await gmClient.generalMerchandiseThirteenthMonthPayRecord.update({
         where: { id: record.id },
         data: updateData,
       });

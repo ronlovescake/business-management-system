@@ -11,9 +11,12 @@ import type {
 } from '@/components/ui/HandsontableGrid';
 import { useTransactionsLayout } from './hooks/useTransactionsLayout';
 
+type HandsontableGridComponent = <T extends object>(
+  props: HandsontableGridProps<T>
+) => JSX.Element;
+
 // Lazy load HandsontableGrid to reduce initial bundle size
 // This is a large dependency (handsontable library) that's only needed when viewing tables
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 const HandsontableGrid = dynamic(
   () =>
     import('@/components/ui/HandsontableGrid').then(
@@ -28,9 +31,7 @@ const HandsontableGrid = dynamic(
       </div>
     ),
   }
-) as unknown as <T extends object>(
-  props: HandsontableGridProps<T>
-) => JSX.Element;
+) as HandsontableGridComponent;
 
 /**
  * TransactionsLayout Component

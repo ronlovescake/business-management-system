@@ -1,7 +1,6 @@
 import { randomUUID } from 'crypto';
 import type { Prisma, Transaction } from '@prisma/client';
 import { prisma } from '@/lib/db';
-import { PAID_STATUSES } from '@/lib/accounting/constants';
 import { isFulfilledStatus, isReservedStatus } from '@/lib/inventory/statuses';
 import {
   buildSellableDeltaMap,
@@ -28,6 +27,12 @@ import {
   sanitizeTransactionUpdateRecord,
 } from './sanitizers';
 import type { TransactionRecord, TransactionUpdateRecord } from './sanitizers';
+import {
+  computeLineTotalForUpdate,
+  computeRemainingBalance,
+  isPaidStatus,
+  type ExistingTransactionForPaidStatusCheck,
+} from './service-calculations';
 import { transactionDataSchema, transactionUpdateSchema } from './schemas';
 
 interface PriceTier {
@@ -408,62 +413,6 @@ function shouldRecalculateLineTotal(values: TransactionUpdateRecord['values']) {
     values['Line Total'] !== undefined
   );
 }
-
-function normalizeStatus(value: string | null | undefined): string {
-  return (value ?? '').trim().toLowerCase();
-}
-
-function isPaidStatus(value: string | null | undefined): boolean {
-  const normalized = normalizeStatus(value);
-  return PAID_STATUSES.some((status) => normalizeStatus(status) === normalized);
-}
-
-function toFiniteNumber(value: unknown, fallback = 0): number {
-  const n = typeof value === 'number' ? value : Number(value);
-  return Number.isFinite(n) ? n : fallback;
-}
-
-function computeRemainingBalance(params: {
-  lineTotal: unknown;
-  quantity: unknown;
-  unitPrice: unknown;
-  discount: unknown;
-  adjustment: unknown;
-}): number {
-  const lineTotal = toFiniteNumber(params.lineTotal, Number.NaN);
-  if (Number.isFinite(lineTotal)) {
-    return lineTotal;
-  }
-
-  const quantity = toFiniteNumber(params.quantity, 0);
-  const unitPrice = toFiniteNumber(params.unitPrice, 0);
-  const discount = toFiniteNumber(params.discount, 0);
-  const adjustment = toFiniteNumber(params.adjustment, 0);
-
-  return quantity * unitPrice - discount - adjustment;
-}
-
-function computeLineTotalForUpdate(params: {
-  existing: ExistingTransactionForPaidStatusCheck;
-  updateValues: TransactionUpdateRecord['values'];
-}): number {
-  const quantity = toFiniteNumber(
-    params.updateValues.Quantity ?? params.existing.quantity,
-    0
-  );
-  const unitPrice = toFiniteNumber(
-    params.updateValues['Unit Price'] ?? params.existing.unitPrice,
-    0
-  );
-  const adjustment = toFiniteNumber(params.existing.adjustment, 0);
-
-  return calculateLineTotal(quantity, unitPrice, adjustment);
-}
-
-type ExistingTransactionForPaidStatusCheck = Pick<
-  Transaction,
-  'lineTotal' | 'quantity' | 'unitPrice' | 'discount' | 'adjustment'
->;
 
 function assertCanSetPaidStatus(params: {
   nextStatus: string | null | undefined;

@@ -70,6 +70,37 @@ type MovementRecord = {
   notes?: string | null;
 };
 
+function toBundleBatch(row: {
+  bundleName: string;
+  bundleSku: string;
+  components: Array<{ componentProductCode: string; includedQuantity: number }>;
+}): BundleBatch {
+  return {
+    bundleName: row.bundleName,
+    bundleSku: row.bundleSku,
+    components: row.components.map((component) => ({
+      componentProductCode: component.componentProductCode,
+      includedQuantity: component.includedQuantity,
+    })),
+  };
+}
+
+function toMovementRecord(row: {
+  productCode: string;
+  quantity: number;
+  fromBucket: MovementRecord['fromBucket'];
+  toBucket: MovementRecord['toBucket'];
+  notes: string | null;
+}): MovementRecord {
+  return {
+    productCode: row.productCode,
+    quantity: row.quantity,
+    fromBucket: row.fromBucket,
+    toBucket: row.toBucket,
+    notes: row.notes,
+  };
+}
+
 function isActiveDemandStatus(value: string | null | undefined): boolean {
   return isReservedStatus(value) || isFulfilledStatus(value);
 }
@@ -433,14 +464,24 @@ export async function POST(request: NextRequest) {
 
     const normalizedProductCode = normalizeProductCode(productCode);
 
-    const allCompositeRows = (await prisma.bundleBatch.findMany({
-      include: { components: true },
-    })) as unknown as BundleBatch[];
+    const allCompositeRows = await prisma.bundleBatch.findMany({
+      select: {
+        bundleName: true,
+        bundleSku: true,
+        components: {
+          select: {
+            componentProductCode: true,
+            includedQuantity: true,
+          },
+        },
+      },
+    });
+    const compositeBatches: BundleBatch[] = allCompositeRows.map(toBundleBatch);
 
-    const bundles = allCompositeRows.filter(
+    const bundles = compositeBatches.filter(
       (row) => !isStoredMixAndMatchName(row.bundleName)
     );
-    const mixAndMatchRows = allCompositeRows.filter((row) =>
+    const mixAndMatchRows = compositeBatches.filter((row) =>
       isStoredMixAndMatchName(row.bundleName)
     );
 
@@ -523,7 +564,7 @@ export async function POST(request: NextRequest) {
       const movementCodes = Array.from(
         new Set([...componentCodes, ...bundleSkusSharingComponents])
       );
-      const movements = (await prisma.inventoryMovement.findMany({
+      const movementRows = await prisma.inventoryMovement.findMany({
         where: {
           deletedAt: null,
           productCode: { in: movementCodes },
@@ -535,7 +576,8 @@ export async function POST(request: NextRequest) {
           toBucket: true,
           notes: true,
         },
-      })) as unknown as MovementRecord[];
+      });
+      const movements: MovementRecord[] = movementRows.map(toMovementRecord);
 
       const actualQuantityMap = buildActualQuantityMap({
         baseQuantityMap: productQuantityMap,
@@ -673,7 +715,7 @@ export async function POST(request: NextRequest) {
           ...bundleSkusSharingComponents,
         ])
       );
-      const movements = (await prisma.inventoryMovement.findMany({
+      const movementRows = await prisma.inventoryMovement.findMany({
         where: {
           deletedAt: null,
           productCode: { in: movementCodes },
@@ -685,7 +727,8 @@ export async function POST(request: NextRequest) {
           toBucket: true,
           notes: true,
         },
-      })) as unknown as MovementRecord[];
+      });
+      const movements: MovementRecord[] = movementRows.map(toMovementRecord);
 
       const actualQuantityMap = buildActualQuantityMap({
         baseQuantityMap: productQuantityMap,
@@ -889,7 +932,7 @@ export async function POST(request: NextRequest) {
       ...bundleSkusThatUseProduct,
       ...mixComponentCodes,
     ];
-    const movements = (await prisma.inventoryMovement.findMany({
+    const movementRows = await prisma.inventoryMovement.findMany({
       where: {
         deletedAt: null,
         productCode: { in: movementCodes },
@@ -901,7 +944,8 @@ export async function POST(request: NextRequest) {
         toBucket: true,
         notes: true,
       },
-    })) as unknown as MovementRecord[];
+    });
+    const movements: MovementRecord[] = movementRows.map(toMovementRecord);
 
     const actualQuantityMap = buildActualQuantityMap({
       baseQuantityMap: productBaseQuantityMap,

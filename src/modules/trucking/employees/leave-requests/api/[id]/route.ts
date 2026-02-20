@@ -7,16 +7,7 @@ interface RouteParams {
   params: { id: string };
 }
 
-interface LeaveRequestRecord {
-  id: number; // Database uses integer ID
-}
-
-interface LeaveRequestDelegate {
-  findUnique(args: {
-    where: { id: number };
-  }): Promise<LeaveRequestRecord | null>;
-  delete(args: { where: { id: number } }): Promise<LeaveRequestRecord>;
-}
+type LeaveRequestDelegate = typeof prisma.truckingLeaveRequest;
 
 function parseString(value: unknown): string {
   if (value === null || value === undefined) {
@@ -26,8 +17,7 @@ function parseString(value: unknown): string {
 }
 
 function getLeaveRequestClient(): LeaveRequestDelegate {
-  return (prisma as unknown as { truckingLeaveRequest: LeaveRequestDelegate })
-    .truckingLeaveRequest;
+  return prisma.truckingLeaveRequest;
 }
 
 export async function GET(_req: NextRequest, { params }: RouteParams) {

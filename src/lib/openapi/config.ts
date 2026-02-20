@@ -1,11 +1,14 @@
 /**
  * OpenAPI Configuration
- * 
+ *
  * Generates OpenAPI 3.0 specification from Zod schemas
  * for API documentation and testing.
  */
 
-import { OpenAPIRegistry, OpenApiGeneratorV3 } from '@asteasolutions/zod-to-openapi';
+import {
+  OpenAPIRegistry,
+  OpenApiGeneratorV3,
+} from '@asteasolutions/zod-to-openapi';
 
 // Create a registry for all API routes
 export const registry = new OpenAPIRegistry();
@@ -61,7 +64,7 @@ All endpoints return standardized error responses:
     `,
     contact: {
       name: 'API Support',
-      email: 'support@example.com', // TODO: Update with actual contact
+      email: 'support@example.com', // Placeholder contact email
     },
     license: {
       name: 'Proprietary',

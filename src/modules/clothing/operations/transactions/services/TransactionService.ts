@@ -508,8 +508,21 @@ export class TransactionService {
       const line = lines[i].trim();
       if (line) {
         const values = this.parseCSVLine(line);
-        const transactionData: Record<string, string | number | null> = {
+        const transactionData: TransactionData = {
           id: Date.now() + Math.random() * 10000 + i * 100,
+          'Order Date': '',
+          Customers: '',
+          'Product Code': '',
+          Quantity: null,
+          'Unit Price': null,
+          Discount: null,
+          Adjustment: null,
+          'Line Total': null,
+          'Order Status': null,
+          Notes: '',
+          'Invoice Date': '',
+          'Packed Date': '',
+          'Shipment Code': '',
         };
 
         headers.forEach((rawHeader, index) => {
@@ -535,15 +548,60 @@ export class TransactionService {
           ) {
             const sanitized = rawValue.replace(/[^0-9.\-]/g, '').trim();
             const num = parseFloat(sanitized);
-            transactionData[normalized] = Number.isFinite(num) ? num : 0;
+            const numericValue = Number.isFinite(num) ? num : 0;
+
+            switch (normalized) {
+              case 'Quantity':
+                transactionData.Quantity = numericValue;
+                break;
+              case 'Unit Price':
+                transactionData['Unit Price'] = numericValue;
+                break;
+              case 'Discount':
+                transactionData.Discount = numericValue;
+                break;
+              case 'Adjustment':
+                transactionData.Adjustment = numericValue;
+                break;
+              case 'Line Total':
+                transactionData['Line Total'] = numericValue;
+                break;
+              default:
+                break;
+            }
           } else {
-            transactionData[normalized] = rawValue;
+            switch (normalized) {
+              case 'Order Date':
+                transactionData['Order Date'] = rawValue;
+                break;
+              case 'Customers':
+                transactionData.Customers = rawValue;
+                break;
+              case 'Product Code':
+                transactionData['Product Code'] = rawValue;
+                break;
+              case 'Order Status':
+                transactionData['Order Status'] = rawValue;
+                break;
+              case 'Notes':
+                transactionData.Notes = rawValue;
+                break;
+              case 'Invoice Date':
+                transactionData['Invoice Date'] = rawValue;
+                break;
+              case 'Packed Date':
+                transactionData['Packed Date'] = rawValue;
+                break;
+              case 'Shipment Code':
+                transactionData['Shipment Code'] = rawValue;
+                break;
+              default:
+                break;
+            }
           }
         });
 
-        importedTransactions.push(
-          transactionData as unknown as TransactionData
-        );
+        importedTransactions.push(transactionData);
       }
     }
 

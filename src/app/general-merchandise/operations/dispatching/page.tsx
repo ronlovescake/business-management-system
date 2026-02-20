@@ -1,6 +1,5 @@
 import type { Metadata } from 'next';
-import { Container } from '@mantine/core';
-import { DispatchingComponent } from '@/modules/clothing/operations/dispatching';
+import { DispatchingRoutePage } from '@/app/operations/dispatching/_shared/DispatchingRoutePage';
 import { renderGmOperationsPage } from '@/app/general-merchandise/operations/_shared/renderGmOperationsPage';
 
 export const metadata: Metadata = {
@@ -11,8 +10,6 @@ export const metadata: Metadata = {
 export default async function GeneralMerchandiseDispatchingPage() {
   return renderGmOperationsPage(
     '/general-merchandise/operations/dispatching',
-    <Container size="xl" fluid p="md">
-      <DispatchingComponent />
-    </Container>
+    <DispatchingRoutePage />
   );
 }

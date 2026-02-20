@@ -22,10 +22,12 @@ const MONTH_NAMES = [
   'Dec',
 ];
 
-const gmPrisma = prisma as unknown as {
-  generalMerchandiseShipment: typeof prisma.shipment;
-  generalMerchandiseProduct: typeof prisma.product;
-};
+type GeneralMerchandiseShipmentClient = Pick<
+  typeof prisma,
+  'generalMerchandiseShipment' | 'generalMerchandiseProduct'
+>;
+
+const gmPrisma: GeneralMerchandiseShipmentClient = prisma;
 
 function formatDateValue(date: string | Date | null | undefined): string {
   if (!date) {
@@ -104,7 +106,7 @@ function convertShipmentDataToDB(
 type ShipmentDbPayload = ReturnType<typeof convertShipmentDataToDB>;
 
 async function cascadeShipmentDataToProducts(
-  client: typeof gmPrisma,
+  client: GeneralMerchandiseShipmentClient,
   shipmentCode: string,
   shipmentData: ShipmentDbPayload
 ): Promise<void> {
@@ -151,7 +153,7 @@ async function handleBulkShipmentImport(
   const shipmentsToPersist = shipmentPayloads.map(convertShipmentDataToDB);
 
   const result = await prisma.$transaction(async (tx) => {
-    const gmTx = tx as unknown as typeof gmPrisma;
+    const gmTx: GeneralMerchandiseShipmentClient = tx;
     let created = 0;
     let updated = 0;
     let restored = 0;

@@ -44,7 +44,7 @@ vi.mock('@mantine/notifications', () => ({
 }));
 
 if (!global.fetch) {
-  global.fetch = vi.fn() as unknown as typeof fetch;
+  global.fetch = vi.fn() as typeof fetch;
 }
 
 if (!window.matchMedia) {
@@ -75,8 +75,7 @@ if (!window.ResizeObserver) {
     }
   }
 
-  window.ResizeObserver =
-    ResizeObserver as unknown as typeof window.ResizeObserver;
+  window.ResizeObserver = ResizeObserver as typeof window.ResizeObserver;
 }
 
 beforeAll(() => {

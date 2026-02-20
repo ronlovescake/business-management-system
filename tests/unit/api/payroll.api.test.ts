@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import type { NextRequest } from 'next/server';
+import { NextRequest } from 'next/server';
 
 const { mockPrisma, mockSyncPayrollDeductions } = vi.hoisted(() => {
   return {
@@ -127,17 +127,14 @@ describe('Payroll API', () => {
   const createMockRequest = (
     url: string = getTestApiUrl('/api/payroll'),
     options: { method?: string; body?: unknown; headers?: HeadersInit } = {}
-  ): NextRequest => {
-    const parsedUrl = new URL(url);
-    return {
-      url,
+  ): NextRequest =>
+    new NextRequest(url, {
       method: options.method || 'GET',
-      headers: new Headers(options.headers),
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      nextUrl: parsedUrl as any,
-      json: async () => options.body,
-    } as NextRequest;
-  };
+      headers: options.headers,
+      ...(options.body !== undefined
+        ? { body: JSON.stringify(options.body) }
+        : {}),
+    });
 
   describe('GET /api/payroll', () => {
     it('should fetch all payrolls and sync deductions for pending/approved only', async () => {
@@ -300,8 +297,7 @@ describe('Payroll API', () => {
           employeeId: 'EMP-003',
           employeeName: 'Bob Johnson',
         },
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      ] as any);
+      ] as Array<{ employeeId: string; employeeName: string }>);
 
       mockPrisma.payroll.create.mockResolvedValue({
         id: 'payroll-3',
@@ -360,8 +356,7 @@ describe('Payroll API', () => {
       mockPrisma.employee.findMany.mockResolvedValue([
         { employeeId: 'EMP-004' },
         { employeeId: 'EMP-005' },
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      ] as any);
+      ] as Array<{ employeeId: string }>);
 
       mockPrisma.payroll.create
         .mockResolvedValueOnce({
@@ -449,8 +444,7 @@ describe('Payroll API', () => {
           employeeId: 'EMP-006',
           employeeName: 'Test Employee',
         },
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      ] as any);
+      ] as Array<{ employeeId: string; employeeName: string }>);
 
       mockPrisma.payroll.create.mockResolvedValue({
         id: 'payroll-6',
@@ -526,8 +520,7 @@ describe('Payroll API', () => {
         {
           employeeId: 'EMP-007',
         },
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      ] as any);
+      ] as Array<{ employeeId: string }>);
 
       // But create fails
       mockPrisma.payroll.create.mockRejectedValue(

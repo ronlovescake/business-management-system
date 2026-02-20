@@ -1,5 +1,5 @@
-import { redirect } from 'next/navigation';
+import { EmployeesExpensesRedirectPage } from '@/app/employees/_shared/EmployeesExpensesRedirectPage';
 
 export default function ExpensesRedirectPage() {
-  return redirect('/clothing/accounting');
+  return <EmployeesExpensesRedirectPage redirectPath="/clothing/accounting" />;
 }

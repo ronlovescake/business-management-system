@@ -6,17 +6,6 @@ import { logger } from '@/lib/logger';
 
 type RouteContext = { params: { id: string; paymentId: string } };
 
-type TransactionPaymentDelegate = {
-  findFirst: (args: unknown) => Promise<unknown>;
-  update: (args: unknown) => Promise<unknown>;
-  groupBy: (args: unknown) => Promise<unknown>;
-};
-
-type TransactionDelegate = {
-  update: (args: unknown) => Promise<unknown>;
-  findUnique: (args: unknown) => Promise<unknown>;
-};
-
 type TransactionMetaRow = { id: number; quantity: number; unitPrice: number };
 
 type PaymentRow = { id: number; transactionId: number };
@@ -68,12 +57,7 @@ export const DELETE = withErrorHandler<RouteContext>(
       return ApiResponse.notFound('Customer');
     }
 
-    const transactionPayment = (
-      prisma as unknown as {
-        transactionPayment: TransactionPaymentDelegate;
-        transaction: TransactionDelegate;
-      }
-    ).transactionPayment;
+    const transactionPayment = prisma.transactionPayment;
 
     const existing = (await transactionPayment.findFirst({
       where: {
@@ -92,37 +76,59 @@ export const DELETE = withErrorHandler<RouteContext>(
     }
 
     await prisma.$transaction(async (txp) => {
-      const delegates = txp as unknown as {
-        transactionPayment: TransactionPaymentDelegate;
-        transaction: TransactionDelegate;
-      };
-
-      await delegates.transactionPayment.update({
+      await txp.transactionPayment.update({
         where: { id: parsed.paymentId },
         data: { deletedAt: new Date() },
       });
 
-      const meta = (await delegates.transaction.findUnique({
+      const meta = (await txp.transaction.findUnique({
         where: { id: existing.transactionId },
         select: { id: true, quantity: true, unitPrice: true },
       })) as TransactionMetaRow | null;
 
-      const sums = (await delegates.transactionPayment.groupBy({
-        by: ['transactionId'],
-        where: {
-          transactionId: existing.transactionId,
-          deletedAt: null,
-        },
-        _sum: {
-          amount: true,
-        },
-      })) as Array<{ transactionId: number; _sum: { amount: number | null } }>;
+      const paymentDelegate = txp.transactionPayment;
 
-      const paid = sums[0]?._sum?.amount ?? 0;
+      let paid = 0;
+      if (paymentDelegate.aggregate) {
+        const paymentAggregate = await paymentDelegate.aggregate({
+          where: {
+            transactionId: existing.transactionId,
+            deletedAt: null,
+          },
+          _sum: {
+            amount: true,
+          },
+        });
+        paid = paymentAggregate._sum.amount ?? 0;
+      } else {
+        const groupBy = Reflect.get(paymentDelegate, 'groupBy');
+
+        if (typeof groupBy !== 'function') {
+          throw new Error('TransactionPayment groupBy is unavailable');
+        }
+
+        const groupByAny = groupBy as (
+          this: unknown,
+          args: Record<string, unknown>
+        ) => Promise<unknown>;
+
+        const grouped = (await groupByAny.call(paymentDelegate, {
+          by: ['transactionId'],
+          where: {
+            transactionId: existing.transactionId,
+            deletedAt: null,
+          },
+          _sum: {
+            amount: true,
+          },
+        })) as Array<{ _sum?: { amount?: number | null } }>;
+        paid = grouped[0]?._sum?.amount ?? 0;
+      }
+
       const gross = (meta?.quantity ?? 0) * (meta?.unitPrice ?? 0);
       const balance = gross - paid;
 
-      await delegates.transaction.update({
+      await txp.transaction.update({
         where: { id: existing.transactionId },
         data: {
           adjustment: paid,

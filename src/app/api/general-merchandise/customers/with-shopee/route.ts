@@ -53,39 +53,34 @@ const sanitizeField = (value: unknown, maxLength = 255) =>
 const sanitizeShopeeUsername = (value: unknown) =>
   sanitizeField(value, 150).toLowerCase().trim();
 
-const gmPrisma = prisma as unknown as {
-  generalMerchandiseCustomer: typeof prisma.customer;
-};
-
 export const GET = withErrorHandler(async (_request: NextRequest) => {
   const timestamp = new Date().toISOString();
   logger.info('[GM API] Fetching customers with Shopee', { timestamp });
 
-  const customersWithShopee =
-    await gmPrisma.generalMerchandiseCustomer.findMany({
-      where: { deletedAt: null },
-      select: {
-        id: true,
-        customerName: true,
-        businessName: true,
-        facebook: true,
-        address: true,
-        phoneNumber: true,
-        additionalCustomerInfo: {
-          where: {
-            type: 'shopee_username',
-            deletedAt: null,
-          },
-          select: {
-            value: true,
-          },
-          orderBy: {
-            createdAt: 'asc',
-          },
+  const customersWithShopee = await prisma.generalMerchandiseCustomer.findMany({
+    where: { deletedAt: null },
+    select: {
+      id: true,
+      customerName: true,
+      businessName: true,
+      facebook: true,
+      address: true,
+      phoneNumber: true,
+      additionalCustomerInfo: {
+        where: {
+          type: 'shopee_username',
+          deletedAt: null,
+        },
+        select: {
+          value: true,
+        },
+        orderBy: {
+          createdAt: 'asc',
         },
       },
-      orderBy: { id: 'asc' },
-    });
+    },
+    orderBy: { id: 'asc' },
+  });
 
   const customers = customersWithShopee.map<CustomerWithShopee>((customer) => ({
     id: customer.id,

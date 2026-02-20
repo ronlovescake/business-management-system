@@ -61,7 +61,7 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
   }
 
   const reservationPayments = payments.filter(
-    (p) => (p as unknown as { isReservation?: boolean }).isReservation === true
+    (payment) => Reflect.get(payment as object, 'isReservation') === true
   );
 
   const cancelledReservationTxIds = Array.from(
@@ -104,8 +104,7 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
   // ============================================================================
   const paymentRevenueTotal = payments.reduce((sum, payment) => {
     const isReservation =
-      (payment as unknown as { isReservation?: boolean }).isReservation ===
-      true;
+      Reflect.get(payment as object, 'isReservation') === true;
 
     if (isCancelledOrderStatus(payment.transaction?.orderStatus)) {
       return sum;

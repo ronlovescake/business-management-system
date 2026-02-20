@@ -160,13 +160,14 @@ async function fetchJournalLines(params: {
   fromKey?: string;
   toKey?: string;
 }) {
-  const journalModel = (
-    prisma as unknown as {
-      clothingAccountingJournalLine?: {
+  const journalModel = Reflect.get(
+    prisma as object,
+    'clothingAccountingJournalLine'
+  ) as
+    | {
         findMany?: (args: unknown) => Promise<unknown>;
-      };
-    }
-  ).clothingAccountingJournalLine;
+      }
+    | undefined;
 
   if (!journalModel?.findMany) {
     return { ok: false as const, reason: 'Prisma Client missing model' };

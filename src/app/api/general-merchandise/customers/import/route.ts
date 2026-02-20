@@ -29,11 +29,6 @@ const ADDITIONAL_INFO_FIELDS = [
   { prefix: 'Additional Phone', type: 'phone' },
 ] as const;
 
-const gmPrisma = prisma as unknown as {
-  generalMerchandiseCustomer: typeof prisma.customer;
-  generalMerchandiseAdditionalCustomerInfo: typeof prisma.additionalCustomerInfo;
-};
-
 /**
  * Parse CSV line handling quoted fields with commas
  */
@@ -154,7 +149,7 @@ async function processRow(row: CsvRow, stats: ImportStats): Promise<void> {
 async function upsertCustomer(
   row: CsvRow
 ): Promise<{ customerId: number; wasUpdate: boolean }> {
-  const existingCustomer = await gmPrisma.generalMerchandiseCustomer.findFirst({
+  const existingCustomer = await prisma.generalMerchandiseCustomer.findFirst({
     where: {
       customerName: row['Customer Name'],
       deletedAt: null,
@@ -162,7 +157,7 @@ async function upsertCustomer(
   });
 
   if (existingCustomer) {
-    await gmPrisma.generalMerchandiseCustomer.update({
+    await prisma.generalMerchandiseCustomer.update({
       where: { id: existingCustomer.id },
       data: {
         phoneNumber: row['Phone Number'] || existingCustomer.phoneNumber,
@@ -181,14 +176,14 @@ async function upsertCustomer(
       },
     });
 
-    await gmPrisma.generalMerchandiseAdditionalCustomerInfo.deleteMany({
+    await prisma.generalMerchandiseAdditionalCustomerInfo.deleteMany({
       where: { customerId: existingCustomer.id },
     });
 
     return { customerId: existingCustomer.id, wasUpdate: true };
   }
 
-  const newCustomer = await gmPrisma.generalMerchandiseCustomer.create({
+  const newCustomer = await prisma.generalMerchandiseCustomer.create({
     data: {
       date: row['Date'] || new Date().toISOString().slice(0, 10),
       customerName: row['Customer Name'],
@@ -219,7 +214,7 @@ async function createAdditionalInfoRecords(
       const value = row[key];
 
       if (value) {
-        await gmPrisma.generalMerchandiseAdditionalCustomerInfo.create({
+        await prisma.generalMerchandiseAdditionalCustomerInfo.create({
           data: {
             customerId,
             type,

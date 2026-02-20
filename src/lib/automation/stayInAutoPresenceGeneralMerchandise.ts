@@ -45,12 +45,15 @@ export interface GeneralMerchandiseStayInAutomationResult {
   skippedDetails?: Array<{ employeeId: string; reason: SkipReason }>;
 }
 
-const gmPrisma = prisma as unknown as {
-  generalMerchandiseAttendance: typeof prisma.attendance;
-  generalMerchandiseEmployee: typeof prisma.employee;
-  generalMerchandiseSchedule: typeof prisma.schedule;
-  generalMerchandiseLeaveRequest: typeof prisma.leaveRequest;
-};
+type GMStayInAutomationClient = Pick<
+  typeof prisma,
+  | 'generalMerchandiseAttendance'
+  | 'generalMerchandiseEmployee'
+  | 'generalMerchandiseSchedule'
+  | 'generalMerchandiseLeaveRequest'
+>;
+
+const gmClient: GMStayInAutomationClient = prisma;
 
 const buildResult = (
   override?: Partial<GeneralMerchandiseStayInAutomationResult>
@@ -236,7 +239,7 @@ export async function runGeneralMerchandiseStayInAutoPresenceAutomation(): Promi
     graceMinutes
   );
 
-  const stayInEmployees = await gmPrisma.generalMerchandiseEmployee.findMany({
+  const stayInEmployees = await gmClient.generalMerchandiseEmployee.findMany({
     where: {
       deletedAt: null,
       status: 'active',
@@ -270,7 +273,7 @@ export async function runGeneralMerchandiseStayInAutoPresenceAutomation(): Promi
 
   const [existingAttendance, scheduleSnapshots, approvedLeaves] =
     await Promise.all([
-      gmPrisma.generalMerchandiseAttendance.findMany({
+      gmClient.generalMerchandiseAttendance.findMany({
         where: {
           deletedAt: null,
           date: targetDate,
@@ -278,7 +281,7 @@ export async function runGeneralMerchandiseStayInAutoPresenceAutomation(): Promi
         },
         select: { employeeId: true },
       }),
-      gmPrisma.generalMerchandiseSchedule.findMany({
+      gmClient.generalMerchandiseSchedule.findMany({
         where: {
           employeeId: { in: employeeIds },
           date: targetDate,
@@ -292,7 +295,7 @@ export async function runGeneralMerchandiseStayInAutoPresenceAutomation(): Promi
           position: true,
         },
       }),
-      gmPrisma.generalMerchandiseLeaveRequest.findMany({
+      gmClient.generalMerchandiseLeaveRequest.findMany({
         where: {
           employeeId: { in: employeeIds },
           status: 'approved',
@@ -347,7 +350,7 @@ export async function runGeneralMerchandiseStayInAutoPresenceAutomation(): Promi
       scheduleEntries
     );
 
-    const created = await gmPrisma.generalMerchandiseAttendance.create({
+    const created = await gmClient.generalMerchandiseAttendance.create({
       data: payload,
     });
 

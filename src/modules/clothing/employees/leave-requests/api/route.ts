@@ -29,23 +29,7 @@ interface LeaveRequestCreateInput {
 
 type LeaveRequestUpdateInput = Partial<LeaveRequestCreateInput>;
 
-interface LeaveRequestRecord extends LeaveRequestCreateInput {
-  id: number; // Database uses integer ID
-  createdAt?: string;
-  updatedAt?: string;
-}
-
-interface LeaveRequestDelegate {
-  findMany(args?: unknown): Promise<LeaveRequestRecord[]>;
-  createMany(args: {
-    data: LeaveRequestCreateInput[];
-  }): Promise<{ count: number }>;
-  update(args: {
-    where: { id: number }; // Database uses integer ID
-    data: LeaveRequestUpdateInput;
-  }): Promise<LeaveRequestRecord>;
-  deleteMany(args?: unknown): Promise<{ count: number }>;
-}
+type LeaveRequestDelegate = typeof prisma.leaveRequest;
 
 const VALID_STATUSES: LeaveStatus[] = ['pending', 'approved', 'rejected'];
 const VALID_PAYMENT_STATUSES: PaymentStatus[] = [
@@ -188,8 +172,7 @@ function ensureArray<T>(payload: T | T[]): T[] {
 }
 
 function getLeaveRequestClient(): LeaveRequestDelegate {
-  return (prisma as unknown as { leaveRequest: LeaveRequestDelegate })
-    .leaveRequest;
+  return prisma.leaveRequest;
 }
 
 export async function GET(request: NextRequest) {

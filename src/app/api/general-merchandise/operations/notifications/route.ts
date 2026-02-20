@@ -42,10 +42,6 @@ interface CreateNotificationPayload {
   metadata?: unknown;
 }
 
-const gmPrisma = prisma as unknown as {
-  generalMerchandiseOperationsNotification: typeof prisma.operationsNotification;
-};
-
 function normalizeCategory(rawCategory: unknown): string {
   const sanitized = sanitizeString(rawCategory, {
     maxLength: 50,
@@ -89,7 +85,7 @@ export async function GET(request: NextRequest) {
     }).toLowerCase();
 
     const notifications =
-      (await gmPrisma.generalMerchandiseOperationsNotification.findMany({
+      (await prisma.generalMerchandiseOperationsNotification.findMany({
         where:
           categoryFilter && categoryFilter !== 'all'
             ? { category: categoryFilter }
@@ -147,7 +143,7 @@ export async function POST(request: NextRequest) {
     const id = randomUUID();
 
     const created =
-      await gmPrisma.generalMerchandiseOperationsNotification.create({
+      await prisma.generalMerchandiseOperationsNotification.create({
         data: {
           id,
           category,

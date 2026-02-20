@@ -39,11 +39,6 @@ const ADDITIONAL_INFO_TYPE_CONFIG = {
   { type: string; sanitizer: (value: unknown) => string }
 >;
 
-const gmPrisma = prisma as unknown as {
-  generalMerchandiseCustomer: typeof prisma.customer;
-  generalMerchandiseAdditionalCustomerInfo: typeof prisma.additionalCustomerInfo;
-};
-
 export const GET = withErrorHandler<RouteContext>(
   async (_request: NextRequest, context) => {
     const idResult = parseCustomerId(context);
@@ -51,7 +46,7 @@ export const GET = withErrorHandler<RouteContext>(
       return idResult.error;
     }
 
-    const customer = await gmPrisma.generalMerchandiseCustomer.findUnique({
+    const customer = await prisma.generalMerchandiseCustomer.findUnique({
       where: { id: idResult.id },
       select: { id: true },
     });
@@ -61,7 +56,7 @@ export const GET = withErrorHandler<RouteContext>(
     }
 
     const additionalInfo =
-      await gmPrisma.generalMerchandiseAdditionalCustomerInfo.findMany({
+      await prisma.generalMerchandiseAdditionalCustomerInfo.findMany({
         where: {
           customerId: idResult.id,
           deletedAt: null,
@@ -104,7 +99,7 @@ export const POST = withErrorHandler<RouteContext>(
       );
     }
 
-    const customer = await gmPrisma.generalMerchandiseCustomer.findUnique({
+    const customer = await prisma.generalMerchandiseCustomer.findUnique({
       where: { id: idResult.id },
       select: { id: true },
     });
@@ -115,7 +110,7 @@ export const POST = withErrorHandler<RouteContext>(
 
     const entries = buildAdditionalInfoEntries(validation.data, idResult.id);
     const operations: Array<Prisma.PrismaPromise<unknown>> = [
-      gmPrisma.generalMerchandiseAdditionalCustomerInfo.updateMany({
+      prisma.generalMerchandiseAdditionalCustomerInfo.updateMany({
         where: { customerId: idResult.id },
         data: { deletedAt: new Date() },
       }),
@@ -123,14 +118,14 @@ export const POST = withErrorHandler<RouteContext>(
 
     if (entries.length) {
       operations.push(
-        gmPrisma.generalMerchandiseAdditionalCustomerInfo.createMany({
+        prisma.generalMerchandiseAdditionalCustomerInfo.createMany({
           data: entries,
         })
       );
     }
 
     operations.push(
-      gmPrisma.generalMerchandiseAdditionalCustomerInfo.findMany({
+      prisma.generalMerchandiseAdditionalCustomerInfo.findMany({
         where: { customerId: idResult.id, deletedAt: null },
         orderBy: { createdAt: 'asc' },
       })

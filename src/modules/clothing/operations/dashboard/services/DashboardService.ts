@@ -148,28 +148,28 @@ export class DashboardService {
         value: FormatterService.formatCurrency(metrics.totalRevenue),
         change: this.formatChange(metrics.revenueChange),
         color: metrics.revenueChange >= 0 ? 'green' : 'red',
-        icon: IconCurrencyDollar as unknown as IconComponent,
+        icon: IconCurrencyDollar as IconComponent,
       },
       {
         title: 'Active Orders',
         value: FormatterService.formatNumber(metrics.activeOrders, 0),
         change: this.formatChange(metrics.ordersChange),
         color: metrics.ordersChange >= 0 ? 'blue' : 'red',
-        icon: IconReceipt as unknown as IconComponent,
+        icon: IconReceipt as IconComponent,
       },
       {
         title: 'Customers',
         value: FormatterService.formatNumber(metrics.totalCustomers, 0),
         change: this.formatChange(metrics.customersChange),
         color: metrics.customersChange >= 0 ? 'violet' : 'red',
-        icon: IconUsers as unknown as IconComponent,
+        icon: IconUsers as IconComponent,
       },
       {
         title: 'Products',
         value: FormatterService.formatNumber(metrics.totalProducts, 0),
         change: this.formatChange(metrics.productsChange),
         color: metrics.productsChange >= 0 ? 'orange' : 'red',
-        icon: IconPackage as unknown as IconComponent,
+        icon: IconPackage as IconComponent,
       },
     ];
   }

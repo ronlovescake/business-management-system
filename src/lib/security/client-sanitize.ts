@@ -237,7 +237,7 @@ export function withSanitizedProps<P extends Record<string, unknown>>(
     const sanitizedProps = sanitizeFormData(props, schema);
     // HOC implementation would require React import and JSX
     // This is provided as a utility function instead
-    return { Component, props: sanitizedProps as unknown as P };
+    return { Component, props: sanitizedProps as P };
   };
 }
 

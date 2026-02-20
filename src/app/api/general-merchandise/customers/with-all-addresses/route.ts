@@ -40,13 +40,9 @@ const sanitizeField = (value: unknown, maxLength = 500) =>
     allowSpecialChars: true,
   });
 
-const gmPrisma = prisma as unknown as {
-  generalMerchandiseCustomer: typeof prisma.customer;
-};
-
 export const GET = withErrorHandler(async (_request: NextRequest) => {
   const customersWithAddresses =
-    await gmPrisma.generalMerchandiseCustomer.findMany({
+    await prisma.generalMerchandiseCustomer.findMany({
       where: {
         deletedAt: null,
       },

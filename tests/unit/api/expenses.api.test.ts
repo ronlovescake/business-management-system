@@ -22,19 +22,36 @@ const mockExpenseBatchCreateSchema = vi.hoisted(() => {
       return [];
     }
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    return data.map((item: any) => ({
-      ...item,
-      date: typeof item.date === 'string' ? new Date(item.date) : item.date,
-      amount:
-        typeof item.amount === 'string'
-          ? parseFloat(item.amount.replace(/[₱$€£¥¢₹₽₩₪₦₴₵₸₺₻₼₾₿\s,]/g, ''))
-          : item.amount,
-      status: item.status || 'pending',
-      notes: item.notes === '' ? null : item.notes,
-      receipt: item.receipt === '' ? null : item.receipt,
-      employeeName: item.employeeName === '' ? null : item.employeeName,
-    }));
+    type ExpenseBatchItem = {
+      date?: unknown;
+      amount?: unknown;
+      status?: unknown;
+      notes?: unknown;
+      receipt?: unknown;
+      employeeName?: unknown;
+    } & Record<string, unknown>;
+
+    return data.map((item: unknown) => {
+      const expenseItem = item as ExpenseBatchItem;
+      return {
+        ...expenseItem,
+        date:
+          typeof expenseItem.date === 'string'
+            ? new Date(expenseItem.date)
+            : expenseItem.date,
+        amount:
+          typeof expenseItem.amount === 'string'
+            ? parseFloat(
+                expenseItem.amount.replace(/[₱$€£¥¢₹₽₩₪₦₴₵₸₺₻₼₾₿\s,]/g, '')
+              )
+            : expenseItem.amount,
+        status: expenseItem.status || 'pending',
+        notes: expenseItem.notes === '' ? null : expenseItem.notes,
+        receipt: expenseItem.receipt === '' ? null : expenseItem.receipt,
+        employeeName:
+          expenseItem.employeeName === '' ? null : expenseItem.employeeName,
+      };
+    });
   };
 
   return {
@@ -137,7 +154,7 @@ describe('Expenses API - GET', () => {
 
     mockExpenseService.findAll.mockResolvedValue(mockExpenses);
 
-    const request = mockNextRequest() as unknown as NextRequest;
+    const request = mockNextRequest() as NextRequest;
     const response = await GET(request);
     const payload = await response.json();
 
@@ -168,7 +185,7 @@ describe('Expenses API - GET', () => {
 
     mockExpenseService.findAll.mockResolvedValue(mockExpenses);
 
-    const request = mockNextRequest() as unknown as NextRequest;
+    const request = mockNextRequest() as NextRequest;
     const response = await GET(request);
     const payload = await response.json();
 
@@ -180,7 +197,7 @@ describe('Expenses API - GET', () => {
   it('should handle errors', async () => {
     mockExpenseService.findAll.mockRejectedValue(new Error('Database error'));
 
-    const request = mockNextRequest() as unknown as NextRequest;
+    const request = mockNextRequest() as NextRequest;
     const response = await GET(request);
     const payload = await response.json();
 
@@ -694,7 +711,7 @@ describe('Expenses API - DELETE', () => {
 
     const request = mockNextRequest({
       method: 'DELETE',
-    }) as unknown as NextRequest;
+    }) as NextRequest;
     const response = await DELETE(request);
     const payload = await response.json();
 
@@ -710,7 +727,7 @@ describe('Expenses API - DELETE', () => {
 
     const request = mockNextRequest({
       method: 'DELETE',
-    }) as unknown as NextRequest;
+    }) as NextRequest;
     const response = await DELETE(request);
     const payload = await response.json();
 

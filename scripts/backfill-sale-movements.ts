@@ -11,8 +11,7 @@ function buildAutoSaleMovementNote(transactionId: number) {
 }
 
 async function backfillSaleMovements() {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const client = prisma as any;
+  const client = prisma;
 
   const fulfilledCandidates = await client.transaction.findMany({
     where: {

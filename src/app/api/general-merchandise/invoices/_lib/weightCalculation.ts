@@ -17,12 +17,15 @@ export interface WeightCalculationResult {
   unmatchedProducts: string[];
 }
 
-const gmPrisma = prisma as unknown as {
-  generalMerchandiseInvoice: typeof prisma.invoice;
-  generalMerchandiseItemWeight: typeof prisma.itemWeight;
-  generalMerchandiseProduct: typeof prisma.product;
-  generalMerchandiseTransaction: typeof prisma.transaction;
-};
+type GMInvoiceWeightClient = Pick<
+  typeof prisma,
+  | 'generalMerchandiseInvoice'
+  | 'generalMerchandiseItemWeight'
+  | 'generalMerchandiseProduct'
+  | 'generalMerchandiseTransaction'
+>;
+
+const gmClient: GMInvoiceWeightClient = prisma;
 
 type ItemWeightEntity = Prisma.ItemWeightGetPayload<{
   select: {
@@ -218,7 +221,7 @@ const findWeightForProduct = (
   return undefined;
 };
 
-const getItemWeightClient = () => gmPrisma.generalMerchandiseItemWeight;
+const getItemWeightClient = () => gmClient.generalMerchandiseItemWeight;
 
 export interface CalculateInvoiceWeightsOptions {
   customerName?: string | null;
@@ -251,7 +254,7 @@ export const calculateInvoiceWeights = async (
     includeInvoices = true,
   } = options;
 
-  const invoices = await gmPrisma.generalMerchandiseInvoice.findMany({
+  const invoices = await gmClient.generalMerchandiseInvoice.findMany({
     where: {
       deletedAt: null,
       ...(customerName ? { customerName } : {}),
@@ -278,7 +281,7 @@ export const calculateInvoiceWeights = async (
     itemWeightClient.findMany({
       where: { deletedAt: null },
     }),
-    gmPrisma.generalMerchandiseProduct.findMany({
+    gmClient.generalMerchandiseProduct.findMany({
       where: {
         deletedAt: null,
         OR: [
@@ -304,7 +307,7 @@ export const calculateInvoiceWeights = async (
   for (const invoice of invoices) {
     try {
       const normalizedCustomerName = invoice.customerName.trim();
-      const transactionWhere: Prisma.TransactionWhereInput = {
+      const transactionWhere: Prisma.GeneralMerchandiseTransactionWhereInput = {
         deletedAt: null,
         NOT: EXCLUDED_TRANSACTION_STATUSES.map((status) => ({
           orderStatus: {
@@ -322,7 +325,7 @@ export const calculateInvoiceWeights = async (
       }
 
       const transactions =
-        await gmPrisma.generalMerchandiseTransaction.findMany({
+        await gmClient.generalMerchandiseTransaction.findMany({
           where: transactionWhere,
           select: {
             productCode: true,
@@ -385,7 +388,7 @@ export const calculateInvoiceWeights = async (
       });
 
       if (persistActualWeight) {
-        await gmPrisma.generalMerchandiseInvoice.update({
+        await gmClient.generalMerchandiseInvoice.update({
           where: { id: invoice.id },
           data: { actualWeight: totalWeight.toFixed(2) },
         });
@@ -406,7 +409,7 @@ export const calculateInvoiceWeights = async (
 
   let updatedInvoices: GeneralMerchandiseInvoice[] | undefined;
   if (includeInvoices) {
-    updatedInvoices = await gmPrisma.generalMerchandiseInvoice.findMany({
+    updatedInvoices = await gmClient.generalMerchandiseInvoice.findMany({
       where: {
         deletedAt: null,
         ...(customerName ? { customerName } : {}),
@@ -445,7 +448,7 @@ export const calculateCustomerOrdersFromTransactions = async (
 ): Promise<WeightCalculationResult[]> => {
   const { customerName, requireInvoiceDate = true } = options;
 
-  const transactionWhere: Prisma.TransactionWhereInput = {
+  const transactionWhere: Prisma.GeneralMerchandiseTransactionWhereInput = {
     deletedAt: null,
     orderStatus: {
       in: [...CUSTOMER_ORDER_INCLUDED_STATUSES],
@@ -462,7 +465,7 @@ export const calculateCustomerOrdersFromTransactions = async (
   };
 
   const [transactionRows, itemWeights, productWeights] = await Promise.all([
-    gmPrisma.generalMerchandiseTransaction.findMany({
+    gmClient.generalMerchandiseTransaction.findMany({
       where: transactionWhere,
       select: {
         customers: true,
@@ -475,7 +478,7 @@ export const calculateCustomerOrdersFromTransactions = async (
     getItemWeightClient().findMany({
       where: { deletedAt: null },
     }),
-    gmPrisma.generalMerchandiseProduct.findMany({
+    gmClient.generalMerchandiseProduct.findMany({
       where: {
         deletedAt: null,
         OR: [

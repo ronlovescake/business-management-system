@@ -58,6 +58,35 @@ type MovementRecord = {
   notes?: string | null;
 };
 
+function toBundleBatch(row: {
+  bundleSku: string;
+  components: Array<{ componentProductCode: string; includedQuantity: number }>;
+}): BundleBatch {
+  return {
+    bundleSku: row.bundleSku,
+    components: row.components.map((component) => ({
+      componentProductCode: component.componentProductCode,
+      includedQuantity: component.includedQuantity,
+    })),
+  };
+}
+
+function toMovementRecord(row: {
+  productCode: string;
+  quantity: number;
+  fromBucket: MovementRecord['fromBucket'];
+  toBucket: MovementRecord['toBucket'];
+  notes: string | null;
+}): MovementRecord {
+  return {
+    productCode: row.productCode,
+    quantity: row.quantity,
+    fromBucket: row.fromBucket,
+    toBucket: row.toBucket,
+    notes: row.notes,
+  };
+}
+
 function isActiveDemandStatus(value: string | null | undefined): boolean {
   return isReservedStatus(value) || isFulfilledStatus(value);
 }
@@ -119,13 +148,6 @@ type TransactionRecord = {
 };
 
 const LOW_STOCK_THRESHOLD = 20;
-
-const gmPrisma = prisma as unknown as {
-  generalMerchandiseBundleBatch: typeof prisma.bundleBatch;
-  generalMerchandiseInventoryMovement: typeof prisma.inventoryMovement;
-  generalMerchandiseProduct: typeof prisma.product;
-  generalMerchandiseTransaction: typeof prisma.transaction;
-};
 
 function summarizeStatus(
   productCode: string,
@@ -308,13 +330,22 @@ export async function POST(request: NextRequest) {
 
     const normalizedProductCode = normalizeProductCode(productCode);
 
-    const bundles = (await gmPrisma.generalMerchandiseBundleBatch.findMany({
-      include: { components: true },
-    })) as unknown as BundleBatch[];
+    const bundleRows = await prisma.generalMerchandiseBundleBatch.findMany({
+      select: {
+        bundleSku: true,
+        components: {
+          select: {
+            componentProductCode: true,
+            includedQuantity: true,
+          },
+        },
+      },
+    });
+    const bundles: BundleBatch[] = bundleRows.map(toBundleBatch);
 
     const { componentsBySku, bundleSkusByComponent } = buildBundleMaps(bundles);
 
-    const product = await gmPrisma.generalMerchandiseProduct.findFirst({
+    const product = await prisma.generalMerchandiseProduct.findFirst({
       where: {
         productCode: {
           equals: productCode.trim(),
@@ -357,8 +388,8 @@ export async function POST(request: NextRequest) {
         ])
       );
 
-      const movements =
-        (await gmPrisma.generalMerchandiseInventoryMovement.findMany({
+      const movementRows =
+        await prisma.generalMerchandiseInventoryMovement.findMany({
           where: {
             deletedAt: null,
             productCode: { in: movementCodes },
@@ -370,24 +401,24 @@ export async function POST(request: NextRequest) {
             toBucket: true,
             notes: true,
           },
-        })) as unknown as MovementRecord[];
-
-      const transactions =
-        await gmPrisma.generalMerchandiseTransaction.findMany({
-          where: {
-            orderStatus: {
-              not: 'Cancelled',
-            },
-            ...buildTransactionWhereClause(transactionProductCodes),
-          },
-          select: {
-            productCode: true,
-            quantity: true,
-            orderStatus: true,
-          },
         });
+      const movements: MovementRecord[] = movementRows.map(toMovementRecord);
 
-      const products = await gmPrisma.generalMerchandiseProduct.findMany({
+      const transactions = await prisma.generalMerchandiseTransaction.findMany({
+        where: {
+          orderStatus: {
+            not: 'Cancelled',
+          },
+          ...buildTransactionWhereClause(transactionProductCodes),
+        },
+        select: {
+          productCode: true,
+          quantity: true,
+          orderStatus: true,
+        },
+      });
+
+      const products = await prisma.generalMerchandiseProduct.findMany({
         where: buildTransactionWhereClause([
           ...componentCodes,
           productCode,
@@ -502,7 +533,7 @@ export async function POST(request: NextRequest) {
 
     const transactionProductCodes = [productCode, ...bundleSkusThatUseProduct];
 
-    const transactions = await gmPrisma.generalMerchandiseTransaction.findMany({
+    const transactions = await prisma.generalMerchandiseTransaction.findMany({
       where: {
         orderStatus: {
           not: 'Cancelled',
@@ -517,8 +548,8 @@ export async function POST(request: NextRequest) {
     });
 
     const movementCodes = [productCode, ...bundleSkusThatUseProduct];
-    const movements =
-      (await gmPrisma.generalMerchandiseInventoryMovement.findMany({
+    const movementRows =
+      await prisma.generalMerchandiseInventoryMovement.findMany({
         where: {
           deletedAt: null,
           productCode: { in: movementCodes },
@@ -530,10 +561,11 @@ export async function POST(request: NextRequest) {
           toBucket: true,
           notes: true,
         },
-      })) as unknown as MovementRecord[];
+      });
+    const movements: MovementRecord[] = movementRows.map(toMovementRecord);
 
     const bundleProducts = bundleSkusThatUseProduct.length
-      ? await gmPrisma.generalMerchandiseProduct.findMany({
+      ? await prisma.generalMerchandiseProduct.findMany({
           where: buildTransactionWhereClause(bundleSkusThatUseProduct),
           select: {
             productCode: true,

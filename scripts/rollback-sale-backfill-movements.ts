@@ -1,5 +1,6 @@
 import { prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
+import type { Prisma } from '@prisma/client';
 
 type Args = {
   apply: boolean;
@@ -22,7 +23,7 @@ function parseArgs(argv: string[]): Args {
   };
 }
 
-function buildWhere(args: Args) {
+function buildWhere(args: Args): Prisma.InventoryMovementWhereInput {
   return {
     deletedAt: null,
     fromBucket: 'sellable',
@@ -42,27 +43,20 @@ function buildWhere(args: Args) {
 }
 
 async function rollbackSaleBackfillMovements(args: Args) {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const client = prisma as any;
-
-  type MovementGroupByRow = {
-    productCode: string;
-    _count: { id: number };
-    _sum: { quantity: number | null };
-  };
+  const client = prisma;
 
   const where = buildWhere(args);
 
   const total = await client.inventoryMovement.count({ where });
 
-  const topByProductCode = (await client.inventoryMovement.groupBy({
+  const topByProductCode = await client.inventoryMovement.groupBy({
     by: ['productCode'],
     where,
     _count: { id: true },
     _sum: { quantity: true },
     orderBy: [{ _count: { id: 'desc' } }],
     take: 25,
-  })) as MovementGroupByRow[];
+  });
 
   logger.info('Auto-sale backfill movements found', {
     total,

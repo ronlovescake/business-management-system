@@ -10,14 +10,17 @@ import {
   type CashAdvanceUpdateInput,
 } from '@/modules/clothing/employees/cash-advance/api';
 
-const gmPrisma = prisma as unknown as {
-  generalMerchandiseCashAdvanceRecord: typeof prisma.cashAdvanceRecord;
-};
+type GMCashAdvanceClient = Pick<
+  typeof prisma,
+  'generalMerchandiseCashAdvanceRecord'
+>;
+
+const gmClient: GMCashAdvanceClient = prisma;
 
 const buildWhere = (
   filters: CashAdvanceQuery
-): Prisma.CashAdvanceRecordWhereInput => {
-  const where: Prisma.CashAdvanceRecordWhereInput = {};
+): Prisma.GeneralMerchandiseCashAdvanceRecordWhereInput => {
+  const where: Prisma.GeneralMerchandiseCashAdvanceRecordWhereInput = {};
 
   if (filters.employeeId) {
     where.employeeId = filters.employeeId;
@@ -65,25 +68,25 @@ const buildWhere = (
 
 const cashAdvanceService = {
   findAll: async () =>
-    gmPrisma.generalMerchandiseCashAdvanceRecord.findMany({
+    gmClient.generalMerchandiseCashAdvanceRecord.findMany({
       orderBy: { requestDate: 'desc' },
     }),
   findWithFilters: async (filters: CashAdvanceQuery) =>
-    gmPrisma.generalMerchandiseCashAdvanceRecord.findMany({
+    gmClient.generalMerchandiseCashAdvanceRecord.findMany({
       where: buildWhere(filters),
       orderBy: { requestDate: 'desc' },
     }),
   create: async (data: CashAdvanceCreateInput) =>
-    gmPrisma.generalMerchandiseCashAdvanceRecord.create({
+    gmClient.generalMerchandiseCashAdvanceRecord.create({
       data,
     }),
   update: async (id: string, data: Partial<CashAdvanceUpdateInput>) =>
-    gmPrisma.generalMerchandiseCashAdvanceRecord.update({
+    gmClient.generalMerchandiseCashAdvanceRecord.update({
       where: { id },
       data,
     }),
   delete: async (id: string) => {
-    await gmPrisma.generalMerchandiseCashAdvanceRecord.delete({
+    await gmClient.generalMerchandiseCashAdvanceRecord.delete({
       where: { id },
     });
   },

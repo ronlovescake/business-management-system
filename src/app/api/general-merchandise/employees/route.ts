@@ -14,10 +14,6 @@ import { getDatabaseUrl } from '@/lib/env';
 
 export const dynamic = 'force-dynamic';
 
-const gmPrisma = prisma as unknown as {
-  generalMerchandiseEmployee: typeof prisma.employee;
-};
-
 function dbNotConfigured(): string | null {
   try {
     const url = getDatabaseUrl();
@@ -37,7 +33,7 @@ export const GET = withErrorHandler(async (request: NextRequest) => {
     const status = searchParams.get('status');
     const search = searchParams.get('search');
 
-    const where: Prisma.EmployeeWhereInput = {
+    const where: Prisma.GeneralMerchandiseEmployeeWhereInput = {
       deletedAt: null,
     };
 
@@ -62,7 +58,7 @@ export const GET = withErrorHandler(async (request: NextRequest) => {
       ];
     }
 
-    const employees = await gmPrisma.generalMerchandiseEmployee.findMany({
+    const employees = await prisma.generalMerchandiseEmployee.findMany({
       where,
       select: {
         id: true,
@@ -187,7 +183,7 @@ export const POST = withErrorHandler(async (request: NextRequest) => {
   logger.debug('💾 [API] Creating GM employee with validated data');
 
   try {
-    const employee = await gmPrisma.generalMerchandiseEmployee.create({
+    const employee = await prisma.generalMerchandiseEmployee.create({
       data: employeeData,
     });
 

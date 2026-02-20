@@ -74,7 +74,10 @@ export class HouseholdBudgetService {
 
     for (const exp of expenses) {
       const category = exp.category || 'Uncategorized';
-      const expDate = new Date(exp.date as unknown as string);
+      if (typeof exp.date !== 'string' || !exp.date.trim()) {
+        continue;
+      }
+      const expDate = new Date(exp.date);
 
       if (Number.isNaN(expDate.getTime())) {
         continue; // skip invalid dates

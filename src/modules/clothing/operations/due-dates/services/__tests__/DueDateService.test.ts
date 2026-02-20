@@ -230,9 +230,7 @@ describe('DueDateService', () => {
     });
 
     it('should return empty array for null/undefined input', () => {
-      const result = DueDateService.processDueDateItems(
-        null as unknown as Transaction[]
-      );
+      const result = DueDateService.processDueDateItems(null);
       expect(result).toEqual([]);
     });
 
@@ -492,10 +490,7 @@ describe('DueDateService', () => {
     });
 
     it('should return empty array for null transactions', () => {
-      const result = DueDateService.getCustomerOrders(
-        null as unknown as Transaction[],
-        'Customer A'
-      );
+      const result = DueDateService.getCustomerOrders(null, 'Customer A');
       expect(result).toEqual([]);
     });
 

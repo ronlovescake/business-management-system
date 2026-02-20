@@ -70,6 +70,14 @@ const EXPENSE_DATE_FILTER_OPTIONS: ExpenseDateFilterOption[] = [
 
 const DEFAULT_HOUSEHOLD_ACCOUNT_NAME = 'Ronald Allan Balnig';
 
+function unwrapApiData(payload: unknown): unknown {
+  if (payload && typeof payload === 'object' && 'data' in payload) {
+    return (payload as { data?: unknown }).data ?? payload;
+  }
+
+  return payload;
+}
+
 function resolveDefaultAccountId(
   options: HouseholdAccountOption[]
 ): string | null {
@@ -257,8 +265,7 @@ export function useHouseholdExpenses() {
         });
         const payload = (await res.json()) as unknown;
 
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const data = (payload as any)?.data ?? payload;
+        const data = unwrapApiData(payload);
         if (!mounted || !Array.isArray(data)) {
           return;
         }

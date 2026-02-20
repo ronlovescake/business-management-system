@@ -1,5 +1,4 @@
-import { PageLayout } from '@/components/layout/PageLayout';
-import { MessageTemplatesBoard } from '@/app/clothing/operations/message-templates/MessageTemplatesBoard';
+import { MessageTemplatesRoutePage } from '@/app/operations/message-templates/_shared/MessageTemplatesRoutePage';
 import { DEFAULT_MESSAGE_TEMPLATES } from '@/modules/clothing/operations/message-templates/templates.data';
 import { logger } from '@/lib/logger';
 import type { MessageTemplate } from '@/modules/clothing/operations/message-templates/types';
@@ -8,13 +7,9 @@ import { renderGmOperationsPage } from '@/app/general-merchandise/operations/_sh
 
 export const dynamic = 'force-dynamic';
 
-const gmPrisma = prisma as unknown as {
-  generalMerchandiseMessageTemplate: typeof prisma.messageTemplate;
-};
-
 async function loadTemplates(): Promise<MessageTemplate[]> {
   try {
-    const records = await gmPrisma.generalMerchandiseMessageTemplate.findMany({
+    const records = await prisma.generalMerchandiseMessageTemplate.findMany({
       orderBy: { createdAt: 'asc' },
     });
 
@@ -33,7 +28,7 @@ async function loadTemplates(): Promise<MessageTemplate[]> {
     );
 
     if (missingTemplates.length > 0) {
-      await gmPrisma.generalMerchandiseMessageTemplate.createMany({
+      await prisma.generalMerchandiseMessageTemplate.createMany({
         data: missingTemplates.map((template) => ({
           slug: template.id,
           title: template.title,
@@ -64,13 +59,9 @@ export default async function MessageTemplatesPage() {
 
   return renderGmOperationsPage(
     modulePath,
-    <PageLayout size="xl">
-      <MessageTemplatesBoard
-        templates={templates}
-        showHeader={false}
-        showUsageHint={false}
-        addTemplateCtaHref="/general-merchandise/operations/settings?tab=message&subTab=message-templates"
-      />
-    </PageLayout>
+    <MessageTemplatesRoutePage
+      templates={templates}
+      addTemplateCtaHref="/general-merchandise/operations/settings?tab=message&subTab=message-templates"
+    />
   );
 }

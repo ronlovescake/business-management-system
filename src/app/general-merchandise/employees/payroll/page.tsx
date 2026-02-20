@@ -1,19 +1,9 @@
-import { PermissionGuard } from '@/components/auth/PermissionGuard';
-import {
-  hasModuleAccess,
-  getFirstAccessibleModule,
-} from '@/lib/auth/permissions';
 import { EmployeesPayrollPage } from '@/app/clothing/employees/payroll/page';
+import { renderGmEmployeesPage } from '@/app/general-merchandise/employees/_shared/renderGmEmployeesPage';
 
 export default async function GeneralMerchandiseEmployeesPayroll() {
-  const hasAccess = await hasModuleAccess(
-    '/general-merchandise/employees/payroll'
-  );
-  const redirectTo = await getFirstAccessibleModule();
-
-  return (
-    <PermissionGuard hasAccess={hasAccess} redirectTo={redirectTo}>
-      <EmployeesPayrollPage apiBasePath="/api/general-merchandise" />
-    </PermissionGuard>
+  return renderGmEmployeesPage(
+    '/general-merchandise/employees/payroll',
+    <EmployeesPayrollPage apiBasePath="/api/general-merchandise" />
   );
 }

@@ -10,16 +10,6 @@ import {
   formatValidationErrors,
 } from '@/lib/validations/transaction-payment.validation';
 
-type TransactionPaymentDelegate = {
-  createMany: (args: unknown) => Promise<unknown>;
-  groupBy: (args: unknown) => Promise<unknown>;
-};
-
-type TransactionDelegate = {
-  findMany: (args: unknown) => Promise<unknown>;
-  update: (args: unknown) => Promise<unknown>;
-};
-
 type TransactionRow = {
   id: number;
   quantity: number;
@@ -127,12 +117,7 @@ export const POST = withErrorHandler(async (request: NextRequest) => {
     new Set(sanitized.payments.map((p) => p.transactionId))
   );
 
-  const transactionDelegate = prisma as unknown as {
-    transaction: TransactionDelegate;
-    transactionPayment: TransactionPaymentDelegate;
-  };
-
-  const existingTransactions = (await transactionDelegate.transaction.findMany({
+  const existingTransactions = (await prisma.transaction.findMany({
     where: {
       id: { in: transactionIds },
       deletedAt: null,
@@ -160,12 +145,7 @@ export const POST = withErrorHandler(async (request: NextRequest) => {
   const hasReservationFlag = await supportsReservationFlag();
 
   const result = await prisma.$transaction(async (tx) => {
-    const txDelegate = tx as unknown as {
-      transaction: TransactionDelegate;
-      transactionPayment: TransactionPaymentDelegate;
-    };
-
-    await txDelegate.transactionPayment.createMany({
+    await tx.transactionPayment.createMany({
       data: sanitized.payments.map((p) => ({
         transactionId: p.transactionId,
         paymentDate: p.paymentDate,
@@ -176,7 +156,7 @@ export const POST = withErrorHandler(async (request: NextRequest) => {
       })),
     });
 
-    const sums = (await txDelegate.transactionPayment.groupBy({
+    const paymentSums = await tx.transactionPayment.groupBy({
       by: ['transactionId'],
       where: {
         transactionId: { in: transactionIds },
@@ -185,10 +165,12 @@ export const POST = withErrorHandler(async (request: NextRequest) => {
       _sum: {
         amount: true,
       },
-    })) as Array<{ transactionId: number; _sum: { amount: number | null } }>;
+    });
 
     const sumByTransactionId = new Map(
-      sums.map((row) => [row.transactionId, row._sum.amount ?? 0] as const)
+      paymentSums.map(
+        (row) => [row.transactionId, row._sum.amount ?? 0] as const
+      )
     );
 
     const updates: Array<{
@@ -204,7 +186,7 @@ export const POST = withErrorHandler(async (request: NextRequest) => {
       const unitPrice = meta?.unitPrice ?? 0;
       const lineTotal = quantity * unitPrice - adjustment;
 
-      const updated = (await txDelegate.transaction.update({
+      const updated = (await tx.transaction.update({
         where: { id: transactionId },
         data: {
           adjustment,

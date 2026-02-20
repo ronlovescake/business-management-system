@@ -28,13 +28,13 @@ export class LeaveRequestRepositoryBase<
   }
 
   private toWhereInput(value: Record<string, unknown>): WhereInput<TEntity> {
-    return value as unknown as WhereInput<TEntity>;
+    return value as WhereInput<TEntity>;
   }
 
   private toOrderByInput(
     value: Record<string, 'asc' | 'desc'>
   ): OrderByInput<TEntity> {
-    return value as unknown as OrderByInput<TEntity>;
+    return value as OrderByInput<TEntity>;
   }
 
   async findByEmployee(employeeId: EmployeeIdLike): Promise<TEntity[]> {
@@ -67,12 +67,12 @@ export class LeaveRequestRepositoryBase<
   ): Promise<TEntity[]> {
     try {
       return await this.findMany({
-        where: {
+        where: this.toWhereInput({
           AND: [
             { startDate: { gte: startDate } },
             { endDate: { lte: endDate } },
           ],
-        } as unknown as WhereInput<TEntity>,
+        }),
         orderBy: this.toOrderByInput({ startDate: 'asc' }),
       });
     } catch (error) {
@@ -84,10 +84,10 @@ export class LeaveRequestRepositoryBase<
   async findPendingByEmployee(employeeId: EmployeeIdLike): Promise<TEntity[]> {
     try {
       return await this.findMany({
-        where: {
+        where: this.toWhereInput({
           employeeId,
           status: 'pending',
-        } as unknown as WhereInput<TEntity>,
+        }),
         orderBy: this.toOrderByInput({ appliedDate: 'desc' }),
       });
     } catch (error) {
@@ -205,14 +205,14 @@ export class LeaveRequestRepositoryBase<
   ): Promise<number> {
     try {
       const leaves = await this.findMany({
-        where: {
+        where: this.toWhereInput({
           employeeId,
           status,
           AND: [
             { startDate: { gte: startDate } },
             { endDate: { lte: endDate } },
           ],
-        } as unknown as WhereInput<TEntity>,
+        }),
       });
 
       return leaves.reduce(

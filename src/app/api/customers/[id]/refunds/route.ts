@@ -12,11 +12,6 @@ import {
 
 type RouteContext = { params: { id: string } };
 
-type TransactionRefundDelegate = {
-  findMany: (args: unknown) => Promise<unknown>;
-  create: (args: unknown) => Promise<unknown>;
-};
-
 type RefundRow = {
   id: number;
   transactionId: number;
@@ -84,9 +79,7 @@ export const GET = withErrorHandler<RouteContext>(
       });
     }
 
-    const transactionRefund = (
-      prisma as unknown as { transactionRefund: TransactionRefundDelegate }
-    ).transactionRefund;
+    const transactionRefund = prisma.transactionRefund;
 
     const refunds = (await transactionRefund.findMany({
       where: {
@@ -209,9 +202,7 @@ export const POST = withErrorHandler<RouteContext>(
     }
 
     const created = await prisma.$transaction(async (txClient) => {
-      const transactionRefund = (
-        txClient as unknown as { transactionRefund: TransactionRefundDelegate }
-      ).transactionRefund;
+      const transactionRefund = txClient.transactionRefund;
 
       const refund = (await transactionRefund.create({
         data: {

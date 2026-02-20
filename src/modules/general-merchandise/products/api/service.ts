@@ -24,8 +24,8 @@ export interface ProductService {
   softDeleteAll: () => Promise<{ deleted: number; alreadyDeleted: number }>;
 }
 
-const gmPrisma = prisma as unknown as {
-  generalMerchandiseProduct: typeof prisma.product;
+const gmPrisma = prisma as {
+  generalMerchandiseProduct: typeof prisma.generalMerchandiseProduct;
 };
 
 const ACCOUNTING_CUTOVER_DATE = getAccountingCutoverDate();
@@ -253,14 +253,12 @@ export const generalMerchandiseProductService: ProductService = {
 
         if (dto.id) {
           const existing = await (
-            tx as unknown as typeof gmPrisma
+            tx as typeof gmPrisma
           ).generalMerchandiseProduct.findUnique({
             where: { id: dto.id },
           });
 
-          await (
-            tx as unknown as typeof gmPrisma
-          ).generalMerchandiseProduct.upsert({
+          await (tx as typeof gmPrisma).generalMerchandiseProduct.upsert({
             where: { id: dto.id },
             create: data,
             update: updateData,
@@ -285,7 +283,7 @@ export const generalMerchandiseProductService: ProductService = {
 
         if (productCode) {
           const existing = await (
-            tx as unknown as typeof gmPrisma
+            tx as typeof gmPrisma
           ).generalMerchandiseProduct.findFirst({
             where: { productCode },
           });
@@ -293,9 +291,7 @@ export const generalMerchandiseProductService: ProductService = {
           if (existing) {
             const prevPayment = (existing as { payment?: string | null })
               .payment;
-            await (
-              tx as unknown as typeof gmPrisma
-            ).generalMerchandiseProduct.update({
+            await (tx as typeof gmPrisma).generalMerchandiseProduct.update({
               where: { id: existing.id },
               data: updateData,
             });
@@ -318,9 +314,9 @@ export const generalMerchandiseProductService: ProductService = {
           }
         }
 
-        await (
-          tx as unknown as typeof gmPrisma
-        ).generalMerchandiseProduct.create({ data });
+        await (tx as typeof gmPrisma).generalMerchandiseProduct.create({
+          data,
+        });
         created += 1;
       }
 

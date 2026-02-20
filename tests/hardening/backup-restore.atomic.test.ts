@@ -101,8 +101,8 @@ describe('Backup/Restore atomic hardening', () => {
       const tx = {
         customer: customerDelegate,
         transaction: transactionDelegate,
-      } as unknown as Parameters<typeof callback>[0];
-      return callback(tx);
+      };
+      return callback(tx as never);
     });
 
     const response = await restorePost(
@@ -149,8 +149,8 @@ describe('Backup/Restore atomic hardening', () => {
       const tx = {
         customer: customerDelegate,
         transaction: transactionDelegate,
-      } as unknown as Parameters<typeof callback>[0];
-      return callback(tx);
+      };
+      return callback(tx as never);
     });
 
     const response = await restorePost(
@@ -189,10 +189,10 @@ describe('Backup/Restore atomic hardening', () => {
     mockPrisma.$transaction.mockImplementationOnce(async (callback) => {
       const tx = {
         customer: customerDelegate,
-      } as unknown as Parameters<typeof callback>[0];
+      };
 
       await firstTxDeferred.promise;
-      return callback(tx);
+      return callback(tx as never);
     });
 
     const firstRestorePromise = restorePost(

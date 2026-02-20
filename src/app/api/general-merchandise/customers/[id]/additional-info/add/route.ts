@@ -31,11 +31,6 @@ const TYPE_CONFIG = {
 
 type AdditionalInfoType = keyof typeof TYPE_CONFIG;
 
-const gmPrisma = prisma as unknown as {
-  generalMerchandiseCustomer: typeof prisma.customer;
-  generalMerchandiseAdditionalCustomerInfo: typeof prisma.additionalCustomerInfo;
-};
-
 export const POST = withErrorHandler<RouteContext>(
   async (request: NextRequest, context) => {
     const idResult = parseCustomerId(context);
@@ -56,7 +51,7 @@ export const POST = withErrorHandler<RouteContext>(
       );
     }
 
-    const customer = await gmPrisma.generalMerchandiseCustomer.findUnique({
+    const customer = await prisma.generalMerchandiseCustomer.findUnique({
       where: { id: idResult.id },
       select: { id: true },
     });
@@ -88,7 +83,7 @@ export const POST = withErrorHandler<RouteContext>(
     }
 
     const created =
-      await gmPrisma.generalMerchandiseAdditionalCustomerInfo.create({
+      await prisma.generalMerchandiseAdditionalCustomerInfo.create({
         data: {
           customerId: idResult.id,
           type: sanitized.type,
@@ -151,7 +146,7 @@ async function findExistingEntry(
   value: string
 ) {
   if (type === 'shopee_username') {
-    return gmPrisma.generalMerchandiseAdditionalCustomerInfo.findFirst({
+    return prisma.generalMerchandiseAdditionalCustomerInfo.findFirst({
       where: {
         customerId,
         type,
@@ -161,7 +156,7 @@ async function findExistingEntry(
     });
   }
 
-  return gmPrisma.generalMerchandiseAdditionalCustomerInfo.findFirst({
+  return prisma.generalMerchandiseAdditionalCustomerInfo.findFirst({
     where: {
       customerId,
       type,

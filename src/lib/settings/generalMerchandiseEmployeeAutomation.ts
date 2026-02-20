@@ -39,9 +39,12 @@ type GeneralMerchandiseEmployeeAutomationSettingRecord = {
   stayInAutoPresenceGraceMinutes: number;
 };
 
-const gmPrisma = prisma as unknown as {
-  generalMerchandiseEmployeeAutomationSetting: typeof prisma.employeeAutomationSetting;
-};
+type GMEmployeeAutomationSettingsClient = Pick<
+  typeof prisma,
+  'generalMerchandiseEmployeeAutomationSetting'
+>;
+
+const gmClient: GMEmployeeAutomationSettingsClient = prisma;
 
 const mapRecordToSettings = (
   record: GeneralMerchandiseEmployeeAutomationSettingRecord | null
@@ -114,7 +117,7 @@ const sanitizeUpdate = (
 };
 
 const ensureDefaultRecord = async () =>
-  gmPrisma.generalMerchandiseEmployeeAutomationSetting.upsert({
+  gmClient.generalMerchandiseEmployeeAutomationSetting.upsert({
     where: { key: SETTINGS_KEY },
     update: {},
     create: {
@@ -191,7 +194,7 @@ export async function updateGeneralMerchandiseEmployeeAutomationSettings(
 
   try {
     const record =
-      await gmPrisma.generalMerchandiseEmployeeAutomationSetting.upsert({
+      await gmClient.generalMerchandiseEmployeeAutomationSetting.upsert({
         where: { key: SETTINGS_KEY },
         update: updateData,
         create: createData,

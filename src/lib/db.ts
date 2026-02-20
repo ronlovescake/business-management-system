@@ -6,7 +6,7 @@ import {
 import { logger } from '@/lib/logger';
 import { isProduction, isFeatureEnabled } from '@/lib/env';
 
-const globalForPrisma = globalThis as unknown as {
+const globalForPrisma = globalThis as typeof globalThis & {
   prisma: PrismaClient | undefined;
   auditClient: PrismaClient | undefined;
   middlewaresApplied: boolean | undefined;

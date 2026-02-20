@@ -9,10 +9,6 @@ import { prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
 import type { Prisma } from '@prisma/client';
 
-const gmPrisma = prisma as unknown as {
-  generalMerchandiseDispatchOrder: typeof prisma.dispatchOrder;
-};
-
 /**
  * GET /api/general-merchandise/dispatch/orders
  * Retrieve all dispatch orders from the latest import
@@ -20,7 +16,7 @@ const gmPrisma = prisma as unknown as {
  */
 export async function GET() {
   try {
-    const orders = await gmPrisma.generalMerchandiseDispatchOrder.findMany({
+    const orders = await prisma.generalMerchandiseDispatchOrder.findMany({
       orderBy: {
         importedAt: 'desc',
       },
@@ -117,15 +113,15 @@ export async function POST(request: NextRequest) {
 
     // Use transaction to ensure atomicity (all-or-nothing)
     const result = await prisma.$transaction(async (tx) => {
-      const gmTx = tx as unknown as typeof gmPrisma;
       // Step 1: Delete all existing dispatch orders
-      const deleteResult =
-        await gmTx.generalMerchandiseDispatchOrder.deleteMany({});
+      const deleteResult = await tx.generalMerchandiseDispatchOrder.deleteMany(
+        {}
+      );
       logger.info(`Deleted ${deleteResult.count} existing GM dispatch orders`);
 
       // Step 2: Transform and validate incoming data
-      const ordersToCreate: Prisma.DispatchOrderCreateManyInput[] = orders.map(
-        (order: Record<string, unknown>) => ({
+      const ordersToCreate: Prisma.GeneralMerchandiseDispatchOrderCreateManyInput[] =
+        orders.map((order: Record<string, unknown>) => ({
           orderId: String(order['Order ID'] || ''),
           orderStatus: order['Order Status']
             ? String(order['Order Status'])
@@ -261,15 +257,13 @@ export async function POST(request: NextRequest) {
             : null,
           note: order['Note'] ? String(order['Note']) : null,
           linkedCustomerId: null, // Will be set when customer is linked
-        })
-      );
+        }));
 
       // Step 3: Bulk insert new orders
-      const createResult =
-        await gmTx.generalMerchandiseDispatchOrder.createMany({
-          data: ordersToCreate,
-          skipDuplicates: false, // Since we deleted all, no duplicates expected
-        });
+      const createResult = await tx.generalMerchandiseDispatchOrder.createMany({
+        data: ordersToCreate,
+        skipDuplicates: false, // Since we deleted all, no duplicates expected
+      });
 
       logger.info(`Created ${createResult.count} new GM dispatch orders`);
 
@@ -303,9 +297,7 @@ export async function POST(request: NextRequest) {
  */
 export async function DELETE() {
   try {
-    const result = await gmPrisma.generalMerchandiseDispatchOrder.deleteMany(
-      {}
-    );
+    const result = await prisma.generalMerchandiseDispatchOrder.deleteMany({});
 
     logger.info(`Deleted ${result.count} GM dispatch orders`);
 

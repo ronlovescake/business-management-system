@@ -19,16 +19,36 @@
 import type { PrismaClient } from '@prisma/client';
 import { logger } from '@/lib/logger';
 
+type AuditDelegate = {
+  findFirst?: (args: unknown) => Promise<unknown>;
+  findMany?: (args: unknown) => Promise<unknown>;
+  create?: (args: unknown) => Promise<unknown>;
+};
+
+const getTargetId = (result: unknown, whereId: unknown): string | null => {
+  if (!Array.isArray(result) && result && typeof result === 'object') {
+    const resultRecord = result as Record<string, unknown>;
+    const id = resultRecord.id;
+    if (id !== undefined && id !== null) {
+      return String(id);
+    }
+  }
+
+  if (whereId !== undefined && whereId !== null) {
+    return String(whereId);
+  }
+
+  return null;
+};
+
 /**
  * Gets a Prisma model delegate for dynamic model access
  */
 const getDelegate = (client: PrismaClient, modelName: string) =>
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  (client as any)[modelName.charAt(0).toLowerCase() + modelName.slice(1)] as {
-    findFirst?: (args: unknown) => Promise<unknown>;
-    findMany?: (args: unknown) => Promise<unknown>;
-    create?: (args: unknown) => Promise<unknown>;
-  };
+  Reflect.get(
+    client as object,
+    modelName.charAt(0).toLowerCase() + modelName.slice(1)
+  ) as AuditDelegate;
 
 /**
  * Applies audit logging middleware to a Prisma client instance
@@ -92,12 +112,7 @@ export function applyAuditLogMiddleware(
     if (auditDelegate?.create) {
       try {
         // Extract target ID from result or query params
-        const targetId =
-          (Array.isArray(result)
-            ? undefined
-            : // eslint-disable-next-line @typescript-eslint/no-explicit-any
-              ((result as any)?.id?.toString?.() ??
-              params.args?.where?.id?.toString?.())) ?? null;
+        const targetId = getTargetId(result, params.args?.where?.id);
 
         await auditDelegate.create({
           data: {

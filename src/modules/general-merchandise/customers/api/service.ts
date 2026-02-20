@@ -14,7 +14,7 @@ export interface CustomerService {
   softDeleteAll: () => Promise<{ deleted: number; alreadyDeleted: number }>;
 }
 
-const gmPrisma = prisma as unknown as {
+const gmPrisma = prisma as {
   generalMerchandiseCustomer: {
     findMany: (args: unknown) => Promise<unknown[]>;
     upsert: (args: unknown) => Promise<unknown>;
@@ -49,9 +49,7 @@ export const generalMerchandiseCustomerService: CustomerService = {
           };
 
           if (customer.id) {
-            await (
-              tx as unknown as typeof gmPrisma
-            ).generalMerchandiseCustomer.upsert({
+            await (tx as typeof gmPrisma).generalMerchandiseCustomer.upsert({
               where: { id: customer.id },
               create: createData,
               update: updateData,
@@ -61,23 +59,21 @@ export const generalMerchandiseCustomerService: CustomerService = {
           }
 
           const existing = (await (
-            tx as unknown as typeof gmPrisma
+            tx as typeof gmPrisma
           ).generalMerchandiseCustomer.findFirst({
             where: { customerName: createData.customerName },
           })) as CustomerModel | null;
 
           if (existing) {
-            await (
-              tx as unknown as typeof gmPrisma
-            ).generalMerchandiseCustomer.update({
+            await (tx as typeof gmPrisma).generalMerchandiseCustomer.update({
               where: { id: existing.id },
               data: updateData,
             });
             updatedCount++;
           } else {
-            await (
-              tx as unknown as typeof gmPrisma
-            ).generalMerchandiseCustomer.create({ data: createData });
+            await (tx as typeof gmPrisma).generalMerchandiseCustomer.create({
+              data: createData,
+            });
             createdCount++;
           }
         }

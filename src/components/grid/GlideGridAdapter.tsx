@@ -18,7 +18,7 @@ const GlideDataEditor = dynamic(
 
 export const glideGridAdapter: GridAdapter = {
   name: 'glide-data-grid',
-  Component: GlideDataEditor as unknown as React.ComponentType<GridViewProps>,
+  Component: GlideDataEditor as React.ComponentType<GridViewProps>,
   normaliseColumns: (columns) =>
     columns.map((column: GridViewProps['columns'][number]) => ({
       ...column,

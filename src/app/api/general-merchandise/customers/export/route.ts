@@ -63,10 +63,6 @@ const sanitizeDate = (value: unknown) => {
   return sanitizeField(value, 50);
 };
 
-const gmPrisma = prisma as unknown as {
-  generalMerchandiseCustomer: typeof prisma.customer;
-};
-
 /**
  * GET /api/general-merchandise/customers/export
  *
@@ -75,7 +71,7 @@ const gmPrisma = prisma as unknown as {
  */
 export const GET = withErrorHandler(async (_request: NextRequest) => {
   // Single query with JOIN to get all customers with ALL their additional info
-  const customersWithInfo = await gmPrisma.generalMerchandiseCustomer.findMany({
+  const customersWithInfo = await prisma.generalMerchandiseCustomer.findMany({
     where: {
       deletedAt: null,
     },

@@ -116,9 +116,7 @@ export function useTransactionsDerivedData({
       row: number;
     }): CellData => {
       const key = idToKey[column.id as keyof ColumnIdToKey];
-      const value = key
-        ? (rowData as unknown as Record<string, unknown>)[key]
-        : undefined;
+      const value = key ? rowData[key] : undefined;
 
       const textValue = TransactionService.sanitizeValue(value);
       const numericValue = TransactionService.sanitizeNumericValue(value);

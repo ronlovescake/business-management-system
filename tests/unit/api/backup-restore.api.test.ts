@@ -101,10 +101,8 @@ describe('Restore API hardening', () => {
     };
 
     mockPrisma.$transaction.mockImplementation(async (callback) => {
-      const tx = { transaction: txDelegate } as unknown as Parameters<
-        typeof callback
-      >[0];
-      return callback(tx);
+      const tx = { transaction: txDelegate };
+      return callback(tx as never);
     });
 
     const response = await POST(

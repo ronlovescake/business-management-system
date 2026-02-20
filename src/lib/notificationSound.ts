@@ -11,6 +11,15 @@ import { logger } from './logger';
 let audioContext: AudioContext | null = null;
 let isAudioContextInitialized = false;
 
+const getAudioContextConstructor = (): typeof AudioContext | undefined => {
+  const nativeAudioContext =
+    typeof AudioContext !== 'undefined' ? AudioContext : undefined;
+  const globalWindow = window as Window & {
+    webkitAudioContext?: typeof AudioContext;
+  };
+  return nativeAudioContext || globalWindow.webkitAudioContext;
+};
+
 /**
  * Initialize the audio context on first user interaction
  * This is required due to browser auto-play policies
@@ -22,9 +31,11 @@ export function initializeAudioContext(): void {
 
   try {
     if (!audioContext) {
-      audioContext = new (window.AudioContext ||
-        (window as unknown as { webkitAudioContext: typeof AudioContext })
-          .webkitAudioContext)();
+      const AudioContextCtor = getAudioContextConstructor();
+      if (!AudioContextCtor) {
+        throw new Error('AudioContext is not available in this browser.');
+      }
+      audioContext = new AudioContextCtor();
     }
 
     // Resume the context in case it's suspended (browser auto-play policy)
@@ -46,9 +57,11 @@ function playWebAudioNotification(volume: number = 0.7): void {
   try {
     // Create audio context if it doesn't exist
     if (!audioContext) {
-      audioContext = new (window.AudioContext ||
-        (window as unknown as { webkitAudioContext: typeof AudioContext })
-          .webkitAudioContext)();
+      const AudioContextCtor = getAudioContextConstructor();
+      if (!AudioContextCtor) {
+        throw new Error('AudioContext is not available in this browser.');
+      }
+      audioContext = new AudioContextCtor();
     }
 
     // Resume context if suspended (handles auto-play policy)

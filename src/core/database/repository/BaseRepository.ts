@@ -30,6 +30,30 @@ import { prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
 import type { PrismaModelName } from '@/types/prisma';
 
+type DynamicModelDelegate<TEntity, TCreateInput, TUpdateInput> = {
+  findMany: (args?: unknown) => Promise<TEntity[]>;
+  findUnique: (args: unknown) => Promise<TEntity | null>;
+  findFirst: (args: unknown) => Promise<TEntity | null>;
+  count: (args?: unknown) => Promise<number>;
+  create: (args: { data: TCreateInput }) => Promise<TEntity>;
+  createMany: (args: { data: TCreateInput[] }) => Promise<{ count: number }>;
+  update: (args: {
+    where: { id: number | string };
+    data: TUpdateInput;
+  }) => Promise<TEntity>;
+  updateMany: (args: {
+    where: WhereInput<TEntity>;
+    data: TUpdateInput;
+  }) => Promise<{ count: number }>;
+  delete: (args: { where: { id: number | string } }) => Promise<TEntity>;
+  deleteMany: (args: {
+    where?: WhereInput<TEntity>;
+  }) => Promise<{ count: number }>;
+  upsert: (args: unknown) => Promise<TEntity>;
+  groupBy: (args: unknown) => Promise<unknown>;
+  aggregate: (args: unknown) => Promise<unknown>;
+};
+
 /**
  * Generic where clause type
  */
@@ -75,20 +99,42 @@ export abstract class BaseRepository<TEntity, TCreateInput, TUpdateInput> {
   /**
    * Get the Prisma delegate for this model
    *
-   * Note: TypeScript cannot type-check dynamic model access at compile time.
-   * We use `any` here because Prisma's client structure requires runtime model resolution.
-   * Type safety is enforced through:
-   * - PrismaModelName restricts modelName to valid Prisma models
-   * - Generic TEntity parameter enforces result type correctness
-   * - Each repository validates its modelName matches its entity type
-   * 
-   * This is an acceptable use of `any` for dynamic model access patterns.
-   * See: https://www.prisma.io/docs/concepts/components/prisma-client/working-with-prisma-client-api
+   * Note: Prisma dynamic model resolution is runtime-based; we validate
+   * required delegate methods before returning a typed delegate.
    */
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  protected get model(): any {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    return (prisma as any)[this.modelName];
+  protected get model(): DynamicModelDelegate<
+    TEntity,
+    TCreateInput,
+    TUpdateInput
+  > {
+    const delegate = Reflect.get(prisma as object, this.modelName) as Partial<
+      DynamicModelDelegate<TEntity, TCreateInput, TUpdateInput>
+    >;
+
+    if (
+      !delegate ||
+      typeof delegate.findMany !== 'function' ||
+      typeof delegate.findUnique !== 'function' ||
+      typeof delegate.findFirst !== 'function' ||
+      typeof delegate.count !== 'function' ||
+      typeof delegate.create !== 'function' ||
+      typeof delegate.createMany !== 'function' ||
+      typeof delegate.update !== 'function' ||
+      typeof delegate.updateMany !== 'function' ||
+      typeof delegate.delete !== 'function' ||
+      typeof delegate.deleteMany !== 'function' ||
+      typeof delegate.upsert !== 'function' ||
+      typeof delegate.groupBy !== 'function' ||
+      typeof delegate.aggregate !== 'function'
+    ) {
+      throw new Error(`Invalid model delegate for ${this.modelName}`);
+    }
+
+    return delegate as DynamicModelDelegate<
+      TEntity,
+      TCreateInput,
+      TUpdateInput
+    >;
   }
 
   /**
@@ -298,7 +344,7 @@ export abstract class BaseRepository<TEntity, TCreateInput, TUpdateInput> {
    * @returns The upserted entity
    */
   async upsert(
-    where: { id: number | string },
+    where: unknown,
     create: TCreateInput,
     update: TUpdateInput
   ): Promise<TEntity> {
@@ -308,7 +354,7 @@ export abstract class BaseRepository<TEntity, TCreateInput, TUpdateInput> {
         create,
         update,
       });
-      logger.info(`${this.modelName}.upsert`, { id: where.id });
+      logger.info(`${this.modelName}.upsert`, { where });
       return result;
     } catch (error) {
       logger.error(`${this.modelName}.upsert failed`, { error, where });

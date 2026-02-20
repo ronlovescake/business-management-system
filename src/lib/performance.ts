@@ -10,8 +10,7 @@
  * @param delay - Time to wait between calls in milliseconds
  * @returns Throttled function with cleanup method
  */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export function throttle<T extends (...args: any[]) => any>(
+export function throttle<T extends (...args: unknown[]) => unknown>(
   fn: T,
   delay: number
 ): ((...args: Parameters<T>) => void) & { cancel: () => void } {
@@ -61,8 +60,7 @@ export function throttle<T extends (...args: any[]) => any>(
  * @param delay - Time to wait in milliseconds
  * @returns Debounced function with cleanup method
  */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export function debounce<T extends (...args: any[]) => any>(
+export function debounce<T extends (...args: unknown[]) => unknown>(
   fn: T,
   delay: number
 ): ((...args: Parameters<T>) => void) & { cancel: () => void } {
@@ -98,14 +96,12 @@ export function debounce<T extends (...args: any[]) => any>(
  * @param maxCacheSize - Maximum number of cached results (default: 100)
  * @returns Memoized function
  */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function memoize<K extends string | number, Args extends unknown[], R>(
   fn: (key: K, ...args: Args) => R,
   maxCacheSize = 100
 ): (key: K, ...args: Args) => R {
   const cache = new Map<K, R>();
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   return function memoized(key: K, ...args: Args): R {
     const cachedResult = cache.get(key);
     if (cachedResult !== undefined) {
@@ -134,8 +130,7 @@ export function memoize<K extends string | number, Args extends unknown[], R>(
  * @param fn - Function to throttle
  * @returns RAF-throttled function with cleanup method
  */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export function rafThrottle<T extends (...args: any[]) => any>(
+export function rafThrottle<T extends (...args: unknown[]) => unknown>(
   fn: T
 ): ((...args: Parameters<T>) => void) & { cancel: () => void } {
   let rafId: number | null = null;

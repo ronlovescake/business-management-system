@@ -1,5 +1,5 @@
-import { redirect } from 'next/navigation';
+import { AccountingRootRedirectPage } from '@/app/accounting/_shared/AccountingRootRedirectPage';
 
 export default function AccountingRootRedirect() {
-  return redirect('/clothing/accounting/expenses');
+  return <AccountingRootRedirectPage businessPathPrefix="/clothing" />;
 }

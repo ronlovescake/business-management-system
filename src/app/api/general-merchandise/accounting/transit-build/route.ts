@@ -30,17 +30,28 @@ type GMTransitBuildModel = {
 };
 
 const getTransitBuildModel = (): GMTransitBuildModel | null => {
-  const model = (
-    prisma as unknown as {
-      generalMerchandiseInventoryTransitBuildEntry?: Partial<GMTransitBuildModel>;
-    }
-  ).generalMerchandiseInventoryTransitBuildEntry;
+  const candidate = Reflect.get(
+    prisma,
+    'generalMerchandiseInventoryTransitBuildEntry'
+  );
 
-  if (!model?.findFirst || !model?.update) {
+  if (!candidate || typeof candidate !== 'object') {
     return null;
   }
 
-  return model as GMTransitBuildModel;
+  const findFirst = Reflect.get(candidate, 'findFirst');
+  const update = Reflect.get(candidate, 'update');
+
+  if (typeof findFirst !== 'function' || typeof update !== 'function') {
+    return null;
+  }
+
+  return {
+    findFirst: (args: unknown) =>
+      (findFirst as (args: unknown) => Promise<unknown>).call(candidate, args),
+    update: (args: unknown) =>
+      (update as (args: unknown) => Promise<unknown>).call(candidate, args),
+  };
 };
 
 export const PATCH = withErrorHandler(async (request: NextRequest) => {

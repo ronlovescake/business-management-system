@@ -109,7 +109,7 @@ describe('13th Month Pay API', () => {
     it('should fetch all 13th month pay records', async () => {
       mockThirteenthMonthPayService.findAll.mockResolvedValue(mockRecords);
 
-      const request = mockNextRequest() as unknown as NextRequest;
+      const request = mockNextRequest() as NextRequest;
       const response = await GET(request);
       const data = await response.json();
 
@@ -123,7 +123,7 @@ describe('13th Month Pay API', () => {
     it('should convert Prisma.Decimal to numbers', async () => {
       mockThirteenthMonthPayService.findAll.mockResolvedValue(mockRecords);
 
-      const request = mockNextRequest() as unknown as NextRequest;
+      const request = mockNextRequest() as NextRequest;
       const response = await GET(request);
       const data = await response.json();
 
@@ -137,7 +137,7 @@ describe('13th Month Pay API', () => {
     it('should include all status fields in response', async () => {
       mockThirteenthMonthPayService.findAll.mockResolvedValue(mockRecords);
 
-      const request = mockNextRequest() as unknown as NextRequest;
+      const request = mockNextRequest() as NextRequest;
       const response = await GET(request);
       const data = await response.json();
 
@@ -151,7 +151,7 @@ describe('13th Month Pay API', () => {
     it('should sort by employeeName asc and year desc', async () => {
       mockThirteenthMonthPayService.findAll.mockResolvedValue(mockRecords);
 
-      const request = mockNextRequest() as unknown as NextRequest;
+      const request = mockNextRequest() as NextRequest;
       const response = await GET(request);
       const data = await response.json();
 
@@ -165,7 +165,7 @@ describe('13th Month Pay API', () => {
         new Error('Database connection lost')
       );
 
-      const request = mockNextRequest() as unknown as NextRequest;
+      const request = mockNextRequest() as NextRequest;
       const response = await GET(request);
       const data = await response.json();
 
@@ -176,7 +176,7 @@ describe('13th Month Pay API', () => {
     it('should sort by employeeName asc and year desc', async () => {
       mockThirteenthMonthPayService.findAll.mockResolvedValue(mockRecords);
 
-      const request = mockNextRequest() as unknown as NextRequest;
+      const request = mockNextRequest() as NextRequest;
       const response = await GET(request);
       const data = await response.json();
 

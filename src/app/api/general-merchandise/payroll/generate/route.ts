@@ -22,12 +22,15 @@ type GeneratePayrollRequest = {
   payPeriodLabel?: string;
 };
 
-const gmPrisma = prisma as unknown as {
-  generalMerchandisePayroll: typeof prisma.payroll;
-  generalMerchandiseAttendance: typeof prisma.attendance;
-  generalMerchandiseEmployee: typeof prisma.employee;
-  generalMerchandiseThirteenthMonthPayRecord: typeof prisma.thirteenthMonthPayRecord;
-};
+type GMPayrollGenerateClient = Pick<
+  typeof prisma,
+  | 'generalMerchandisePayroll'
+  | 'generalMerchandiseAttendance'
+  | 'generalMerchandiseEmployee'
+  | 'generalMerchandiseThirteenthMonthPayRecord'
+>;
+
+const gmClient: GMPayrollGenerateClient = prisma;
 
 function formatLocalDate(date: Date): string {
   const year = date.getFullYear();
@@ -160,7 +163,7 @@ export const POST = withErrorHandler(async (request: NextRequest) => {
     }
 
     // Check for existing payroll (including soft-deleted ones)
-    const existingRecords = await gmPrisma.generalMerchandisePayroll.findMany({
+    const existingRecords = await gmClient.generalMerchandisePayroll.findMany({
       where: {
         periodStart: currentPeriod.start,
         periodEnd: currentPeriod.end,
@@ -202,7 +205,7 @@ export const POST = withErrorHandler(async (request: NextRequest) => {
         .filter((name) => name.length > 0)
     );
 
-    const attendance = await gmPrisma.generalMerchandiseAttendance.findMany({
+    const attendance = await gmClient.generalMerchandiseAttendance.findMany({
       where: {
         deletedAt: null,
         status: { in: ['present', 'late'] },
@@ -296,7 +299,7 @@ export const POST = withErrorHandler(async (request: NextRequest) => {
           .filter((id): id is string => Boolean(id))
       )
     );
-    const employees = await gmPrisma.generalMerchandiseEmployee.findMany({
+    const employees = await gmClient.generalMerchandiseEmployee.findMany({
       where: {
         deletedAt: null,
         employeeId: { in: employeeIds },
@@ -329,7 +332,7 @@ export const POST = withErrorHandler(async (request: NextRequest) => {
     // Fetch all 13th month records for this year to check payment status
     // This prevents including 13th month pay in payroll after it's already been paid
     const thirteenthMonthRecords =
-      await gmPrisma.generalMerchandiseThirteenthMonthPayRecord.findMany({
+      await gmClient.generalMerchandiseThirteenthMonthPayRecord.findMany({
         where: {
           year: payPeriodYear,
           employeeId: { in: employeeIds },
@@ -434,7 +437,7 @@ export const POST = withErrorHandler(async (request: NextRequest) => {
       }
     );
 
-    const created = await gmPrisma.generalMerchandisePayroll.createMany({
+    const created = await gmClient.generalMerchandisePayroll.createMany({
       data: payrollRecords,
     });
 

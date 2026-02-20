@@ -6,18 +6,7 @@ import { logger } from '@/lib/logger';
 
 type RouteContext = { params: { id: string; refundId: string } };
 
-type TransactionRefundDelegate = {
-  findFirst: (args: unknown) => Promise<unknown>;
-  update: (args: unknown) => Promise<unknown>;
-};
-
 type RefundRow = { id: number };
-
-const gmPrisma = prisma as unknown as {
-  generalMerchandiseCustomer: typeof prisma.customer;
-  generalMerchandiseTransactionRefund: TransactionRefundDelegate;
-  generalMerchandiseInventoryMovement: typeof prisma.inventoryMovement;
-};
 
 function buildAutoReturnMovementNote(refundId: number): string {
   return `auto-return refund ${refundId}`;
@@ -61,7 +50,7 @@ export const DELETE = withErrorHandler<RouteContext>(
       return parsed.error;
     }
 
-    const customer = await gmPrisma.generalMerchandiseCustomer.findUnique({
+    const customer = await prisma.generalMerchandiseCustomer.findUnique({
       where: { id: parsed.customerId },
       select: { customerName: true },
     });
@@ -71,7 +60,7 @@ export const DELETE = withErrorHandler<RouteContext>(
     }
 
     const existing =
-      (await gmPrisma.generalMerchandiseTransactionRefund.findFirst({
+      (await prisma.generalMerchandiseTransactionRefund.findFirst({
         where: {
           id: parsed.refundId,
           deletedAt: null,
@@ -87,13 +76,13 @@ export const DELETE = withErrorHandler<RouteContext>(
       return ApiResponse.notFound('Refund');
     }
 
-    await gmPrisma.generalMerchandiseTransactionRefund.update({
+    await prisma.generalMerchandiseTransactionRefund.update({
       where: { id: parsed.refundId },
       data: { deletedAt: new Date() },
     });
 
     // Keep the inventory sub-ledger consistent: hide any auto-created return movement.
-    await gmPrisma.generalMerchandiseInventoryMovement.updateMany({
+    await prisma.generalMerchandiseInventoryMovement.updateMany({
       where: {
         deletedAt: null,
         notes: buildAutoReturnMovementNote(parsed.refundId),

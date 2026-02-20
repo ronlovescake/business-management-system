@@ -61,8 +61,121 @@ type OpeningBalanceRow = {
   description: string | null;
 };
 
+type OptionalFindManyModel = {
+  findMany: (args: unknown) => Promise<unknown[]>;
+};
+
+type ReclassDataRow = {
+  amount: number;
+  toAccount: string;
+  fromAccount: string;
+};
+
+type TransitBuildDataRow = {
+  amount: number;
+  debitAccount: string;
+  creditAccount: string;
+};
+
 const CASH_ACCOUNT = 'Cash';
 const STOCK_ON_HAND_ACCOUNT = 'Stock on Hand';
+
+function getOptionalFindManyModel(
+  modelName: string
+): OptionalFindManyModel | null {
+  const candidate = Reflect.get(prisma, modelName);
+  if (!candidate || typeof candidate !== 'object') {
+    return null;
+  }
+
+  const maybeFindMany = Reflect.get(candidate, 'findMany');
+  if (typeof maybeFindMany !== 'function') {
+    return null;
+  }
+
+  return {
+    findMany: (args: unknown) =>
+      (maybeFindMany as (args: unknown) => Promise<unknown[]>).call(
+        candidate,
+        args
+      ),
+  };
+}
+
+function toOpeningBalanceRow(row: unknown): OpeningBalanceRow | null {
+  if (!row || typeof row !== 'object') {
+    return null;
+  }
+
+  const id = Reflect.get(row, 'id');
+  const date = Reflect.get(row, 'date');
+  const ref = Reflect.get(row, 'ref');
+  const account = Reflect.get(row, 'account');
+  const debit = Number(Reflect.get(row, 'debit') ?? 0);
+  const credit = Number(Reflect.get(row, 'credit') ?? 0);
+  const descriptionValue = Reflect.get(row, 'description');
+
+  if (
+    typeof id !== 'string' ||
+    !(date instanceof Date) ||
+    typeof ref !== 'string' ||
+    typeof account !== 'string' ||
+    !Number.isFinite(debit) ||
+    !Number.isFinite(credit)
+  ) {
+    return null;
+  }
+
+  return {
+    id,
+    date,
+    ref,
+    account,
+    debit,
+    credit,
+    description: typeof descriptionValue === 'string' ? descriptionValue : null,
+  };
+}
+
+function toReclassDataRow(row: unknown): ReclassDataRow | null {
+  if (!row || typeof row !== 'object') {
+    return null;
+  }
+
+  const amount = Number(Reflect.get(row, 'amount') ?? 0);
+  const toAccount = Reflect.get(row, 'toAccount');
+  const fromAccount = Reflect.get(row, 'fromAccount');
+
+  if (
+    !Number.isFinite(amount) ||
+    typeof toAccount !== 'string' ||
+    typeof fromAccount !== 'string'
+  ) {
+    return null;
+  }
+
+  return { amount, toAccount, fromAccount };
+}
+
+function toTransitBuildDataRow(row: unknown): TransitBuildDataRow | null {
+  if (!row || typeof row !== 'object') {
+    return null;
+  }
+
+  const amount = Number(Reflect.get(row, 'amount') ?? 0);
+  const debitAccount = Reflect.get(row, 'debitAccount');
+  const creditAccount = Reflect.get(row, 'creditAccount');
+
+  if (
+    !Number.isFinite(amount) ||
+    typeof debitAccount !== 'string' ||
+    typeof creditAccount !== 'string'
+  ) {
+    return null;
+  }
+
+  return { amount, debitAccount, creditAccount };
+}
 
 function aggregateBalancesFromRows(
   rows: Array<BalanceRow & { type: AccountType }>
@@ -107,8 +220,7 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
 
   for (const payment of payments) {
     const isReservation =
-      (payment as unknown as { isReservation?: boolean }).isReservation ===
-      true;
+      Reflect.get(payment as object, 'isReservation') === true;
 
     const paymentAt = parseDate(payment.paymentDate);
     if (!isWithinDateRange(paymentAt, CUTOVER, asOf)) {
@@ -168,16 +280,12 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
     }
   }
 
-  const openingBalanceModel = (
-    prisma as unknown as {
-      generalMerchandiseAccountingOpeningBalance?: {
-        findMany?: (args: unknown) => Promise<unknown>;
-      };
-    }
-  ).generalMerchandiseAccountingOpeningBalance;
+  const openingBalanceModel = getOptionalFindManyModel(
+    'generalMerchandiseAccountingOpeningBalance'
+  );
 
-  const openingBalanceRows = openingBalanceModel?.findMany
-    ? ((await openingBalanceModel.findMany({
+  const openingBalanceRowsRaw = openingBalanceModel
+    ? await openingBalanceModel.findMany({
         where: {
           date: {
             gte: CUTOVER,
@@ -185,8 +293,11 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
           },
         },
         orderBy: { date: 'asc' },
-      })) as OpeningBalanceRow[])
+      })
     : [];
+  const openingBalanceRows = openingBalanceRowsRaw
+    .map(toOpeningBalanceRow)
+    .filter((row): row is OpeningBalanceRow => row !== null);
 
   const loanDetailsByLabel = new Map<string, number>();
   const addLoanDetail = (label: string, amount: number) => {
@@ -341,16 +452,12 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
     );
   }
 
-  const reclassModel = (
-    prisma as unknown as {
-      generalMerchandiseInventoryReclassEntry?: {
-        findMany?: (args: unknown) => Promise<unknown>;
-      };
-    }
-  ).generalMerchandiseInventoryReclassEntry;
+  const reclassModel = getOptionalFindManyModel(
+    'generalMerchandiseInventoryReclassEntry'
+  );
 
-  const reclassRows = reclassModel?.findMany
-    ? ((await reclassModel.findMany({
+  const reclassRows = reclassModel
+    ? await reclassModel.findMany({
         where: {
           deletedAt: null,
           postingDate: {
@@ -359,15 +466,13 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
           },
         },
         orderBy: { postingDate: 'asc' },
-      })) as Array<{
-        id: string;
-        amount: unknown;
-        toAccount: string;
-        fromAccount: string;
-      }>)
+      })
     : [];
+  const normalizedReclassRows = reclassRows
+    .map(toReclassDataRow)
+    .filter((row): row is ReclassDataRow => row !== null);
 
-  const reclassEntries: BalanceRow[] = reclassRows
+  const reclassEntries: BalanceRow[] = normalizedReclassRows
     .map((row) => {
       const amount = Number(row.amount ?? 0);
       if (!Number.isFinite(amount) || amount <= 0) {
@@ -390,16 +495,12 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
     .flat()
     .filter(Boolean) as BalanceRow[];
 
-  const transitBuildModel = (
-    prisma as unknown as {
-      generalMerchandiseInventoryTransitBuildEntry?: {
-        findMany?: (args: unknown) => Promise<unknown>;
-      };
-    }
-  ).generalMerchandiseInventoryTransitBuildEntry;
+  const transitBuildModel = getOptionalFindManyModel(
+    'generalMerchandiseInventoryTransitBuildEntry'
+  );
 
-  const transitBuildRows = transitBuildModel?.findMany
-    ? ((await transitBuildModel.findMany({
+  const transitBuildRows = transitBuildModel
+    ? await transitBuildModel.findMany({
         where: {
           deletedAt: null,
           postingDate: {
@@ -408,15 +509,13 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
           },
         },
         orderBy: { postingDate: 'asc' },
-      })) as Array<{
-        id: string;
-        amount: unknown;
-        debitAccount: string;
-        creditAccount: string;
-      }>)
+      })
     : [];
+  const normalizedTransitBuildRows = transitBuildRows
+    .map(toTransitBuildDataRow)
+    .filter((row): row is TransitBuildDataRow => row !== null);
 
-  const transitBuildEntries: BalanceRow[] = transitBuildRows
+  const transitBuildEntries: BalanceRow[] = normalizedTransitBuildRows
     .map((row) => {
       const amount = Number(row.amount ?? 0);
       if (!Number.isFinite(amount) || amount <= 0) {

@@ -12,10 +12,6 @@ export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 export const fetchCache = 'default-no-store';
 
-const gmPrisma = prisma as unknown as {
-  generalMerchandiseMessageTemplate: typeof prisma.messageTemplate;
-};
-
 const TEMPLATE_TITLE_ORDER_LOOKUP = new Map<string, number>(
   MESSAGE_TEMPLATE_TITLE_ORDER.map((title, index) => [
     title.toLowerCase(),
@@ -69,7 +65,7 @@ function mapRecordToTemplate(record: {
 }
 
 async function getMessageTemplatesFromDb(): Promise<MessageTemplate[]> {
-  const records = await gmPrisma.generalMerchandiseMessageTemplate.findMany({
+  const records = await prisma.generalMerchandiseMessageTemplate.findMany({
     orderBy: { createdAt: 'asc' },
   });
 
@@ -78,7 +74,7 @@ async function getMessageTemplatesFromDb(): Promise<MessageTemplate[]> {
   }
 
   // Seed defaults when table is empty
-  await gmPrisma.generalMerchandiseMessageTemplate.createMany({
+  await prisma.generalMerchandiseMessageTemplate.createMany({
     data: DEFAULT_MESSAGE_TEMPLATES.map((template) => ({
       slug: template.id,
       title: template.title,
@@ -91,7 +87,7 @@ async function getMessageTemplatesFromDb(): Promise<MessageTemplate[]> {
 }
 
 async function upsertMessageTemplate(payload: MessageTemplate) {
-  const record = await gmPrisma.generalMerchandiseMessageTemplate.upsert({
+  const record = await prisma.generalMerchandiseMessageTemplate.upsert({
     where: { slug: payload.id },
     update: {
       title: payload.title,
@@ -128,11 +124,10 @@ async function generateUniqueSlug(base: string): Promise<string> {
 
   // eslint-disable-next-line no-constant-condition
   while (true) {
-    const existing =
-      await gmPrisma.generalMerchandiseMessageTemplate.findUnique({
-        where: { slug: candidate },
-        select: { id: true },
-      });
+    const existing = await prisma.generalMerchandiseMessageTemplate.findUnique({
+      where: { slug: candidate },
+      select: { id: true },
+    });
 
     if (!existing) {
       return candidate;
@@ -149,7 +144,7 @@ async function createMessageTemplate(
   const baseSlug = slugifyTitle(payload.title);
   const slug = await generateUniqueSlug(baseSlug);
 
-  const record = await gmPrisma.generalMerchandiseMessageTemplate.create({
+  const record = await prisma.generalMerchandiseMessageTemplate.create({
     data: {
       slug,
       title: payload.title,

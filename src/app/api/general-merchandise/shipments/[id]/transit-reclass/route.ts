@@ -20,12 +20,15 @@ type TransitReclassRequestBody = {
   notes?: string | null;
 };
 
-const gmPrisma = prisma as unknown as {
-  generalMerchandiseShipment: typeof prisma.shipment;
-  generalMerchandiseProduct: typeof prisma.product;
-  generalMerchandiseInventoryTransitBuildEntry: typeof prisma.clothingInventoryTransitBuildEntry;
-  generalMerchandiseInventoryReclassEntry: typeof prisma.clothingInventoryReclassEntry;
-};
+type GMShipmentTransitReclassClient = Pick<
+  typeof prisma,
+  | 'generalMerchandiseShipment'
+  | 'generalMerchandiseProduct'
+  | 'generalMerchandiseInventoryTransitBuildEntry'
+  | 'generalMerchandiseInventoryReclassEntry'
+>;
+
+const gmClient: GMShipmentTransitReclassClient = prisma;
 
 export const POST = withErrorHandler<RouteContext>(
   async (request: NextRequest, context) => {
@@ -51,7 +54,7 @@ export const POST = withErrorHandler<RouteContext>(
       });
     }
 
-    const shipment = await gmPrisma.generalMerchandiseShipment.findUnique({
+    const shipment = await gmClient.generalMerchandiseShipment.findUnique({
       where: { id: idResult.id },
       select: { id: true, shipmentCode: true, shipmentStatus: true },
     });
@@ -85,7 +88,7 @@ export const POST = withErrorHandler<RouteContext>(
       .filter(Boolean);
 
     const transitBuildEntries =
-      await gmPrisma.generalMerchandiseInventoryTransitBuildEntry.findMany({
+      await gmClient.generalMerchandiseInventoryTransitBuildEntry.findMany({
         where: {
           shipmentCode,
           deletedAt: null,
@@ -140,7 +143,7 @@ export const POST = withErrorHandler<RouteContext>(
       });
     }
 
-    const products = await gmPrisma.generalMerchandiseProduct.findMany({
+    const products = await gmClient.generalMerchandiseProduct.findMany({
       where: {
         shipmentCode,
         deletedAt: null,
@@ -204,7 +207,7 @@ export const POST = withErrorHandler<RouteContext>(
     }
 
     const existingReclassEntries =
-      await gmPrisma.generalMerchandiseInventoryReclassEntry.findMany({
+      await gmClient.generalMerchandiseInventoryReclassEntry.findMany({
         where: {
           shipmentCode,
           deletedAt: null,
@@ -236,7 +239,7 @@ export const POST = withErrorHandler<RouteContext>(
       }));
 
     if (rowsToCreate.length > 0) {
-      await gmPrisma.generalMerchandiseInventoryReclassEntry.createMany({
+      await gmClient.generalMerchandiseInventoryReclassEntry.createMany({
         data: rowsToCreate,
         skipDuplicates: true,
       });

@@ -25,11 +25,14 @@ type UpsertMixAndMatchRequest = {
   components: ComponentInput[];
 };
 
-const gmPrisma = prisma as unknown as {
-  generalMerchandiseBundleBatch: typeof prisma.bundleBatch;
-  generalMerchandiseTransaction: typeof prisma.transaction;
-  generalMerchandiseInventoryMovement: typeof prisma.inventoryMovement;
-};
+type GMMixAndMatchClient = Pick<
+  typeof prisma,
+  | 'generalMerchandiseBundleBatch'
+  | 'generalMerchandiseTransaction'
+  | 'generalMerchandiseInventoryMovement'
+>;
+
+const gmClient: GMMixAndMatchClient = prisma;
 
 function buildAutoReserveMovementNote(transactionId: number) {
   return `auto-reserve txn ${transactionId}`;
@@ -95,7 +98,7 @@ function parseAndValidate(body: UpsertMixAndMatchRequest) {
 
 export async function GET() {
   try {
-    const rows = await gmPrisma.generalMerchandiseBundleBatch.findMany({
+    const rows = await gmClient.generalMerchandiseBundleBatch.findMany({
       where: {
         bundleName: {
           startsWith: '[MIXMATCH] ',
@@ -139,7 +142,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: parsed.error }, { status: 400 });
     }
 
-    const created = await gmPrisma.generalMerchandiseBundleBatch.create({
+    const created = await gmClient.generalMerchandiseBundleBatch.create({
       data: {
         postingDate: parsed.postingDate,
         bundleName: toStoredMixAndMatchName(parsed.mixAndMatchName),
@@ -207,7 +210,7 @@ export async function PATCH(request: NextRequest) {
       return NextResponse.json({ error: parsed.error }, { status: 400 });
     }
 
-    const existing = await gmPrisma.generalMerchandiseBundleBatch.findUnique({
+    const existing = await gmClient.generalMerchandiseBundleBatch.findUnique({
       where: { id },
     });
 
@@ -218,7 +221,7 @@ export async function PATCH(request: NextRequest) {
       );
     }
 
-    const updated = await gmPrisma.generalMerchandiseBundleBatch.update({
+    const updated = await gmClient.generalMerchandiseBundleBatch.update({
       where: { id },
       data: {
         postingDate: parsed.postingDate,
@@ -285,8 +288,7 @@ export async function DELETE(request: NextRequest) {
     }
 
     const deleted = await prisma.$transaction(async (tx) => {
-      const gmTx = tx as unknown as typeof gmPrisma;
-      const existing = await gmTx.generalMerchandiseBundleBatch.findUnique({
+      const existing = await tx.generalMerchandiseBundleBatch.findUnique({
         where: { id },
       });
 
@@ -295,7 +297,7 @@ export async function DELETE(request: NextRequest) {
       }
 
       const relatedTransactions =
-        await gmTx.generalMerchandiseTransaction.findMany({
+        await tx.generalMerchandiseTransaction.findMany({
           where: {
             deletedAt: null,
             productCode: {
@@ -325,7 +327,7 @@ export async function DELETE(request: NextRequest) {
           ]
         );
 
-        await gmTx.generalMerchandiseInventoryMovement.updateMany({
+        await tx.generalMerchandiseInventoryMovement.updateMany({
           where: {
             deletedAt: null,
             OR: movementFilters,
@@ -334,7 +336,7 @@ export async function DELETE(request: NextRequest) {
         });
       }
 
-      await gmTx.generalMerchandiseBundleBatch.delete({ where: { id } });
+      await tx.generalMerchandiseBundleBatch.delete({ where: { id } });
       return { notFound: false as const };
     });
 

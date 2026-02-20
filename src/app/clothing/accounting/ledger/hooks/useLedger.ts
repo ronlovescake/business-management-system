@@ -26,7 +26,10 @@ import {
   downloadCsvTemplateFile,
   escapeCsvValue,
 } from '@/lib/accounting/csv';
-import { parseDate } from '@/lib/accounting/date-utils';
+import {
+  buildLedgerAccounts,
+  filterAndSortLedgerEntries,
+} from './ledgerDerivedData';
 import { getApiDataOrThrow } from '@/lib/api/response';
 import { buildApiPath } from '@/lib/api/paths';
 import type { ApiResponse } from '@/types/api';
@@ -94,22 +97,6 @@ export type OpeningBalancePeriodOption =
   (typeof OPENING_BALANCE_PERIOD_OPTIONS)[number];
 const MAX_CSV_FILE_SIZE_BYTES = 5 * 1024 * 1024;
 const MAX_MANUAL_IMPORT_ROWS = 1000;
-
-const getEntryTimestamp = (value: string) => parseDate(value)?.getTime() ?? 0;
-
-function computeRunningBalances(entries: LedgerEntry[]): LedgerEntry[] {
-  const balances = new Map<string, number>();
-  const byDate = [...entries].sort(
-    (a, b) => getEntryTimestamp(a.date) - getEntryTimestamp(b.date)
-  );
-
-  return byDate.map((entry) => {
-    const current = balances.get(entry.account) ?? 0;
-    const next = current + entry.debit - entry.credit;
-    balances.set(entry.account, next);
-    return { ...entry, balance: next };
-  });
-}
 
 export function useLedger(options: { apiBasePath?: string } = {}) {
   const { apiBasePath } = options;
@@ -404,54 +391,11 @@ export function useLedger(options: { apiBasePath?: string } = {}) {
   }, [refreshLedger]);
 
   const filteredEntries = useMemo(() => {
-    const search = searchQuery.trim().toLowerCase();
-    const filtered = entries.filter((entry) => {
-      const matchesSearch =
-        search === '' ||
-        entry.account.toLowerCase().includes(search) ||
-        entry.ref.toLowerCase().includes(search) ||
-        entry.description.toLowerCase().includes(search);
-
-      const matchesAccount = !filterAccount || entry.account === filterAccount;
-
-      return matchesSearch && matchesAccount;
-    });
-
-    const withBalances = computeRunningBalances(filtered);
-
-    return withBalances.sort(
-      (a, b) => getEntryTimestamp(b.date) - getEntryTimestamp(a.date)
-    );
+    return filterAndSortLedgerEntries(entries, searchQuery, filterAccount);
   }, [entries, filterAccount, searchQuery]);
 
   const accounts = useMemo(() => {
-    const set = new Set<string>();
-    entries.forEach((e) => set.add(e.account));
-
-    // Ensure common accounts are available in dropdowns even before any
-    // transactions exist for them.
-    [
-      'Cash',
-      'Accounts Receivable',
-      'Stock on Hand',
-      'Inventory in Transit',
-      'Landed Cost Clearing',
-      'Accounts Payable',
-      'Forwarder Payable',
-      'Courier Payable',
-      'Credit Card Payable',
-      'Loan Payable',
-      'Opening Equity',
-      'Owner Contribution',
-      'Owner Draw',
-      'Sales Revenue',
-      'Sales Returns',
-      'COGS',
-      'Inventory Shrinkage',
-      'Interest Expense',
-    ].forEach((account) => set.add(account));
-
-    return Array.from(set).sort((a, b) => a.localeCompare(b));
+    return buildLedgerAccounts(entries);
   }, [entries]);
 
   const formatCurrency = formatCurrencyPHP;

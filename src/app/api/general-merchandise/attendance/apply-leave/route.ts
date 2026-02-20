@@ -13,10 +13,12 @@ interface ApplyLeavePayload {
   endDate?: string;
 }
 
-const gmPrisma = prisma as unknown as {
-  generalMerchandiseEmployee: typeof prisma.employee;
-  generalMerchandiseAttendance: typeof prisma.attendance;
-};
+type GMAttendanceLeaveClient = Pick<
+  typeof prisma,
+  'generalMerchandiseEmployee' | 'generalMerchandiseAttendance'
+>;
+
+const gmClient: GMAttendanceLeaveClient = prisma;
 
 const normaliseEmployeeId = (value?: string) => {
   return value ? sanitizers.name(value) : '';
@@ -101,13 +103,13 @@ export async function POST(request: NextRequest) {
     }
 
     const [employeeRecord, existingAttendance] = await Promise.all([
-      gmPrisma.generalMerchandiseEmployee.findFirst({
+      gmClient.generalMerchandiseEmployee.findFirst({
         where: {
           employeeId: employeeIdRaw,
           deletedAt: null,
         },
       }),
-      gmPrisma.generalMerchandiseAttendance.findMany({
+      gmClient.generalMerchandiseAttendance.findMany({
         where: {
           employeeId: employeeIdRaw,
           date: { in: dateRangeUpToToday },
@@ -134,7 +136,7 @@ export async function POST(request: NextRequest) {
 
     if (existingDates.size > 0) {
       const updateResult =
-        await gmPrisma.generalMerchandiseAttendance.updateMany({
+        await gmClient.generalMerchandiseAttendance.updateMany({
           where: {
             employeeId: employeeIdRaw,
             date: { in: Array.from(existingDates) },
@@ -165,7 +167,7 @@ export async function POST(request: NextRequest) {
 
     if (missingDates.length > 0) {
       const createResult =
-        await gmPrisma.generalMerchandiseAttendance.createMany({
+        await gmClient.generalMerchandiseAttendance.createMany({
           data: missingDates.map((date) => ({
             employeeId: employeeIdRaw,
             employeeName: displayName,

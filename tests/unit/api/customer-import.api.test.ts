@@ -42,13 +42,12 @@ describe('POST /api/customers/import', () => {
       'Bob,456,Second St,Inactive,, ,777-8888',
     ].join('\n');
 
-    const mockFile = {
-      text: vi.fn().mockResolvedValue(csvContent),
-    };
+    const mockFile = new File([csvContent], 'customers.csv', {
+      type: 'text/csv',
+    });
 
-    const formData = {
-      get: vi.fn((key: string) => (key === 'file' ? mockFile : null)),
-    } as unknown as FormData;
+    const formData = new FormData();
+    formData.append('file', mockFile);
 
     mockPrisma.customer.findFirst
       .mockResolvedValueOnce(null)
@@ -79,7 +78,7 @@ describe('POST /api/customers/import', () => {
     });
     request.formData.mockResolvedValue(formData);
 
-    const response = await POST(request as unknown as NextRequest);
+    const response = await POST(request as NextRequest);
     const payload = await response.json();
 
     expect(response.status).toBe(200);
@@ -101,12 +100,10 @@ describe('POST /api/customers/import', () => {
       method: 'POST',
       url: getTestApiUrl('/api/customers/import'),
     });
-    const formData = {
-      get: vi.fn().mockReturnValue(null),
-    } as unknown as FormData;
+    const formData = new FormData();
     request.formData.mockResolvedValue(formData);
 
-    const response = await POST(request as unknown as NextRequest);
+    const response = await POST(request as NextRequest);
     const payload = await response.json();
 
     expect(response.status).toBe(400);
@@ -120,13 +117,12 @@ describe('POST /api/customers/import', () => {
       'Alice,123,Main St,Active',
     ].join('\n');
 
-    const mockFile = {
-      text: vi.fn().mockResolvedValue(csvContent),
-    };
+    const mockFile = new File([csvContent], 'customers.csv', {
+      type: 'text/csv',
+    });
 
-    const formData = {
-      get: vi.fn((key: string) => (key === 'file' ? mockFile : null)),
-    } as unknown as FormData;
+    const formData = new FormData();
+    formData.append('file', mockFile);
 
     mockPrisma.customer.findFirst.mockRejectedValueOnce(
       new Error('Database offline')
@@ -138,7 +134,7 @@ describe('POST /api/customers/import', () => {
     });
     request.formData.mockResolvedValue(formData);
 
-    const response = await POST(request as unknown as NextRequest);
+    const response = await POST(request as NextRequest);
     const payload = await response.json();
 
     expect(response.status).toBe(200);

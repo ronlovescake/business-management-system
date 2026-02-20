@@ -7,23 +7,12 @@
  * New implementation: 11 lines (99.3% reduction)
  */
 
-import { PricesPage } from '@/modules/clothing/operations/prices/components/PricesPage';
-import { PricesErrorBoundary } from '@/modules/clothing/operations/prices/components/PricesErrorBoundary';
-import { PermissionGuard } from '@/components/auth/PermissionGuard';
-import {
-  hasModuleAccess,
-  getFirstAccessibleModule,
-} from '@/lib/auth/permissions';
+import { PricesRoutePage } from '@/app/operations/prices/_shared/PricesRoutePage';
+import { renderOperationsPage } from '@/app/operations/_shared/renderOperationsPage';
 
 export default async function Page() {
-  const hasAccess = await hasModuleAccess('/clothing/operations/prices');
-  const redirectTo = await getFirstAccessibleModule();
-
-  return (
-    <PermissionGuard hasAccess={hasAccess} redirectTo={redirectTo}>
-      <PricesErrorBoundary>
-        <PricesPage />
-      </PricesErrorBoundary>
-    </PermissionGuard>
+  return renderOperationsPage(
+    '/clothing/operations/prices',
+    <PricesRoutePage />
   );
 }

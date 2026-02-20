@@ -25,11 +25,6 @@ export interface Transaction {
 
 type RouteContext = { params: { id: string } };
 
-const gmPrisma = prisma as unknown as {
-  generalMerchandiseCustomer: typeof prisma.customer;
-  generalMerchandiseTransaction: typeof prisma.transaction;
-};
-
 // GET all transactions for a customer
 export const GET = withErrorHandler<RouteContext>(
   async (_request: NextRequest, context) => {
@@ -38,7 +33,7 @@ export const GET = withErrorHandler<RouteContext>(
       return idResult.error;
     }
 
-    const customer = await gmPrisma.generalMerchandiseCustomer.findUnique({
+    const customer = await prisma.generalMerchandiseCustomer.findUnique({
       where: { id: idResult.id },
       select: { customerName: true },
     });
@@ -47,7 +42,7 @@ export const GET = withErrorHandler<RouteContext>(
       return ApiResponse.notFound('Customer');
     }
 
-    const transactions = await gmPrisma.generalMerchandiseTransaction.findMany({
+    const transactions = await prisma.generalMerchandiseTransaction.findMany({
       where: {
         customers: customer.customerName,
       },

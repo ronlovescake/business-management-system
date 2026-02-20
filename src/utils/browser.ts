@@ -217,6 +217,8 @@ export function safeClientEffect(
   }
 }
 
+type IdleHandle = number | ReturnType<typeof setTimeout>;
+
 /**
  * Safely use requestIdleCallback
  * Falls back to setTimeout if not available
@@ -224,19 +226,23 @@ export function safeClientEffect(
 export function safeRequestIdleCallback(
   callback: () => void,
   options?: { timeout?: number }
-): number {
+): IdleHandle {
   if (isBrowser && 'requestIdleCallback' in window) {
     return window.requestIdleCallback(callback, options);
   }
-  return setTimeout(callback, options?.timeout || 0) as unknown as number;
+  return setTimeout(callback, options?.timeout || 0);
 }
 
 /**
  * Safely cancel idle callback
  */
-export function safeCancelIdleCallback(id: number): void {
+export function safeCancelIdleCallback(id: IdleHandle): void {
   if (isBrowser && 'cancelIdleCallback' in window) {
-    window.cancelIdleCallback(id);
+    if (typeof id === 'number') {
+      window.cancelIdleCallback(id);
+      return;
+    }
+    clearTimeout(id);
   } else {
     clearTimeout(id);
   }

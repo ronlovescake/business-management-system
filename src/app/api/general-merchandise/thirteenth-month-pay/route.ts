@@ -5,10 +5,6 @@ import { prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
 import { sanitizers } from '@/lib/security/sanitize';
 
-const gmPrisma = prisma as unknown as {
-  generalMerchandiseThirteenthMonthPayRecord: typeof prisma.thirteenthMonthPayRecord;
-};
-
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
@@ -35,7 +31,7 @@ export async function GET(request: NextRequest) {
     }
 
     const records =
-      await gmPrisma.generalMerchandiseThirteenthMonthPayRecord.findMany({
+      await prisma.generalMerchandiseThirteenthMonthPayRecord.findMany({
         where: Object.keys(where).length > 0 ? where : undefined,
         orderBy: [{ employeeName: 'asc' }, { year: 'desc' }],
       });
@@ -71,27 +67,23 @@ export async function PATCH(request: NextRequest) {
     }
 
     const existing =
-      await gmPrisma.generalMerchandiseThirteenthMonthPayRecord.findFirst({
+      await prisma.generalMerchandiseThirteenthMonthPayRecord.findFirst({
         where: { recordId },
       });
 
     let result;
     if (existing) {
-      result = await gmPrisma.generalMerchandiseThirteenthMonthPayRecord.update(
-        {
-          where: { id: existing.id },
-          data,
-        }
-      );
+      result = await prisma.generalMerchandiseThirteenthMonthPayRecord.update({
+        where: { id: existing.id },
+        data,
+      });
     } else {
-      result = await gmPrisma.generalMerchandiseThirteenthMonthPayRecord.create(
-        {
-          data: {
-            recordId,
-            ...data,
-          } as Prisma.ThirteenthMonthPayRecordCreateInput,
-        }
-      );
+      result = await prisma.generalMerchandiseThirteenthMonthPayRecord.create({
+        data: {
+          recordId,
+          ...data,
+        } as Prisma.ThirteenthMonthPayRecordCreateInput,
+      });
     }
 
     return NextResponse.json(result);

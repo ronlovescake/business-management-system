@@ -1,15 +1,12 @@
-import { PageLayout } from '@/components/layout/PageLayout';
-import { CheckoutLinksComponent } from '@/modules/clothing/operations/checkout-links/components/CheckoutLinksComponent';
+import { CheckoutLinksRoutePage } from '@/app/operations/checkout-links/_shared/CheckoutLinksRoutePage';
 import { renderGmOperationsPage } from '@/app/general-merchandise/operations/_shared/renderGmOperationsPage';
 
 export default async function GeneralMerchandiseCheckoutLinksPage() {
   return renderGmOperationsPage(
     '/general-merchandise/operations/checkout-links',
-    <PageLayout fluid withPadding>
-      <CheckoutLinksComponent
-        apiBasePath="/api/general-merchandise"
-        checkoutLinksApiBasePath="/api"
-      />
-    </PageLayout>
+    <CheckoutLinksRoutePage
+      apiBasePath="/api/general-merchandise"
+      checkoutLinksApiBasePath="/api"
+    />
   );
 }

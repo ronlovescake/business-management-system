@@ -6,8 +6,7 @@ function normalizeProductCode(value: string | null | undefined): string {
 }
 
 async function backfillReceiptMovements() {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const client = prisma as any;
+  const client = prisma;
 
   const products = await client.product.findMany({
     where: { deletedAt: null },

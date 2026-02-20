@@ -5,9 +5,12 @@ import { ApiResponseUtil } from '@/core/api/response';
 
 type MultipliersPayload = Record<string, number>;
 
-const gmPrisma = prisma as unknown as {
-  generalMerchandiseShippingFeeCalculatorState: typeof prisma.shippingFeeCalculatorState;
-};
+type GMShippingFeeCalculatorClient = Pick<
+  typeof prisma,
+  'generalMerchandiseShippingFeeCalculatorState'
+>;
+
+const gmClient: GMShippingFeeCalculatorClient = prisma;
 
 /**
  * Shipping Fee Calculator state (Products page).
@@ -35,7 +38,7 @@ export async function GET(request: NextRequest) {
     }
 
     const record =
-      await gmPrisma.generalMerchandiseShippingFeeCalculatorState.findUnique({
+      await gmClient.generalMerchandiseShippingFeeCalculatorState.findUnique({
         where: {
           shipmentCode,
         },
@@ -115,7 +118,7 @@ export async function POST(request: NextRequest) {
       deletedAt: null,
     };
 
-    await gmPrisma.generalMerchandiseShippingFeeCalculatorState.upsert({
+    await gmClient.generalMerchandiseShippingFeeCalculatorState.upsert({
       where: {
         shipmentCode: trimmedShipmentCode,
       },

@@ -14,10 +14,6 @@ import {
 } from '@/modules/clothing/operations/checkout-links/api/schemas';
 import { ZodError } from 'zod';
 
-const gmPrisma = prisma as unknown as {
-  generalMerchandiseCheckoutLink: typeof prisma.checkoutLink;
-};
-
 /**
  * GET /api/general-merchandise/checkout-links
  *
@@ -71,13 +67,13 @@ export async function GET(request: NextRequest) {
       : { deletedAt: null };
 
     const [data, total] = await Promise.all([
-      gmPrisma.generalMerchandiseCheckoutLink.findMany({
+      prisma.generalMerchandiseCheckoutLink.findMany({
         where,
         take: query.limit,
         skip: query.offset,
         orderBy: { createdAt: 'desc' },
       }),
-      gmPrisma.generalMerchandiseCheckoutLink.count({ where }),
+      prisma.generalMerchandiseCheckoutLink.count({ where }),
     ]);
 
     return NextResponse.json({ data, total });
@@ -100,7 +96,7 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const validatedData = BulkCreateCheckoutLinksSchema.parse(body);
 
-    const result = await gmPrisma.generalMerchandiseCheckoutLink.createMany({
+    const result = await prisma.generalMerchandiseCheckoutLink.createMany({
       data: validatedData.items,
       skipDuplicates: true,
     });
@@ -146,7 +142,7 @@ export async function PUT(request: NextRequest) {
 
     const validatedData = UpdateCheckoutLinksSchema.parse(data);
 
-    const updated = await gmPrisma.generalMerchandiseCheckoutLink.update({
+    const updated = await prisma.generalMerchandiseCheckoutLink.update({
       where: { id },
       data: validatedData,
     });
@@ -175,7 +171,7 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: 'ID is required' }, { status: 400 });
     }
 
-    await gmPrisma.generalMerchandiseCheckoutLink.update({
+    await prisma.generalMerchandiseCheckoutLink.update({
       where: { id },
       data: { deletedAt: new Date() },
     });

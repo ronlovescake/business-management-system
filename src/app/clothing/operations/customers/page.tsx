@@ -1,25 +1,13 @@
 /**
  * Customers Route Handler
- * Delegates to the modular CustomersPage component
- * Direct import path used to optimize compilation speed
+ * Delegates to the shared customers route wrapper
  */
-import { CustomersPage } from '@/modules/clothing/operations/customers/components/CustomersPage';
-import { CustomersErrorBoundary } from '@/modules/clothing/operations/customers/components/CustomersErrorBoundary';
-import { PermissionGuard } from '@/components/auth/PermissionGuard';
-import {
-  hasModuleAccess,
-  getFirstAccessibleModule,
-} from '@/lib/auth/permissions';
+import { CustomersRoutePage } from '@/app/operations/customers/_shared/CustomersRoutePage';
+import { renderOperationsPage } from '@/app/operations/_shared/renderOperationsPage';
 
 export default async function Page() {
-  const hasAccess = await hasModuleAccess('/clothing/operations/customers');
-  const redirectTo = await getFirstAccessibleModule();
-
-  return (
-    <PermissionGuard hasAccess={hasAccess} redirectTo={redirectTo}>
-      <CustomersErrorBoundary>
-        <CustomersPage />
-      </CustomersErrorBoundary>
-    </PermissionGuard>
+  return renderOperationsPage(
+    '/clothing/operations/customers',
+    <CustomersRoutePage />
   );
 }

@@ -33,11 +33,14 @@ type TransitBuildRequestBody = {
   notes?: string | null;
 };
 
-const gmPrisma = prisma as unknown as {
-  generalMerchandiseShipment: typeof prisma.shipment;
-  generalMerchandiseProduct: typeof prisma.product;
-  generalMerchandiseInventoryTransitBuildEntry: typeof prisma.clothingInventoryTransitBuildEntry;
-};
+type GMShipmentTransitBuildClient = Pick<
+  typeof prisma,
+  | 'generalMerchandiseShipment'
+  | 'generalMerchandiseProduct'
+  | 'generalMerchandiseInventoryTransitBuildEntry'
+>;
+
+const gmClient: GMShipmentTransitBuildClient = prisma;
 
 async function hasGmTransitBuildTable(): Promise<boolean> {
   try {
@@ -67,7 +70,7 @@ export const GET = withErrorHandler<RouteContext>(
       );
     }
 
-    const shipment = await gmPrisma.generalMerchandiseShipment.findUnique({
+    const shipment = await gmClient.generalMerchandiseShipment.findUnique({
       where: { id: idResult.id },
       select: { id: true, shipmentCode: true },
     });
@@ -85,7 +88,7 @@ export const GET = withErrorHandler<RouteContext>(
     }
 
     const buildEntries =
-      await gmPrisma.generalMerchandiseInventoryTransitBuildEntry.findMany({
+      await gmClient.generalMerchandiseInventoryTransitBuildEntry.findMany({
         where: {
           shipmentCode,
           deletedAt: null,
@@ -102,7 +105,7 @@ export const GET = withErrorHandler<RouteContext>(
         },
       });
 
-    const products = await gmPrisma.generalMerchandiseProduct.findMany({
+    const products = await gmClient.generalMerchandiseProduct.findMany({
       where: {
         shipmentCode,
         deletedAt: null,
@@ -199,7 +202,7 @@ export const POST = withErrorHandler<RouteContext>(
       });
     }
 
-    const shipment = await gmPrisma.generalMerchandiseShipment.findUnique({
+    const shipment = await gmClient.generalMerchandiseShipment.findUnique({
       where: { id: idResult.id },
       select: { id: true, shipmentCode: true },
     });
@@ -215,7 +218,7 @@ export const POST = withErrorHandler<RouteContext>(
       });
     }
 
-    const products = await gmPrisma.generalMerchandiseProduct.findMany({
+    const products = await gmClient.generalMerchandiseProduct.findMany({
       where: {
         shipmentCode,
         deletedAt: null,
@@ -268,7 +271,7 @@ export const POST = withErrorHandler<RouteContext>(
     }
 
     const existingBuildEntries =
-      await gmPrisma.generalMerchandiseInventoryTransitBuildEntry.findMany({
+      await gmClient.generalMerchandiseInventoryTransitBuildEntry.findMany({
         where: {
           shipmentCode,
           deletedAt: null,
@@ -302,7 +305,7 @@ export const POST = withErrorHandler<RouteContext>(
 
       try {
         const entry =
-          await gmPrisma.generalMerchandiseInventoryTransitBuildEntry.create({
+          await gmClient.generalMerchandiseInventoryTransitBuildEntry.create({
             data: {
               postingDate,
               shipmentId: shipment.id,
@@ -345,7 +348,7 @@ export const POST = withErrorHandler<RouteContext>(
 
         if (isDuplicate) {
           const existing =
-            await gmPrisma.generalMerchandiseInventoryTransitBuildEntry.findUnique(
+            await gmClient.generalMerchandiseInventoryTransitBuildEntry.findUnique(
               {
                 where: { idempotencyKey },
               }
@@ -460,7 +463,7 @@ export const POST = withErrorHandler<RouteContext>(
     for (const entry of entriesToCreate) {
       try {
         const created =
-          await gmPrisma.generalMerchandiseInventoryTransitBuildEntry.create({
+          await gmClient.generalMerchandiseInventoryTransitBuildEntry.create({
             data: {
               postingDate,
               shipmentId: shipment.id,
@@ -490,7 +493,7 @@ export const POST = withErrorHandler<RouteContext>(
 
         if (isDuplicate) {
           const existing =
-            await gmPrisma.generalMerchandiseInventoryTransitBuildEntry.findUnique(
+            await gmClient.generalMerchandiseInventoryTransitBuildEntry.findUnique(
               {
                 where: { idempotencyKey: entry.idempotencyKey },
               }

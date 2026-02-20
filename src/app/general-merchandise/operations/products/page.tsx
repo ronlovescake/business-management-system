@@ -3,8 +3,7 @@
  */
 
 import type { Metadata } from 'next';
-import { ProductsPage } from '@/modules/clothing/operations/products/components/ProductsPage';
-import { ProductsErrorBoundary } from '@/modules/clothing/operations/products/components/ProductsErrorBoundary';
+import { ProductsRoutePage } from '@/app/operations/products/_shared/ProductsRoutePage';
 import { renderGmOperationsPage } from '@/app/general-merchandise/operations/_shared/renderGmOperationsPage';
 
 export const metadata: Metadata = {
@@ -14,8 +13,6 @@ export const metadata: Metadata = {
 export default async function Page() {
   return renderGmOperationsPage(
     '/general-merchandise/operations/products',
-    <ProductsErrorBoundary>
-      <ProductsPage apiBasePath="/api/general-merchandise" />
-    </ProductsErrorBoundary>
+    <ProductsRoutePage apiBasePath="/api/general-merchandise" />
   );
 }

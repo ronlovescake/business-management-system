@@ -7,9 +7,9 @@ import { prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
 import { ApiResponseUtil } from '@/core/api/response';
 
-const gmPrisma = prisma as unknown as {
-  generalMerchandiseInvoice: typeof prisma.invoice;
-};
+type GMInvoicesClient = Pick<typeof prisma, 'generalMerchandiseInvoice'>;
+
+const gmClient: GMInvoicesClient = prisma;
 
 /**
  * GET /api/general-merchandise/invoices
@@ -18,7 +18,7 @@ const gmPrisma = prisma as unknown as {
  */
 export async function GET() {
   try {
-    const invoices = await gmPrisma.generalMerchandiseInvoice.findMany({
+    const invoices = await gmClient.generalMerchandiseInvoice.findMany({
       where: { deletedAt: null },
       orderBy: { createdAt: 'desc' },
     });
@@ -47,12 +47,12 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    await gmPrisma.generalMerchandiseInvoice.updateMany({
+    await gmClient.generalMerchandiseInvoice.updateMany({
       where: { deletedAt: null },
       data: { deletedAt: new Date() },
     });
 
-    const created = await gmPrisma.generalMerchandiseInvoice.createMany({
+    const created = await gmClient.generalMerchandiseInvoice.createMany({
       data: invoices.map(
         (invoice: {
           id?: string;
@@ -77,7 +77,7 @@ export async function POST(request: NextRequest) {
       ),
     });
 
-    const newInvoices = await gmPrisma.generalMerchandiseInvoice.findMany({
+    const newInvoices = await gmClient.generalMerchandiseInvoice.findMany({
       where: { deletedAt: null },
       orderBy: { createdAt: 'desc' },
     });
@@ -106,7 +106,7 @@ export async function PUT(request: NextRequest) {
       return ApiResponseUtil.error('ID is required', 400);
     }
 
-    const updated = await gmPrisma.generalMerchandiseInvoice.update({
+    const updated = await gmClient.generalMerchandiseInvoice.update({
       where: { id },
       data: {
         customerName: data.customerName,
@@ -141,7 +141,7 @@ export async function DELETE(request: NextRequest) {
       return ApiResponseUtil.error('ID is required', 400);
     }
 
-    await gmPrisma.generalMerchandiseInvoice.update({
+    await gmClient.generalMerchandiseInvoice.update({
       where: { id },
       data: { deletedAt: new Date() },
     });

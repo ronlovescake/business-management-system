@@ -12,12 +12,6 @@ import {
 
 type RouteContext = { params: { id: string } };
 
-type TransactionPaymentDelegate = {
-  findMany: (args: unknown) => Promise<unknown>;
-  create: (args: unknown) => Promise<unknown>;
-  groupBy: (args: unknown) => Promise<unknown>;
-};
-
 type TransactionMetaRow = { id: number; quantity: number; unitPrice: number };
 
 type PaymentRow = {
@@ -30,12 +24,6 @@ type PaymentRow = {
   isReservation: boolean;
   createdAt: Date;
   updatedAt: Date;
-};
-
-const gmPrisma = prisma as unknown as {
-  generalMerchandiseCustomer: typeof prisma.customer;
-  generalMerchandiseTransaction: typeof prisma.transaction;
-  generalMerchandiseTransactionPayment: TransactionPaymentDelegate;
 };
 
 async function supportsReservationFlag(): Promise<boolean> {
@@ -120,7 +108,7 @@ export const GET = withErrorHandler<RouteContext>(
       return idResult.error;
     }
 
-    const customer = await gmPrisma.generalMerchandiseCustomer.findUnique({
+    const customer = await prisma.generalMerchandiseCustomer.findUnique({
       where: { id: idResult.id },
       select: { customerName: true },
     });
@@ -142,7 +130,7 @@ export const GET = withErrorHandler<RouteContext>(
     }
 
     const payments =
-      (await gmPrisma.generalMerchandiseTransactionPayment.findMany({
+      (await prisma.generalMerchandiseTransactionPayment.findMany({
         where: {
           deletedAt: null,
           ...(transactionId ? { transactionId } : {}),
@@ -183,7 +171,7 @@ export const POST = withErrorHandler<RouteContext>(
       return idResult.error;
     }
 
-    const customer = await gmPrisma.generalMerchandiseCustomer.findUnique({
+    const customer = await prisma.generalMerchandiseCustomer.findUnique({
       where: { id: idResult.id },
       select: { customerName: true },
     });
@@ -213,7 +201,7 @@ export const POST = withErrorHandler<RouteContext>(
 
     const hasReservationFlag = await supportsReservationFlag();
 
-    const tx = await gmPrisma.generalMerchandiseTransaction.findFirst({
+    const tx = await prisma.generalMerchandiseTransaction.findFirst({
       where: {
         id: sanitized.transactionId,
         deletedAt: null,
@@ -228,7 +216,7 @@ export const POST = withErrorHandler<RouteContext>(
       });
     }
 
-    const created = await gmPrisma.generalMerchandiseTransactionPayment.create({
+    const created = await prisma.generalMerchandiseTransactionPayment.create({
       data: {
         transactionId: sanitized.transactionId,
         paymentDate: sanitized.paymentDate,
@@ -242,27 +230,56 @@ export const POST = withErrorHandler<RouteContext>(
     });
 
     // Keep transaction totals consistent with payment rows.
-    const meta = (await gmPrisma.generalMerchandiseTransaction.findUnique({
+    const meta = (await prisma.generalMerchandiseTransaction.findUnique({
       where: { id: sanitized.transactionId },
       select: { id: true, quantity: true, unitPrice: true },
     })) as TransactionMetaRow | null;
 
-    const sums = (await gmPrisma.generalMerchandiseTransactionPayment.groupBy({
-      by: ['transactionId'],
-      where: {
-        transactionId: sanitized.transactionId,
-        deletedAt: null,
-      },
-      _sum: {
-        amount: true,
-      },
-    })) as Array<{ transactionId: number; _sum: { amount: number | null } }>;
+    const paymentDelegate = prisma.generalMerchandiseTransactionPayment;
 
-    const paid = sums[0]?._sum?.amount ?? 0;
+    let paid = 0;
+    if (paymentDelegate.aggregate) {
+      const paymentAggregate = await paymentDelegate.aggregate({
+        where: {
+          transactionId: sanitized.transactionId,
+          deletedAt: null,
+        },
+        _sum: {
+          amount: true,
+        },
+      });
+      paid = paymentAggregate._sum.amount ?? 0;
+    } else {
+      const groupBy = Reflect.get(paymentDelegate, 'groupBy');
+
+      if (typeof groupBy !== 'function') {
+        throw new Error(
+          'GeneralMerchandiseTransactionPayment groupBy is unavailable'
+        );
+      }
+
+      const groupByAny = groupBy as (
+        this: unknown,
+        args: Record<string, unknown>
+      ) => Promise<unknown>;
+
+      const grouped = (await groupByAny.call(paymentDelegate, {
+        by: ['transactionId'],
+        where: {
+          transactionId: sanitized.transactionId,
+          deletedAt: null,
+        },
+        _sum: {
+          amount: true,
+        },
+      })) as Array<{ _sum?: { amount?: number | null } }>;
+      paid = grouped[0]?._sum?.amount ?? 0;
+    }
+
     const gross = (meta?.quantity ?? 0) * (meta?.unitPrice ?? 0);
     const balance = gross - paid;
 
-    await gmPrisma.generalMerchandiseTransaction.update({
+    await prisma.generalMerchandiseTransaction.update({
       where: { id: sanitized.transactionId },
       data: {
         adjustment: paid,

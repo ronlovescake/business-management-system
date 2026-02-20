@@ -36,9 +36,12 @@ const movementPatchSchema = z.object({
   notes: z.string().optional(),
 });
 
-const gmPrisma = prisma as unknown as {
-  generalMerchandiseInventoryMovement: typeof prisma.inventoryMovement;
-};
+type GMInventoryMovementsClient = Pick<
+  typeof prisma,
+  'generalMerchandiseInventoryMovement'
+>;
+
+const gmClient: GMInventoryMovementsClient = prisma;
 
 function normalizeProductCode(value: string) {
   return value.trim();
@@ -47,7 +50,7 @@ function normalizeProductCode(value: string) {
 export async function GET() {
   try {
     const movements =
-      await gmPrisma.generalMerchandiseInventoryMovement.findMany({
+      await gmClient.generalMerchandiseInventoryMovement.findMany({
         where: { deletedAt: null },
         orderBy: { createdAt: 'desc' },
       });
@@ -79,7 +82,7 @@ export async function POST(request: Request) {
 
     const normalizedCode = normalizeProductCode(productCode);
 
-    const created = await gmPrisma.generalMerchandiseInventoryMovement.create({
+    const created = await gmClient.generalMerchandiseInventoryMovement.create({
       data: {
         productCode: normalizedCode,
         quantity,
@@ -111,7 +114,7 @@ export async function PATCH(request: Request) {
     const { id, quantity, toBucket, postingDate, notes } = parsed.data;
 
     const existing =
-      await gmPrisma.generalMerchandiseInventoryMovement.findFirst({
+      await gmClient.generalMerchandiseInventoryMovement.findFirst({
         where: { id, deletedAt: null },
       });
 
@@ -136,7 +139,7 @@ export async function PATCH(request: Request) {
       );
     }
 
-    const updated = await gmPrisma.generalMerchandiseInventoryMovement.update({
+    const updated = await gmClient.generalMerchandiseInventoryMovement.update({
       where: { id },
       data: {
         quantity: typeof quantity === 'number' ? quantity : undefined,
@@ -167,7 +170,7 @@ export async function DELETE(request: Request) {
     }
 
     const existing =
-      await gmPrisma.generalMerchandiseInventoryMovement.findFirst({
+      await gmClient.generalMerchandiseInventoryMovement.findFirst({
         where: { id, deletedAt: null },
       });
 
@@ -192,7 +195,7 @@ export async function DELETE(request: Request) {
       );
     }
 
-    await gmPrisma.generalMerchandiseInventoryMovement.update({
+    await gmClient.generalMerchandiseInventoryMovement.update({
       where: { id },
       data: { deletedAt: new Date() },
     });

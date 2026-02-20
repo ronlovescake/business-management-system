@@ -1,71 +1,24 @@
-import { Prisma } from '@prisma/client';
+import type { Prisma } from '@prisma/client';
 import type { TruckingPayroll } from '@prisma/client';
 import { prisma } from '@/lib/db';
+import {
+  extractPeriodBounds,
+  formatDate,
+  getOverlapScheduledDays,
+  normalizeIdentifier,
+  parseDate,
+  parsePeriodDate,
+  parseTimeToMinutes,
+  roundToCents,
+  toDateOnlyUtc,
+  toDecimalValue,
+} from '../deductionsShared';
 import type { CashAdvanceCycle } from '../cashAdvanceSchedule';
 import {
   advanceCycleByOneMonth,
   determineCycleFromDate,
   ensureNextPayday,
 } from '../cashAdvanceSchedule';
-
-const roundToCents = (value: number): number =>
-  Math.round((Number.isFinite(value) ? value : 0) * 100) / 100;
-
-const normalizeIdentifier = (value?: string | null): string =>
-  (value ?? '').toString().trim().replace(/\s+/g, ' ').toLowerCase();
-
-const toDecimalValue = (value: number): Prisma.Decimal =>
-  new Prisma.Decimal(roundToCents(value).toFixed(2));
-
-const toDateOnlyUtc = (input: Date): Date =>
-  new Date(Date.UTC(input.getFullYear(), input.getMonth(), input.getDate()));
-
-const parseDate = (value?: string | null): Date | null => {
-  if (!value) {
-    return null;
-  }
-
-  const parsed = new Date(value);
-  if (Number.isNaN(parsed.getTime())) {
-    return null;
-  }
-
-  return toDateOnlyUtc(parsed);
-};
-
-const parsePeriodDate = (
-  value: string | null | undefined,
-  fallback?: string
-): Date | null => {
-  const direct = parseDate(value ?? undefined);
-  if (direct) {
-    return direct;
-  }
-
-  if (!fallback) {
-    return null;
-  }
-
-  return parseDate(fallback);
-};
-
-const extractPeriodBounds = (
-  payPeriod: string | null | undefined
-): {
-  start?: string;
-  end?: string;
-} => {
-  if (!payPeriod) {
-    return {};
-  }
-
-  const [rawStart, rawEnd] = payPeriod
-    .split(' to ')
-    .map((part) => part?.trim());
-  return { start: rawStart, end: rawEnd };
-};
-
-const formatDate = (date: Date): string => date.toISOString().slice(0, 10);
 
 const getTruckingPayrollPeriodRange = (
   payroll: TruckingPayroll
@@ -117,20 +70,6 @@ const DEFAULT_SHIFT_END = '17:00';
 const HOURS_PER_DAY = 8;
 const MINUTES_PER_DAY = HOURS_PER_DAY * 60;
 
-const parseTimeToMinutes = (value?: string | null): number | null => {
-  if (!value) {
-    return null;
-  }
-
-  const [hours, minutes] = value.split(':').map((part) => Number(part));
-
-  if (Number.isNaN(hours) || Number.isNaN(minutes)) {
-    return null;
-  }
-
-  return hours * 60 + minutes;
-};
-
 /**
  * Count scheduled working days for an employee within a date range
  * @param employeeId - The employee ID
@@ -139,51 +78,6 @@ const parseTimeToMinutes = (value?: string | null): number | null => {
  * @param schedules - Array of schedule records for the employee
  * @returns Number of days the employee has schedules
  */
-const countScheduledDays = (
-  employeeId: string,
-  start: Date,
-  end: Date,
-  schedules: MinimalSchedule[]
-): number => {
-  if (start > end) {
-    return 0;
-  }
-
-  const startStr = formatDate(start);
-  const endStr = formatDate(end);
-
-  // Filter schedules within the date range
-  const scheduledDates = new Set(
-    schedules
-      .filter(
-        (schedule) =>
-          schedule.employeeId === employeeId &&
-          schedule.date >= startStr &&
-          schedule.date <= endStr
-      )
-      .map((schedule) => schedule.date)
-  );
-
-  return scheduledDates.size;
-};
-
-const getOverlapScheduledDays = (
-  employeeId: string,
-  periodStart: Date,
-  periodEnd: Date,
-  leaveStart: Date,
-  leaveEnd: Date,
-  schedules: MinimalSchedule[]
-): number => {
-  const overlapStart = leaveStart > periodStart ? leaveStart : periodStart;
-  const overlapEnd = leaveEnd < periodEnd ? leaveEnd : periodEnd;
-
-  if (overlapStart > overlapEnd) {
-    return 0;
-  }
-
-  return countScheduledDays(employeeId, overlapStart, overlapEnd, schedules);
-};
 
 interface MinimalEmployee {
   employeeId: string;
@@ -248,17 +142,6 @@ interface MinimalCashAdvanceRecord {
   createdAt: Date;
   termsMonths: number | null;
 }
-
-type ThirteenthMonthRecord = {
-  recordId: string;
-  employeeId: string | null;
-  employeeName: string;
-  year: number;
-  status: string;
-  thirteenthMonthPay: Prisma.Decimal;
-  approvedDate: string | null;
-  paidDate: string | null;
-};
 
 const buildEmployeeDataMap = async (
   payrolls: TruckingPayroll[]
@@ -615,16 +498,7 @@ const applyThirteenthMonthAdjustments = async (
     return payrolls;
   }
 
-  const thirteenthMonthDelegate = (
-    prisma as unknown as {
-      thirteenthMonthPayRecord?: {
-        findMany: (args: {
-          where?: unknown;
-          select?: unknown;
-        }) => Promise<ThirteenthMonthRecord[]>;
-      };
-    }
-  ).thirteenthMonthPayRecord;
+  const thirteenthMonthDelegate = prisma.thirteenthMonthPayRecord;
 
   if (!thirteenthMonthDelegate?.findMany) {
     return payrolls;

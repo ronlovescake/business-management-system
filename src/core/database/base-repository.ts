@@ -39,17 +39,58 @@ export interface DeleteOptions {
   skipAuditLog?: boolean;
 }
 
+type RepositoryModelDelegate<T extends BaseEntity> = {
+  findMany: (args: unknown) => Promise<T[]>;
+  count: (args: unknown) => Promise<number>;
+  findFirst: (args: unknown) => Promise<T | null>;
+  create: (args: unknown) => Promise<T>;
+  createMany: (args: unknown) => Promise<{ count: number }>;
+  update: (args: unknown) => Promise<T>;
+  upsert: (args: unknown) => Promise<T>;
+  delete: (args: unknown) => Promise<unknown>;
+  updateMany: (args: unknown) => Promise<{ count: number }>;
+  deleteMany: (args: unknown) => Promise<{ count: number }>;
+};
+
+const toRepositoryModelDelegate = <T extends BaseEntity>(
+  model: unknown,
+  modelName: string
+): RepositoryModelDelegate<T> => {
+  const delegate = model as Partial<RepositoryModelDelegate<T>>;
+
+  if (
+    !delegate ||
+    typeof delegate.findMany !== 'function' ||
+    typeof delegate.count !== 'function' ||
+    typeof delegate.findFirst !== 'function' ||
+    typeof delegate.create !== 'function' ||
+    typeof delegate.createMany !== 'function' ||
+    typeof delegate.update !== 'function' ||
+    typeof delegate.upsert !== 'function' ||
+    typeof delegate.delete !== 'function' ||
+    typeof delegate.updateMany !== 'function' ||
+    typeof delegate.deleteMany !== 'function'
+  ) {
+    throw new Error(`Invalid model delegate for ${modelName}`);
+  }
+
+  return delegate as RepositoryModelDelegate<T>;
+};
+
 /**
  * Base Repository
  *
  * Provides generic CRUD operations for any Prisma model
  */
 export class BaseRepository<T extends BaseEntity> {
+  private model: RepositoryModelDelegate<T>;
+
   constructor(
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    private model: any, // Prisma model delegate
+    model: unknown, // Prisma model delegate
     private modelName: string
-  ) {}
+  ) {
+    this.model = toRepositoryModelDelegate<T>(model, modelName);
+  }
 
   /**
    * Find all records
@@ -361,11 +402,10 @@ export class BaseRepository<T extends BaseEntity> {
   /**
    * Add soft delete filter to where clause
    */
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  private addSoftDeleteFilter(where?: Partial<T>): any {
+  private addSoftDeleteFilter(where?: Partial<T>): Partial<T> {
     return {
-      ...where,
+      ...(where ?? {}),
       deletedAt: null,
-    };
+    } as Partial<T>;
   }
 }

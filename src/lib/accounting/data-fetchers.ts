@@ -171,11 +171,11 @@ export async function fetchTransactionRefunds(): Promise<
 export async function fetchTransactionPayments(): Promise<
   TransactionPaymentWithTransaction[]
 > {
-  const transactionPayment = (
-    prisma as unknown as {
-      transactionPayment?: { findMany?: (args: unknown) => Promise<unknown> };
-    }
-  ).transactionPayment;
+  const transactionPayment = Reflect.get(prisma, 'transactionPayment') as
+    | {
+        findMany?: (args: unknown) => Promise<unknown>;
+      }
+    | undefined;
 
   if (!transactionPayment?.findMany) {
     // This usually means the DB/schema was updated but Prisma Client wasn't regenerated yet.
@@ -217,13 +217,11 @@ export async function fetchManualJournalLines(params: {
 }): Promise<ManualJournalLine[]> {
   const { from, to } = params;
 
-  const journalModel = (
-    prisma as unknown as {
-      clothingAccountingJournalLine?: {
+  const journalModel = Reflect.get(prisma, 'clothingAccountingJournalLine') as
+    | {
         findMany?: (args: unknown) => Promise<unknown>;
-      };
-    }
-  ).clothingAccountingJournalLine;
+      }
+    | undefined;
 
   if (!journalModel?.findMany) {
     logger.warn(
@@ -264,11 +262,11 @@ export async function fetchManualJournalLines(params: {
 }
 
 export function getPaidAtDate(
-  transaction: TransactionWithStatusChanges
+  transaction: TransactionWithStatusChanges & {
+    packedDate?: string | Date | null;
+  }
 ): Date | null {
-  const packedDate = parseDate(
-    (transaction as unknown as { packedDate?: string | Date | null }).packedDate
-  );
+  const packedDate = parseDate(transaction.packedDate);
 
   // Status changes are sorted ascending in fetchers; first is the earliest paid timestamp.
   const paidStatusChangedAt = transaction.statusChanges?.[0]?.changedAt ?? null;

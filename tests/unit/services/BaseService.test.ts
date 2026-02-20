@@ -3,29 +3,43 @@ import { BaseService, APIError } from '@/services/BaseService';
 
 // Test subclass to access protected methods
 class TestService extends BaseService {
-  static async testGet<T>(endpoint: string, retryConfig?: Record<string, unknown>): Promise<T> {
+  static async testGet<T>(
+    endpoint: string,
+    retryConfig?: Record<string, unknown>
+  ): Promise<T> {
     return this.get<T>(endpoint, retryConfig);
   }
-  
-  static async testPost<T>(endpoint: string, data: unknown, retryConfig?: Record<string, unknown>): Promise<T> {
+
+  static async testPost<T>(
+    endpoint: string,
+    data: unknown,
+    retryConfig?: Record<string, unknown>
+  ): Promise<T> {
     return this.post<T>(endpoint, data, retryConfig);
   }
-  
-  static async testPut<T>(endpoint: string, data: unknown, retryConfig?: Record<string, unknown>): Promise<T> {
+
+  static async testPut<T>(
+    endpoint: string,
+    data: unknown,
+    retryConfig?: Record<string, unknown>
+  ): Promise<T> {
     return this.put<T>(endpoint, data, retryConfig);
   }
-  
-  static async testDelete<T>(endpoint: string, retryConfig?: Record<string, unknown>): Promise<T> {
+
+  static async testDelete<T>(
+    endpoint: string,
+    retryConfig?: Record<string, unknown>
+  ): Promise<T> {
     return this.delete<T>(endpoint, retryConfig);
   }
 }
 
 describe('BaseService', () => {
   let fetchSpy: ReturnType<typeof vi.fn>;
-  
+
   beforeEach(() => {
     fetchSpy = vi.fn();
-    global.fetch = fetchSpy as unknown as typeof fetch;
+    global.fetch = fetchSpy as typeof fetch;
   });
 
   afterEach(() => {
@@ -41,7 +55,7 @@ describe('BaseService', () => {
         '/api/test',
         'GET'
       );
-      
+
       expect(error.message).toBe('Test error');
       expect(error.status).toBe(404);
       expect(error.statusText).toBe('Not Found');
@@ -52,32 +66,86 @@ describe('BaseService', () => {
     });
 
     it('should be instanceof Error', () => {
-      const error = new APIError('Test error', 500, 'Internal Server Error', '/api/test', 'GET');
+      const error = new APIError(
+        'Test error',
+        500,
+        'Internal Server Error',
+        '/api/test',
+        'GET'
+      );
       expect(error instanceof Error).toBe(true);
     });
 
     it('should identify client errors correctly', () => {
-      const error404 = new APIError('Not found', 404, 'Not Found', '/api/test', 'GET');
-      const error500 = new APIError('Server error', 500, 'Internal Server Error', '/api/test', 'GET');
-      
+      const error404 = new APIError(
+        'Not found',
+        404,
+        'Not Found',
+        '/api/test',
+        'GET'
+      );
+      const error500 = new APIError(
+        'Server error',
+        500,
+        'Internal Server Error',
+        '/api/test',
+        'GET'
+      );
+
       expect(error404.isClientError()).toBe(true);
       expect(error500.isClientError()).toBe(false);
     });
 
     it('should identify server errors correctly', () => {
-      const error404 = new APIError('Not found', 404, 'Not Found', '/api/test', 'GET');
-      const error500 = new APIError('Server error', 500, 'Internal Server Error', '/api/test', 'GET');
-      
+      const error404 = new APIError(
+        'Not found',
+        404,
+        'Not Found',
+        '/api/test',
+        'GET'
+      );
+      const error500 = new APIError(
+        'Server error',
+        500,
+        'Internal Server Error',
+        '/api/test',
+        'GET'
+      );
+
       expect(error404.isServerError()).toBe(false);
       expect(error500.isServerError()).toBe(true);
     });
 
     it('should identify retryable errors correctly', () => {
-      const error404 = new APIError('Not found', 404, 'Not Found', '/api/test', 'GET');
-      const error408 = new APIError('Timeout', 408, 'Request Timeout', '/api/test', 'GET');
-      const error429 = new APIError('Too many requests', 429, 'Too Many Requests', '/api/test', 'GET');
-      const error500 = new APIError('Server error', 500, 'Internal Server Error', '/api/test', 'GET');
-      
+      const error404 = new APIError(
+        'Not found',
+        404,
+        'Not Found',
+        '/api/test',
+        'GET'
+      );
+      const error408 = new APIError(
+        'Timeout',
+        408,
+        'Request Timeout',
+        '/api/test',
+        'GET'
+      );
+      const error429 = new APIError(
+        'Too many requests',
+        429,
+        'Too Many Requests',
+        '/api/test',
+        'GET'
+      );
+      const error500 = new APIError(
+        'Server error',
+        500,
+        'Internal Server Error',
+        '/api/test',
+        'GET'
+      );
+
       expect(error404.isRetryable()).toBe(false);
       expect(error408.isRetryable()).toBe(true);
       expect(error429.isRetryable()).toBe(true);
@@ -85,19 +153,43 @@ describe('BaseService', () => {
     });
 
     it('should return user-friendly messages', () => {
-      const error401 = new APIError('Unauthorized', 401, 'Unauthorized', '/api/test', 'GET');
-      const error404 = new APIError('Not found', 404, 'Not Found', '/api/test', 'GET');
-      const error500 = new APIError('Server error', 500, 'Internal Server Error', '/api/test', 'GET');
-      
+      const error401 = new APIError(
+        'Unauthorized',
+        401,
+        'Unauthorized',
+        '/api/test',
+        'GET'
+      );
+      const error404 = new APIError(
+        'Not found',
+        404,
+        'Not Found',
+        '/api/test',
+        'GET'
+      );
+      const error500 = new APIError(
+        'Server error',
+        500,
+        'Internal Server Error',
+        '/api/test',
+        'GET'
+      );
+
       expect(error401.getUserMessage()).toContain('Authentication required');
       expect(error404.getUserMessage()).toContain('not found');
       expect(error500.getUserMessage()).toContain('Server error');
     });
 
     it('should convert to JSON correctly', () => {
-      const error = new APIError('Test error', 404, 'Not Found', '/api/test', 'GET');
+      const error = new APIError(
+        'Test error',
+        404,
+        'Not Found',
+        '/api/test',
+        'GET'
+      );
       const json = error.toJSON();
-      
+
       expect(json).toHaveProperty('name', 'APIError');
       expect(json).toHaveProperty('message', 'Test error');
       expect(json).toHaveProperty('status', 404);
@@ -118,7 +210,7 @@ describe('BaseService', () => {
       } as Response);
 
       const result = await TestService.testGet('/test');
-      
+
       expect(fetchSpy).toHaveBeenCalledWith(
         '/api/test',
         expect.objectContaining({
@@ -140,7 +232,9 @@ describe('BaseService', () => {
         headers: new Headers(),
       } as Response);
 
-      await expect(TestService.testGet('/nonexistent')).rejects.toThrow(APIError);
+      await expect(TestService.testGet('/nonexistent')).rejects.toThrow(
+        APIError
+      );
     });
 
     it('should retry on 5xx errors', async () => {
@@ -163,8 +257,10 @@ describe('BaseService', () => {
         } as Response;
       });
 
-      const result = await TestService.testGet('/retry-test', { maxRetries: 3 });
-      
+      const result = await TestService.testGet('/retry-test', {
+        maxRetries: 3,
+      });
+
       expect(callCount).toBe(3);
       expect(result).toEqual({ success: true });
     });
@@ -178,7 +274,9 @@ describe('BaseService', () => {
         headers: new Headers(),
       } as Response);
 
-      await expect(TestService.testGet('/bad-request')).rejects.toThrow(APIError);
+      await expect(TestService.testGet('/bad-request')).rejects.toThrow(
+        APIError
+      );
       expect(fetchSpy).toHaveBeenCalledTimes(1);
     });
 
@@ -211,7 +309,7 @@ describe('BaseService', () => {
     it('should make successful POST request with data', async () => {
       const postData = { name: 'New Item', value: 123 };
       const responseData = { id: 1, ...postData };
-      
+
       fetchSpy.mockResolvedValueOnce({
         ok: true,
         json: async () => responseData,
@@ -219,7 +317,7 @@ describe('BaseService', () => {
       } as Response);
 
       const result = await TestService.testPost('/items', postData);
-      
+
       expect(fetchSpy).toHaveBeenCalledWith(
         '/api/items',
         expect.objectContaining({
@@ -238,7 +336,7 @@ describe('BaseService', () => {
     it('should make successful PUT request', async () => {
       const updateData = { name: 'Updated Item' };
       const responseData = { id: 1, ...updateData };
-      
+
       fetchSpy.mockResolvedValueOnce({
         ok: true,
         json: async () => responseData,
@@ -246,7 +344,7 @@ describe('BaseService', () => {
       } as Response);
 
       const result = await TestService.testPut('/items/1', updateData);
-      
+
       expect(fetchSpy).toHaveBeenCalledWith(
         '/api/items/1',
         expect.objectContaining({
@@ -267,7 +365,7 @@ describe('BaseService', () => {
       } as Response);
 
       const result = await TestService.testDelete('/items/1');
-      
+
       expect(fetchSpy).toHaveBeenCalledWith(
         '/api/items/1',
         expect.objectContaining({
@@ -291,7 +389,7 @@ describe('BaseService', () => {
       await expect(
         TestService.testGet('/always-fails', { maxRetries: 2 })
       ).rejects.toThrow(APIError);
-      
+
       expect(fetchSpy).toHaveBeenCalledTimes(3); // initial + 2 retries
     });
 
@@ -309,7 +407,9 @@ describe('BaseService', () => {
         } as Response;
       });
 
-      const result = await TestService.testGet('/network-test', { maxRetries: 2 });
+      const result = await TestService.testGet('/network-test', {
+        maxRetries: 2,
+      });
       expect(callCount).toBe(2);
       expect(result).toEqual({ success: true });
     });
@@ -325,7 +425,7 @@ describe('BaseService', () => {
     });
 
     it('should handle JSON parse errors', async () => {
-      fetchSpy.mockResolvedValueOnce({
+      const malformedResponse = {
         ok: true,
         status: 200,
         statusText: 'OK',
@@ -343,7 +443,9 @@ describe('BaseService', () => {
         json: async () => {
           throw new Error('Invalid JSON');
         },
-      } as unknown as Response);
+      } as Response;
+
+      fetchSpy.mockResolvedValueOnce(malformedResponse);
 
       await expect(
         TestService.testGet('/test', { maxRetries: 0 })

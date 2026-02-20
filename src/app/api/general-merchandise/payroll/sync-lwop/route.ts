@@ -1,4 +1,5 @@
 import type { NextRequest } from 'next/server';
+import type { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/db';
 import { ApiResponse } from '@/core/api';
 import { withErrorHandler } from '@/core/api/middleware';
@@ -56,11 +57,6 @@ type SyncFilters = {
 
 type PreviewFilters = Pick<SyncFilters, 'payrollId' | 'employeeId'>;
 
-const gmPrisma = prisma as unknown as {
-  generalMerchandisePayroll: typeof prisma.payroll;
-  generalMerchandiseLeaveRequest: typeof prisma.leaveRequest;
-};
-
 export const POST = withErrorHandler(async (request: NextRequest) => {
   const { searchParams } = new URL(request.url);
   const filters = parseSyncFilters(searchParams);
@@ -79,7 +75,7 @@ export const POST = withErrorHandler(async (request: NextRequest) => {
   }
 
   const payrollFilter = buildPayrollFilter(filters);
-  const payrolls = (await gmPrisma.generalMerchandisePayroll.findMany({
+  const payrolls = (await prisma.generalMerchandisePayroll.findMany({
     where: payrollFilter,
     select: {
       id: true,
@@ -109,24 +105,22 @@ export const POST = withErrorHandler(async (request: NextRequest) => {
     );
   }
 
-  const leaveRequests = (await gmPrisma.generalMerchandiseLeaveRequest.findMany(
-    {
-      where: {
-        status: 'approved',
-        paymentStatus: 'unpaid',
-      },
-      select: {
-        id: true,
-        employeeId: true,
-        employeeName: true,
-        startDate: true,
-        endDate: true,
-        numberOfDays: true,
-        paymentStatus: true,
-        status: true,
-      },
-    }
-  )) as LeaveRequestRecord[];
+  const leaveRequests = (await prisma.generalMerchandiseLeaveRequest.findMany({
+    where: {
+      status: 'approved',
+      paymentStatus: 'unpaid',
+    },
+    select: {
+      id: true,
+      employeeId: true,
+      employeeName: true,
+      startDate: true,
+      endDate: true,
+      numberOfDays: true,
+      paymentStatus: true,
+      status: true,
+    },
+  })) as LeaveRequestRecord[];
 
   const updates: Array<{
     payrollId: string;
@@ -158,7 +152,7 @@ export const POST = withErrorHandler(async (request: NextRequest) => {
 
     const netPay = Math.max(0, payroll.grossPay - totalDeductions);
 
-    await gmPrisma.generalMerchandisePayroll.update({
+    await prisma.generalMerchandisePayroll.update({
       where: { id: payroll.id },
       data: {
         lwop: calculatedLwop,
@@ -201,7 +195,7 @@ export const GET = withErrorHandler(async (request: NextRequest) => {
     });
   }
 
-  const payrollFilter: Record<string, unknown> = {
+  const payrollFilter: Prisma.GeneralMerchandisePayrollWhereInput = {
     deletedAt: null,
   };
 
@@ -213,7 +207,7 @@ export const GET = withErrorHandler(async (request: NextRequest) => {
     payrollFilter.employeeId = filters.employeeId;
   }
 
-  const payrolls = (await gmPrisma.generalMerchandisePayroll.findMany({
+  const payrolls = (await prisma.generalMerchandisePayroll.findMany({
     where: payrollFilter,
     select: {
       id: true,
@@ -238,23 +232,21 @@ export const GET = withErrorHandler(async (request: NextRequest) => {
     );
   }
 
-  const leaveRequests = (await gmPrisma.generalMerchandiseLeaveRequest.findMany(
-    {
-      where: {
-        status: 'approved',
-        paymentStatus: 'unpaid',
-      },
-      select: {
-        id: true,
-        employeeId: true,
-        employeeName: true,
-        leaveType: true,
-        startDate: true,
-        endDate: true,
-        numberOfDays: true,
-      },
-    }
-  )) as Array<LeaveRequestRecord & { leaveType: string }>;
+  const leaveRequests = (await prisma.generalMerchandiseLeaveRequest.findMany({
+    where: {
+      status: 'approved',
+      paymentStatus: 'unpaid',
+    },
+    select: {
+      id: true,
+      employeeId: true,
+      employeeName: true,
+      leaveType: true,
+      startDate: true,
+      endDate: true,
+      numberOfDays: true,
+    },
+  })) as Array<LeaveRequestRecord & { leaveType: string }>;
 
   const preview = payrolls.map((payroll) =>
     buildPreview(payroll, leaveRequests)
@@ -306,8 +298,10 @@ function parsePreviewFilters(searchParams: URLSearchParams): PreviewFilters {
   };
 }
 
-function buildPayrollFilter(filters: SyncFilters): Record<string, unknown> {
-  const payrollFilter: Record<string, unknown> = {
+function buildPayrollFilter(
+  filters: SyncFilters
+): Prisma.GeneralMerchandisePayrollWhereInput {
+  const payrollFilter: Prisma.GeneralMerchandisePayrollWhereInput = {
     deletedAt: null,
   };
 

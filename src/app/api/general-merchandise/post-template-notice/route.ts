@@ -8,10 +8,6 @@ import { ApiResponseUtil } from '@/core/api/response';
 
 const NOTICE_SLUG = 'post-template-notice';
 
-const gmPrisma = prisma as unknown as {
-  generalMerchandisePostTemplateNotice: typeof prisma.postTemplateNotice;
-};
-
 function mapRecordToNotice(record: {
   slug: string;
   introParagraphs: unknown;
@@ -33,16 +29,17 @@ function mapRecordToNotice(record: {
 }
 
 async function getPostTemplateNotice(): Promise<PostTemplateNotice> {
-  const existing =
-    await gmPrisma.generalMerchandisePostTemplateNotice.findUnique({
+  const existing = await prisma.generalMerchandisePostTemplateNotice.findUnique(
+    {
       where: { slug: NOTICE_SLUG },
-    });
+    }
+  );
 
   if (existing) {
     return mapRecordToNotice(existing);
   }
 
-  const created = await gmPrisma.generalMerchandisePostTemplateNotice.create({
+  const created = await prisma.generalMerchandisePostTemplateNotice.create({
     data: {
       slug: NOTICE_SLUG,
       introParagraphs: DEFAULT_POST_TEMPLATE_NOTICE.introParagraphs,
@@ -56,7 +53,7 @@ async function getPostTemplateNotice(): Promise<PostTemplateNotice> {
 async function upsertPostTemplateNotice(
   payload: Omit<PostTemplateNotice, 'id'>
 ): Promise<PostTemplateNotice> {
-  const record = await gmPrisma.generalMerchandisePostTemplateNotice.upsert({
+  const record = await prisma.generalMerchandisePostTemplateNotice.upsert({
     where: { slug: NOTICE_SLUG },
     update: {
       introParagraphs: payload.introParagraphs,

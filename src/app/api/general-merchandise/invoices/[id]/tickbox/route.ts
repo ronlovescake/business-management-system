@@ -8,9 +8,9 @@ import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
 
-const gmPrisma = prisma as unknown as {
-  generalMerchandiseInvoice: typeof prisma.invoice;
-};
+type GMInvoiceTickboxClient = Pick<typeof prisma, 'generalMerchandiseInvoice'>;
+
+const gmClient: GMInvoiceTickboxClient = prisma;
 
 /**
  * PUT /api/general-merchandise/invoices/[id]/tickbox
@@ -33,7 +33,7 @@ export async function PUT(
       );
     }
 
-    const updatedInvoice = await gmPrisma.generalMerchandiseInvoice.update({
+    const updatedInvoice = await gmClient.generalMerchandiseInvoice.update({
       where: { id },
       data: { tickbox },
     });

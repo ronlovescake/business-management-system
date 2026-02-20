@@ -1,5 +1,4 @@
 import type { NextRequest } from 'next/server';
-import type { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
 import { ApiResponseUtil } from '@/core/api/response';
@@ -10,10 +9,19 @@ import {
   formatValidationErrors,
 } from '@/lib/validations/attendance.validation';
 
-const gmPrisma = prisma as unknown as {
-  generalMerchandiseAttendance: typeof prisma.attendance;
-  generalMerchandiseEmployee: typeof prisma.employee;
-};
+type GMAttendanceClient = Pick<
+  typeof prisma,
+  'generalMerchandiseAttendance' | 'generalMerchandiseEmployee'
+>;
+
+type GMAttendanceCreateData = Parameters<
+  typeof prisma.generalMerchandiseAttendance.create
+>[0]['data'];
+type GMAttendanceUpdateData = Parameters<
+  typeof prisma.generalMerchandiseAttendance.update
+>[0]['data'];
+
+const gmClient: GMAttendanceClient = prisma;
 
 export async function GET(request: NextRequest) {
   try {
@@ -52,7 +60,7 @@ export async function GET(request: NextRequest) {
       (where.date as Record<string, unknown>).lte = sanitizers.date(endDate);
     }
 
-    const attendance = await gmPrisma.generalMerchandiseAttendance.findMany({
+    const attendance = await gmClient.generalMerchandiseAttendance.findMany({
       where,
       select: {
         id: true,
@@ -144,7 +152,7 @@ export async function POST(request: NextRequest) {
 
       if (employeeIds.size > 0) {
         const existingEmployees =
-          await gmPrisma.generalMerchandiseEmployee.findMany({
+          await gmClient.generalMerchandiseEmployee.findMany({
             where: {
               employeeId: { in: Array.from(employeeIds) },
               deletedAt: null,
@@ -173,8 +181,8 @@ export async function POST(request: NextRequest) {
 
       const records = await prisma.$transaction(
         validatedRecords.map((record) =>
-          gmPrisma.generalMerchandiseAttendance.create({
-            data: record as Prisma.AttendanceCreateInput,
+          gmClient.generalMerchandiseAttendance.create({
+            data: record as GMAttendanceCreateData,
           })
         )
       );
@@ -199,7 +207,7 @@ export async function POST(request: NextRequest) {
     const validatedData = validation.data;
 
     if (validatedData.employeeId) {
-      const employee = await gmPrisma.generalMerchandiseEmployee.findFirst({
+      const employee = await gmClient.generalMerchandiseEmployee.findFirst({
         where: {
           employeeId: validatedData.employeeId,
           deletedAt: null,
@@ -215,8 +223,8 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    const record = await gmPrisma.generalMerchandiseAttendance.create({
-      data: validatedData as Prisma.AttendanceCreateInput,
+    const record = await gmClient.generalMerchandiseAttendance.create({
+      data: validatedData as GMAttendanceCreateData,
     });
 
     return ApiResponseUtil.success(record, undefined, 201);
@@ -248,9 +256,9 @@ export async function PATCH(request: NextRequest) {
 
     const updates = validation.data;
 
-    const record = await gmPrisma.generalMerchandiseAttendance.update({
+    const record = await gmClient.generalMerchandiseAttendance.update({
       where: { id },
-      data: updates as Prisma.AttendanceUpdateInput,
+      data: updates as GMAttendanceUpdateData,
     });
 
     return ApiResponseUtil.success(record);
@@ -272,7 +280,7 @@ export async function DELETE(request: NextRequest) {
       return ApiResponseUtil.error('Attendance ID is required', 400);
     }
 
-    await gmPrisma.generalMerchandiseAttendance.update({
+    await gmClient.generalMerchandiseAttendance.update({
       where: { id },
       data: { deletedAt: new Date() },
     });

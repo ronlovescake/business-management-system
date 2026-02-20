@@ -189,7 +189,7 @@ export class BaseService {
             // ignore parse errors; keep text/raw
           }
 
-          const apiError = new APIError(
+          const apiError: APIError & { body?: unknown } = new APIError(
             `HTTP Error: ${response.status} - ${response.statusText}`,
             response.status,
             response.statusText,
@@ -199,7 +199,7 @@ export class BaseService {
 
           if (errorPayload) {
             // Attach payload for richer logging
-            (apiError as unknown as { body?: unknown }).body = errorPayload;
+            apiError.body = errorPayload;
           }
 
           // Don't retry client errors (except 408 Request Timeout and 429 Too Many Requests)

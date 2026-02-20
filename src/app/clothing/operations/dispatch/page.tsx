@@ -7,13 +7,8 @@
  */
 
 import type { Metadata } from 'next';
-import { Container } from '@mantine/core';
-import { DispatchComponent } from '@/modules/clothing/operations/dispatch';
-import { PermissionGuard } from '@/components/auth/PermissionGuard';
-import {
-  hasModuleAccess,
-  getFirstAccessibleModule,
-} from '@/lib/auth/permissions';
+import { DispatchRoutePage } from '@/app/operations/dispatch/_shared/DispatchRoutePage';
+import { renderOperationsPage } from '@/app/operations/_shared/renderOperationsPage';
 import { prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
 
@@ -42,9 +37,6 @@ interface ServerCustomerData {
 }
 
 export default async function DispatchPage() {
-  const hasAccess = await hasModuleAccess('/clothing/operations/dispatch');
-  const redirectTo = await getFirstAccessibleModule();
-
   // CRITICAL: Fetch data SERVER-SIDE from database on EVERY page load
   // This completely bypasses all client-side React Query caching
   let serverCustomersData: ServerCustomerData[] = [];
@@ -120,11 +112,8 @@ export default async function DispatchPage() {
     // Continue with empty array - component will handle it
   }
 
-  return (
-    <PermissionGuard hasAccess={hasAccess} redirectTo={redirectTo}>
-      <Container size="xl" fluid p="md">
-        <DispatchComponent serverCustomersData={serverCustomersData} />
-      </Container>
-    </PermissionGuard>
+  return renderOperationsPage(
+    '/clothing/operations/dispatch',
+    <DispatchRoutePage serverCustomersData={serverCustomersData} />
   );
 }

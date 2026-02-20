@@ -80,7 +80,7 @@ describe('useTransactionOperations', () => {
       }),
     });
 
-    global.fetch = fetchMock as unknown as typeof fetch;
+    global.fetch = fetchMock as typeof fetch;
   });
 
   it('auto-populates shipment code, status, and unit price when product code changes', async () => {
@@ -122,7 +122,7 @@ describe('useTransactionOperations', () => {
       }),
     });
 
-    const fetchSpy = global.fetch as unknown as ReturnType<typeof vi.fn>;
+    const fetchSpy = global.fetch as ReturnType<typeof vi.fn>;
 
     expect(fetchSpy).toHaveBeenCalledWith(
       '/api/inventory/check-stock',

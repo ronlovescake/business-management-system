@@ -86,7 +86,7 @@ export class DueDateService {
    * Groups by customer and sums line totals
    */
   static processDueDateItems(
-    transactions: DueDateTransaction[]
+    transactions: DueDateTransaction[] | null | undefined
   ): DueDateItem[] {
     if (!transactions || transactions.length === 0) {
       return [];
@@ -201,7 +201,7 @@ export class DueDateService {
    * Get customer orders from transactions
    */
   static getCustomerOrders(
-    transactions: DueDateTransaction[],
+    transactions: DueDateTransaction[] | null | undefined,
     customerName: string
   ): DueDateTransaction[] {
     if (!transactions || !customerName) {

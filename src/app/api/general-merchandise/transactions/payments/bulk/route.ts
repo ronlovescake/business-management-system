@@ -10,16 +10,6 @@ import {
   formatValidationErrors,
 } from '@/lib/validations/transaction-payment.validation';
 
-type TransactionPaymentDelegate = {
-  createMany: (args: unknown) => Promise<unknown>;
-  groupBy: (args: unknown) => Promise<unknown>;
-};
-
-type TransactionDelegate = {
-  findMany: (args: unknown) => Promise<unknown>;
-  update: (args: unknown) => Promise<unknown>;
-};
-
 type TransactionRow = {
   id: number;
   quantity: number;
@@ -33,11 +23,6 @@ type PaymentCreateRow = {
   method: string | null;
   notes: string | null;
   isReservation: boolean;
-};
-
-const gmPrisma = prisma as unknown as {
-  generalMerchandiseTransaction: TransactionDelegate;
-  generalMerchandiseTransactionPayment: TransactionPaymentDelegate;
 };
 
 async function supportsReservationFlag(): Promise<boolean> {
@@ -133,7 +118,7 @@ export const POST = withErrorHandler(async (request: NextRequest) => {
   );
 
   const existingTransactions =
-    (await gmPrisma.generalMerchandiseTransaction.findMany({
+    (await prisma.generalMerchandiseTransaction.findMany({
       where: {
         id: { in: transactionIds },
         deletedAt: null,
@@ -161,9 +146,7 @@ export const POST = withErrorHandler(async (request: NextRequest) => {
   const hasReservationFlag = await supportsReservationFlag();
 
   const result = await prisma.$transaction(async (tx) => {
-    const gmTx = tx as unknown as typeof gmPrisma;
-
-    await gmTx.generalMerchandiseTransactionPayment.createMany({
+    await tx.generalMerchandiseTransactionPayment.createMany({
       data: sanitized.payments.map((p) => ({
         transactionId: p.transactionId,
         paymentDate: p.paymentDate,
@@ -174,7 +157,7 @@ export const POST = withErrorHandler(async (request: NextRequest) => {
       })),
     });
 
-    const sums = (await gmTx.generalMerchandiseTransactionPayment.groupBy({
+    const sums = await tx.generalMerchandiseTransactionPayment.groupBy({
       by: ['transactionId'],
       where: {
         transactionId: { in: transactionIds },
@@ -183,7 +166,7 @@ export const POST = withErrorHandler(async (request: NextRequest) => {
       _sum: {
         amount: true,
       },
-    })) as Array<{ transactionId: number; _sum: { amount: number | null } }>;
+    });
 
     const sumByTransactionId = new Map(
       sums.map((row) => [row.transactionId, row._sum.amount ?? 0] as const)
@@ -202,7 +185,7 @@ export const POST = withErrorHandler(async (request: NextRequest) => {
       const unitPrice = meta?.unitPrice ?? 0;
       const lineTotal = quantity * unitPrice - adjustment;
 
-      const updated = (await gmTx.generalMerchandiseTransaction.update({
+      const updated = (await tx.generalMerchandiseTransaction.update({
         where: { id: transactionId },
         data: {
           adjustment,

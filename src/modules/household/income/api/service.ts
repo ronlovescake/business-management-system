@@ -106,8 +106,7 @@ export class HouseholdIncomeService {
   ): Promise<{ count: number }> {
     try {
       const rows = data.map((row) => this.normalizeCreateInput(row));
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      return await householdIncomeRepository.createMany(rows as any);
+      return await householdIncomeRepository.createMany(rows);
     } catch (error) {
       logger.error('Failed to create household income records', {
         error,

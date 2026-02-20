@@ -4,8 +4,7 @@
 
 import { redirect } from 'next/navigation';
 
-import { SettingsPage } from '@/modules/clothing/operations/settings/components/SettingsPage';
-import { SettingsErrorBoundary } from '@/app/clothing/operations/settings/components/SettingsErrorBoundary';
+import { SettingsRoutePage } from '@/app/operations/settings/_shared/SettingsRoutePage';
 import { renderGmOperationsPage } from '@/app/general-merchandise/operations/_shared/renderGmOperationsPage';
 
 export default async function Settings({
@@ -22,8 +21,6 @@ export default async function Settings({
 
   return renderGmOperationsPage(
     '/general-merchandise/operations/settings',
-    <SettingsErrorBoundary>
-      <SettingsPage apiBasePath="/api/general-merchandise" />
-    </SettingsErrorBoundary>
+    <SettingsRoutePage apiBasePath="/api/general-merchandise" />
   );
 }

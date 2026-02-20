@@ -13,11 +13,6 @@ import {
 
 type RouteContext = { params: { id: string } };
 
-type TransactionRefundDelegate = {
-  findMany: (args: unknown) => Promise<unknown>;
-  create: (args: unknown) => Promise<unknown>;
-};
-
 type RefundRow = {
   id: number;
   transactionId: number;
@@ -25,18 +20,21 @@ type RefundRow = {
   amount: number;
   reason: string | null;
   returnedQuantity: number | null;
-  restockBucket: string | null;
+  restockBucket: InventoryBucket | null;
   notes: string | null;
   createdAt: Date;
   updatedAt: Date;
 };
 
-const gmPrisma = prisma as unknown as {
-  generalMerchandiseCustomer: typeof prisma.customer;
-  generalMerchandiseTransaction: typeof prisma.transaction;
-  generalMerchandiseTransactionRefund: TransactionRefundDelegate;
-  generalMerchandiseInventoryMovement: typeof prisma.inventoryMovement;
-};
+const INVENTORY_BUCKETS: InventoryBucket[] = [
+  'sellable',
+  'reserved',
+  'sold',
+  'damaged_hold',
+  'assembly_wip',
+  'supplier_short',
+  'scrap',
+];
 
 function normalizeProductCode(value: string | null | undefined): string {
   return (value ?? '').trim();
@@ -70,7 +68,7 @@ function sanitizeCreateInput(input: TransactionRefundCreateInput):
       amount: number;
       reason: string | null;
       returnedQuantity: number | null;
-      restockBucket: string | null;
+      restockBucket: InventoryBucket | null;
       notes: string | null;
     }
   | { error: ReturnType<typeof ApiResponse.badRequest> } {
@@ -95,10 +93,16 @@ function sanitizeCreateInput(input: TransactionRefundCreateInput):
       ? null
       : (sanitizers.number(input.returnedQuantity, { min: 0 }) ?? null);
 
-  const restockBucket =
+  const restockBucketValue =
     input.restockBucket === undefined || input.restockBucket === null
       ? null
       : sanitizers.name(input.restockBucket) || null;
+
+  const restockBucket =
+    restockBucketValue &&
+    INVENTORY_BUCKETS.includes(restockBucketValue as InventoryBucket)
+      ? (restockBucketValue as InventoryBucket)
+      : null;
 
   const notes =
     input.notes === undefined || input.notes === null
@@ -124,7 +128,7 @@ export const GET = withErrorHandler<RouteContext>(
       return idResult.error;
     }
 
-    const customer = await gmPrisma.generalMerchandiseCustomer.findUnique({
+    const customer = await prisma.generalMerchandiseCustomer.findUnique({
       where: { id: idResult.id },
       select: { customerName: true },
     });
@@ -145,30 +149,29 @@ export const GET = withErrorHandler<RouteContext>(
       });
     }
 
-    const refunds =
-      (await gmPrisma.generalMerchandiseTransactionRefund.findMany({
-        where: {
+    const refunds = (await prisma.generalMerchandiseTransactionRefund.findMany({
+      where: {
+        deletedAt: null,
+        ...(transactionId ? { transactionId } : {}),
+        transaction: {
           deletedAt: null,
-          ...(transactionId ? { transactionId } : {}),
-          transaction: {
-            deletedAt: null,
-            customers: customer.customerName,
-          },
+          customers: customer.customerName,
         },
-        orderBy: [{ refundDate: 'desc' }, { createdAt: 'desc' }],
-        select: {
-          id: true,
-          transactionId: true,
-          refundDate: true,
-          amount: true,
-          reason: true,
-          returnedQuantity: true,
-          restockBucket: true,
-          notes: true,
-          createdAt: true,
-          updatedAt: true,
-        },
-      })) as RefundRow[];
+      },
+      orderBy: [{ refundDate: 'desc' }, { createdAt: 'desc' }],
+      select: {
+        id: true,
+        transactionId: true,
+        refundDate: true,
+        amount: true,
+        reason: true,
+        returnedQuantity: true,
+        restockBucket: true,
+        notes: true,
+        createdAt: true,
+        updatedAt: true,
+      },
+    })) as RefundRow[];
 
     logger.info('GM customer refunds fetched', {
       customerId: idResult.id,
@@ -188,7 +191,7 @@ export const POST = withErrorHandler<RouteContext>(
       return idResult.error;
     }
 
-    const customer = await gmPrisma.generalMerchandiseCustomer.findUnique({
+    const customer = await prisma.generalMerchandiseCustomer.findUnique({
       where: { id: idResult.id },
       select: { customerName: true },
     });
@@ -216,7 +219,7 @@ export const POST = withErrorHandler<RouteContext>(
       return sanitized.error;
     }
 
-    const tx = await gmPrisma.generalMerchandiseTransaction.findFirst({
+    const tx = await prisma.generalMerchandiseTransaction.findFirst({
       where: {
         id: sanitized.transactionId,
         deletedAt: null,
@@ -258,7 +261,7 @@ export const POST = withErrorHandler<RouteContext>(
       }
     }
 
-    const created = await gmPrisma.generalMerchandiseTransactionRefund.create({
+    const created = await prisma.generalMerchandiseTransactionRefund.create({
       data: {
         transactionId: sanitized.transactionId,
         refundDate: sanitized.refundDate,
@@ -273,12 +276,12 @@ export const POST = withErrorHandler<RouteContext>(
     if (hasReturn && sanitized.restockBucket) {
       const productCode = normalizeProductCode(tx.productCode);
       if (productCode) {
-        await gmPrisma.generalMerchandiseInventoryMovement.create({
+        await prisma.generalMerchandiseInventoryMovement.create({
           data: {
             productCode,
             quantity: returnedQty,
             fromBucket: 'sold',
-            toBucket: sanitized.restockBucket as InventoryBucket,
+            toBucket: sanitized.restockBucket,
             postingDate: sanitized.refundDate,
             notes: buildAutoReturnMovementNote((created as { id: number }).id),
           },

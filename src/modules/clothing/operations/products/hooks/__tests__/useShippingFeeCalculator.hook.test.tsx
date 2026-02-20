@@ -126,7 +126,7 @@ describe('useShippingFeeCalculator hook', () => {
     });
 
     act(() => {
-      const hotTableRef = result.current.hotTableRef as unknown as {
+      const hotTableRef = result.current.hotTableRef as {
         current: HotTableClass | null;
       };
       hotTableRef.current = {

@@ -2,10 +2,6 @@ import { NextResponse } from 'next/server';
 import { logger } from '@/lib/logger';
 import { prisma } from '@/lib/db';
 
-const gmPrisma = prisma as unknown as {
-  generalMerchandiseSortingDistribution: typeof prisma.sortingDistribution;
-};
-
 // GET: Load distribution data for a product code
 export async function GET(request: Request) {
   try {
@@ -23,8 +19,8 @@ export async function GET(request: Request) {
       );
     }
 
-    const records =
-      await gmPrisma.generalMerchandiseSortingDistribution.findMany({
+    const records = await prisma.generalMerchandiseSortingDistribution.findMany(
+      {
         where: {
           productCode,
           deletedAt: null,
@@ -32,7 +28,8 @@ export async function GET(request: Request) {
         orderBy: {
           rowNumber: 'asc',
         },
-      });
+      }
+    );
 
     const selectedQuantity = records[0]?.selectedQuantity ?? null;
 
@@ -87,13 +84,12 @@ export async function POST(request: Request) {
     );
 
     await prisma.$transaction(async (tx) => {
-      const delegate = tx as unknown as typeof gmPrisma;
-      await delegate.generalMerchandiseSortingDistribution.deleteMany({
+      await tx.generalMerchandiseSortingDistribution.deleteMany({
         where: { productCode },
       });
 
       if (nonEmptyRows.length > 0) {
-        await delegate.generalMerchandiseSortingDistribution.createMany({
+        await tx.generalMerchandiseSortingDistribution.createMany({
           data: nonEmptyRows.map((row, index) => ({
             productCode,
             selectedQuantity,
@@ -145,7 +141,7 @@ export async function DELETE(request: Request) {
     }
 
     const result =
-      await gmPrisma.generalMerchandiseSortingDistribution.updateMany({
+      await prisma.generalMerchandiseSortingDistribution.updateMany({
         where: {
           productCode,
           deletedAt: null,

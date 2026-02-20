@@ -9,7 +9,6 @@ import { NextResponse } from 'next/server';
 import { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/db';
 import { getDatabaseUrl } from '@/lib/env';
-import { requireAdmin } from '@/lib/auth/session';
 import fs from 'fs';
 import fsPromises from 'fs/promises';
 import path from 'path';
@@ -17,7 +16,10 @@ import { logger } from '@/lib/logger';
 import * as Papa from 'papaparse';
 import * as XLSX from 'xlsx';
 import { spawn } from 'child_process';
-import { createHash } from 'crypto';
+import {
+  computeFileSha256,
+  requireBackupRestoreAdmin,
+} from '../backup-restore/sharedRouteUtils';
 
 // Force dynamic rendering for this route due to fs operations
 export const dynamic = 'force-dynamic';
@@ -69,6 +71,15 @@ type BackupFileDescriptor = {
 
 type TableAvailabilityCache = Map<string, boolean>;
 
+type BackupRowRecord = Record<string, unknown>;
+type TabularCell = string | number | boolean | null;
+type TabularRecord = Record<string, TabularCell>;
+
+type BackupModelDelegate = {
+  findFirst: (args?: unknown) => Promise<BackupRowRecord | null>;
+  findMany: (args?: unknown) => Promise<BackupRowRecord[]>;
+};
+
 class MissingRequiredTablesError extends Error {
   missingTables: string[];
 
@@ -93,40 +104,10 @@ function writeWorkbookToFile(workbook: XLSX.WorkBook, filePath: string) {
   return writeFileAtomic(filePath, buffer as Buffer);
 }
 
-async function requireBackupAdmin() {
-  try {
-    await requireAdmin();
-    return null;
-  } catch (error) {
-    if (error instanceof Error && error.message === 'Unauthorized') {
-      return NextResponse.json(
-        { success: false, error: 'Authentication required' },
-        { status: 401 }
-      );
-    }
-
-    return NextResponse.json(
-      { success: false, error: 'Forbidden: Admin access required' },
-      { status: 403 }
-    );
-  }
-}
-
 async function writeFileAtomic(filePath: string, content: string | Buffer) {
   const tempPath = `${filePath}.tmp-${process.pid}-${Date.now()}`;
   await fsPromises.writeFile(tempPath, content);
   await fsPromises.rename(tempPath, filePath);
-}
-
-async function computeFileSha256(filePath: string) {
-  return await new Promise<string>((resolve, reject) => {
-    const hash = createHash('sha256');
-    const stream = fs.createReadStream(filePath);
-
-    stream.on('data', (chunk) => hash.update(chunk));
-    stream.on('end', () => resolve(hash.digest('hex')));
-    stream.on('error', reject);
-  });
 }
 
 async function buildFileChecksums(filePaths: string[]) {
@@ -549,6 +530,54 @@ function buildTableQueryOptions(
   return { where, hasDeletedAt, hasUpdatedAt, differentialUnsupported };
 }
 
+function getBackupModelDelegate(model: string): BackupModelDelegate {
+  const candidate = prisma[model as keyof typeof prisma] as unknown;
+  const delegate = candidate as Partial<BackupModelDelegate>;
+
+  if (
+    !delegate ||
+    typeof delegate.findFirst !== 'function' ||
+    typeof delegate.findMany !== 'function'
+  ) {
+    throw new Error(`Invalid backup model delegate for: ${model}`);
+  }
+
+  return delegate as BackupModelDelegate;
+}
+
+function normalizeTabularValue(value: unknown): TabularCell {
+  if (value instanceof Date) {
+    return value.toISOString();
+  }
+
+  if (typeof value === 'bigint') {
+    return value.toString();
+  }
+
+  if (
+    value === null ||
+    value === undefined ||
+    typeof value === 'string' ||
+    typeof value === 'number' ||
+    typeof value === 'boolean'
+  ) {
+    return value ?? null;
+  }
+
+  return JSON.stringify(value);
+}
+
+function toTabularRecords(data: BackupRowRecord[]): TabularRecord[] {
+  return data.map((record) =>
+    Object.fromEntries(
+      Object.entries(record).map(([key, value]) => [
+        key,
+        normalizeTabularValue(value),
+      ])
+    )
+  );
+}
+
 function parseDatabaseUrl() {
   const dbUrl = getDatabaseUrl();
   if (!dbUrl) {
@@ -705,7 +734,7 @@ async function createSqlDump(
 
 // POST - Create backup
 export async function POST(request: NextRequest) {
-  const authError = await requireBackupAdmin();
+  const authError = await requireBackupRestoreAdmin();
   if (authError) {
     return authError;
   }
@@ -952,9 +981,7 @@ export async function POST(request: NextRequest) {
             }
 
             logger.info(`Processing table: ${name}`);
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            const modelDelegate = prisma[model as keyof typeof prisma] as any;
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const modelDelegate = getBackupModelDelegate(model);
             const sampleRecord = await modelDelegate.findFirst();
             const { where } = buildTableQueryOptions(sampleRecord, {
               includeSoftDeleted,
@@ -962,7 +989,6 @@ export async function POST(request: NextRequest) {
               differentialSince,
             });
 
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
             const data = await modelDelegate.findMany({ where });
             recordCounts[name] = recordCounts[name] ?? data.length;
 
@@ -972,31 +998,7 @@ export async function POST(request: NextRequest) {
               const csvFile = path.join(backupDir, `${name}-${timestamp}.csv`);
               logger.info(`Generating CSV for ${name}...`);
 
-              // Convert Prisma objects to plain objects and handle special types
-              // eslint-disable-next-line @typescript-eslint/no-explicit-any
-              const plainData = data.map((record: any) => {
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                const plain: Record<string, any> = {};
-                for (const key in record) {
-                  const value = record[key];
-                  if (value instanceof Date) {
-                    plain[key] = value.toISOString();
-                  } else if (typeof value === 'bigint') {
-                    plain[key] = value.toString();
-                  } else if (
-                    value === null ||
-                    value === undefined ||
-                    typeof value === 'string' ||
-                    typeof value === 'number' ||
-                    typeof value === 'boolean'
-                  ) {
-                    plain[key] = value;
-                  } else {
-                    plain[key] = JSON.stringify(value);
-                  }
-                }
-                return plain;
-              });
+              const plainData = toTabularRecords(data);
 
               const csv = Papa.unparse(plainData);
               logger.info(`CSV generated, writing to file: ${csvFile}`);
@@ -1065,9 +1067,7 @@ export async function POST(request: NextRequest) {
             }
 
             logger.info(`Processing table for XLSX: ${name}`);
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            const modelDelegate = prisma[model as keyof typeof prisma] as any;
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const modelDelegate = getBackupModelDelegate(model);
             const sampleRecord = await modelDelegate.findFirst();
             const { where } = buildTableQueryOptions(sampleRecord, {
               includeSoftDeleted,
@@ -1075,37 +1075,13 @@ export async function POST(request: NextRequest) {
               differentialSince,
             });
 
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
             const data = await modelDelegate.findMany({ where });
             recordCounts[name] = recordCounts[name] ?? data.length;
 
             logger.info(`Table ${name} has ${data.length} records for XLSX`);
 
             if (data.length > 0) {
-              // eslint-disable-next-line @typescript-eslint/no-explicit-any
-              const plainData = data.map((record: any) => {
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                const plain: Record<string, any> = {};
-                for (const key in record) {
-                  const value = record[key];
-                  if (value instanceof Date) {
-                    plain[key] = value.toISOString();
-                  } else if (typeof value === 'bigint') {
-                    plain[key] = value.toString();
-                  } else if (
-                    value === null ||
-                    value === undefined ||
-                    typeof value === 'string' ||
-                    typeof value === 'number' ||
-                    typeof value === 'boolean'
-                  ) {
-                    plain[key] = value;
-                  } else {
-                    plain[key] = JSON.stringify(value);
-                  }
-                }
-                return plain;
-              });
+              const plainData = toTabularRecords(data);
 
               const ws = XLSX.utils.json_to_sheet(plainData);
               const sheetName = reserveUniqueSheetName(name, usedSheetNames);
@@ -1245,7 +1221,7 @@ export async function POST(request: NextRequest) {
 
 // GET - List available backups
 export async function GET() {
-  const authError = await requireBackupAdmin();
+  const authError = await requireBackupRestoreAdmin();
   if (authError) {
     return authError;
   }
@@ -1310,7 +1286,7 @@ export async function GET() {
 
 // DELETE - Delete a specific backup
 export async function DELETE(request: NextRequest) {
-  const authError = await requireBackupAdmin();
+  const authError = await requireBackupRestoreAdmin();
   if (authError) {
     return authError;
   }

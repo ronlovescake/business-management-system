@@ -17,6 +17,17 @@ import { logger } from '@/lib/logger';
 
 export const dynamic = 'force-dynamic';
 
+function toModulePackage(config: unknown): ModulePackage {
+  const base =
+    config && typeof config === 'object' && !Array.isArray(config)
+      ? (config as Partial<ModulePackage>)
+      : {};
+
+  return {
+    ...base,
+  } as ModulePackage;
+}
+
 export async function GET(request: NextRequest) {
   try {
     const searchParams = request.nextUrl.searchParams;
@@ -101,9 +112,8 @@ export async function GET(request: NextRequest) {
 
     // Transform to ModulePackage format
     const modulePackages = modules.map((m): ModulePackage => {
-      const config = m.config as unknown as ModulePackage;
       return {
-        ...config,
+        ...toModulePackage(m.config),
         downloads: m.downloads,
         rating: m.rating ?? undefined,
         screenshots: m.screenshots,

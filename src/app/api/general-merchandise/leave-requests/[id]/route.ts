@@ -7,21 +7,6 @@ interface RouteParams {
   params: { id: string };
 }
 
-interface LeaveRequestRecord {
-  id: number;
-}
-
-interface LeaveRequestDelegate {
-  findUnique(args: {
-    where: { id: number };
-  }): Promise<LeaveRequestRecord | null>;
-  delete(args: { where: { id: number } }): Promise<LeaveRequestRecord>;
-}
-
-const gmPrisma = prisma as unknown as {
-  generalMerchandiseLeaveRequest: LeaveRequestDelegate;
-};
-
 function parseString(value: unknown): string {
   if (value === null || value === undefined) {
     return '';
@@ -29,8 +14,8 @@ function parseString(value: unknown): string {
   return String(value).trim();
 }
 
-function getLeaveRequestClient(): LeaveRequestDelegate {
-  return gmPrisma.generalMerchandiseLeaveRequest;
+function getLeaveRequestClient() {
+  return prisma.generalMerchandiseLeaveRequest;
 }
 
 export async function GET(_req: NextRequest, { params }: RouteParams) {

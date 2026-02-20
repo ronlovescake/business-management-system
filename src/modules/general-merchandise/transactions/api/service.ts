@@ -42,31 +42,13 @@ interface TransactionUpdateResult {
   transaction: TransactionDTO;
 }
 
-const gmPrisma = prisma as unknown as {
-  generalMerchandiseTransaction: {
-    findMany: (args: unknown) => Promise<unknown[]>;
-    createMany: (args: unknown) => Promise<{ count: number }>;
-    update: (args: unknown) => Promise<unknown>;
-    updateMany: (args: unknown) => Promise<{ count: number }>;
-  };
-  generalMerchandiseInventoryMovement: {
-    findFirst: (args: unknown) => Promise<unknown | null>;
-    update: (args: unknown) => Promise<unknown>;
-    updateMany: (args: unknown) => Promise<{ count: number }>;
-    create: (args: unknown) => Promise<unknown>;
-  };
-  generalMerchandiseCustomer: {
-    findMany: (args: unknown) => Promise<Array<{ customerName: string }>>;
-  };
-  generalMerchandiseProduct: {
-    findMany: (args: unknown) => Promise<Array<{ productCode: string | null }>>;
-  };
-  generalMerchandiseShipment: {
-    findMany: (args: unknown) => Promise<Array<{ shipmentCode: string }>>;
-  };
-  generalMerchandisePrice: {
-    findMany: (args: unknown) => Promise<PriceTier[]>;
-  };
+const gmPrisma = prisma as {
+  generalMerchandiseTransaction: typeof prisma.generalMerchandiseTransaction;
+  generalMerchandiseInventoryMovement: typeof prisma.generalMerchandiseInventoryMovement;
+  generalMerchandiseCustomer: typeof prisma.generalMerchandiseCustomer;
+  generalMerchandiseProduct: typeof prisma.generalMerchandiseProduct;
+  generalMerchandiseShipment: typeof prisma.generalMerchandiseShipment;
+  generalMerchandisePrice: typeof prisma.generalMerchandisePrice;
 };
 
 function getUnitPriceForQuantity(
@@ -425,7 +407,7 @@ async function validateReferences(rows: Prisma.TransactionCreateManyInput[]) {
   const existingProducts = await gmPrisma.generalMerchandiseProduct.findMany({
     where: { productCode: { in: uniqueProducts } },
     select: { productCode: true },
-  } as unknown as Prisma.ProductFindManyArgs);
+  });
 
   const existingProductCodeSet = new Set<string>();
   existingProducts
@@ -440,7 +422,7 @@ async function validateReferences(rows: Prisma.TransactionCreateManyInput[]) {
   const existingShipments = await gmPrisma.generalMerchandiseShipment.findMany({
     where: { shipmentCode: { in: uniqueShipments } },
     select: { shipmentCode: true },
-  } as unknown as Prisma.ShipmentFindManyArgs);
+  });
 
   const existingShipmentSet = new Set(
     existingShipments.map((s) => s.shipmentCode)
@@ -487,7 +469,7 @@ export const generalMerchandiseTransactionService: TransactionService = {
       {
         where: { deletedAt: null },
         orderBy: { id: 'asc' },
-      } as unknown as Prisma.TransactionFindManyArgs
+      }
     )) as Array<Parameters<typeof mapToDTO>[0]>;
 
     return transactions.map((transaction) => mapToDTO(transaction));
@@ -510,7 +492,7 @@ export const generalMerchandiseTransactionService: TransactionService = {
         upperLimit: true,
         currentPrice: true,
       },
-    } as unknown as Prisma.PriceFindManyArgs);
+    });
 
     const emptyRows = normalized.filter(({ record }) => isEmptyRow(record));
     const validRows = normalized.filter(({ record }) => isValidRow(record));
@@ -571,7 +553,7 @@ export const generalMerchandiseTransactionService: TransactionService = {
           orderStatus: true,
           adjustment: true,
         },
-      } as unknown as Prisma.TransactionFindManyArgs)) as TransactionForInventorySync[];
+      })) as TransactionForInventorySync[];
 
     const needsMovementSync = createdTransactions.filter(
       (tx) =>
@@ -619,7 +601,7 @@ export const generalMerchandiseTransactionService: TransactionService = {
           packedDate: updateRecord.values['Packed Date'],
           shipmentCode: updateRecord.values['Shipment Code'],
         },
-      } as unknown as Prisma.TransactionUpdateArgs)) as TransactionForInventorySync;
+      })) as TransactionForInventorySync;
 
       await syncInventoryMovementsForTransaction(gmPrisma, updated);
       updatedCount += 1;
@@ -651,14 +633,22 @@ export const generalMerchandiseTransactionService: TransactionService = {
         packedDate: updateRecord.values['Packed Date'],
         shipmentCode: updateRecord.values['Shipment Code'],
       },
-    } as unknown as Prisma.TransactionUpdateArgs)) as Parameters<
-      typeof mapToDTO
-    >[0];
+    })) as Parameters<typeof mapToDTO>[0];
 
-    await syncInventoryMovementsForTransaction(
-      gmPrisma,
-      updated as unknown as TransactionForInventorySync
-    );
+    const updatedForSync: TransactionForInventorySync = {
+      id: updated.id,
+      productCode: updated.productCode,
+      quantity: updated.quantity,
+      unitPrice: updated.unitPrice,
+      discount: updated.discount,
+      lineTotal: updated.lineTotal,
+      orderDate: updated.orderDate,
+      packedDate: updated.packedDate,
+      orderStatus: updated.orderStatus,
+      adjustment: updated.adjustment,
+    };
+
+    await syncInventoryMovementsForTransaction(gmPrisma, updatedForSync);
 
     return { transaction: mapToDTO(updated) };
   },

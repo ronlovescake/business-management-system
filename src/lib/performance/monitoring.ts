@@ -6,6 +6,7 @@
  */
 
 import { logger } from '@/lib/logger';
+import type { Metric } from 'web-vitals';
 
 // ============================================================================
 // TYPES
@@ -116,7 +117,7 @@ export function sendToAnalytics(metric: PerformanceMetric) {
     id: metric.id,
   });
 
-  // TODO: Send to analytics service
+  // Analytics service integration point
   // Examples:
   // - Google Analytics: gtag('event', metric.name, { value: metric.value, metric_rating: metric.rating })
   // - Sentry: Sentry.setMeasurement(metric.name, metric.value, metric.unit)
@@ -134,8 +135,7 @@ export async function trackWebVitals() {
     const { onCLS, onFCP, onLCP, onTTFB, onINP } = await import('web-vitals');
 
     // Track Cumulative Layout Shift
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    onCLS((metric: any) => {
+    onCLS((metric: Metric) => {
       sendToAnalytics({
         name: 'CLS',
         value: metric.value,
@@ -146,8 +146,7 @@ export async function trackWebVitals() {
     });
 
     // Track First Contentful Paint
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    onFCP((metric: any) => {
+    onFCP((metric: Metric) => {
       sendToAnalytics({
         name: 'FCP',
         value: metric.value,
@@ -158,8 +157,7 @@ export async function trackWebVitals() {
     });
 
     // Track Largest Contentful Paint
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    onLCP((metric: any) => {
+    onLCP((metric: Metric) => {
       sendToAnalytics({
         name: 'LCP',
         value: metric.value,
@@ -170,8 +168,7 @@ export async function trackWebVitals() {
     });
 
     // Track Time to First Byte
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    onTTFB((metric: any) => {
+    onTTFB((metric: Metric) => {
       sendToAnalytics({
         name: 'TTFB',
         value: metric.value,
@@ -182,8 +179,7 @@ export async function trackWebVitals() {
     });
 
     // Track Interaction to Next Paint
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    onINP((metric: any) => {
+    onINP((metric: Metric) => {
       sendToAnalytics({
         name: 'INP',
         value: metric.value,
@@ -386,26 +382,27 @@ export function startApiTimer(endpoint: string) {
 // MEMORY TRACKING
 // ============================================================================
 
+type BrowserMemoryInfo = {
+  usedJSHeapSize: number;
+  totalJSHeapSize: number;
+  jsHeapSizeLimit: number;
+};
+
+type PerformanceWithMemory = Performance & {
+  memory?: BrowserMemoryInfo;
+};
+
 /**
  * Get current memory usage (browser only)
  */
 export function getMemoryUsage() {
-  if (
-    typeof window === 'undefined' ||
-    !(performance as unknown as { memory?: unknown }).memory
-  ) {
+  const perf = performance as PerformanceWithMemory;
+
+  if (typeof window === 'undefined' || !perf.memory) {
     return null;
   }
 
-  const memory = (
-    performance as unknown as {
-      memory: {
-        usedJSHeapSize: number;
-        totalJSHeapSize: number;
-        jsHeapSizeLimit: number;
-      };
-    }
-  ).memory;
+  const memory = perf.memory;
   return {
     usedJSHeapSize: memory.usedJSHeapSize,
     totalJSHeapSize: memory.totalJSHeapSize,

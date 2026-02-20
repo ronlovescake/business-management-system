@@ -1,17 +1,9 @@
-import { PermissionGuard } from '@/components/auth/PermissionGuard';
-import {
-  hasModuleAccess,
-  getFirstAccessibleModule,
-} from '@/lib/auth/permissions';
-import { MessagingClientPage } from './MessagingClientPage';
+import { renderOperationsPage } from '@/app/operations/_shared/renderOperationsPage';
+import { MessagingRoutePage } from '@/app/operations/messaging/_shared/MessagingRoutePage';
 
 export default async function MessagingPage() {
-  const hasAccess = await hasModuleAccess('/clothing/operations/messaging');
-  const redirectTo = await getFirstAccessibleModule();
-
-  return (
-    <PermissionGuard hasAccess={hasAccess} redirectTo={redirectTo}>
-      <MessagingClientPage />
-    </PermissionGuard>
+  return renderOperationsPage(
+    '/clothing/operations/messaging',
+    <MessagingRoutePage />
   );
 }

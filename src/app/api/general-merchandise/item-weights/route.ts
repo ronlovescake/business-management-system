@@ -35,14 +35,10 @@ type ItemWeightEntity = Prisma.ItemWeightGetPayload<{
   select: typeof itemWeightSelect;
 }>;
 
-const gmPrisma = prisma as unknown as {
-  generalMerchandiseItemWeight: typeof prisma.itemWeight;
-};
-
-type ItemWeightClient = typeof gmPrisma.generalMerchandiseItemWeight;
+type ItemWeightClient = typeof prisma.generalMerchandiseItemWeight;
 
 const getItemWeightClient = (): ItemWeightClient =>
-  gmPrisma.generalMerchandiseItemWeight;
+  prisma.generalMerchandiseItemWeight;
 
 type UpdatePayloadData = {
   itemName: string;

@@ -52,11 +52,6 @@ type TransactionRow = {
   createdAt: Date;
 };
 
-const gmPrisma = prisma as unknown as {
-  generalMerchandiseCustomer: typeof prisma.customer;
-  generalMerchandiseTransaction: typeof prisma.transaction;
-};
-
 export const GET = withErrorHandler<RouteContext>(
   async (_request: NextRequest, context) => {
     const idResult = parseCustomerId(context);
@@ -64,7 +59,7 @@ export const GET = withErrorHandler<RouteContext>(
       return idResult.error;
     }
 
-    const customer = await gmPrisma.generalMerchandiseCustomer.findUnique({
+    const customer = await prisma.generalMerchandiseCustomer.findUnique({
       where: { id: idResult.id },
       select: { customerName: true },
     });
@@ -78,27 +73,25 @@ export const GET = withErrorHandler<RouteContext>(
       return ApiResponse.success<Order[]>([], 'Customer orders fetched');
     }
 
-    const transactions = (await gmPrisma.generalMerchandiseTransaction.findMany(
-      {
-        where: {
-          customers: customer.customerName,
-          deletedAt: null,
-        },
-        orderBy: [{ orderDate: 'desc' }, { id: 'desc' }],
-        select: {
-          id: true,
-          orderDate: true,
-          productCode: true,
-          quantity: true,
-          unitPrice: true,
-          lineTotal: true,
-          orderStatus: true,
-          notes: true,
-          shipmentCode: true,
-          createdAt: true,
-        },
-      }
-    )) as TransactionRow[];
+    const transactions = (await prisma.generalMerchandiseTransaction.findMany({
+      where: {
+        customers: customer.customerName,
+        deletedAt: null,
+      },
+      orderBy: [{ orderDate: 'desc' }, { id: 'desc' }],
+      select: {
+        id: true,
+        orderDate: true,
+        productCode: true,
+        quantity: true,
+        unitPrice: true,
+        lineTotal: true,
+        orderStatus: true,
+        notes: true,
+        shipmentCode: true,
+        createdAt: true,
+      },
+    })) as TransactionRow[];
 
     const orders = mapTransactionsToOrders(transactions, idResult.id);
 

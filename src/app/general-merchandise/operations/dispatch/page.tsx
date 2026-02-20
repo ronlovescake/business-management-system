@@ -6,8 +6,7 @@
  */
 
 import type { Metadata } from 'next';
-import { Container } from '@mantine/core';
-import { DispatchComponent } from '@/modules/clothing/operations/dispatch';
+import { DispatchRoutePage } from '@/app/operations/dispatch/_shared/DispatchRoutePage';
 import { prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
 import { renderGmOperationsPage } from '@/app/general-merchandise/operations/_shared/renderGmOperationsPage';
@@ -36,10 +35,6 @@ interface ServerCustomerData {
   additionalAddresses: string[];
 }
 
-const gmPrisma = prisma as unknown as {
-  customer: typeof prisma.customer;
-};
-
 export default async function DispatchPage() {
   // CRITICAL: Fetch data SERVER-SIDE from database on EVERY page load
   // This completely bypasses all client-side React Query caching
@@ -50,7 +45,7 @@ export default async function DispatchPage() {
       '[GM DispatchPage] Fetching customers from DATABASE (server-side)'
     );
 
-    const customersWithShopee = await gmPrisma.customer.findMany({
+    const customersWithShopee = await prisma.customer.findMany({
       where: {
         deletedAt: null,
       },
@@ -110,11 +105,9 @@ export default async function DispatchPage() {
 
   return renderGmOperationsPage(
     '/general-merchandise/operations/dispatch',
-    <Container size="xl" fluid p="md">
-      <DispatchComponent
-        serverCustomersData={serverCustomersData}
-        apiBasePath="/api/general-merchandise"
-      />
-    </Container>
+    <DispatchRoutePage
+      serverCustomersData={serverCustomersData}
+      apiBasePath="/api/general-merchandise"
+    />
   );
 }

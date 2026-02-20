@@ -110,11 +110,10 @@ export function GridLayoutProvider({
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
-      (
-        window as unknown as {
-          __GRID_LAYOUTS__?: Record<string, GridLayoutSnapshot[]>;
-        }
-      ).__GRID_LAYOUTS__ = layouts;
+      const globalWindow = window as Window & {
+        __GRID_LAYOUTS__?: Record<string, GridLayoutSnapshot[]>;
+      };
+      globalWindow.__GRID_LAYOUTS__ = layouts;
     }
   }, [layouts]);
 

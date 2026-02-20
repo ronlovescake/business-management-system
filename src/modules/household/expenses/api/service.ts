@@ -264,8 +264,7 @@ export class HouseholdExpenseService {
           throw new Error(`Household expense with ID ${id} not found`);
         }
 
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const updateData: Record<string, any> = { ...updateFields };
+        const updateData: Record<string, unknown> = { ...updateFields };
         if (updateData.date instanceof Date) {
           updateData.date = updateData.date.toISOString().split('T')[0];
         }
@@ -319,13 +318,13 @@ export class HouseholdExpenseService {
         );
 
         const nextAccountId = hasAccountId
-          ? (updateData.accountId ?? null)
+          ? ((updateData as { accountId?: string | null }).accountId ?? null)
           : existing.accountId;
         const nextAmount = hasAmount
-          ? Number(updateData.amount)
+          ? Number((updateData as { amount?: number }).amount)
           : existing.amount;
         const nextStatus = hasStatus
-          ? (updateData.status ?? null)
+          ? ((updateData as { status?: string | null }).status ?? null)
           : existing.status;
 
         if (hasAccountId && nextAccountId) {

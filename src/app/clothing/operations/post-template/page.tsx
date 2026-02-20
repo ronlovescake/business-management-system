@@ -1,23 +1,9 @@
-import { PageLayout } from '../../../../components/layout/PageLayout';
-import { PostTemplateErrorBoundary } from './components/PostTemplateErrorBoundary';
-import { PostTemplateComponent } from '@/modules/clothing/operations/post-template/components/PostTemplateComponent';
-import { PermissionGuard } from '@/components/auth/PermissionGuard';
-import {
-  hasModuleAccess,
-  getFirstAccessibleModule,
-} from '@/lib/auth/permissions';
+import { PostTemplateRoutePage } from '@/app/operations/post-template/_shared/PostTemplateRoutePage';
+import { renderOperationsPage } from '@/app/operations/_shared/renderOperationsPage';
 
 export default async function PostTemplate() {
-  const hasAccess = await hasModuleAccess('/clothing/operations/post-template');
-  const redirectTo = await getFirstAccessibleModule();
-
-  return (
-    <PermissionGuard hasAccess={hasAccess} redirectTo={redirectTo}>
-      <PageLayout title="Post Template">
-        <PostTemplateErrorBoundary>
-          <PostTemplateComponent />
-        </PostTemplateErrorBoundary>
-      </PageLayout>
-    </PermissionGuard>
+  return renderOperationsPage(
+    '/clothing/operations/post-template',
+    <PostTemplateRoutePage />
   );
 }

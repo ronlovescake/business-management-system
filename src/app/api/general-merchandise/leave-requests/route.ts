@@ -28,28 +28,6 @@ interface LeaveRequestCreateInput {
 
 type LeaveRequestUpdateInput = Partial<LeaveRequestCreateInput>;
 
-interface LeaveRequestRecord extends LeaveRequestCreateInput {
-  id: number;
-  createdAt?: string;
-  updatedAt?: string;
-}
-
-interface LeaveRequestDelegate {
-  findMany(args?: unknown): Promise<LeaveRequestRecord[]>;
-  createMany(args: {
-    data: LeaveRequestCreateInput[];
-  }): Promise<{ count: number }>;
-  update(args: {
-    where: { id: number };
-    data: LeaveRequestUpdateInput;
-  }): Promise<LeaveRequestRecord>;
-  deleteMany(args?: unknown): Promise<{ count: number }>;
-}
-
-const gmPrisma = prisma as unknown as {
-  generalMerchandiseLeaveRequest: LeaveRequestDelegate;
-};
-
 const VALID_STATUSES: LeaveStatus[] = ['pending', 'approved', 'rejected'];
 const VALID_PAYMENT_STATUSES: PaymentStatus[] = [
   'paid',
@@ -190,8 +168,8 @@ function ensureArray<T>(payload: T | T[]): T[] {
   return Array.isArray(payload) ? payload : [payload];
 }
 
-function getLeaveRequestClient(): LeaveRequestDelegate {
-  return gmPrisma.generalMerchandiseLeaveRequest;
+function getLeaveRequestClient() {
+  return prisma.generalMerchandiseLeaveRequest;
 }
 
 export async function GET(request: NextRequest) {

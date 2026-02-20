@@ -26,10 +26,6 @@ export type CustomerDTO = {
   'Customer Status': string;
 };
 
-const gmPrisma = prisma as unknown as {
-  generalMerchandiseCustomer: typeof prisma.customer;
-};
-
 function mapToDTO(c: Customer): CustomerDTO {
   return {
     id: c.id,
@@ -47,7 +43,9 @@ function mapToDTO(c: Customer): CustomerDTO {
   };
 }
 
-function mapFromDTO(d: CustomerDTO): Prisma.CustomerUpdateInput {
+function mapFromDTO(
+  d: CustomerDTO
+): Prisma.GeneralMerchandiseCustomerUpdateInput {
   return {
     date: sanitizers.date(d.Date ?? ''),
     customerName: sanitizers.name(d['Customer Name'] ?? ''),
@@ -72,7 +70,7 @@ export const GET = withErrorHandler<RouteContext>(
       return idResult.error;
     }
 
-    const customer = await gmPrisma.generalMerchandiseCustomer.findUnique({
+    const customer = await prisma.generalMerchandiseCustomer.findUnique({
       where: { id: idResult.id },
     });
 
@@ -104,16 +102,17 @@ export const PUT = withErrorHandler<RouteContext>(
       });
     }
 
-    const existingCustomer =
-      await gmPrisma.generalMerchandiseCustomer.findUnique({
+    const existingCustomer = await prisma.generalMerchandiseCustomer.findUnique(
+      {
         where: { id: idResult.id },
-      });
+      }
+    );
 
     if (!existingCustomer) {
       return ApiResponse.notFound('Customer');
     }
 
-    const updated = await gmPrisma.generalMerchandiseCustomer.update({
+    const updated = await prisma.generalMerchandiseCustomer.update({
       where: { id: idResult.id },
       data: mapFromDTO(validation.data as CustomerDTO),
     });
@@ -133,16 +132,17 @@ export const DELETE = withErrorHandler<RouteContext>(
       return idResult.error;
     }
 
-    const existingCustomer =
-      await gmPrisma.generalMerchandiseCustomer.findUnique({
+    const existingCustomer = await prisma.generalMerchandiseCustomer.findUnique(
+      {
         where: { id: idResult.id },
-      });
+      }
+    );
 
     if (!existingCustomer) {
       return ApiResponse.notFound('Customer');
     }
 
-    await gmPrisma.generalMerchandiseCustomer.delete({
+    await prisma.generalMerchandiseCustomer.delete({
       where: { id: idResult.id },
     });
 

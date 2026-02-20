@@ -223,11 +223,15 @@ export function HandsontableGrid<T extends object>({
       }
 
       const hotInstance = hotRef.current?.hotInstance;
-      const activeEditor = hotInstance?.getActiveEditor() as unknown as {
-        cancelChanges?: () => void;
-        close?: () => void;
-        isOpened?: () => boolean;
-      } | null;
+      const rawActiveEditor = hotInstance?.getActiveEditor();
+      const activeEditor =
+        rawActiveEditor && typeof rawActiveEditor === 'object'
+          ? (rawActiveEditor as {
+              cancelChanges?: () => void;
+              close?: () => void;
+              isOpened?: () => boolean;
+            })
+          : null;
 
       try {
         activeEditor?.cancelChanges?.();
@@ -1145,14 +1149,18 @@ export function HandsontableGrid<T extends object>({
 
             requestAnimationFrame(() => {
               const activeInstance = hotRef.current?.hotInstance;
-              const editor = activeInstance?.getActiveEditor() as unknown as {
-                TEXTAREA?: HTMLTextAreaElement;
-                htEditor?: {
-                  deselectCell?: () => void;
-                  selectCell?: (...coords: number[]) => void;
-                  getSelectedLast?: () => number[] | undefined;
-                };
-              } | null;
+              const rawEditor = activeInstance?.getActiveEditor();
+              const editor =
+                rawEditor && typeof rawEditor === 'object'
+                  ? (rawEditor as {
+                      TEXTAREA?: HTMLTextAreaElement;
+                      htEditor?: {
+                        deselectCell?: () => void;
+                        selectCell?: (...coords: number[]) => void;
+                        getSelectedLast?: () => number[] | undefined;
+                      };
+                    })
+                  : null;
 
               try {
                 editor?.htEditor?.deselectCell?.();

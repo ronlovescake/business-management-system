@@ -54,13 +54,13 @@ export class ExpenseRepositoryBase<
   }
 
   private toWhereInput(value: Record<string, unknown>): WhereInput<TEntity> {
-    return value as unknown as WhereInput<TEntity>;
+    return value as WhereInput<TEntity>;
   }
 
   private toOrderByInput(
     value: Record<string, 'asc' | 'desc'>
   ): OrderByInput<TEntity> {
-    return value as unknown as OrderByInput<TEntity>;
+    return value as OrderByInput<TEntity>;
   }
 
   async findWithFilters(filters: ExpenseQueryLike): Promise<TEntity[]> {
@@ -119,12 +119,12 @@ export class ExpenseRepositoryBase<
 
   async findByEmployeeName(employeeName: string): Promise<TEntity[]> {
     return this.findMany({
-      where: {
+      where: this.toWhereInput({
         employeeName: {
           contains: employeeName,
           mode: 'insensitive',
         },
-      } as unknown as WhereInput<TEntity>,
+      }),
       orderBy: this.toOrderByInput({ date: 'desc' }),
     });
   }
@@ -145,12 +145,12 @@ export class ExpenseRepositoryBase<
 
   async findByDateRange(startDate: Date, endDate: Date): Promise<TEntity[]> {
     return this.findMany({
-      where: {
+      where: this.toWhereInput({
         date: {
           gte: startDate.toISOString().split('T')[0],
           lte: endDate.toISOString().split('T')[0],
         },
-      } as unknown as WhereInput<TEntity>,
+      }),
       orderBy: this.toOrderByInput({ date: 'desc' }),
     });
   }

@@ -8,45 +8,18 @@ import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 import { isDeepStrictEqual } from 'util';
 import { prisma } from '@/lib/db';
-import { requireAdmin } from '@/lib/auth/session';
 import fs from 'fs';
 import path from 'path';
 import { logger } from '@/lib/logger';
 import { sortTablesForRestore } from './restore-order';
-import { createHash } from 'crypto';
+import {
+  computeFileSha256,
+  requireBackupRestoreAdmin,
+} from '../backup-restore/sharedRouteUtils';
 const BACKUP_DIR = path.resolve(process.cwd(), 'backups');
 const TIMESTAMP_FOLDER_REGEX = /^\d{4}-\d{2}-\d{2}T\d{2}-\d{2}-\d{2}$/;
 const RESTORE_MUTEX_KEY = '__restore_global__';
 const activeRestoreMutexes = new Set<string>();
-
-async function requireRestoreAdmin() {
-  try {
-    await requireAdmin();
-    return null;
-  } catch (error) {
-    if (error instanceof Error && error.message === 'Unauthorized') {
-      return NextResponse.json(
-        { success: false, error: 'Authentication required' },
-        { status: 401 }
-      );
-    }
-
-    return NextResponse.json(
-      { success: false, error: 'Forbidden: Admin access required' },
-      { status: 403 }
-    );
-  }
-}
-
-const computeFileSha256 = async (filePath: string) => {
-  return await new Promise<string>((resolve, reject) => {
-    const hash = createHash('sha256');
-    const stream = fs.createReadStream(filePath);
-    stream.on('data', (chunk) => hash.update(chunk));
-    stream.on('end', () => resolve(hash.digest('hex')));
-    stream.on('error', reject);
-  });
-};
 
 const isSafeFilename = (filename: string) => {
   if (!filename) {
@@ -66,6 +39,50 @@ const isSafeFilename = (filename: string) => {
 
 type RowRecord = Record<string, unknown>;
 
+type RestoreCountResult = { count: number };
+
+type RestoreModelDelegate = {
+  findFirst: (args?: unknown) => Promise<unknown>;
+  findMany: (args?: unknown) => Promise<unknown[]>;
+  count: (args?: unknown) => Promise<number>;
+  createMany: (args: {
+    data: RowRecord[];
+    skipDuplicates: boolean;
+  }) => Promise<RestoreCountResult>;
+  update: (args: {
+    where: { id: number | string };
+    data: RowRecord;
+  }) => Promise<unknown>;
+  deleteMany: (args?: unknown) => Promise<unknown>;
+  updateMany: (args: {
+    where: { id: { in: Array<number | string> } };
+    data: { deletedAt: null };
+  }) => Promise<RestoreCountResult>;
+};
+
+const getModelDelegate = (
+  source: unknown,
+  modelName: string
+): RestoreModelDelegate => {
+  const sourceRecord = source as Record<string, unknown>;
+  const delegate = sourceRecord[modelName] as Partial<RestoreModelDelegate>;
+
+  if (
+    !delegate ||
+    typeof delegate.findFirst !== 'function' ||
+    typeof delegate.findMany !== 'function' ||
+    typeof delegate.count !== 'function' ||
+    typeof delegate.createMany !== 'function' ||
+    typeof delegate.update !== 'function' ||
+    typeof delegate.deleteMany !== 'function' ||
+    typeof delegate.updateMany !== 'function'
+  ) {
+    throw new Error(`Invalid model delegate for: ${modelName}`);
+  }
+
+  return delegate as RestoreModelDelegate;
+};
+
 const FIELDS_TO_IGNORE_IN_COMPARISON = new Set(['id', 'updatedAt']);
 
 const PREVIEW_SAMPLE_LIMIT = 200;
@@ -84,8 +101,7 @@ const chunkArray = <T>(items: T[], chunkSize: number) => {
 };
 
 const ensureModelSupportsDeletedAt = async (
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  modelDelegate: any,
+  modelDelegate: RestoreModelDelegate,
   tableName: string
 ) => {
   try {
@@ -128,8 +144,7 @@ type PreviewTableResult = {
 };
 
 const fetchExistingByIds = async (
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  modelDelegate: any,
+  modelDelegate: RestoreModelDelegate,
   ids: Array<number | string>
 ): Promise<Map<number | string, RowRecord>> => {
   const map = new Map<number | string, RowRecord>();
@@ -144,10 +159,14 @@ const fetchExistingByIds = async (
       where: { id: { in: chunk } },
     });
 
-    for (const row of rows as RowRecord[]) {
-      const id = row.id as number | string | undefined;
+    for (const row of rows) {
+      if (!row || typeof row !== 'object') {
+        continue;
+      }
+      const typedRow = row as RowRecord;
+      const id = typedRow.id as number | string | undefined;
       if (id !== undefined && id !== null) {
-        map.set(id, row);
+        map.set(id, typedRow);
       }
     }
   }
@@ -247,8 +266,7 @@ const getChangedFields = (
 };
 
 const processTablePreview = async (
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  modelDelegate: any,
+  modelDelegate: RestoreModelDelegate,
   tableData: { data: RowRecord[] },
   forceOverwrite: boolean
 ): Promise<PreviewTableResult> => {
@@ -348,8 +366,7 @@ const processTablePreview = async (
 };
 
 const processTableRestore = async (
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  modelDelegate: any,
+  modelDelegate: RestoreModelDelegate,
   _modelName: string,
   tableData: { data: RowRecord[] },
   forceOverwrite: boolean
@@ -450,7 +467,7 @@ const processTableRestore = async (
 
 // POST - Restore from backup
 export async function POST(request: NextRequest) {
-  const authError = await requireRestoreAdmin();
+  const authError = await requireBackupRestoreAdmin();
   if (authError) {
     return authError;
   }
@@ -741,8 +758,7 @@ export async function POST(request: NextRequest) {
 
         try {
           const modelName = modelMap[tableName];
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          const modelDelegate = (prisma as any)[modelName];
+          const modelDelegate = getModelDelegate(prisma, modelName);
           previewResults[tableName] = await processTablePreview(
             modelDelegate,
             { data: tableData.data },
@@ -789,8 +805,7 @@ export async function POST(request: NextRequest) {
 
             try {
               const modelName = modelMap[tableName];
-              // eslint-disable-next-line @typescript-eslint/no-explicit-any
-              const txDelegate = (tx as any)[modelName];
+              const txDelegate = getModelDelegate(tx, modelName);
               results[tableName] = await processTableRestore(
                 txDelegate,
                 modelName,
@@ -859,8 +874,7 @@ export async function POST(request: NextRequest) {
 
       try {
         results[tableName] = await prisma.$transaction(async (tx) => {
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          const txDelegate = (tx as any)[modelName];
+          const txDelegate = getModelDelegate(tx, modelName);
           return processTableRestore(
             txDelegate,
             modelName,
@@ -926,7 +940,7 @@ export async function POST(request: NextRequest) {
 
 // GET - Get soft-deleted records for restoration
 export async function GET(request: NextRequest) {
-  const authError = await requireRestoreAdmin();
+  const authError = await requireBackupRestoreAdmin();
   if (authError) {
     return authError;
   }
@@ -1000,10 +1014,7 @@ export async function GET(request: NextRequest) {
       where.deletedAt.gte = parsedDate;
     }
 
-    // Dynamic model access requires 'any' type due to Prisma's runtime model resolution
-    // The modelName is validated against modelMap above
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const modelDelegate = (prisma as any)[modelName];
+    const modelDelegate = getModelDelegate(prisma, modelName);
     const supportsDeletedAt = await ensureModelSupportsDeletedAt(
       modelDelegate,
       table
@@ -1048,7 +1059,7 @@ export async function GET(request: NextRequest) {
 
 // PATCH - Restore soft-deleted records
 export async function PATCH(request: NextRequest) {
-  const authError = await requireRestoreAdmin();
+  const authError = await requireBackupRestoreAdmin();
   if (authError) {
     return authError;
   }
@@ -1122,10 +1133,7 @@ export async function PATCH(request: NextRequest) {
       );
     }
 
-    // Dynamic model access requires 'any' type due to Prisma's runtime model resolution
-    // The modelName is validated against modelMap above
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const modelDelegate = (prisma as any)[modelName];
+    const modelDelegate = getModelDelegate(prisma, modelName);
     const supportsDeletedAt = await ensureModelSupportsDeletedAt(
       modelDelegate,
       table

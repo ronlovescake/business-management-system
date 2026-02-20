@@ -44,9 +44,9 @@ type PersistableScheduleInput = ScheduleCreateInput & { id: string };
 
 type ScheduleEntity = ScheduleCreateInput & {
   id: string;
-  createdAt: Date | string;
-  updatedAt: Date | string;
-  deletedAt: Date | string | null;
+  createdAt?: Date | string;
+  updatedAt?: Date | string;
+  deletedAt?: Date | string | null;
 };
 
 type ScheduleResponse = {
@@ -236,27 +236,7 @@ const ensureArray = (payload: unknown): SchedulePayload[] => {
   return payload ? [payload as SchedulePayload] : [];
 };
 
-const gmPrisma = prisma as unknown as {
-  generalMerchandiseSchedule: typeof prisma.schedule;
-};
-
-const getScheduleDelegate = (client: unknown) =>
-  (
-    client as {
-      generalMerchandiseSchedule: {
-        findMany: (args: unknown) => Promise<ScheduleEntity[]>;
-        create: (args: {
-          data: ScheduleCreateInput;
-        }) => Promise<ScheduleEntity>;
-        update: (args: {
-          where: { id: string };
-          data: ScheduleUpdateInput;
-        }) => Promise<ScheduleEntity>;
-      };
-    }
-  ).generalMerchandiseSchedule;
-
-const scheduleDelegate = getScheduleDelegate(gmPrisma);
+const scheduleDelegate = prisma.generalMerchandiseSchedule;
 
 export async function GET() {
   try {

@@ -24,14 +24,9 @@ interface UpdateBundleRequest extends CreateBundleRequest {
   id: number;
 }
 
-const gmPrisma = prisma as unknown as {
-  generalMerchandiseBundleBatch: typeof prisma.bundleBatch;
-  generalMerchandiseInventoryMovement: typeof prisma.inventoryMovement;
-};
-
 export async function GET() {
   try {
-    const bundles = await gmPrisma.generalMerchandiseBundleBatch.findMany({
+    const bundles = await prisma.generalMerchandiseBundleBatch.findMany({
       where: {
         NOT: {
           bundleName: {
@@ -112,9 +107,7 @@ export async function POST(request: NextRequest) {
     }
 
     const created = await prisma.$transaction(async (tx) => {
-      const gmTx = tx as unknown as typeof gmPrisma;
-
-      const createdBatch = await gmTx.generalMerchandiseBundleBatch.create({
+      const createdBatch = await tx.generalMerchandiseBundleBatch.create({
         data: {
           postingDate,
           bundleName,
@@ -134,7 +127,7 @@ export async function POST(request: NextRequest) {
       const note = `bundle-assembly batch ${createdBatch.id} sku ${bundleSku}`;
 
       // Consume component inventory (sellable -> assembly_wip) for each component.
-      await gmTx.generalMerchandiseInventoryMovement.createMany({
+      await tx.generalMerchandiseInventoryMovement.createMany({
         data: normalizedComponents.map((component) => ({
           productCode: component.productCode.trim(),
           quantity: component.includedQuantity * quantity,
@@ -146,7 +139,7 @@ export async function POST(request: NextRequest) {
       });
 
       // Produce the bundled SKU (assembly_wip -> sellable) for the batch quantity.
-      await gmTx.generalMerchandiseInventoryMovement.create({
+      await tx.generalMerchandiseInventoryMovement.create({
         data: {
           productCode: bundleSku,
           quantity,
@@ -243,7 +236,7 @@ export async function PATCH(request: NextRequest) {
       );
     }
 
-    const existing = await gmPrisma.generalMerchandiseBundleBatch.findUnique({
+    const existing = await prisma.generalMerchandiseBundleBatch.findUnique({
       where: { id },
     });
 
@@ -255,9 +248,8 @@ export async function PATCH(request: NextRequest) {
     }
 
     const updated = await prisma.$transaction(async (tx) => {
-      const gmTx = tx as unknown as typeof gmPrisma;
       const notePrefix = `bundle-assembly batch ${id} `;
-      await gmTx.generalMerchandiseInventoryMovement.updateMany({
+      await tx.generalMerchandiseInventoryMovement.updateMany({
         where: {
           notes: { startsWith: notePrefix },
           deletedAt: null,
@@ -265,7 +257,7 @@ export async function PATCH(request: NextRequest) {
         data: { deletedAt: new Date() },
       });
 
-      const updatedBatch = await gmTx.generalMerchandiseBundleBatch.update({
+      const updatedBatch = await tx.generalMerchandiseBundleBatch.update({
         where: { id },
         data: {
           postingDate,
@@ -286,7 +278,7 @@ export async function PATCH(request: NextRequest) {
 
       const note = `bundle-assembly batch ${updatedBatch.id} sku ${bundleSku}`;
 
-      await gmTx.generalMerchandiseInventoryMovement.createMany({
+      await tx.generalMerchandiseInventoryMovement.createMany({
         data: normalizedComponents.map((component) => ({
           productCode: component.productCode.trim(),
           quantity: component.includedQuantity * quantity,
@@ -297,7 +289,7 @@ export async function PATCH(request: NextRequest) {
         })),
       });
 
-      await gmTx.generalMerchandiseInventoryMovement.create({
+      await tx.generalMerchandiseInventoryMovement.create({
         data: {
           productCode: bundleSku,
           quantity,
@@ -341,7 +333,7 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: 'id is required' }, { status: 400 });
     }
 
-    const existing = await gmPrisma.generalMerchandiseBundleBatch.findUnique({
+    const existing = await prisma.generalMerchandiseBundleBatch.findUnique({
       where: { id },
     });
 
@@ -353,9 +345,8 @@ export async function DELETE(request: NextRequest) {
     }
 
     await prisma.$transaction(async (tx) => {
-      const gmTx = tx as unknown as typeof gmPrisma;
       const notePrefix = `bundle-assembly batch ${id} `;
-      await gmTx.generalMerchandiseInventoryMovement.updateMany({
+      await tx.generalMerchandiseInventoryMovement.updateMany({
         where: {
           notes: { startsWith: notePrefix },
           deletedAt: null,
@@ -363,7 +354,7 @@ export async function DELETE(request: NextRequest) {
         data: { deletedAt: new Date() },
       });
 
-      await gmTx.generalMerchandiseBundleBatch.delete({ where: { id } });
+      await tx.generalMerchandiseBundleBatch.delete({ where: { id } });
     });
 
     return NextResponse.json({ success: true }, { status: 200 });

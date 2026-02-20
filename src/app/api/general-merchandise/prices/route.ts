@@ -13,9 +13,12 @@ import {
 } from '@/modules/prices/api/utils';
 import { HTTP_STATUS } from '@/shared/constants/api';
 
-const gmPrisma = prisma as unknown as {
-  generalMerchandisePrice: typeof prisma.price;
-};
+type GeneralMerchandisePriceClient = Pick<
+  typeof prisma,
+  'generalMerchandisePrice'
+>;
+
+const gmPrisma: GeneralMerchandisePriceClient = prisma;
 
 type PriceDTO = {
   id?: number;
@@ -47,7 +50,7 @@ async function handleBulkPriceImport(
   const pricePayloads = records.map(convertPriceDataToDb);
 
   return prisma.$transaction(async (tx) => {
-    const txDelegate = tx as unknown as typeof gmPrisma;
+    const txDelegate: GeneralMerchandisePriceClient = tx;
 
     if (options.isCsvImport) {
       await txDelegate.generalMerchandisePrice.deleteMany();
@@ -102,7 +105,7 @@ async function replaceProductTiers(
   const payloads = records.map(convertPriceDataToDb);
 
   return prisma.$transaction(async (tx) => {
-    const txDelegate = tx as unknown as typeof gmPrisma;
+    const txDelegate: GeneralMerchandisePriceClient = tx;
     await txDelegate.generalMerchandisePrice.deleteMany({
       where: { productCode },
     });

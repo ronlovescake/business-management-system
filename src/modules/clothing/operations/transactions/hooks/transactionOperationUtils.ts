@@ -141,3 +141,57 @@ export function isPaidOrderStatus(value: string | null | undefined): boolean {
     (status) => normalizeOrderStatus(status) === normalized
   );
 }
+
+export function buildDraftCreatePayload(draft: TransactionData) {
+  return {
+    'Order Date': draft['Order Date'] || '',
+    Customers: draft.Customers || '',
+    'Product Code': draft['Product Code'] || '',
+    Quantity: draft.Quantity ?? 0,
+    'Unit Price': draft['Unit Price'] ?? 0,
+    Discount: draft.Discount ?? 0,
+    Adjustment: draft.Adjustment ?? 0,
+    'Line Total': draft['Line Total'] ?? 0,
+    'Order Status': draft['Order Status'] ?? '',
+    Notes: draft.Notes || '',
+    'Invoice Date': draft['Invoice Date'] || '',
+    'Packed Date': draft['Packed Date'] || '',
+    'Shipment Code': draft['Shipment Code'] || '',
+  };
+}
+
+export function buildOptimisticTransaction(
+  payload: ReturnType<typeof buildDraftCreatePayload>,
+  optimisticId: number
+): TransactionData {
+  return {
+    id: optimisticId,
+    ...payload,
+  } as TransactionData;
+}
+
+export function buildBatchedTransactions(
+  transactions: TransactionData[],
+  updates: Map<number, Partial<TransactionData>>
+): TransactionData[] {
+  const batchedUpdates: TransactionData[] = [];
+
+  updates.forEach((data, id) => {
+    const baseline = transactions.find((transaction) => transaction.id === id);
+    if (!baseline) {
+      return;
+    }
+
+    batchedUpdates.push({
+      ...baseline,
+      ...data,
+      Quantity: data.Quantity ?? baseline.Quantity ?? 0,
+      'Unit Price': data['Unit Price'] ?? baseline['Unit Price'] ?? 0,
+      Discount: data.Discount ?? baseline.Discount ?? 0,
+      Adjustment: data.Adjustment ?? baseline.Adjustment ?? 0,
+      'Line Total': data['Line Total'] ?? baseline['Line Total'] ?? 0,
+    });
+  });
+
+  return batchedUpdates;
+}

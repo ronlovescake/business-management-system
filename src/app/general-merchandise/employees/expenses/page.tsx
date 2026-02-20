@@ -1,5 +1,7 @@
-import { redirect } from 'next/navigation';
+import { EmployeesExpensesRedirectPage } from '@/app/employees/_shared/EmployeesExpensesRedirectPage';
 
 export default function GeneralMerchandiseEmployeesExpenses() {
-  return redirect('/general-merchandise/accounting/expenses');
+  return (
+    <EmployeesExpensesRedirectPage redirectPath="/general-merchandise/accounting/expenses" />
+  );
 }

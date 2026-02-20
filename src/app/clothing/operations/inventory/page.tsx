@@ -3,23 +3,12 @@
  * Renders the clothing operations inventory workspace using the reusable table template.
  */
 
-import { PageLayout } from '@/components/layout/PageLayout';
-import { InventoryPage } from '@/modules/clothing/operations/inventory';
-import { PermissionGuard } from '@/components/auth/PermissionGuard';
-import {
-  hasModuleAccess,
-  getFirstAccessibleModule,
-} from '@/lib/auth/permissions';
+import { InventoryRoutePage } from '@/app/operations/inventory/_shared/InventoryRoutePage';
+import { renderOperationsPage } from '@/app/operations/_shared/renderOperationsPage';
 
 export default async function InventoryRoute() {
-  const hasAccess = await hasModuleAccess('/clothing/operations/inventory');
-  const redirectTo = await getFirstAccessibleModule();
-
-  return (
-    <PermissionGuard hasAccess={hasAccess} redirectTo={redirectTo}>
-      <PageLayout fluid withPadding>
-        <InventoryPage />
-      </PageLayout>
-    </PermissionGuard>
+  return renderOperationsPage(
+    '/clothing/operations/inventory',
+    <InventoryRoutePage />
   );
 }

@@ -19,10 +19,8 @@
  * - Product cascade updates on shipment update
  */
 
-/* eslint-disable @typescript-eslint/no-explicit-any */
-
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import type { Prisma } from '@prisma/client';
+import type { Prisma, Shipment } from '@prisma/client';
 import { NextRequest } from 'next/server';
 import { getTestApiUrl, mockLogger } from '@/core/testing/test-helpers';
 import {
@@ -38,9 +36,40 @@ import {
 import { prisma } from '@/lib/db';
 
 type NextRequestInit = ConstructorParameters<typeof NextRequest>[1];
+type ProductGroupByResult = Awaited<ReturnType<typeof prisma.product.groupBy>>;
+type ProductFindManyResult = Awaited<
+  ReturnType<typeof prisma.product.findMany>
+>;
 
 const buildRequest = (path: string, init?: NextRequestInit) =>
   new NextRequest(getTestApiUrl(path), init);
+
+const toShipment = (overrides: Partial<Shipment>): Shipment => {
+  const {
+    shipmentCode = 'SH-TEST',
+    shipmentStatus = 'In Transit',
+    ...rest
+  } = overrides;
+
+  return {
+    id: 1,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+    shipmentCode,
+    cvNumber: null,
+    noOfSacks: 0,
+    totalCBM: 0,
+    weight: 0,
+    fee: 0,
+    shipmentStatus,
+    dateCreated: null,
+    dateDelivered: null,
+    duration: null,
+    notes: null,
+    deletedAt: null,
+    ...rest,
+  };
+};
 
 // Mock Prisma
 vi.mock('@/lib/db', () => ({
@@ -117,7 +146,7 @@ describe('Shipments API - /api/shipments', () => {
       ];
 
       vi.mocked(prisma.shipment.findMany).mockResolvedValue(
-        mockShipments as any
+        mockShipments.map((shipment) => toShipment(shipment))
       );
 
       vi.mocked(prisma.product.groupBy).mockResolvedValue([
@@ -131,7 +160,7 @@ describe('Shipments API - /api/shipments', () => {
             packagingCost: 0,
           },
         },
-      ] as any);
+      ] as ProductGroupByResult);
 
       const response = await getShipments(buildRequest('/api/shipments'));
       const payload = await response.json();
@@ -233,15 +262,15 @@ describe('Shipments API - /api/shipments', () => {
       };
 
       vi.mocked(prisma.shipment.create).mockResolvedValue(
-        createdShipment as any
+        toShipment(createdShipment)
       );
 
-      const request = new Request('http://localhost/api/shipments', {
+      const request = buildRequest('/api/shipments', {
         method: 'POST',
         body: JSON.stringify(newShipment),
       });
 
-      const response = await createShipments(request as any);
+      const response = await createShipments(request);
       const payload = await response.json();
 
       expect(response.status).toBe(201);
@@ -275,15 +304,15 @@ describe('Shipments API - /api/shipments', () => {
       };
 
       vi.mocked(prisma.shipment.create).mockResolvedValue(
-        createdShipment as any
+        toShipment(createdShipment)
       );
 
-      const request = new Request('http://localhost/api/shipments', {
+      const request = buildRequest('/api/shipments', {
         method: 'POST',
         body: JSON.stringify(newShipment),
       });
 
-      await createShipments(request as any);
+      await createShipments(request);
 
       expect(prisma.shipment.create).toHaveBeenCalledWith({
         data: expect.objectContaining({
@@ -316,15 +345,15 @@ describe('Shipments API - /api/shipments', () => {
       };
 
       vi.mocked(prisma.shipment.create).mockResolvedValue(
-        createdShipment as any
+        toShipment(createdShipment)
       );
 
-      const request = new Request('http://localhost/api/shipments', {
+      const request = buildRequest('/api/shipments', {
         method: 'POST',
         body: JSON.stringify(newShipment),
       });
 
-      await createShipments(request as any);
+      await createShipments(request);
 
       expect(prisma.shipment.create).toHaveBeenCalledWith({
         data: expect.objectContaining({
@@ -357,15 +386,15 @@ describe('Shipments API - /api/shipments', () => {
       };
 
       vi.mocked(prisma.shipment.create).mockResolvedValue(
-        createdShipment as any
+        toShipment(createdShipment)
       );
 
-      const request = new Request('http://localhost/api/shipments', {
+      const request = buildRequest('/api/shipments', {
         method: 'POST',
         body: JSON.stringify(newShipment),
       });
 
-      await createShipments(request as any);
+      await createShipments(request);
 
       expect(prisma.shipment.create).toHaveBeenCalledWith({
         data: expect.objectContaining({
@@ -399,15 +428,15 @@ describe('Shipments API - /api/shipments', () => {
       };
 
       vi.mocked(prisma.shipment.create).mockResolvedValue(
-        createdShipment as any
+        toShipment(createdShipment)
       );
 
-      const request = new Request('http://localhost/api/shipments', {
+      const request = buildRequest('/api/shipments', {
         method: 'POST',
         body: JSON.stringify(newShipment),
       });
 
-      await createShipments(request as any);
+      await createShipments(request);
 
       expect(prisma.shipment.create).toHaveBeenCalledWith({
         data: expect.objectContaining({
@@ -446,18 +475,18 @@ describe('Shipments API - /api/shipments', () => {
         product: {
           updateMany: vi.fn().mockResolvedValue({ count: 0 }),
         },
-      } as unknown as Prisma.TransactionClient;
+      };
 
       vi.mocked(prisma.$transaction).mockImplementation(async (callback) => {
-        return callback(txContext);
+        return callback(txContext as never);
       });
 
-      const request = new Request('http://localhost/api/shipments', {
+      const request = buildRequest('/api/shipments', {
         method: 'POST',
         body: JSON.stringify(bulkShipments),
       });
 
-      const response = await createShipments(request as any);
+      const response = await createShipments(request);
       const payload = await response.json();
 
       expect(payload.success).toBe(true);
@@ -487,17 +516,17 @@ describe('Shipments API - /api/shipments', () => {
             }),
             update: vi.fn().mockResolvedValue({ id: 1 }),
           },
-        } as unknown as Prisma.TransactionClient;
+        };
 
-        return callback(txClient);
+        return callback(txClient as never);
       });
 
-      const request = new Request('http://localhost/api/shipments', {
+      const request = buildRequest('/api/shipments', {
         method: 'POST',
         body: JSON.stringify(bulkShipments),
       });
 
-      await createShipments(request as any);
+      await createShipments(request);
     });
   });
 
@@ -506,14 +535,14 @@ describe('Shipments API - /api/shipments', () => {
       vi.mocked(prisma.shipment.count).mockResolvedValue(0);
       vi.mocked(prisma.shipment.updateMany).mockResolvedValue({
         count: 10,
-      } as any);
+      } as Prisma.BatchPayload);
 
-      const request = new Request(
-        'http://localhost/api/shipments?confirm=DELETE_ALL_SHIPMENTS',
+      const request = buildRequest(
+        '/api/shipments?confirm=DELETE_ALL_SHIPMENTS',
         {
           method: 'DELETE',
         }
-      ) as any;
+      );
 
       const response = await deleteAllShipments(request);
       const payload = await response.json();
@@ -527,14 +556,14 @@ describe('Shipments API - /api/shipments', () => {
       vi.mocked(prisma.shipment.count).mockResolvedValue(0);
       vi.mocked(prisma.shipment.updateMany).mockResolvedValue({
         count: 0,
-      } as any);
+      } as Prisma.BatchPayload);
 
-      const request = new Request(
-        'http://localhost/api/shipments?confirm=DELETE_ALL_SHIPMENTS',
+      const request = buildRequest(
+        '/api/shipments?confirm=DELETE_ALL_SHIPMENTS',
         {
           method: 'DELETE',
         }
-      ) as any;
+      );
 
       const response = await deleteAllShipments(request);
       const payload = await response.json();
@@ -568,10 +597,10 @@ describe('Shipments API - /api/shipments/[id]', () => {
       };
 
       vi.mocked(prisma.shipment.findUnique).mockResolvedValue(
-        mockShipment as any
+        toShipment(mockShipment)
       );
 
-      const request = new Request('http://localhost/api/shipments/1') as any;
+      const request = buildRequest('/api/shipments/1');
       const response = await getShipmentById(request, { params: { id: '1' } });
       const payload = await response.json();
 
@@ -586,7 +615,7 @@ describe('Shipments API - /api/shipments/[id]', () => {
     it('should return 404 when shipment not found', async () => {
       vi.mocked(prisma.shipment.findUnique).mockResolvedValue(null);
 
-      const request = new Request('http://localhost/api/shipments/999') as any;
+      const request = buildRequest('/api/shipments/999');
       const response = await getShipmentById(request, {
         params: { id: '999' },
       });
@@ -598,7 +627,7 @@ describe('Shipments API - /api/shipments/[id]', () => {
     });
 
     it('should return 400 for invalid ID format', async () => {
-      const request = new Request('http://localhost/api/shipments/abc') as any;
+      const request = buildRequest('/api/shipments/abc');
       const response = await getShipmentById(request, {
         params: { id: 'abc' },
       });
@@ -650,25 +679,25 @@ describe('Shipments API - /api/shipments/[id]', () => {
       };
 
       vi.mocked(prisma.shipment.findUnique).mockResolvedValue(
-        currentShipment as any
+        toShipment(currentShipment)
       );
       vi.mocked(prisma.shipment.update).mockResolvedValue(
-        updatedShipment as any
+        toShipment(updatedShipment)
       );
       vi.mocked(prisma.product.updateMany).mockResolvedValue({
         count: 5,
-      } as any);
+      } as Prisma.BatchPayload);
       vi.mocked(prisma.product.findMany).mockResolvedValue([
         { productCode: 'P-001' },
-      ] as any);
+      ] as ProductFindManyResult);
       vi.mocked(prisma.transaction.updateMany).mockResolvedValue({
         count: 0,
-      } as any);
+      } as Prisma.BatchPayload);
 
-      const request = new Request('http://localhost/api/shipments/1', {
+      const request = buildRequest('/api/shipments/1', {
         method: 'PUT',
         body: JSON.stringify(updateData),
-      }) as any;
+      });
 
       const response = await updateShipment(request, { params: { id: '1' } });
       const payload = await response.json();
@@ -700,10 +729,10 @@ describe('Shipments API - /api/shipments/[id]', () => {
     it('should return 404 when updating non-existent shipment', async () => {
       vi.mocked(prisma.shipment.findUnique).mockResolvedValue(null);
 
-      const request = new Request('http://localhost/api/shipments/999', {
+      const request = buildRequest('/api/shipments/999', {
         method: 'PUT',
         body: JSON.stringify({ 'Shipment Code': 'SH-999' }),
-      }) as any;
+      });
 
       const response = await updateShipment(request, { params: { id: '999' } });
       const payload = await response.json();
@@ -716,9 +745,11 @@ describe('Shipments API - /api/shipments/[id]', () => {
 
   describe('DELETE /api/shipments/[id]', () => {
     it('should delete a specific shipment', async () => {
-      vi.mocked(prisma.shipment.delete).mockResolvedValue({} as any);
+      vi.mocked(prisma.shipment.delete).mockResolvedValue(
+        toShipment({ shipmentCode: 'SH-001', shipmentStatus: 'Deleted' })
+      );
 
-      const request = new Request('http://localhost/api/shipments/1') as any;
+      const request = buildRequest('/api/shipments/1');
       const response = await deleteShipment(request, { params: { id: '1' } });
       const payload = await response.json();
 
@@ -731,7 +762,7 @@ describe('Shipments API - /api/shipments/[id]', () => {
     });
 
     it('should return 400 for invalid ID', async () => {
-      const request = new Request('http://localhost/api/shipments/xyz') as any;
+      const request = buildRequest('/api/shipments/xyz');
       const response = await deleteShipment(request, { params: { id: 'xyz' } });
       const payload = await response.json();
 

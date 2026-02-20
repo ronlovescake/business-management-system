@@ -16,27 +16,16 @@
  */
 
 import type { Metadata } from 'next';
-import { TransactionsPage } from '@/modules/clothing/operations/transactions/components/TransactionsPage';
-import { TransactionsErrorBoundary } from '@/modules/clothing/operations/transactions/components/TransactionsErrorBoundary';
-import { PermissionGuard } from '@/components/auth/PermissionGuard';
-import {
-  hasModuleAccess,
-  getFirstAccessibleModule,
-} from '@/lib/auth/permissions';
+import { TransactionsRoutePage } from '@/app/operations/transactions/_shared/TransactionsRoutePage';
+import { renderOperationsPage } from '@/app/operations/_shared/renderOperationsPage';
 
 export const metadata: Metadata = {
   title: 'Transactions',
 };
 
 export default async function TransactionsRoute() {
-  const hasAccess = await hasModuleAccess('/clothing/operations/transactions');
-  const redirectTo = await getFirstAccessibleModule();
-
-  return (
-    <PermissionGuard hasAccess={hasAccess} redirectTo={redirectTo}>
-      <TransactionsErrorBoundary>
-        <TransactionsPage />
-      </TransactionsErrorBoundary>
-    </PermissionGuard>
+  return renderOperationsPage(
+    '/clothing/operations/transactions',
+    <TransactionsRoutePage />
   );
 }

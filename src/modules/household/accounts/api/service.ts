@@ -56,8 +56,7 @@ export class HouseholdAccountService {
   async create(data: HouseholdAccountCreateInput): Promise<HouseholdAccount> {
     try {
       const accountData = this.normalizeCreateInput(data);
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      return await householdAccountRepository.create(accountData as any);
+      return await householdAccountRepository.create(accountData);
     } catch (error) {
       logger.error('Failed to create household account', { error, data });
       throw new Error('Failed to create household account');
@@ -71,8 +70,7 @@ export class HouseholdAccountService {
       const accounts = data.map((account) =>
         this.normalizeCreateInput(account)
       );
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      return await householdAccountRepository.createMany(accounts as any);
+      return await householdAccountRepository.createMany(accounts);
     } catch (error) {
       logger.error('Failed to create household accounts', {
         error,
@@ -88,8 +86,10 @@ export class HouseholdAccountService {
   ): Promise<HouseholdAccount> {
     try {
       const { id: _, ...updateData } = data;
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      return await householdAccountRepository.update(id, updateData as any);
+      return await householdAccountRepository.update(
+        id,
+        updateData as HouseholdAccountUpdateInput
+      );
     } catch (error) {
       logger.error('Failed to update household account', { error, id, data });
       throw new Error('Failed to update household account');

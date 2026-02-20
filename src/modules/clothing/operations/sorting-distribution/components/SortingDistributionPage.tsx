@@ -459,11 +459,14 @@ export function SortingDistributionPage({
     };
 
     const hot = hotTableRef.current?.hotInstance;
-    const hookableHot = hot as unknown as {
-      addHook?: (key: string, callback: () => void) => void;
-      removeHook?: (key: string, callback: () => void) => void;
-      isDestroyed?: () => boolean;
-    };
+    const hookableHot =
+      hot && typeof hot === 'object'
+        ? (hot as {
+            addHook?: (key: string, callback: () => void) => void;
+            removeHook?: (key: string, callback: () => void) => void;
+            isDestroyed?: boolean;
+          })
+        : null;
     const rootElement = hot?.rootElement ?? null;
     const holder = rootElement?.querySelector(
       '.ht_master .wtHolder'
@@ -484,11 +487,7 @@ export function SortingDistributionPage({
         cancelAnimationFrame(frameId);
       }
       window.removeEventListener('resize', scheduleUpdate);
-      if (
-        hookableHot?.isDestroyed &&
-        typeof hookableHot.isDestroyed === 'function' &&
-        !hookableHot.isDestroyed()
-      ) {
+      if (hookableHot && !hookableHot.isDestroyed) {
         hookableHot.removeHook?.('afterRender', scheduleUpdate);
       }
       if (resizeObserver) {
@@ -562,12 +561,8 @@ export function SortingDistributionPage({
           normalizedNote,
         ];
 
-        const transactionRecord = transaction as unknown as Record<
-          string,
-          unknown
-        >;
         optionalIdentityFields.forEach((field) => {
-          const value = transactionRecord[field];
+          const value = Reflect.get(transaction as object, field);
           if (typeof value === 'string' && value.trim().length > 0) {
             baseIdParts.push(value.trim());
           }

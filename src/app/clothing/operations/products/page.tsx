@@ -34,27 +34,16 @@
  */
 
 import type { Metadata } from 'next';
-import { ProductsPage } from '@/modules/clothing/operations/products/components/ProductsPage';
-import { ProductsErrorBoundary } from '@/modules/clothing/operations/products/components/ProductsErrorBoundary';
-import { PermissionGuard } from '@/components/auth/PermissionGuard';
-import {
-  hasModuleAccess,
-  getFirstAccessibleModule,
-} from '@/lib/auth/permissions';
+import { ProductsRoutePage } from '@/app/operations/products/_shared/ProductsRoutePage';
+import { renderOperationsPage } from '@/app/operations/_shared/renderOperationsPage';
 
 export const metadata: Metadata = {
   title: 'Products',
 };
 
 export default async function Page() {
-  const hasAccess = await hasModuleAccess('/clothing/operations/products');
-  const redirectTo = await getFirstAccessibleModule();
-
-  return (
-    <PermissionGuard hasAccess={hasAccess} redirectTo={redirectTo}>
-      <ProductsErrorBoundary>
-        <ProductsPage />
-      </ProductsErrorBoundary>
-    </PermissionGuard>
+  return renderOperationsPage(
+    '/clothing/operations/products',
+    <ProductsRoutePage />
   );
 }

@@ -5,10 +5,6 @@ import { logger } from '@/lib/logger';
 import { sanitizers } from '@/lib/security/sanitize';
 import { postGmSupplierSettlementForProductPaymentChange } from '@/modules/general-merchandise/products/api/service';
 
-const gmPrisma = prisma as unknown as {
-  generalMerchandiseProduct: typeof prisma.product;
-};
-
 export async function PUT(
   request: NextRequest,
   { params }: { params: { id: string } }
@@ -22,16 +18,14 @@ export async function PUT(
       );
     }
 
-    const existingProduct = await gmPrisma.generalMerchandiseProduct.findUnique(
-      {
-        where: { id },
-        select: { payment: true, productCode: true, shipmentCode: true },
-      }
-    );
+    const existingProduct = await prisma.generalMerchandiseProduct.findUnique({
+      where: { id },
+      select: { payment: true, productCode: true, shipmentCode: true },
+    });
 
     const productData = await request.json();
 
-    const updatedProduct = await gmPrisma.generalMerchandiseProduct.update({
+    const updatedProduct = await prisma.generalMerchandiseProduct.update({
       where: { id },
       data: {
         shipmentCode:
@@ -205,7 +199,7 @@ export async function GET(
       );
     }
 
-    const product = await gmPrisma.generalMerchandiseProduct.findUnique({
+    const product = await prisma.generalMerchandiseProduct.findUnique({
       where: { id },
     });
 
@@ -236,7 +230,7 @@ export async function DELETE(
       );
     }
 
-    await gmPrisma.generalMerchandiseProduct.delete({
+    await prisma.generalMerchandiseProduct.delete({
       where: { id },
     });
 

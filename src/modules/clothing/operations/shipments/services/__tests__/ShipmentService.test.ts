@@ -540,10 +540,10 @@ describe('ShipmentService', () => {
           id: 1,
           'Shipment Code': 'SHIP-001',
           'CV Number': 'CV-001',
-          'No. Of Sacks': undefined as unknown as number,
-          'Total CBM': undefined as unknown as number,
-          Weight: undefined as unknown as number,
-          Fee: undefined as unknown as number,
+          'No. Of Sacks': Number.NaN,
+          'Total CBM': Number.NaN,
+          Weight: Number.NaN,
+          Fee: Number.NaN,
           'Shipment Status': 'In Transit',
           'Date Created': 'Jan 1, 2024',
           'Date Delivered': '',
@@ -774,9 +774,9 @@ describe('ShipmentService', () => {
       const csvContent = `Shipment Code,CV Number,No. Of Sacks,Total CBM,Weight,Fee,Shipment Status,Date Created,Date Delivered,Duration,Notes
 SHIP-001,CV-001,10,5.5,100.5,1000,In Transit,2024-01-01,2024-01-11,10,Test notes`;
 
-      const file = {
-        text: vi.fn().mockResolvedValue(csvContent),
-      } as unknown as File;
+      const file = new File([csvContent], 'shipments.csv', {
+        type: 'text/csv',
+      });
 
       const result = await ShipmentService.parseCSVFile(file);
 
@@ -791,9 +791,9 @@ SHIP-001,CV-001,10,5.5,100.5,1000,In Transit,2024-01-01,2024-01-11,10,Test notes
 SHIP-001,CV-001,10,5.5,100.5,1000,In Transit,2024-01-01,2024-01-11,10,Notes 1
 SHIP-002,CV-002,20,10.5,200.5,2000,Delivered,2024-01-01,2024-01-15,14,Notes 2`;
 
-      const file = {
-        text: vi.fn().mockResolvedValue(csvContent),
-      } as unknown as File;
+      const file = new File([csvContent], 'shipments.csv', {
+        type: 'text/csv',
+      });
 
       const result = await ShipmentService.parseCSVFile(file);
 
@@ -806,9 +806,9 @@ SHIP-002,CV-002,20,10.5,200.5,2000,Delivered,2024-01-01,2024-01-15,14,Notes 2`;
       const csvContent = `Shipment Code,CV Number,No. Of Sacks,Total CBM,Weight,Fee,Shipment Status,Date Created,Date Delivered,Duration,Notes
 SHIP-001,CV-001,10,5.5,100.5,1000,Delivered,2024-01-01,2024-01-11,,Test notes`;
 
-      const file = {
-        text: vi.fn().mockResolvedValue(csvContent),
-      } as unknown as File;
+      const file = new File([csvContent], 'shipments.csv', {
+        type: 'text/csv',
+      });
 
       const result = await ShipmentService.parseCSVFile(file);
 
@@ -818,9 +818,9 @@ SHIP-001,CV-001,10,5.5,100.5,1000,Delivered,2024-01-01,2024-01-11,,Test notes`;
     it('should throw error for empty CSV', async () => {
       const csvContent = `Shipment Code,CV Number,No. Of Sacks,Total CBM,Weight,Fee,Shipment Status,Date Created,Date Delivered,Duration,Notes`;
 
-      const file = {
-        text: vi.fn().mockResolvedValue(csvContent),
-      } as unknown as File;
+      const file = new File([csvContent], 'shipments.csv', {
+        type: 'text/csv',
+      });
 
       await expect(ShipmentService.parseCSVFile(file)).rejects.toThrow(
         'No valid data found in CSV'
@@ -833,9 +833,9 @@ SHIP-001,CV-001,10,5.5,100.5,1000,In Transit,2024-01-01,2024-01-11,10,Test notes
 
 SHIP-002,CV-002,20,10.5,200.5,2000,Delivered,2024-01-01,2024-01-15,14,Notes 2`;
 
-      const file = {
-        text: vi.fn().mockResolvedValue(csvContent),
-      } as unknown as File;
+      const file = new File([csvContent], 'shipments.csv', {
+        type: 'text/csv',
+      });
 
       const result = await ShipmentService.parseCSVFile(file);
 

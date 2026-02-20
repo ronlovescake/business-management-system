@@ -31,23 +31,12 @@
  * @returns {JSX.Element} The Shipments page component
  */
 
-import { ShipmentsPage } from '@/modules/clothing/operations/shipments/components/ShipmentsPage';
-import { ShipmentsErrorBoundary } from './components/ShipmentsErrorBoundary';
-import { PermissionGuard } from '@/components/auth/PermissionGuard';
-import {
-  hasModuleAccess,
-  getFirstAccessibleModule,
-} from '@/lib/auth/permissions';
+import { ShipmentsRoutePage } from '@/app/operations/shipments/_shared/ShipmentsRoutePage';
+import { renderOperationsPage } from '@/app/operations/_shared/renderOperationsPage';
 
 export default async function Page() {
-  const hasAccess = await hasModuleAccess('/clothing/operations/shipments');
-  const redirectTo = await getFirstAccessibleModule();
-
-  return (
-    <PermissionGuard hasAccess={hasAccess} redirectTo={redirectTo}>
-      <ShipmentsErrorBoundary>
-        <ShipmentsPage />
-      </ShipmentsErrorBoundary>
-    </PermissionGuard>
+  return renderOperationsPage(
+    '/clothing/operations/shipments',
+    <ShipmentsRoutePage />
   );
 }

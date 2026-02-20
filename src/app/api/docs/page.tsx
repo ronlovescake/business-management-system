@@ -37,9 +37,20 @@ const SwaggerUI = dynamic(
   }
 );
 
+const SwaggerUIComponent = SwaggerUI as React.ComponentType<{
+  spec: Record<string, unknown>;
+  docExpansion: 'list';
+  defaultModelsExpandDepth: number;
+  filter: boolean;
+  tryItOutEnabled: boolean;
+  persistAuthorization: boolean;
+  displayRequestDuration: boolean;
+  deepLinking: boolean;
+  supportedSubmitMethods: Array<'get' | 'post' | 'put' | 'delete' | 'patch'>;
+}>;
+
 export default function ApiDocsPage() {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const [spec, setSpec] = useState<any>(null);
+  const [spec, setSpec] = useState<Record<string, unknown> | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -110,26 +121,17 @@ export default function ApiDocsPage() {
         </Text>
 
         <Paper withBorder>
-          {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
           {spec && (
-            <SwaggerUI
-              {...({
-                spec,
-                docExpansion: 'list',
-                defaultModelsExpandDepth: -1,
-                filter: true,
-                tryItOutEnabled: true,
-                persistAuthorization: true,
-                displayRequestDuration: true,
-                deepLinking: true,
-                supportedSubmitMethods: [
-                  'get',
-                  'post',
-                  'put',
-                  'delete',
-                  'patch',
-                ],
-              } as Record<string, unknown>)}
+            <SwaggerUIComponent
+              spec={spec}
+              docExpansion="list"
+              defaultModelsExpandDepth={-1}
+              filter
+              tryItOutEnabled
+              persistAuthorization
+              displayRequestDuration
+              deepLinking
+              supportedSubmitMethods={['get', 'post', 'put', 'delete', 'patch']}
             />
           )}
         </Paper>

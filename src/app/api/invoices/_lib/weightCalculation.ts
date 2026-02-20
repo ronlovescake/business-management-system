@@ -211,16 +211,7 @@ const findWeightForProduct = (
   return undefined;
 };
 
-const getItemWeightClient = () =>
-  (
-    prisma as unknown as {
-      itemWeight: {
-        findMany: (
-          args: Prisma.ItemWeightFindManyArgs
-        ) => Promise<ItemWeightEntity[]>;
-      };
-    }
-  ).itemWeight;
+const getItemWeightClient = () => prisma.itemWeight;
 
 export interface CalculateInvoiceWeightsOptions {
   customerName?: string | null;

@@ -38,21 +38,8 @@
  * ✓ Greyed-out rows for checked items
  */
 
-import dynamic from 'next/dynamic';
-import { SortingDistributionErrorBoundary } from './components/SortingDistributionErrorBoundary';
-
-const SortingDistributionPage = dynamic(
-  () =>
-    import(
-      '@/modules/clothing/operations/sorting-distribution/components/SortingDistributionPage'
-    ).then((mod) => ({ default: mod.SortingDistributionPage })),
-  { ssr: false }
-);
+import { SortingDistributionRoutePage } from '@/app/operations/sorting-distribution/_shared/SortingDistributionRoutePage';
 
 export default function Page() {
-  return (
-    <SortingDistributionErrorBoundary>
-      <SortingDistributionPage />
-    </SortingDistributionErrorBoundary>
-  );
+  return <SortingDistributionRoutePage />;
 }

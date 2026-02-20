@@ -44,7 +44,7 @@ type PrismaMock = {
   >;
 };
 
-vi.mock('@/lib/db', () => {
+const { prismaMock } = vi.hoisted(() => {
   const transactionClient: TransactionClientMock = {
     $executeRawUnsafe: vi.fn<[string, string?], Promise<unknown>>(),
     sortingDistribution: {
@@ -52,7 +52,7 @@ vi.mock('@/lib/db', () => {
     },
   };
 
-  const prismaMock: PrismaMock = {
+  const mock: PrismaMock = {
     sortingDistribution: {
       findMany: vi.fn<[unknown], Promise<unknown[]>>(),
       createMany: vi.fn<[unknown], Promise<unknown>>(),
@@ -65,21 +65,19 @@ vi.mock('@/lib/db', () => {
     >(),
   };
 
-  prismaMock.$transaction.mockImplementation(async (cb) =>
-    cb(transactionClient)
-  );
+  mock.$transaction.mockImplementation(async (cb) => cb(transactionClient));
 
-  return { prisma: prismaMock };
+  return { prismaMock: mock };
 });
+
+vi.mock('@/lib/db', () => ({ prisma: prismaMock }));
 
 vi.mock('@/lib/logger', () => ({
   logger: mockLogger,
 }));
 
 import { GET, POST, DELETE } from '@/app/api/sorting-distribution/route';
-import { prisma as prismaClient } from '@/lib/db';
-
-const prisma = prismaClient as unknown as PrismaMock;
+const prisma = prismaMock;
 
 describe('Sorting Distribution API - /api/sorting-distribution', () => {
   beforeEach(() => {

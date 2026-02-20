@@ -89,7 +89,7 @@ export function YourModuleComponent() {
     }
 
     setIsImporting(true);
-    // TODO: Implement actual CSV import logic
+    // Implement actual CSV import logic in module-specific usage
     // Example:
     // - Parse CSV file
     // - Validate data
@@ -104,7 +104,7 @@ export function YourModuleComponent() {
 
   // STEP 5: Implement CSV export handler
   const handleExportCSV = () => {
-    // TODO: Implement actual CSV export logic
+    // Implement actual CSV export logic in module-specific usage
     // Example:
     // - Convert filteredData to CSV format
     // - Create download link
@@ -113,7 +113,7 @@ export function YourModuleComponent() {
 
   // STEP 6: Implement add new handler
   const handleAddNew = () => {
-    // TODO: Implement add new functionality
+    // Implement add-new functionality in module-specific usage
     // Example:
     // - Open modal/form
     // - Collect user input
@@ -124,7 +124,7 @@ export function YourModuleComponent() {
 
   // STEP 7: Implement edit handler
   const handleEdit = (_item: YourModuleData) => {
-    // TODO: Implement edit functionality
+    // Implement edit functionality in module-specific usage
     // Example:
     // - Open modal/form with existing data
     // - Allow user to modify
@@ -135,7 +135,7 @@ export function YourModuleComponent() {
 
   // STEP 8: Implement delete handler
   const handleDelete = (_id: string) => {
-    // TODO: Implement delete functionality
+    // Implement delete functionality in module-specific usage
     // Example:
     // - Show confirmation dialog
     // - Delete from database

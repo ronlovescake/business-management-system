@@ -6,11 +6,6 @@ import { logger } from '@/lib/logger';
 
 type RouteContext = { params: { id: string; refundId: string } };
 
-type TransactionRefundDelegate = {
-  findFirst: (args: unknown) => Promise<unknown>;
-  update: (args: unknown) => Promise<unknown>;
-};
-
 type RefundRow = { id: number };
 
 function buildAutoReturnMovementNote(refundId: number): string {
@@ -64,9 +59,7 @@ export const DELETE = withErrorHandler<RouteContext>(
       return ApiResponse.notFound('Customer');
     }
 
-    const transactionRefund = (
-      prisma as unknown as { transactionRefund: TransactionRefundDelegate }
-    ).transactionRefund;
+    const transactionRefund = prisma.transactionRefund;
 
     const existing = (await transactionRefund.findFirst({
       where: {

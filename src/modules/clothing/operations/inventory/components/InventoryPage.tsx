@@ -21,6 +21,14 @@ import {
   StandardTableContainer,
 } from '@/components/tables/StandardDataTable';
 import { useInventoryPage } from '../hooks/useInventoryPage';
+import {
+  useInventoryDisplayData,
+  type SellableFilter,
+} from '../hooks/useInventoryDisplayData';
+import { useTransferSummaries } from '../hooks/useTransferSummaries';
+import { useAdjustmentBuckets } from '../hooks/useAdjustmentBuckets';
+import { useAdjustmentSellablePreview } from '../hooks/useAdjustmentSellablePreview';
+import { useInventoryMovementDerivedData } from '../hooks/useInventoryMovementDerivedData';
 import { InventoryTableControls } from './InventoryTableControls';
 import { InventorySummary } from './InventorySummary';
 import { InventoryTable } from './InventoryTable';
@@ -37,8 +45,6 @@ type AdjustmentBucket =
   | 'scrap'
   | 'supplier_short'
   | 'additionals';
-
-type SellableFilter = 'all' | 'non_zero_sellable';
 
 export function InventoryPage({ apiBasePath }: InventoryPageProps) {
   const ADDITIONALS_NOTE_PREFIX = 'additionals';
@@ -126,626 +132,67 @@ export function InventoryPage({ apiBasePath }: InventoryPageProps) {
     [getSellableOnHand, selectedProduct]
   );
 
-  const editableMovements = useMemo(() => {
-    return (movements ?? [])
-      .filter(
-        (m) =>
-          !m.deletedAt &&
-          m.fromBucket === 'sellable' &&
-          (m.toBucket === 'damaged_hold' ||
-            m.toBucket === 'scrap' ||
-            m.toBucket === 'supplier_short')
-      )
-      .slice()
-      .sort((a, b) => {
-        const aId = Number(a.id);
-        const bId = Number(b.id);
-        return bId - aId;
-      });
-  }, [movements]);
+  const {
+    editableMovements,
+    adjustmentMovements,
+    supplierShortMovements,
+    transferMovements,
+    additionalsMovements,
+    additionalsQtyByProduct,
+    supplierShortQtyByProduct,
+    editingProductMovements,
+    editingMovement,
+  } = useInventoryMovementDerivedData({
+    movements,
+    editingProductCode,
+    editingMovementId,
+    additionalsNotePrefix: ADDITIONALS_NOTE_PREFIX,
+    transferNotePrefix: TRANSFER_NOTE_PREFIX,
+  });
 
-  const adjustmentMovements = useMemo(() => {
-    return (movements ?? [])
-      .filter(
-        (m) =>
-          !m.deletedAt &&
-          m.fromBucket === 'sellable' &&
-          (m.toBucket === 'damaged_hold' || m.toBucket === 'scrap')
-      )
-      .slice()
-      .sort((a, b) => {
-        const aId = Number(a.id);
-        const bId = Number(b.id);
-        return bId - aId;
-      });
-  }, [movements]);
+  const {
+    transferOutByProduct,
+    transferInByProduct,
+    getCurrentTransferQuantity,
+  } = useTransferSummaries({
+    transferMovements,
+    transferNoteMarker: TRANSFER_NOTE_MARKER,
+  });
 
-  const supplierShortMovements = useMemo(() => {
-    return (movements ?? [])
-      .filter(
-        (m) =>
-          !m.deletedAt &&
-          ((m.fromBucket === 'sellable' && m.toBucket === 'supplier_short') ||
-            (m.fromBucket === 'supplier_short' && m.toBucket === 'sellable')) &&
-          !(m.notes ?? '').toLowerCase().startsWith(ADDITIONALS_NOTE_PREFIX) &&
-          !(m.notes ?? '').toLowerCase().startsWith(TRANSFER_NOTE_PREFIX)
-      )
-      .slice()
-      .sort((a, b) => {
-        const aId = Number(a.id);
-        const bId = Number(b.id);
-        return bId - aId;
-      });
-  }, [movements, TRANSFER_NOTE_PREFIX]);
+  const {
+    adjustmentNotesByProduct,
+    getCurrentBucketQuantity,
+    getLatestBucketNote,
+  } = useAdjustmentBuckets({
+    filteredData,
+    adjustmentMovements,
+    supplierShortMovements,
+    additionalsMovements,
+    supplierShortQtyByProduct,
+    additionalsQtyByProduct,
+  });
 
-  const transferMovements = useMemo(() => {
-    return (movements ?? [])
-      .filter(
-        (m) =>
-          !m.deletedAt &&
-          ((m.fromBucket === 'sellable' && m.toBucket === 'supplier_short') ||
-            (m.fromBucket === 'supplier_short' && m.toBucket === 'sellable')) &&
-          (m.notes ?? '').toLowerCase().startsWith(TRANSFER_NOTE_PREFIX)
-      )
-      .slice()
-      .sort((a, b) => Number(b.id) - Number(a.id));
-  }, [movements, TRANSFER_NOTE_PREFIX]);
-
-  const additionalsMovements = useMemo(() => {
-    return (movements ?? [])
-      .filter(
-        (m) =>
-          !m.deletedAt &&
-          ((m.fromBucket === 'supplier_short' && m.toBucket === 'sellable') ||
-            (m.fromBucket === 'sellable' && m.toBucket === 'supplier_short')) &&
-          (m.notes ?? '').toLowerCase().startsWith(ADDITIONALS_NOTE_PREFIX)
-      )
-      .slice()
-      .sort((a, b) => {
-        const aId = Number(a.id);
-        const bId = Number(b.id);
-        return bId - aId;
-      });
-  }, [ADDITIONALS_NOTE_PREFIX, movements]);
-
-  const adjustmentMovementsByProduct = useMemo(() => {
-    const map = new Map<string, typeof adjustmentMovements>();
-    adjustmentMovements.forEach((movement) => {
-      const code = movement.productCode.trim();
-      if (!code) {
-        return;
-      }
-      const current = map.get(code) ?? [];
-      map.set(code, [...current, movement]);
-    });
-    return map;
-  }, [adjustmentMovements]);
-
-  const supplierShortMovementsByProduct = useMemo(() => {
-    const map = new Map<string, typeof supplierShortMovements>();
-    supplierShortMovements.forEach((movement) => {
-      const code = movement.productCode.trim();
-      if (!code) {
-        return;
-      }
-      const current = map.get(code) ?? [];
-      map.set(code, [...current, movement]);
-    });
-    return map;
-  }, [supplierShortMovements]);
-
-  const additionalsMovementsByProduct = useMemo(() => {
-    const map = new Map<string, typeof additionalsMovements>();
-    additionalsMovements.forEach((movement) => {
-      const code = movement.productCode.trim();
-      if (!code) {
-        return;
-      }
-      const current = map.get(code) ?? [];
-      map.set(code, [...current, movement]);
-    });
-    return map;
-  }, [additionalsMovements]);
-
-  const supplierShortQtyByProduct = useMemo(() => {
-    const map = new Map<string, number>();
-    supplierShortMovementsByProduct.forEach((rows, code) => {
-      const total = rows.reduce(
-        (sum, movement) =>
-          sum +
-          (movement.toBucket === 'supplier_short' ? 1 : -1) *
-            (Number(movement.quantity) || 0),
-        0
-      );
-      map.set(code, Math.max(total, 0));
-    });
-    return map;
-  }, [supplierShortMovementsByProduct]);
-
-  const additionalsQtyByProduct = useMemo(() => {
-    const map = new Map<string, number>();
-    additionalsMovementsByProduct.forEach((rows, code) => {
-      const total = rows.reduce(
-        (sum, movement) =>
-          sum +
-          (movement.fromBucket === 'supplier_short' ? 1 : -1) *
-            (Number(movement.quantity) || 0),
-        0
-      );
-      map.set(code, Math.max(total, 0));
-    });
-    return map;
-  }, [additionalsMovementsByProduct]);
-
-  const parseTransferEndpoints = useCallback(
-    (rawNotes: string): { fromProductCode: string; toProductCode: string } => {
-      const notesValue = rawNotes.trim();
-      if (!notesValue.toLowerCase().startsWith(TRANSFER_NOTE_MARKER)) {
-        return { fromProductCode: '', toProductCode: '' };
-      }
-
-      const fromMatch = notesValue.match(/from:\s*([^;]+)/i);
-      const toMatch = notesValue.match(/to:\s*([^;]+)/i);
-
-      return {
-        fromProductCode: normalizeProductCode(fromMatch?.[1] ?? ''),
-        toProductCode: normalizeProductCode(toMatch?.[1] ?? ''),
-      };
-    },
-    [TRANSFER_NOTE_MARKER]
-  );
-
-  const getTransferPairKey = useCallback((fromCode: string, toCode: string) => {
-    return `${fromCode}=>${toCode}`;
-  }, []);
-
-  const transferOutByPair = useMemo(() => {
-    const map = new Map<string, number>();
-
-    transferMovements.forEach((movement) => {
-      if (
-        movement.fromBucket !== 'sellable' ||
-        movement.toBucket !== 'supplier_short'
-      ) {
-        return;
-      }
-
-      const transferEndpoints = parseTransferEndpoints(movement.notes ?? '');
-      const fromProductCode = transferEndpoints.fromProductCode;
-      const toProductCode = transferEndpoints.toProductCode;
-      const movementProductCode = normalizeProductCode(movement.productCode);
-
-      if (
-        !fromProductCode ||
-        !toProductCode ||
-        !movementProductCode ||
-        movementProductCode !== fromProductCode
-      ) {
-        return;
-      }
-
-      const quantity = Math.max(0, Number(movement.quantity) || 0);
-      if (quantity <= 0) {
-        return;
-      }
-
-      const key = getTransferPairKey(fromProductCode, toProductCode);
-      map.set(key, (map.get(key) ?? 0) + quantity);
-    });
-
-    return map;
-  }, [getTransferPairKey, parseTransferEndpoints, transferMovements]);
-
-  const getCurrentTransferQuantity = useCallback(
-    (fromProductCode: string, toProductCode: string): number => {
-      const normalizedFromCode = normalizeProductCode(fromProductCode);
-      const normalizedToCode = normalizeProductCode(toProductCode);
-
-      if (
-        !normalizedFromCode ||
-        !normalizedToCode ||
-        normalizedFromCode === normalizedToCode
-      ) {
-        return 0;
-      }
-
-      const forwardQty =
-        transferOutByPair.get(
-          getTransferPairKey(normalizedFromCode, normalizedToCode)
-        ) ?? 0;
-      const reverseQty =
-        transferOutByPair.get(
-          getTransferPairKey(normalizedToCode, normalizedFromCode)
-        ) ?? 0;
-
-      return Math.max(forwardQty - reverseQty, 0);
-    },
-    [getTransferPairKey, transferOutByPair]
-  );
-
-  const transferOutByProduct = useMemo(() => {
-    const summaryByProduct = new Map<string, Map<string, number>>();
-    const formattedByProduct = new Map<string, string>();
-    const quantityByProduct = new Map<string, number>();
-
-    transferOutByPair.forEach((forwardQty, key) => {
-      const [sourceCode = '', destinationCode = ''] = key.split('=>');
-      if (!sourceCode || !destinationCode || forwardQty <= 0) {
-        return;
-      }
-
-      const reverseQty =
-        transferOutByPair.get(
-          getTransferPairKey(destinationCode, sourceCode)
-        ) ?? 0;
-      const netQty = Math.max(forwardQty - reverseQty, 0);
-      if (netQty <= 0) {
-        return;
-      }
-
-      const byDestination = summaryByProduct.get(sourceCode) ?? new Map();
-      byDestination.set(destinationCode, netQty);
-      summaryByProduct.set(sourceCode, byDestination);
-    });
-
-    const destinationsBySource = new Map<
-      string,
-      Array<{ destinationCode: string; quantity: number }>
-    >();
-
-    summaryByProduct.forEach((byDestination, sourceCode) => {
-      let totalQuantity = 0;
-      const destinationEntries = Array.from(byDestination.entries())
-        .map(([destinationCode, quantity]) => ({ destinationCode, quantity }))
-        .sort((left, right) => right.quantity - left.quantity);
-
-      destinationsBySource.set(sourceCode, destinationEntries);
-
-      const formattedEntries = destinationEntries.map(
-        ({ destinationCode, quantity }) => {
-          totalQuantity += quantity;
-          return `${numberFormatter.format(quantity)} / ${destinationCode}`;
-        }
-      );
-
-      formattedByProduct.set(sourceCode, formattedEntries.join('; '));
-      quantityByProduct.set(sourceCode, totalQuantity);
-    });
-
-    return { formattedByProduct, quantityByProduct, destinationsBySource };
-  }, [getTransferPairKey, transferOutByPair]);
-
-  const transferInByProduct = useMemo(() => {
-    const summaryByProduct = new Map<string, Map<string, number>>();
-    const formattedByProduct = new Map<string, string>();
-    const quantityByProduct = new Map<string, number>();
-
-    transferOutByPair.forEach((forwardQty, key) => {
-      const [sourceCode = '', destinationCode = ''] = key.split('=>');
-      if (!sourceCode || !destinationCode || forwardQty <= 0) {
-        return;
-      }
-
-      const reverseQty =
-        transferOutByPair.get(
-          getTransferPairKey(destinationCode, sourceCode)
-        ) ?? 0;
-      const netQty = Math.max(forwardQty - reverseQty, 0);
-      if (netQty <= 0) {
-        return;
-      }
-
-      const bySource = summaryByProduct.get(destinationCode) ?? new Map();
-      bySource.set(sourceCode, netQty);
-      summaryByProduct.set(destinationCode, bySource);
-    });
-
-    summaryByProduct.forEach((bySource, destinationCode) => {
-      let totalQuantity = 0;
-      const formattedEntries = Array.from(bySource.entries()).map(
-        ([sourceCode, quantity]) => {
-          totalQuantity += quantity;
-          return `${numberFormatter.format(quantity)} / ${sourceCode}`;
-        }
-      );
-
-      formattedByProduct.set(destinationCode, formattedEntries.join('; '));
-      quantityByProduct.set(destinationCode, totalQuantity);
-    });
-
-    return { formattedByProduct, quantityByProduct };
-  }, [getTransferPairKey, transferOutByPair]);
-
-  const adjustmentNotesByProduct = useMemo(() => {
-    const map = new Map<string, string>();
-    const relevantMovements = [
-      ...adjustmentMovements,
-      ...supplierShortMovements,
-      ...additionalsMovements,
-    ].sort((a, b) => Number(b.id) - Number(a.id));
-
-    relevantMovements.forEach((movement) => {
-      const code = normalizeProductCode(movement.productCode);
-      const rawNote = (movement.notes ?? '').trim();
-      const note = rawNote.replace(/^additionals(?:\s*:\s*)?/i, '').trim();
-      if (!code || !note) {
-        return;
-      }
-
-      const existing = map.get(code);
-      if (!existing) {
-        map.set(code, note);
-        return;
-      }
-
-      if (!existing.toLowerCase().includes(note.toLowerCase())) {
-        map.set(code, `${existing}; ${note}`);
-      }
-    });
-
-    return map;
-  }, [adjustmentMovements, supplierShortMovements, additionalsMovements]);
-
-  const inventoryItemByCode = useMemo(() => {
-    const map = new Map<string, (typeof filteredData)[number]>();
-    filteredData.forEach((item) => {
-      const code = item.productCode.trim();
-      if (!code) {
-        return;
-      }
-
-      map.set(code, item);
-    });
-    return map;
-  }, [filteredData]);
-
-  const getCurrentBucketQuantity = useCallback(
-    (
-      productCode: string,
-      bucket: 'damaged_hold' | 'scrap' | 'supplier_short' | 'additionals'
-    ): number => {
-      const code = productCode.trim();
-      if (!code) {
-        return 0;
-      }
-
-      if (bucket === 'supplier_short') {
-        return supplierShortQtyByProduct.get(code) ?? 0;
-      }
-
-      if (bucket === 'additionals') {
-        return additionalsQtyByProduct.get(code) ?? 0;
-      }
-
-      const item = inventoryItemByCode.get(code);
-      if (!item) {
-        return 0;
-      }
-
-      return bucket === 'damaged_hold' ? item.damagedOnHand : item.scrapQty;
-    },
-    [additionalsQtyByProduct, inventoryItemByCode, supplierShortQtyByProduct]
-  );
-
-  const adjustmentSellablePreview = useMemo(() => {
-    if (!selectedProduct) {
-      return {
-        currentByBucket: {
-          damaged_hold: 0,
-          scrap: 0,
-          supplier_short: 0,
-          additionals: 0,
-        } as Record<AdjustmentBucket, number>,
-        targetByBucket: {
-          damaged_hold: 0,
-          scrap: 0,
-          supplier_short: 0,
-          additionals: 0,
-        } as Record<AdjustmentBucket, number>,
-        deltaByBucket: {
-          damaged_hold: 0,
-          scrap: 0,
-          supplier_short: 0,
-          additionals: 0,
-        } as Record<AdjustmentBucket, number>,
-        plannedSellableIn: 0,
-        plannedSellableOut: 0,
-        currentTransferQuantity: 0,
-        targetTransferQuantity: 0,
-        transferDelta: 0,
-        plannedTransferIn: 0,
-        plannedTransferOut: 0,
-        projectedSellableOnHand: 0,
-      };
-    }
-
-    const currentByBucket: Record<AdjustmentBucket, number> = {
-      damaged_hold: getCurrentBucketQuantity(selectedProduct, 'damaged_hold'),
-      scrap: getCurrentBucketQuantity(selectedProduct, 'scrap'),
-      supplier_short: getCurrentBucketQuantity(
-        selectedProduct,
-        'supplier_short'
-      ),
-      additionals: getCurrentBucketQuantity(selectedProduct, 'additionals'),
-    };
-
-    const targetByBucket: Record<AdjustmentBucket, number> = {
-      damaged_hold: Math.max(0, Number(bucketQuantities.damaged_hold || 0)),
-      scrap: Math.max(0, Number(bucketQuantities.scrap || 0)),
-      supplier_short: Math.max(0, Number(bucketQuantities.supplier_short || 0)),
-      additionals: Math.max(0, Number(bucketQuantities.additionals || 0)),
-    };
-
-    const deltaByBucket: Record<AdjustmentBucket, number> = {
-      damaged_hold: targetByBucket.damaged_hold - currentByBucket.damaged_hold,
-      scrap: targetByBucket.scrap - currentByBucket.scrap,
-      supplier_short:
-        targetByBucket.supplier_short - currentByBucket.supplier_short,
-      additionals: targetByBucket.additionals - currentByBucket.additionals,
-    };
-
-    const plannedSellableIn =
-      Math.max(-deltaByBucket.damaged_hold, 0) +
-      Math.max(-deltaByBucket.scrap, 0) +
-      Math.max(-deltaByBucket.supplier_short, 0) +
-      Math.max(deltaByBucket.additionals, 0);
-
-    const plannedSellableOut =
-      Math.max(deltaByBucket.damaged_hold, 0) +
-      Math.max(deltaByBucket.scrap, 0) +
-      Math.max(deltaByBucket.supplier_short, 0) +
-      Math.max(-deltaByBucket.additionals, 0);
-
-    const normalizedSourceProductCode = normalizeProductCode(selectedProduct);
-    const normalizedTransferDestinationCode =
-      normalizeProductCode(transferToProduct);
-    const currentTransferQuantity =
-      normalizedSourceProductCode && normalizedTransferDestinationCode
-        ? getCurrentTransferQuantity(
-            normalizedSourceProductCode,
-            normalizedTransferDestinationCode
-          )
-        : 0;
-    const targetTransferQuantity = Math.max(0, Number(transferQty || 0));
-    const transferDelta = targetTransferQuantity - currentTransferQuantity;
-    const plannedTransferOut = Math.max(transferDelta, 0);
-    const plannedTransferIn = Math.max(-transferDelta, 0);
-
-    return {
-      currentByBucket,
-      targetByBucket,
-      deltaByBucket,
-      plannedSellableIn,
-      plannedSellableOut,
-      currentTransferQuantity,
-      targetTransferQuantity,
-      transferDelta,
-      plannedTransferIn,
-      plannedTransferOut,
-      projectedSellableOnHand:
-        selectedOnHand +
-        plannedSellableIn +
-        plannedTransferIn -
-        plannedSellableOut -
-        plannedTransferOut,
-    };
-  }, [
+  const adjustmentSellablePreview = useAdjustmentSellablePreview({
+    selectedProduct,
+    selectedOnHand,
+    transferToProduct,
+    transferQty,
     bucketQuantities,
     getCurrentBucketQuantity,
     getCurrentTransferQuantity,
-    selectedOnHand,
-    selectedProduct,
-    transferToProduct,
-    transferQty,
-  ]);
+  });
 
-  const getLatestBucketNote = useCallback(
-    (
-      productCode: string,
-      bucket: 'damaged_hold' | 'scrap' | 'supplier_short' | 'additionals'
-    ): string => {
-      const normalizedCode = normalizeProductCode(productCode);
-      if (!normalizedCode) {
-        return '';
-      }
-
-      const movementForBucket =
-        bucket === 'additionals'
-          ? additionalsMovements.find(
-              (movement) =>
-                normalizeProductCode(movement.productCode) === normalizedCode
-            )
-          : bucket === 'supplier_short'
-            ? supplierShortMovements.find(
-                (movement) =>
-                  normalizeProductCode(movement.productCode) ===
-                    normalizedCode && movement.toBucket === 'supplier_short'
-              )
-            : adjustmentMovements.find(
-                (movement) =>
-                  normalizeProductCode(movement.productCode) ===
-                    normalizedCode && movement.toBucket === bucket
-              );
-
-      const rawNote = (movementForBucket?.notes ?? '').trim();
-      if (!rawNote) {
-        return '';
-      }
-
-      return rawNote.replace(/^additionals(?:\s*:\s*)?/i, '').trim();
-    },
-    [additionalsMovements, adjustmentMovements, supplierShortMovements]
-  );
-
-  const editingProductMovements = useMemo(() => {
-    if (!editingProductCode) {
-      return [];
-    }
-
-    // Prefer showing all editable movements for the product in the dropdown.
-    const code = editingProductCode.trim();
-    const damagedScrap = adjustmentMovementsByProduct.get(code) ?? [];
-    const supplierShort = supplierShortMovementsByProduct.get(code) ?? [];
-    return [...supplierShort, ...damagedScrap].sort((a, b) => {
-      const aId = Number(a.id);
-      const bId = Number(b.id);
-      return bId - aId;
-    });
-  }, [
-    adjustmentMovementsByProduct,
-    editingProductCode,
-    supplierShortMovementsByProduct,
-  ]);
-
-  const editingMovement = useMemo(() => {
-    if (!editingMovementId) {
-      return null;
-    }
-    return editableMovements.find((m) => m.id === editingMovementId) ?? null;
-  }, [editableMovements, editingMovementId]);
-
-  const sellableFilteredData = useMemo(() => {
-    if (sellableFilter !== 'non_zero_sellable') {
-      return filteredData;
-    }
-
-    return filteredData.filter((item) => item.sellableOnHand !== 0);
-  }, [filteredData, sellableFilter]);
-
-  const sortedFilteredData = useMemo(() => {
-    return [...sellableFilteredData].sort((a, b) => {
-      const aId = Number(a.id);
-      const bId = Number(b.id);
-
-      if (!Number.isNaN(aId) && !Number.isNaN(bId)) {
-        return bId - aId;
-      }
-
-      return b.productCode.localeCompare(a.productCode);
-    });
-  }, [sellableFilteredData]);
-
-  const singleFilteredProductCode = useMemo(() => {
-    const uniqueProductCodes = Array.from(
-      new Set(
-        sellableFilteredData
-          .map((item) => item.productCode.trim())
-          .filter((code) => code.length > 0)
-      )
-    );
-
-    return uniqueProductCodes.length === 1 ? uniqueProductCodes[0] : null;
-  }, [sellableFilteredData]);
-
-  const inventoryEmptyStateMessage = useMemo(() => {
-    if (sellableFilter !== 'non_zero_sellable') {
-      return emptyStateMessage;
-    }
-
-    return searchQuery
-      ? `No inventory records with non-zero sellable value match "${searchQuery}".`
-      : 'No inventory records with non-zero sellable value.';
-  }, [emptyStateMessage, searchQuery, sellableFilter]);
+  const {
+    sellableFilteredData,
+    sortedFilteredData,
+    singleFilteredProductCode,
+    inventoryEmptyStateMessage,
+  } = useInventoryDisplayData({
+    filteredData,
+    sellableFilter,
+    emptyStateMessage,
+    searchQuery,
+  });
 
   const handleAdjustmentProductChange = useCallback(
     (value: string | null) => {

@@ -30,6 +30,14 @@ type HouseholdIncomeApiRow = {
 
 type HouseholdAccountOption = { value: string; label: string };
 
+function unwrapApiData(payload: unknown): unknown {
+  if (payload && typeof payload === 'object' && 'data' in payload) {
+    return (payload as { data?: unknown }).data ?? payload;
+  }
+
+  return payload;
+}
+
 function todayYmd(): string {
   const d = new Date();
   const yyyy = d.getFullYear();
@@ -55,8 +63,7 @@ export function IncomeClient() {
   const reloadIncome = React.useCallback(async () => {
     const res = await fetch('/api/household/income', { cache: 'no-store' });
     const payload = (await res.json()) as unknown;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const data = (payload as any)?.data ?? payload;
+    const data = unwrapApiData(payload);
     if (!Array.isArray(data)) {
       setIncome([]);
       return;
@@ -76,8 +83,7 @@ export function IncomeClient() {
   const reloadAccounts = React.useCallback(async () => {
     const res = await fetch('/api/household/accounts', { cache: 'no-store' });
     const payload = (await res.json()) as unknown;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const data = (payload as any)?.data ?? payload;
+    const data = unwrapApiData(payload);
     if (!Array.isArray(data)) {
       setAccountOptions([]);
       return;

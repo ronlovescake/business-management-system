@@ -9,10 +9,6 @@ type CleanupFilters = {
   periodEnd?: string;
 };
 
-const gmPrisma = prisma as unknown as {
-  generalMerchandisePayroll: typeof prisma.payroll;
-};
-
 export const DELETE = withErrorHandler(async (request: NextRequest) => {
   const { searchParams } = new URL(request.url);
   const filters = parseCleanupFilters(searchParams);
@@ -27,7 +23,7 @@ export const DELETE = withErrorHandler(async (request: NextRequest) => {
 
   const { periodStart, periodEnd } = filters as Required<CleanupFilters>;
 
-  const result = await gmPrisma.generalMerchandisePayroll.deleteMany({
+  const result = await prisma.generalMerchandisePayroll.deleteMany({
     where: {
       periodStart,
       periodEnd,

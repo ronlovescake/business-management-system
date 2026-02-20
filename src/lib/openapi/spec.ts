@@ -5,8 +5,7 @@
  * Auto-generated types and validation are provided by Zod schemas.
  */
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export const openApiSpec: any = {
+export const openApiSpec: Record<string, unknown> = {
   openapi: '3.0.0',
   info: {
     title: 'Business Management System API',

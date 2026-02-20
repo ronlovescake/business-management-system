@@ -219,12 +219,24 @@ class ModuleLoader {
 
       // For React components, dynamic() returns the component
       if (typeof DynamicModule === 'function') {
-        return DynamicModule as unknown as T;
+        return DynamicModule as T;
       }
 
       // Fall back to direct import for non-component exports
       const result = await loader();
-      return result as unknown as T;
+      if (typeof result === 'function') {
+        return result as T;
+      }
+
+      if (result && typeof result === 'object' && 'default' in result) {
+        return result.default as T;
+      }
+
+      throw new ModuleLoadError(
+        `Unexpected module shape for ${moduleId}`,
+        moduleId,
+        'INVALID_MODULE_SHAPE'
+      );
     } catch (error) {
       throw new ModuleLoadError(
         `Dynamic import failed: ${(error as Error).message}`,

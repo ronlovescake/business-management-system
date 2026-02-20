@@ -14,7 +14,7 @@ describe('Expense service endpoints', () => {
       ok: true,
       json: () => Promise.resolve([]),
     } as Response);
-    globalThis.fetch = fetchMock as unknown as typeof fetch;
+    globalThis.fetch = fetchMock as typeof fetch;
   });
 
   afterAll(() => {

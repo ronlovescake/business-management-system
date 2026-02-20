@@ -13,6 +13,22 @@ import type { Prisma } from '@prisma/client';
 import { logger } from '@/lib/logger';
 import { sanitizers } from '@/lib/security/sanitize';
 
+function toModulePackage(config: unknown, enabled: boolean): ModulePackage {
+  const base =
+    config && typeof config === 'object' && !Array.isArray(config)
+      ? (config as Partial<ModulePackage>)
+      : {};
+
+  return {
+    ...base,
+    enabled,
+  } as ModulePackage;
+}
+
+function toInputJsonValue(value: ModulePackage): Prisma.InputJsonValue {
+  return JSON.parse(JSON.stringify(value)) as Prisma.InputJsonValue;
+}
+
 /**
  * GET - Fetch all installed modules
  */
@@ -25,11 +41,7 @@ export async function GET() {
     // Transform to ModulePackage format
     const modules: ModulePackage[] = installedModules.map(
       (m): ModulePackage => {
-        const config = m.config as unknown as ModulePackage;
-        return {
-          ...config,
-          enabled: m.enabled,
-        };
+        return toModulePackage(m.config, m.enabled);
       }
     );
 
@@ -87,14 +99,14 @@ export async function POST(request: NextRequest) {
         enabled: modulePackage.enabled,
         source: sanitizedSource,
         installPath: sanitizedInstallPath,
-        config: modulePackage as unknown as Prisma.InputJsonValue,
+        config: toInputJsonValue(modulePackage),
         installedBy: null, // REQUIRES: User authentication (P0 deferred)
       },
       update: {
         name: sanitizedName,
         version: sanitizedVersion,
         enabled: modulePackage.enabled,
-        config: modulePackage as unknown as Prisma.InputJsonValue,
+        config: toInputJsonValue(modulePackage),
         updatedAt: new Date(),
       },
     });

@@ -16,11 +16,14 @@ import {
 
 const BULK_PAYROLL_LIMIT = BATCH_LIMITS.MAX_BATCH_SIZE;
 
-const gmPrisma = prisma as unknown as {
-  generalMerchandisePayroll: typeof prisma.payroll;
-  generalMerchandiseEmployee: typeof prisma.employee;
-  generalMerchandiseExpense: typeof prisma.expense;
-};
+type GeneralMerchandisePayrollClient = Pick<
+  typeof prisma,
+  | 'generalMerchandisePayroll'
+  | 'generalMerchandiseEmployee'
+  | 'generalMerchandiseExpense'
+>;
+
+const gmPrisma: GeneralMerchandisePayrollClient = prisma;
 
 type PayrollRecord = Record<string, unknown>;
 type BulkValidationIssue = { index: number; errors: Record<string, string> };
@@ -183,7 +186,7 @@ async function findMissingEmployeeIds(
 async function createPayrollRecords(records: PayrollInput[]) {
   return prisma.$transaction(async (tx) => {
     const created: Payroll[] = [];
-    const gmTx = tx as unknown as typeof gmPrisma;
+    const gmTx: GeneralMerchandisePayrollClient = tx;
 
     for (const record of records) {
       const payroll = await gmTx.generalMerchandisePayroll.create({

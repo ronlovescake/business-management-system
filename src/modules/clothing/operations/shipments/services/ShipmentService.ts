@@ -629,14 +629,61 @@ export class ShipmentService {
       const line = lines[i].trim();
       if (line) {
         const values = this.parseCSVLine(line);
-        const shipmentData = { id: Date.now() + i } as Record<
-          string,
-          string | number
-        >;
+        const shipmentData: ShipmentData = {
+          id: Date.now() + i,
+          'Shipment Code': '',
+          'CV Number': '',
+          'No. Of Sacks': 0,
+          'Total CBM': 0,
+          Weight: 0,
+          Fee: 0,
+          'Shipment Status': '',
+          'Date Created': '',
+          'Date Delivered': '',
+          Duration: '',
+          Notes: '',
+        };
 
         headers.forEach((header, index) => {
           if (values[index] !== undefined && values[index] !== '') {
-            shipmentData[header] = values[index];
+            const value = values[index];
+            switch (header) {
+              case 'Shipment Code':
+                shipmentData['Shipment Code'] = value;
+                break;
+              case 'CV Number':
+                shipmentData['CV Number'] = value;
+                break;
+              case 'No. Of Sacks':
+                shipmentData['No. Of Sacks'] = Number(value) || 0;
+                break;
+              case 'Total CBM':
+                shipmentData['Total CBM'] = Number(value) || 0;
+                break;
+              case 'Weight':
+                shipmentData.Weight = Number(value) || 0;
+                break;
+              case 'Fee':
+                shipmentData.Fee = Number(value) || value;
+                break;
+              case 'Shipment Status':
+                shipmentData['Shipment Status'] = value;
+                break;
+              case 'Date Created':
+                shipmentData['Date Created'] = value;
+                break;
+              case 'Date Delivered':
+                shipmentData['Date Delivered'] = value;
+                break;
+              case 'Duration':
+                shipmentData.Duration = value;
+                break;
+              case 'Notes':
+                shipmentData.Notes = value;
+                break;
+              default:
+                break;
+            }
           }
         });
 
@@ -651,7 +698,7 @@ export class ShipmentService {
           );
         }
 
-        importedShipments.push(shipmentData as unknown as ShipmentData);
+        importedShipments.push(shipmentData);
       }
     }
 

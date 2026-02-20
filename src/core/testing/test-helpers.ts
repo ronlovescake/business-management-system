@@ -5,6 +5,21 @@
  */
 
 import { vi } from 'vitest';
+import type { NextRequest } from 'next/server';
+
+type MockPrismaClientShape = {
+  $connect: ReturnType<typeof vi.fn>;
+  $disconnect: ReturnType<typeof vi.fn>;
+  $transaction: ReturnType<typeof vi.fn>;
+} & Record<string, unknown>;
+
+type MockNextRequest = NextRequest & {
+  json: ReturnType<typeof vi.fn>;
+  text: ReturnType<typeof vi.fn>;
+  formData: ReturnType<typeof vi.fn>;
+  arrayBuffer: ReturnType<typeof vi.fn>;
+  blob: ReturnType<typeof vi.fn>;
+};
 
 /**
  * Test environment base URL
@@ -45,13 +60,13 @@ export function getTestApiUrl(
  *   },
  * });
  */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export function mockPrismaClient(overrides: Record<string, any> = {}): any {
+export function mockPrismaClient(
+  overrides: Record<string, unknown> = {}
+): MockPrismaClientShape {
   return {
     $connect: vi.fn(),
     $disconnect: vi.fn(),
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    $transaction: vi.fn((callback: (prisma: any) => any) =>
+    $transaction: vi.fn((callback: (prisma: unknown) => unknown) =>
       callback(mockPrismaClient(overrides))
     ),
     ...overrides,
@@ -76,7 +91,7 @@ export function mockNextRequest(
     searchParams?: Record<string, string>;
     headers?: Record<string, string>;
   } = {}
-) {
+): MockNextRequest {
   const {
     method = 'GET',
     url = 'http://localhost:3000/api/test',
@@ -98,7 +113,7 @@ export function mockNextRequest(
     formData: vi.fn(),
     arrayBuffer: vi.fn(),
     blob: vi.fn(),
-  } as any; // eslint-disable-line @typescript-eslint/no-explicit-any
+  } as MockNextRequest;
 }
 
 /**
@@ -110,8 +125,7 @@ export function mockNextRequest(
  *   create: vi.fn().mockResolvedValue(mockExpense),
  * });
  */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export function mockService<T>(methods: Record<string, any>) {
+export function mockService<T>(methods: Record<string, unknown>) {
   return methods as T;
 }
 

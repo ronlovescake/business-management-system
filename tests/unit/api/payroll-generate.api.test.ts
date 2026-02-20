@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import type { NextRequest } from 'next/server';
+import { NextRequest } from 'next/server';
 
 const { mockPrisma } = vi.hoisted(() => {
   return {
@@ -29,12 +29,7 @@ import { POST } from '@/app/api/payroll/generate/route';
 
 const createMockRequest = (): NextRequest => {
   const url = 'https://test.local/api/payroll/generate';
-  return {
-    method: 'POST',
-    url,
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    nextUrl: new URL(url) as any,
-  } as NextRequest;
+  return new NextRequest(url, { method: 'POST' });
 };
 
 describe('Payroll Generation API', () => {

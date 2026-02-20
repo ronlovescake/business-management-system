@@ -34,6 +34,9 @@ import {
   hasMinimumCreateFields,
 } from './transactionDraftUtils';
 import {
+  buildBatchedTransactions,
+  buildDraftCreatePayload,
+  buildOptimisticTransaction,
   describeTransaction,
   formatCurrencyValue,
   formatNumberValue,
@@ -133,21 +136,7 @@ export function useTransactionOperations(
 
       creatingDraftRowsRef.current.add(rowIndex);
       try {
-        const payload = {
-          'Order Date': draft['Order Date'] || '',
-          Customers: draft.Customers || '',
-          'Product Code': draft['Product Code'] || '',
-          Quantity: draft.Quantity ?? 0,
-          'Unit Price': draft['Unit Price'] ?? 0,
-          Discount: draft.Discount ?? 0,
-          Adjustment: draft.Adjustment ?? 0,
-          'Line Total': draft['Line Total'] ?? 0,
-          'Order Status': draft['Order Status'] ?? '',
-          Notes: draft.Notes || '',
-          'Invoice Date': draft['Invoice Date'] || '',
-          'Packed Date': draft['Packed Date'] || '',
-          'Shipment Code': draft['Shipment Code'] || '',
-        };
+        const payload = buildDraftCreatePayload(draft);
 
         await api.post(buildApiPath(apiBasePath, '/transactions'), [payload]);
 
@@ -155,10 +144,10 @@ export function useTransactionOperations(
         // grid shows values immediately (no blank flash) while we wait for the
         // real record with its server ID.
         const optimisticId = Number(Date.now() * -1);
-        const optimisticTransaction: TransactionData = {
-          id: optimisticId,
-          ...payload,
-        } as TransactionData;
+        const optimisticTransaction = buildOptimisticTransaction(
+          payload,
+          optimisticId
+        );
 
         queryClient.setQueryData<TransactionData[] | undefined>(
           transactionsQueryKey,
@@ -260,28 +249,23 @@ export function useTransactionOperations(
 
     const handleBatchComplete = (event: Event) => {
       const customEvent = event as CustomEvent<{ count?: number }>;
-      const batchedUpdates: TransactionData[] = [];
+      const batchedUpdates = buildBatchedTransactions(
+        transactions,
+        batchUpdatesRef.current
+      );
 
-      batchUpdatesRef.current.forEach((data, id) => {
-        const baseline = transactions.find(
-          (transaction) => transaction.id === id
-        );
-        if (!baseline) {
-          logger.warn(
-            `Batch update skipped for missing transaction ID ${String(id)}`
+      if (batchedUpdates.length !== batchUpdatesRef.current.size) {
+        batchUpdatesRef.current.forEach((_data, id) => {
+          const baseline = transactions.find(
+            (transaction) => transaction.id === id
           );
-          return;
-        }
-        batchedUpdates.push({
-          ...baseline,
-          ...data,
-          Quantity: data.Quantity ?? baseline.Quantity ?? 0,
-          'Unit Price': data['Unit Price'] ?? baseline['Unit Price'] ?? 0,
-          Discount: data.Discount ?? baseline.Discount ?? 0,
-          Adjustment: data.Adjustment ?? baseline.Adjustment ?? 0,
-          'Line Total': data['Line Total'] ?? baseline['Line Total'] ?? 0,
+          if (!baseline) {
+            logger.warn(
+              `Batch update skipped for missing transaction ID ${String(id)}`
+            );
+          }
         });
-      });
+      }
 
       if (batchedUpdates.length > 0) {
         logger.debug(

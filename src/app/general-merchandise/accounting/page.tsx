@@ -1,5 +1,7 @@
-import { redirect } from 'next/navigation';
+import { AccountingRootRedirectPage } from '@/app/accounting/_shared/AccountingRootRedirectPage';
 
 export default function GeneralMerchandiseAccountingRoot() {
-  return redirect('/general-merchandise/accounting/expenses');
+  return (
+    <AccountingRootRedirectPage businessPathPrefix="/general-merchandise" />
+  );
 }

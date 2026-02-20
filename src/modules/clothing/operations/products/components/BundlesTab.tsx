@@ -26,6 +26,7 @@ import { UniversalModal } from '@/components/modals/UniversalModal';
 import { BundleService } from '../services/BundleService';
 import { ProductService } from '../services/ProductService';
 import type { BundleBatch, CreateBundleInput } from '../types/bundle.types';
+import type { ProductData } from '../types/product.types';
 import {
   COMMON_DATE_INPUT_PROPS,
   formatDateForInput,
@@ -37,7 +38,10 @@ import type {
   ProductFromAPI,
   TransactionFromAPI,
 } from '@/modules/clothing/operations/inventory/types';
-import { buildInventoryItems } from '@/modules/clothing/operations/inventory/lib/inventoryTransforms';
+import {
+  buildInventoryItems,
+  extractApiData,
+} from '@/modules/clothing/operations/inventory/lib/inventoryTransforms';
 import { normalizeProductCode } from '@/lib/inventory/movements';
 import { buildApiPath } from '@/lib/api/paths';
 
@@ -50,6 +54,18 @@ type BundleComponentRow = {
 type BundleFormState = Omit<CreateBundleInput, 'components'> & {
   components: BundleComponentRow[];
 };
+
+function toInventoryProduct(product: ProductData): ProductFromAPI {
+  return {
+    id: String(product.id ?? ''),
+    'Product Code': product['Product Code'] ?? null,
+    Quantity: Number(product.Quantity ?? 0),
+    COGS: Number(product.COGS ?? 0),
+    'Actual Price': Number(product['Actual Price'] ?? 0),
+    'Shipment Code': product['Shipment Code'] ?? null,
+    'Shipment Status': product['Shipment Status'] ?? null,
+  };
+}
 
 function newClientId(): string {
   if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) {
@@ -128,15 +144,8 @@ export function BundlesTab({ apiBasePath }: BundlesTabProps) {
         return [];
       }
 
-      const payload = (await response.json()) as {
-        data?: InventoryMovementFromAPI[];
-      };
-
-      if (Array.isArray(payload)) {
-        return payload as unknown as InventoryMovementFromAPI[];
-      }
-
-      return Array.isArray(payload?.data) ? payload.data : [];
+      const payload = (await response.json()) as unknown;
+      return extractApiData<InventoryMovementFromAPI>(payload);
     },
     staleTime: 30 * 1000,
   });
@@ -149,22 +158,16 @@ export function BundlesTab({ apiBasePath }: BundlesTabProps) {
         return [];
       }
 
-      const payload = (await response.json()) as {
-        data?: TransactionFromAPI[];
-      };
-
-      if (Array.isArray(payload)) {
-        return payload as unknown as TransactionFromAPI[];
-      }
-
-      return Array.isArray(payload?.data) ? payload.data : [];
+      const payload = (await response.json()) as unknown;
+      return extractApiData<TransactionFromAPI>(payload);
     },
     staleTime: 30 * 1000,
   });
 
   const sellableOnHandByCode = useMemo(() => {
+    const inventoryProducts = products.map(toInventoryProduct);
     const inventoryItems = buildInventoryItems(
-      products as unknown as ProductFromAPI[],
+      inventoryProducts,
       transactions,
       [],
       movements

@@ -14,16 +14,6 @@ type StatusCount<T extends string> = Record<T, number>;
 
 type DashboardCounts = Record<string, number>;
 
-const gmPrisma = prisma as unknown as {
-  generalMerchandiseAttendance: typeof prisma.attendance;
-  generalMerchandiseExpense: typeof prisma.expense;
-  generalMerchandisePayroll: typeof prisma.payroll;
-  generalMerchandiseLeaveRequest: typeof prisma.leaveRequest;
-  generalMerchandiseCashAdvanceRecord: typeof prisma.cashAdvanceRecord;
-  generalMerchandiseThirteenthMonthPayRecord: typeof prisma.thirteenthMonthPayRecord;
-  generalMerchandiseEmployee: typeof prisma.employee;
-};
-
 function getRange(params: URLSearchParams) {
   const fromParam = sanitizers.date(params.get('from'));
   const toParam = sanitizers.date(params.get('to'));
@@ -101,22 +91,23 @@ export async function GET(request: NextRequest) {
       },
     } as const;
 
-    const cashAdvanceWhere: Prisma.CashAdvanceRecordWhereInput = {
-      OR: [
-        {
-          requestDate: {
-            gte: range.fromDateTime,
-            lte: range.toDateTime,
+    const cashAdvanceWhere: Prisma.GeneralMerchandiseCashAdvanceRecordWhereInput =
+      {
+        OR: [
+          {
+            requestDate: {
+              gte: range.fromDateTime,
+              lte: range.toDateTime,
+            },
           },
-        },
-        {
-          createdAt: {
-            gte: range.fromDateTime,
-            lte: range.toDateTime,
+          {
+            createdAt: {
+              gte: range.fromDateTime,
+              lte: range.toDateTime,
+            },
           },
-        },
-      ],
-    };
+        ],
+      };
 
     const startYear = dayjs(range.from).tz().year();
     const endYear = dayjs(range.to).tz().year();
@@ -143,27 +134,27 @@ export async function GET(request: NextRequest) {
       thirteenthStatuses,
       employees,
     ] = await Promise.all([
-      gmPrisma.generalMerchandiseAttendance.count({ where: attendanceWhere }),
-      gmPrisma.generalMerchandiseAttendance.groupBy({
+      prisma.generalMerchandiseAttendance.count({ where: attendanceWhere }),
+      prisma.generalMerchandiseAttendance.groupBy({
         by: ['status'],
         where: attendanceWhere,
         _count: { _all: true },
       }),
-      gmPrisma.generalMerchandiseAttendance.findMany({
+      prisma.generalMerchandiseAttendance.findMany({
         where: attendanceWhere,
         distinct: ['employeeId'],
         select: { employeeId: true },
       }),
-      gmPrisma.generalMerchandiseExpense.aggregate({
+      prisma.generalMerchandiseExpense.aggregate({
         where: expensesWhere,
         _sum: { amount: true },
       }),
-      gmPrisma.generalMerchandiseExpense.groupBy({
+      prisma.generalMerchandiseExpense.groupBy({
         by: ['category'],
         where: expensesWhere,
         _sum: { amount: true },
       }),
-      gmPrisma.generalMerchandisePayroll.aggregate({
+      prisma.generalMerchandisePayroll.aggregate({
         where: payrollWhere,
         _sum: {
           grossPay: true,
@@ -173,41 +164,41 @@ export async function GET(request: NextRequest) {
         },
         _count: { _all: true },
       }),
-      gmPrisma.generalMerchandisePayroll.groupBy({
+      prisma.generalMerchandisePayroll.groupBy({
         by: ['status'],
         where: payrollWhere,
         _count: { _all: true },
       }),
-      gmPrisma.generalMerchandiseLeaveRequest.groupBy({
+      prisma.generalMerchandiseLeaveRequest.groupBy({
         by: ['status'],
         where: leaveWhere,
         _count: { _all: true },
       }),
-      gmPrisma.generalMerchandiseCashAdvanceRecord.aggregate({
+      prisma.generalMerchandiseCashAdvanceRecord.aggregate({
         where: cashAdvanceWhere,
         _sum: { amount: true, remainingBalance: true },
         _count: { _all: true },
       }),
-      gmPrisma.generalMerchandiseCashAdvanceRecord.groupBy({
+      prisma.generalMerchandiseCashAdvanceRecord.groupBy({
         by: ['status'],
         where: cashAdvanceWhere,
         _count: { _all: true },
       }),
-      gmPrisma.generalMerchandiseThirteenthMonthPayRecord.aggregate({
+      prisma.generalMerchandiseThirteenthMonthPayRecord.aggregate({
         where: thirteenthWhere,
         _sum: { thirteenthMonthPay: true },
         _count: { _all: true },
       }),
-      gmPrisma.generalMerchandiseThirteenthMonthPayRecord.aggregate({
+      prisma.generalMerchandiseThirteenthMonthPayRecord.aggregate({
         where: { ...thirteenthWhere, status: 'paid' },
         _sum: { thirteenthMonthPay: true },
       }),
-      gmPrisma.generalMerchandiseThirteenthMonthPayRecord.groupBy({
+      prisma.generalMerchandiseThirteenthMonthPayRecord.groupBy({
         by: ['status'],
         where: thirteenthWhere,
         _count: { _all: true },
       }),
-      gmPrisma.generalMerchandiseEmployee.count({
+      prisma.generalMerchandiseEmployee.count({
         where: { deletedAt: null },
       }),
     ]);
@@ -228,6 +219,8 @@ export async function GET(request: NextRequest) {
       thirteenthStatuses as Array<{ status: string; _count: { _all: number } }>
     );
 
+    const cashAdvanceCountAll = Number(cashAdvanceTotals._count?._all ?? 0);
+
     const attendanceCounts: DashboardCounts = {
       totalRecords: attendanceTotal,
       uniqueEmployees: attendanceEmployees.length,
@@ -240,7 +233,7 @@ export async function GET(request: NextRequest) {
     };
 
     const cashAdvanceCounts: DashboardCounts = {
-      totalRecords: cashAdvanceTotals._count._all ?? 0,
+      totalRecords: cashAdvanceCountAll,
       ...cashAdvanceStatusCounts,
     };
 
@@ -290,8 +283,8 @@ export async function GET(request: NextRequest) {
       },
       cashAdvance: {
         totalRecords: cashAdvanceCounts.totalRecords ?? 0,
-        totalAmount: Number(cashAdvanceTotals._sum.amount || 0),
-        remainingBalance: Number(cashAdvanceTotals._sum.remainingBalance || 0),
+        totalAmount: Number(cashAdvanceTotals._sum?.amount || 0),
+        remainingBalance: Number(cashAdvanceTotals._sum?.remainingBalance || 0),
         statusCounts: cashAdvanceStatusCounts,
       },
       thirteenthMonth: {

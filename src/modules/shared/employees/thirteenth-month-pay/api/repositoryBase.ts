@@ -48,7 +48,7 @@ export class ThirteenthMonthPayRepositoryBase<
   }
 
   private toWhereInput(value: Record<string, unknown>): WhereInput<TEntity> {
-    return value as unknown as WhereInput<TEntity>;
+    return value as WhereInput<TEntity>;
   }
 
   private toOrderByInput(
@@ -56,7 +56,7 @@ export class ThirteenthMonthPayRepositoryBase<
       | Record<string, 'asc' | 'desc'>
       | Array<Record<string, 'asc' | 'desc'>>
   ): OrderByInput<TEntity> | OrderByInput<TEntity>[] {
-    return value as unknown as OrderByInput<TEntity> | OrderByInput<TEntity>[];
+    return value as OrderByInput<TEntity> | OrderByInput<TEntity>[];
   }
 
   private toFindOptions(options: {
@@ -109,7 +109,7 @@ export class ThirteenthMonthPayRepositoryBase<
 
     return this.findMany(
       this.toFindOptions({
-        where: where as unknown as Record<string, unknown>,
+        where: where as Record<string, unknown>,
         orderBy: [{ employeeName: 'asc' }, { year: 'desc' }],
       })
     );
