@@ -26,6 +26,44 @@ import { buildApiPath } from '@/lib/api/paths';
  * ShipmentService - Static methods for shipment business logic
  */
 export class ShipmentService {
+  private static async readFileText(
+    file: File & {
+      text?: () => Promise<string>;
+      arrayBuffer?: () => Promise<ArrayBuffer>;
+    }
+  ): Promise<string> {
+    if (typeof file.text === 'function') {
+      return file.text();
+    }
+
+    if (typeof file.arrayBuffer === 'function') {
+      return new TextDecoder().decode(await file.arrayBuffer());
+    }
+
+    if (
+      typeof FileReader !== 'undefined' &&
+      typeof Blob !== 'undefined' &&
+      file instanceof Blob
+    ) {
+      return await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () =>
+          resolve(typeof reader.result === 'string' ? reader.result : '');
+        reader.onerror = () =>
+          reject(reader.error ?? new Error('Unable to read uploaded file'));
+        reader.readAsText(file);
+      });
+    }
+
+    try {
+      return await new Response(file as unknown as BodyInit).text();
+    } catch {
+      // no-op: handled by final throw
+    }
+
+    throw new Error('Unable to read uploaded file');
+  }
+
   private static buildPath(apiBasePath: string | undefined, path: string) {
     return buildApiPath(apiBasePath, path);
   }
@@ -618,7 +656,7 @@ export class ShipmentService {
    * @throws Error if parsing or import fails
    */
   static async parseCSVFile(file: File): Promise<ShipmentData[]> {
-    const text = await file.text();
+    const text = await this.readFileText(file);
     // Handle both Unix (\n) and Windows (\r\n) line endings
     const lines = text.split(/\r?\n/);
 

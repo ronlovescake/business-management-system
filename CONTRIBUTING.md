@@ -16,6 +16,8 @@ Thank you for contributing! This guide will help you understand our coding stand
 
 ## Getting Started
 
+For the latest contributor quick-start commands (including guardrails and quality gates), check [README.md](README.md) first.
+
 ### Prerequisites
 
 - Node.js 18+ and npm

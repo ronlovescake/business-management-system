@@ -78,6 +78,21 @@ interface UserPermission {
   module: Module;
 }
 
+function getModuleDescendantIds(module: Module): string[] {
+  const ids: string[] = [];
+  if (module.children && module.children.length > 0) {
+    module.children.forEach((child) => {
+      ids.push(child.id);
+      ids.push(...getModuleDescendantIds(child));
+    });
+  }
+  return ids;
+}
+
+function getModuleAndDescendantIds(module: Module): string[] {
+  return [module.id, ...getModuleDescendantIds(module)];
+}
+
 export function UserManagementSection() {
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
@@ -202,22 +217,11 @@ export function UserManagementSection() {
       const current = prev[userId] || [];
       const isCurrentlyChecked = current.includes(moduleId);
 
-      // Find all descendant module IDs
-      const getAllDescendantIds = (mod: Module): string[] => {
-        const ids: string[] = [mod.id];
-        if (mod.children && mod.children.length > 0) {
-          mod.children.forEach((child) => {
-            ids.push(...getAllDescendantIds(child));
-          });
-        }
-        return ids;
-      };
-
       let newPermissions = [...current];
 
       if (moduleObj) {
         // Get all IDs including children
-        const allIds = getAllDescendantIds(moduleObj);
+        const allIds = getModuleAndDescendantIds(moduleObj);
 
         if (isCurrentlyChecked) {
           // Remove module and all its children
@@ -312,18 +316,6 @@ export function UserManagementSection() {
     return expandedSections[userId]?.has(sectionId) ?? false;
   };
 
-  // Helper to get all descendant IDs of a module
-  const getAllDescendantIds = (module: Module): string[] => {
-    const ids: string[] = [];
-    if (module.children && module.children.length > 0) {
-      module.children.forEach((child) => {
-        ids.push(child.id);
-        ids.push(...getAllDescendantIds(child));
-      });
-    }
-    return ids;
-  };
-
   // Check if a module should be indeterminate (some but not all children checked)
   const isModuleIndeterminate = (userId: string, module: Module): boolean => {
     if (!module.children || module.children.length === 0) {
@@ -331,7 +323,7 @@ export function UserManagementSection() {
     }
 
     const permissions = userPermissions[userId] || [];
-    const descendantIds = getAllDescendantIds(module);
+    const descendantIds = getModuleDescendantIds(module);
 
     if (descendantIds.length === 0) {
       return false;
@@ -355,7 +347,7 @@ export function UserManagementSection() {
     }
 
     const permissions = userPermissions[userId] || [];
-    const descendantIds = getAllDescendantIds(module);
+    const descendantIds = getModuleDescendantIds(module);
 
     if (descendantIds.length === 0) {
       return false;

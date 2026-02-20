@@ -200,22 +200,37 @@ function summarizeStatus(
   };
 }
 
-function buildBundleMaps(bundles: BundleBatch[]) {
+function buildSkuComponentMaps(params: {
+  rows: BundleBatch[];
+  requirePositiveIncludedQuantity: boolean;
+}) {
+  const { rows, requirePositiveIncludedQuantity } = params;
   const componentsBySku = new Map<string, BundleComponent[]>();
-  const bundleSkusByComponent = new Map<string, Set<string>>();
+  const skusByComponent = new Map<string, Set<string>>();
 
-  bundles.forEach((bundle) => {
-    const normalizedSku = normalizeProductCode(bundle.bundleSku);
+  rows.forEach((row) => {
+    const normalizedSku = normalizeProductCode(row.bundleSku);
     if (!normalizedSku) {
       return;
     }
 
-    const filteredComponents = (bundle.components || []).filter(
-      (component) =>
-        Boolean(normalizeProductCode(component.componentProductCode)) &&
+    const filteredComponents = (row.components || []).filter((component) => {
+      const normalizedComponent = normalizeProductCode(
+        component.componentProductCode
+      );
+      if (!normalizedComponent) {
+        return false;
+      }
+
+      if (!requirePositiveIncludedQuantity) {
+        return true;
+      }
+
+      return (
         Number.isFinite(component.includedQuantity) &&
         component.includedQuantity > 0
-    );
+      );
+    });
 
     componentsBySku.set(normalizedSku, filteredComponents);
 
@@ -227,49 +242,33 @@ function buildBundleMaps(bundles: BundleBatch[]) {
         return;
       }
 
-      if (!bundleSkusByComponent.has(normalizedComponent)) {
-        bundleSkusByComponent.set(normalizedComponent, new Set());
+      if (!skusByComponent.has(normalizedComponent)) {
+        skusByComponent.set(normalizedComponent, new Set());
       }
 
-      bundleSkusByComponent.get(normalizedComponent)?.add(normalizedSku);
+      skusByComponent.get(normalizedComponent)?.add(normalizedSku);
     });
   });
+
+  return { componentsBySku, skusByComponent };
+}
+
+function buildBundleMaps(bundles: BundleBatch[]) {
+  const { componentsBySku, skusByComponent } = buildSkuComponentMaps({
+    rows: bundles,
+    requirePositiveIncludedQuantity: true,
+  });
+  const bundleSkusByComponent = skusByComponent;
 
   return { componentsBySku, bundleSkusByComponent };
 }
 
 function buildMixAndMatchMaps(mixAndMatchRows: MixAndMatchBatch[]) {
-  const componentsBySku = new Map<string, BundleComponent[]>();
-  const mixSkusByComponent = new Map<string, Set<string>>();
-
-  mixAndMatchRows.forEach((mix) => {
-    const normalizedSku = normalizeProductCode(mix.bundleSku);
-    if (!normalizedSku) {
-      return;
-    }
-
-    const filteredComponents = (mix.components || []).filter((component) =>
-      Boolean(normalizeProductCode(component.componentProductCode))
-    );
-
-    componentsBySku.set(normalizedSku, filteredComponents);
-
-    filteredComponents.forEach((component) => {
-      const normalizedComponent = normalizeProductCode(
-        component.componentProductCode
-      );
-
-      if (!normalizedComponent) {
-        return;
-      }
-
-      if (!mixSkusByComponent.has(normalizedComponent)) {
-        mixSkusByComponent.set(normalizedComponent, new Set());
-      }
-
-      mixSkusByComponent.get(normalizedComponent)?.add(normalizedSku);
-    });
+  const { componentsBySku, skusByComponent } = buildSkuComponentMaps({
+    rows: mixAndMatchRows,
+    requirePositiveIncludedQuantity: false,
   });
+  const mixSkusByComponent = skusByComponent;
 
   return { componentsBySku, mixSkusByComponent };
 }

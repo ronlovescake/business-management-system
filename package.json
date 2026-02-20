@@ -19,6 +19,8 @@
     "lint": "next lint",
     "lint:fix": "next lint --fix",
     "lint:imports": "node scripts/check-imports.js",
+    "guardrails:check": "node scripts/guardrails-check.js",
+    "ci:quality": "npm run guardrails:check && npm run lint && npm run typecheck && npm run test:unit && npm run test:integration && npm run test:hardening",
     "format": "prettier --write .",
     "test": "vitest",
     "test:unit": "vitest run",

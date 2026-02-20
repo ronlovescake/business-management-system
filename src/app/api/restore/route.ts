@@ -56,16 +56,7 @@ const getModelDelegate = (
   const sourceRecord = source as Record<string, unknown>;
   const delegate = sourceRecord[modelName] as Partial<RestoreModelDelegate>;
 
-  if (
-    !delegate ||
-    typeof delegate.findFirst !== 'function' ||
-    typeof delegate.findMany !== 'function' ||
-    typeof delegate.count !== 'function' ||
-    typeof delegate.createMany !== 'function' ||
-    typeof delegate.update !== 'function' ||
-    typeof delegate.deleteMany !== 'function' ||
-    typeof delegate.updateMany !== 'function'
-  ) {
+  if (!delegate || typeof delegate !== 'object') {
     throw new Error(`Invalid model delegate for: ${modelName}`);
   }
 

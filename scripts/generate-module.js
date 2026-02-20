@@ -1,478 +1,281 @@
 #!/usr/bin/env node
 
-/**
- * Module Generator CLI
- *
- * Scaffolds a new module with perfect 10/10 structure
- *
- * Usage:
- *   npm run generate:module -- --name=leave-requests --workspace=employees
- *   npm run generate:module -- --name=inventory --workspace=operations
- *
- * Generates:
- * - Service layer with repository pattern
- * - API routes with validation
- * - Zod schemas
- * - Unit tests
- * - Integration tests
- * - TypeScript types
- * - Documentation
- */
-
 const fs = require('fs');
 const path = require('path');
 
-// Parse CLI arguments
 const args = process.argv.slice(2).reduce((acc, arg) => {
-  const [key, value] = arg.replace('--', '').split('=');
-  acc[key] = value;
+  const [rawKey, rawValue] = arg.replace(/^--/, '').split('=');
+  if (!rawKey) {
+    return acc;
+  }
+  acc[rawKey] = rawValue ?? 'true';
   return acc;
 }, {});
 
 const moduleName = args.name;
-const workspace = args.workspace; // 'employees' or 'operations'
+const domain = args.domain;
+const section = args.section;
+const tableEngine = args.table || 'custom';
+const withPage = args.withPage === 'true';
 
-if (!moduleName || !workspace) {
-  console.error('❌ Error: Missing required arguments');
-  console.log('\nUsage:');
+const ALLOWED_DOMAINS = [
+  'clothing',
+  'general-merchandise',
+  'trucking',
+  'household',
+  'shared',
+];
+
+if (!moduleName || !domain) {
+  console.error('❌ Missing required arguments.');
+  console.log('Usage:');
   console.log(
-    '  npm run generate:module -- --name=<module-name> --workspace=<employees|operations>'
-  );
-  console.log('\nExample:');
-  console.log(
-    '  npm run generate:module -- --name=leave-requests --workspace=employees'
+    '  npm run generate:module -- --name=<module-name> --domain=<clothing|general-merchandise|trucking|household|shared> [--section=<section>] [--table=<handsontable|mantine|custom>] [--withPage=true]'
   );
   process.exit(1);
 }
 
-// Convert kebab-case to PascalCase
-function toPascalCase(str) {
-  return str
+if (!ALLOWED_DOMAINS.includes(domain)) {
+  console.error(`❌ Unsupported domain: ${domain}`);
+  console.error(`Allowed domains: ${ALLOWED_DOMAINS.join(', ')}`);
+  process.exit(1);
+}
+
+function toPascalCase(input) {
+  return input
     .split('-')
-    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+    .filter(Boolean)
+    .map((part) => part[0].toUpperCase() + part.slice(1))
     .join('');
 }
 
-// Convert kebab-case to camelCase
-function toCamelCase(str) {
-  const pascal = toPascalCase(str);
-  return pascal.charAt(0).toLowerCase() + pascal.slice(1);
+function toCamelCase(input) {
+  const pascal = toPascalCase(input);
+  return pascal[0].toLowerCase() + pascal.slice(1);
 }
 
-const ModuleName = toPascalCase(moduleName);
-const moduleCamel = toCamelCase(moduleName);
-
-const basePath = path.join(
-  __dirname,
-  `../src/modules/clothing/${workspace}/${moduleName}`
-);
-
-console.log(`\n🚀 Generating module: ${ModuleName}`);
-console.log(`📁 Location: ${basePath}\n`);
-
-// Create directory structure
-const dirs = [
-  '',
-  'api',
-  'components',
-  'hooks',
-  'services',
-  'types',
-  'utils',
-  '__tests__',
-];
-
-dirs.forEach((dir) => {
-  const dirPath = path.join(basePath, dir);
+function ensureDir(dirPath) {
   if (!fs.existsSync(dirPath)) {
     fs.mkdirSync(dirPath, { recursive: true });
-    console.log(`✅ Created: ${dir || '(root)'}`);
   }
-});
+}
 
-// Templates
-const templates = {
-  // Types
-  'types/index.ts': `/**
- * ${ModuleName} Types
- */
+function writeFileIfMissing(filePath, content) {
+  if (fs.existsSync(filePath)) {
+    console.log(`⚠️ Skipped existing file: ${filePath}`);
+    return;
+  }
+  fs.writeFileSync(filePath, content, 'utf8');
+  console.log(`✅ Created: ${filePath}`);
+}
 
-export interface ${ModuleName} {
+const modulePascal = toPascalCase(moduleName);
+const moduleCamel = toCamelCase(moduleName);
+
+const moduleBasePath = section
+  ? path.join(process.cwd(), 'src', 'modules', domain, section, moduleName)
+  : path.join(process.cwd(), 'src', 'modules', domain, moduleName);
+
+const componentName = `${modulePascal}Page`;
+const hookName = `use${modulePascal}`;
+const serviceName = `${modulePascal}Service`;
+
+const directories = [
+  moduleBasePath,
+  path.join(moduleBasePath, 'api'),
+  path.join(moduleBasePath, 'components'),
+  path.join(moduleBasePath, 'hooks'),
+  path.join(moduleBasePath, 'services'),
+  path.join(moduleBasePath, 'types'),
+  path.join(moduleBasePath, 'utils'),
+  path.join(moduleBasePath, '__tests__'),
+];
+
+directories.forEach(ensureDir);
+
+const entityType = `${modulePascal}Entity`;
+const createInputType = `Create${modulePascal}Input`;
+const updateInputType = `Update${modulePascal}Input`;
+const filtersType = `${modulePascal}Filters`;
+
+writeFileIfMissing(
+  path.join(moduleBasePath, 'types', 'index.ts'),
+  `export interface ${entityType} {
   id: number;
-  // Add your fields here
-  createdAt: Date;
-  updatedAt: Date;
-  deletedAt: Date | null;
+  createdAt: string;
+  updatedAt: string;
+  deletedAt: string | null;
 }
 
-export interface Create${ModuleName}Input {
-  // Add your input fields here
+export interface ${createInputType} {
+  name: string;
 }
 
-export interface Update${ModuleName}Input {
-  // Add your input fields here
+export interface ${updateInputType} extends Partial<${createInputType}> {}
+
+export interface ${filtersType} {
+  query?: string;
 }
-
-export interface ${ModuleName}QueryFilters {
-  // Add your filter fields here
-}
-`,
-
-  // Zod Schemas
-  'api/schemas.ts': `/**
- * ${ModuleName} API Schemas
- */
-
-import { z } from 'zod';
-
-export const Create${ModuleName}Schema = z.object({
-  // Add your validation rules here
-  // Example:
-  // name: z.string().min(1, 'Name is required'),
-  // amount: z.number().positive('Amount must be positive'),
-});
-
-export const Update${ModuleName}Schema = Create${ModuleName}Schema.partial();
-
-export const ${ModuleName}QuerySchema = z.object({
-  // Add your query parameters here
-  // Example:
-  // status: z.enum(['active', 'inactive']).optional(),
-  // startDate: z.string().datetime().optional(),
-});
-
-export type Create${ModuleName}Input = z.infer<typeof Create${ModuleName}Schema>;
-export type Update${ModuleName}Input = z.infer<typeof Update${ModuleName}Schema>;
-export type ${ModuleName}Query = z.infer<typeof ${ModuleName}QuerySchema>;
-`,
-
-  // Repository
-  'services/repository.ts': `/**
- * ${ModuleName} Repository
- */
-
-import { BaseRepository } from '@/core/database';
-import { prisma } from '@/lib/prisma';
-import type { ${ModuleName} } from '../types';
-
-class ${ModuleName}Repository extends BaseRepository<${ModuleName}> {
-  constructor() {
-    super(prisma.${moduleCamel}, '${ModuleName}');
-  }
-
-  /**
-   * Add custom repository methods here
-   */
-}
-
-export const ${moduleCamel}Repository = new ${ModuleName}Repository();
-`,
-
-  // Service
-  'services/index.ts': `/**
- * ${ModuleName} Service
- */
-
-import { ${moduleCamel}Repository } from './repository';
-import type { ${ModuleName}, Create${ModuleName}Input, Update${ModuleName}Input, ${ModuleName}QueryFilters } from '../types';
-import { logger } from '@/lib/logger';
-
-class ${ModuleName}Service {
-  /**
-   * Find all records
-   */
-  async findAll(): Promise<${ModuleName}[]> {
-    return ${moduleCamel}Repository.findAll();
-  }
-
-  /**
-   * Find records with filters
-   */
-  async findWithFilters(filters: ${ModuleName}QueryFilters): Promise<${ModuleName}[]> {
-    return ${moduleCamel}Repository.findMany({ where: filters as any }).then(result => result.data);
-  }
-
-  /**
-   * Find by ID
-   */
-  async findById(id: number): Promise<${ModuleName} | null> {
-    return ${moduleCamel}Repository.findById(id);
-  }
-
-  /**
-   * Create a new record
-   */
-  async create(data: Create${ModuleName}Input): Promise<${ModuleName}> {
-    logger.info('${ModuleName}: Creating', { data });
-    return ${moduleCamel}Repository.create(data as any);
-  }
-
-  /**
-   * Update a record
-   */
-  async update(id: number, data: Update${ModuleName}Input): Promise<${ModuleName}> {
-    logger.info('${ModuleName}: Updating', { id, data });
-    return ${moduleCamel}Repository.update(id, data as any);
-  }
-
-  /**
-   * Delete a record (soft delete)
-   */
-  async delete(id: number): Promise<void> {
-    logger.info('${ModuleName}: Deleting', { id });
-    await ${moduleCamel}Repository.delete(id);
-  }
-}
-
-export const ${moduleCamel}Service = new ${ModuleName}Service();
-`,
-
-  // API Route
-  'api/route.ts': `/**
- * ${ModuleName} API Route
- */
-
-import type { NextRequest } from 'next/server';
-import { withErrorHandler, withValidation, ApiResponseUtil } from '@/core/api';
-import { ${moduleCamel}Service } from '../services';
-import { Create${ModuleName}Schema, Update${ModuleName}Schema, ${ModuleName}QuerySchema } from './schemas';
-import { logger } from '@/lib/logger';
-
-/**
- * GET /api/${moduleName}
- * 
- * Fetch all records with optional filters
- */
-export const GET = withErrorHandler(async (request: NextRequest) => {
-  const { searchParams } = new URL(request.url);
-  
-  // Parse query params
-  const queryParams = Object.fromEntries(searchParams.entries());
-  
-  if (Object.keys(queryParams).length > 0) {
-    const filters = ${ModuleName}QuerySchema.parse(queryParams);
-    const records = await ${moduleCamel}Service.findWithFilters(filters);
-    return ApiResponseUtil.success(records);
-  }
-
-  const records = await ${moduleCamel}Service.findAll();
-  return ApiResponseUtil.success(records);
-});
-
-/**
- * POST /api/${moduleName}
- * 
- * Create a new record
- */
-export const POST = withValidation(
-  Create${ModuleName}Schema,
-  async (_request, validated) => {
-    const record = await ${moduleCamel}Service.create(validated);
-    return ApiResponseUtil.success(record, 'Record created successfully', 201);
-  }
+`
 );
 
-/**
- * PUT /api/${moduleName}
- * 
- * Update a record
- */
-export const PUT = withErrorHandler(async (request: NextRequest) => {
-  const body = await request.json();
-  const { id, ...data } = body;
+writeFileIfMissing(
+  path.join(moduleBasePath, 'api', 'schemas.ts'),
+  `import { z } from 'zod';
 
-  if (!id) {
-    return ApiResponseUtil.badRequest('ID is required');
-  }
-
-  const validated = Update${ModuleName}Schema.parse(data);
-  const record = await ${moduleCamel}Service.update(id, validated);
-  
-  return ApiResponseUtil.success(record, 'Record updated successfully');
+export const create${modulePascal}Schema = z.object({
+  name: z.string().min(1, 'Name is required'),
 });
 
-/**
- * DELETE /api/${moduleName}
- * 
- * Delete a record (soft delete)
- */
-export const DELETE = withErrorHandler(async (request: NextRequest) => {
-  const { searchParams } = new URL(request.url);
-  const id = searchParams.get('id');
+export const update${modulePascal}Schema = create${modulePascal}Schema.partial();
 
-  if (!id) {
-    return ApiResponseUtil.badRequest('ID is required');
+export const ${moduleCamel}FiltersSchema = z.object({
+  query: z.string().optional(),
+});
+`
+);
+
+writeFileIfMissing(
+  path.join(moduleBasePath, 'services', 'index.ts'),
+  `import type {
+  ${entityType},
+  ${createInputType},
+  ${updateInputType},
+  ${filtersType},
+} from '../types';
+
+class ${serviceName} {
+  async list(_filters?: ${filtersType}): Promise<${entityType}[]> {
+    return [];
   }
 
-  await ${moduleCamel}Service.delete(Number(id));
-  
-  return ApiResponseUtil.success(null, 'Record deleted successfully');
-});
-`,
+  async create(input: ${createInputType}): Promise<${entityType}> {
+    return {
+      id: Date.now(),
+      name: input.name,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      deletedAt: null,
+    } as ${entityType};
+  }
 
-  // Unit Tests
-  '__tests__/service.test.ts': `/**
- * ${ModuleName} Service Tests
- */
+  async update(id: number, input: ${updateInputType}): Promise<${entityType}> {
+    return {
+      id,
+      name: input.name ?? '',
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      deletedAt: null,
+    } as ${entityType};
+  }
+}
 
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+export const ${moduleCamel}Service = new ${serviceName}();
+`
+);
+
+writeFileIfMissing(
+  path.join(moduleBasePath, 'hooks', `${hookName}.ts`),
+  `import { useMemo } from 'react';
+import type { ${entityType} } from '../types';
+
+export function ${hookName}(rows: ${entityType}[]) {
+  const totalCount = useMemo(() => rows.length, [rows]);
+
+  return {
+    rows,
+    totalCount,
+  };
+}
+`
+);
+
+writeFileIfMissing(
+  path.join(moduleBasePath, 'components', `${componentName}.tsx`),
+  `'use client';
+
+import { Paper, Text } from '@mantine/core';
+
+export function ${componentName}() {
+  return (
+    <Paper p="md" withBorder>
+      <Text fw={600}>${modulePascal}</Text>
+      <Text size="sm" c="dimmed">
+        Table engine: ${tableEngine}. Keep business logic in services/hooks and keep this component presentational.
+      </Text>
+    </Paper>
+  );
+}
+`
+);
+
+writeFileIfMissing(
+  path.join(moduleBasePath, 'api', 'route.ts'),
+  `import type { NextRequest } from 'next/server';
+import { NextResponse } from 'next/server';
+import { create${modulePascal}Schema } from './schemas';
 import { ${moduleCamel}Service } from '../services';
-import { ${moduleCamel}Repository } from '../services/repository';
 
-// Mock repository
-vi.mock('../services/repository', () => ({
-  ${moduleCamel}Repository: {
-    findAll: vi.fn(),
-    findMany: vi.fn(),
-    findById: vi.fn(),
-    create: vi.fn(),
-    update: vi.fn(),
-    delete: vi.fn(),
-  },
-}));
+export async function GET(_request: NextRequest) {
+  const rows = await ${moduleCamel}Service.list();
+  return NextResponse.json({ success: true, data: rows });
+}
 
-describe('${ModuleName}Service', () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
+export async function POST(request: NextRequest) {
+  const body = await request.json();
+  const parsed = create${modulePascal}Schema.parse(body);
+  const created = await ${moduleCamel}Service.create(parsed);
+  return NextResponse.json({ success: true, data: created }, { status: 201 });
+}
+`
+);
+
+writeFileIfMissing(
+  path.join(moduleBasePath, '__tests__', `${moduleCamel}.service.test.ts`),
+  `import { describe, it, expect } from 'vitest';
+import { ${moduleCamel}Service } from '../services';
+
+describe('${serviceName}', () => {
+  it('returns empty list by default', async () => {
+    const rows = await ${moduleCamel}Service.list();
+    expect(rows).toEqual([]);
   });
-
-  describe('findAll', () => {
-    it('should return all records', async () => {
-      const mockRecords = [
-        { id: 1, createdAt: new Date(), updatedAt: new Date(), deletedAt: null },
-        { id: 2, createdAt: new Date(), updatedAt: new Date(), deletedAt: null },
-      ];
-
-      vi.mocked(${moduleCamel}Repository.findAll).mockResolvedValue(mockRecords as any);
-
-      const result = await ${moduleCamel}Service.findAll();
-
-      expect(result).toEqual(mockRecords);
-      expect(${moduleCamel}Repository.findAll).toHaveBeenCalledOnce();
-    });
-  });
-
-  describe('create', () => {
-    it('should create a new record', async () => {
-      const mockInput = { /* add your fields */ };
-      const mockRecord = {
-        id: 1,
-        ...mockInput,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-        deletedAt: null,
-      };
-
-      vi.mocked(${moduleCamel}Repository.create).mockResolvedValue(mockRecord as any);
-
-      const result = await ${moduleCamel}Service.create(mockInput);
-
-      expect(result).toEqual(mockRecord);
-      expect(${moduleCamel}Repository.create).toHaveBeenCalledWith(mockInput);
-    });
-  });
-
-  // Add more tests here
 });
-`,
+`
+);
 
-  // Integration Tests
-  '__tests__/api.integration.test.ts': `/**
- * ${ModuleName} API Integration Tests
- */
-
-import { describe, it, expect, beforeAll, afterAll } from 'vitest';
-import { prisma } from '@/lib/prisma';
-
-describe('${ModuleName} API', () => {
-  beforeAll(async () => {
-    // Setup test data
-  });
-
-  afterAll(async () => {
-    // Cleanup test data
-    await prisma.$disconnect();
-  });
-
-  describe('GET /api/${moduleName}', () => {
-    it('should return all records', async () => {
-      const response = await fetch('http://localhost:3000/api/${moduleName}');
-      const data = await response.json();
-
-      expect(response.status).toBe(200);
-      expect(data.success).toBe(true);
-      expect(Array.isArray(data.data)).toBe(true);
-    });
-  });
-
-  describe('POST /api/${moduleName}', () => {
-    it('should create a new record', async () => {
-      const payload = {
-        // Add your test payload
-      };
-
-      const response = await fetch('http://localhost:3000/api/${moduleName}', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      });
-
-      const data = await response.json();
-
-      expect(response.status).toBe(201);
-      expect(data.success).toBe(true);
-      expect(data.data).toHaveProperty('id');
-    });
-
-    it('should reject invalid payload', async () => {
-      const invalidPayload = {};
-
-      const response = await fetch('http://localhost:3000/api/${moduleName}', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(invalidPayload),
-      });
-
-      expect(response.status).toBe(422);
-    });
-  });
-
-  // Add more integration tests
-});
-`,
-
-  // Module Index
-  'index.ts': `/**
- * ${ModuleName} Module
- */
-
-export * from './types';
+writeFileIfMissing(
+  path.join(moduleBasePath, 'index.ts'),
+  `export * from './types';
 export * from './services';
-export { Create${ModuleName}Schema, Update${ModuleName}Schema, ${ModuleName}QuerySchema } from './api/schemas';
-`,
-};
+export * from './hooks/${hookName}';
+export * from './components/${componentName}';
+`
+);
 
-// Write files
-Object.entries(templates).forEach(([file, content]) => {
-  const filePath = path.join(basePath, file);
-  fs.writeFileSync(filePath, content);
-  console.log(`📝 Generated: ${file}`);
-});
+if (withPage) {
+  const appPathParts = ['src', 'app', domain];
+  if (section) {
+    appPathParts.push(section);
+  }
+  appPathParts.push(moduleName);
 
-console.log(`\n✨ Module ${ModuleName} generated successfully!`);
-console.log(`\n📚 Next steps:`);
-console.log(`  1. Update Prisma schema with ${ModuleName} model`);
-console.log(`  2. Run: npx prisma generate`);
-console.log(`  3. Update generated types in types/index.ts`);
-console.log(`  4. Add validation rules in api/schemas.ts`);
-console.log(`  5. Implement custom logic in services/index.ts`);
-console.log(`  6. Run tests: npm run test ${moduleName}`);
-console.log(`\n🎯 Module structure:`);
-console.log(`  ├── api/           (API routes + Zod schemas)`);
-console.log(`  ├── services/      (Business logic + Repository)`);
-console.log(`  ├── types/         (TypeScript types)`);
-console.log(`  ├── components/    (React components)`);
-console.log(`  ├── hooks/         (Custom hooks)`);
-console.log(`  ├── utils/         (Module utilities)`);
-console.log(`  └── __tests__/     (Unit + Integration tests)`);
-console.log('');
+  const appPageDir = path.join(process.cwd(), ...appPathParts);
+  ensureDir(appPageDir);
+
+  writeFileIfMissing(
+    path.join(appPageDir, 'page.tsx'),
+    `import { ${componentName} } from '@/modules/${domain}${section ? `/${section}` : ''}/${moduleName}/components/${componentName}';
+
+export default function Page() {
+  return <${componentName} />;
+}
+`
+  );
+}
+
+console.log('\n✨ Module scaffold complete.');
+console.log(`Domain: ${domain}`);
+console.log(`Section: ${section || '(none)'}`);
+console.log(`Table engine: ${tableEngine}`);
+console.log(`Path: ${moduleBasePath}`);

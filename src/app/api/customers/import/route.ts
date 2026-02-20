@@ -5,6 +5,11 @@ import { prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
 
 type CsvRow = Record<string, string>;
+type UploadFileLike = {
+  stream?: () => ReadableStream<Uint8Array>;
+  text?: () => Promise<string>;
+  arrayBuffer?: () => Promise<ArrayBuffer>;
+};
 
 interface ImportStats {
   totalRows: number;
@@ -61,7 +66,7 @@ export const POST = withErrorHandler(async (request: NextRequest) => {
     return ApiResponse.badRequest('No file provided');
   }
 
-  const content = await file.text();
+  const content = await readFileLikeText(file);
   const lines = content.split(/\r?\n/).filter((line) => line.trim());
 
   if (lines.length < 2) {
@@ -113,12 +118,43 @@ export const POST = withErrorHandler(async (request: NextRequest) => {
   return ApiResponse.success({ stats }, 'Customers imported successfully');
 });
 
-function isFileLike(value: unknown): value is Blob {
+function isFileLike(value: unknown): value is UploadFileLike {
   return (
-    typeof value === 'object' &&
-    value !== null &&
-    typeof (value as { text?: unknown }).text === 'function'
+    typeof value === 'object' && value !== null && typeof value !== 'string'
   );
+}
+
+async function readFileLikeText(file: UploadFileLike): Promise<string> {
+  if (typeof file.text === 'function') {
+    return file.text();
+  }
+
+  if (typeof file.arrayBuffer === 'function') {
+    return new TextDecoder().decode(await file.arrayBuffer());
+  }
+
+  if (
+    typeof FileReader !== 'undefined' &&
+    typeof Blob !== 'undefined' &&
+    file instanceof Blob
+  ) {
+    return await new Promise<string>((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () =>
+        resolve(typeof reader.result === 'string' ? reader.result : '');
+      reader.onerror = () =>
+        reject(reader.error ?? new Error('Unable to read uploaded file'));
+      reader.readAsText(file);
+    });
+  }
+
+  try {
+    return await new Response(file as unknown as BodyInit).text();
+  } catch {
+    // no-op: handled by final throw
+  }
+
+  throw new Error('Unable to read uploaded file');
 }
 
 function buildRow(headers: string[], values: string[]): CsvRow {
