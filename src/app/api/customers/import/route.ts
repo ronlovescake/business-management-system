@@ -3,6 +3,7 @@ import { ApiResponse } from '@/core/api';
 import { withErrorHandler } from '@/core/api/middleware';
 import { prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
+import { readUploadedText } from '@/lib/files/readUploadedText';
 
 type CsvRow = Record<string, string>;
 type UploadFileLike = {
@@ -125,36 +126,7 @@ function isFileLike(value: unknown): value is UploadFileLike {
 }
 
 async function readFileLikeText(file: UploadFileLike): Promise<string> {
-  if (typeof file.text === 'function') {
-    return file.text();
-  }
-
-  if (typeof file.arrayBuffer === 'function') {
-    return new TextDecoder().decode(await file.arrayBuffer());
-  }
-
-  if (
-    typeof FileReader !== 'undefined' &&
-    typeof Blob !== 'undefined' &&
-    file instanceof Blob
-  ) {
-    return await new Promise<string>((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = () =>
-        resolve(typeof reader.result === 'string' ? reader.result : '');
-      reader.onerror = () =>
-        reject(reader.error ?? new Error('Unable to read uploaded file'));
-      reader.readAsText(file);
-    });
-  }
-
-  try {
-    return await new Response(file as unknown as BodyInit).text();
-  } catch {
-    // no-op: handled by final throw
-  }
-
-  throw new Error('Unable to read uploaded file');
+  return readUploadedText(file);
 }
 
 function buildRow(headers: string[], values: string[]): CsvRow {

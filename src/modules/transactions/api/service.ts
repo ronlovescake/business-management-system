@@ -1,5 +1,5 @@
-import { randomUUID } from 'crypto';
 import type { Prisma, Transaction } from '@prisma/client';
+import type { ChangeLogEntryInput } from '@/core/change-log';
 import { prisma } from '@/lib/db';
 import { isFulfilledStatus, isReservedStatus } from '@/lib/inventory/statuses';
 import {
@@ -10,12 +10,6 @@ import {
 import { allocateByAvailability } from '@/modules/clothing/operations/products/lib/mixAndMatchAllocation';
 import { MIX_AND_MATCH_NAME_PREFIX } from '@/lib/inventory/mixAndMatchTag';
 import { logger } from '@/lib/logger';
-import { getCurrentUser } from '@/lib/auth/session';
-import {
-  recordChange,
-  recordChanges,
-  type ChangeLogEntryInput,
-} from '@/core/change-log';
 import type { TransactionDTO } from './dto';
 import { mapToDTO } from './dto';
 import {
@@ -26,7 +20,7 @@ import {
   sanitizeTransactionRecord,
   sanitizeTransactionUpdateRecord,
 } from './sanitizers';
-import type { TransactionRecord, TransactionUpdateRecord } from './sanitizers';
+import type { TransactionUpdateRecord } from './sanitizers';
 import {
   computeLineTotalForUpdate,
   computeRemainingBalance,
@@ -34,13 +28,38 @@ import {
   type ExistingTransactionForPaidStatusCheck,
 } from './service-calculations';
 import { transactionDataSchema, transactionUpdateSchema } from './schemas';
-
-interface PriceTier {
-  productCode: string | null;
-  lowerLimit: number;
-  upperLimit: number;
-  currentPrice: number;
-}
+import {
+  buildAutoMixReserveMovementNote,
+  buildAutoMixReserveMovementPrefix,
+  buildAutoMixSaleMovementNote,
+  buildAutoMixSaleMovementPrefix,
+  buildAutoReserveMovementNote,
+  buildAutoSaleMovementNote,
+  normalizeProductCode,
+} from './inventoryMovementNotes';
+import {
+  buildUpdatePayload,
+  describeChange,
+  mapFieldName,
+  shouldRecalculateLineTotal,
+} from './updateHelpers';
+import { buildCreateInput } from './createInputHelpers';
+import {
+  logImportChange,
+  logOperationNotification,
+  logUpdateChanges,
+} from './auditLogHelpers';
+import {
+  findLatestAutoMovement,
+  logStatusChange,
+  setAutoMovementActive,
+  setAutoMovementInactive,
+  setAutoMovementsInactiveByPrefix,
+} from './movementStateHelpers';
+import {
+  buildTransactionUpdateMessage,
+  fetchExistingTransaction,
+} from './runtimeHelpers';
 
 interface TransactionImportSummary {
   count: number;
@@ -87,126 +106,6 @@ export class TransactionNotFoundError extends Error {
   constructor(message: string) {
     super(message);
   }
-}
-
-async function logOperationNotification(
-  category: string,
-  changes: string,
-  metadata?: Record<string, unknown>
-): Promise<void> {
-  try {
-    const id = randomUUID();
-    const metadataJson = metadata ? JSON.stringify(metadata) : null;
-    const now = new Date().toLocaleString('en-US', { timeZone: 'Asia/Manila' });
-    const philippineTime = new Date(now);
-
-    await prisma.$executeRaw`
-      INSERT INTO "operations_notifications" (id, category, "user", changes, metadata, "createdAt")
-      VALUES (${id}, ${category}, ${'Operations'}, ${changes}, ${metadataJson}::jsonb, ${philippineTime})
-    `;
-  } catch (error) {
-    logger.warn('Failed to log operations notification', { error, category });
-  }
-}
-
-async function resolveChangeLogContext(source: string) {
-  try {
-    const user = await getCurrentUser();
-    return {
-      userId: user?.id ?? null,
-      userName: user?.name ?? null,
-      source,
-    } as const;
-  } catch (error) {
-    logger.warn('Unable to resolve user context for change log', {
-      source,
-      error,
-    });
-    return {
-      userId: null,
-      userName: null,
-      source,
-    } as const;
-  }
-}
-
-function getUnitPriceForQuantity(
-  productCode: string,
-  quantity: number,
-  priceTiers: PriceTier[]
-): number {
-  if (!productCode || !quantity || quantity <= 0) {
-    return 0;
-  }
-
-  const matchingTier = priceTiers.find((tier) => {
-    if (!tier.productCode) {
-      return false;
-    }
-    if (tier.productCode !== productCode) {
-      return false;
-    }
-    const lowerLimit = tier.lowerLimit / 100;
-    const upperLimit = tier.upperLimit / 100;
-    return quantity >= lowerLimit && quantity <= upperLimit;
-  });
-
-  return matchingTier ? matchingTier.currentPrice : 0;
-}
-
-function calculateLineTotal(
-  quantity: number,
-  unitPrice: number,
-  adjustment: number
-): number {
-  return quantity * unitPrice - adjustment;
-}
-
-function buildCreateInput(row: TransactionRecord, priceTiers: PriceTier[]) {
-  const quantity = row.Quantity;
-  const discount = row.Discount;
-  const adjustment = row.Adjustment;
-  const productCode = row['Product Code'];
-
-  let unitPrice = row['Unit Price'];
-  if (unitPrice === 0 && quantity > 0 && productCode) {
-    const tierPrice = getUnitPriceForQuantity(
-      productCode,
-      quantity,
-      priceTiers
-    );
-    if (tierPrice > 0) {
-      const tierPriceInPeso = tierPrice / 100;
-      unitPrice = tierPriceInPeso - discount;
-      logger.debug(
-        `Auto-calculated Unit Price for ${productCode} (Qty: ${quantity}): ${tierPriceInPeso} - ${discount} = ${unitPrice}`
-      );
-    }
-  }
-
-  let lineTotal = row['Line Total'];
-  if (lineTotal === 0) {
-    lineTotal = calculateLineTotal(quantity, unitPrice, adjustment);
-    logger.debug(
-      `Auto-calculated Line Total: (${quantity} × ${unitPrice}) - ${adjustment} = ${lineTotal}`
-    );
-  }
-
-  return {
-    orderDate: row['Order Date'],
-    customers: row.Customers,
-    productCode,
-    quantity,
-    unitPrice,
-    discount,
-    adjustment,
-    lineTotal,
-    orderStatus: row['Order Status'] || null,
-    notes: row.Notes,
-    invoiceDate: row['Invoice Date'],
-    packedDate: row['Packed Date'],
-    shipmentCode: row['Shipment Code'],
-  } satisfies Prisma.TransactionCreateManyInput;
 }
 
 async function validateReferences(rows: Prisma.TransactionCreateManyInput[]) {
@@ -307,113 +206,12 @@ async function validateReferences(rows: Prisma.TransactionCreateManyInput[]) {
   }
 }
 
-async function logImportChange(
-  count: number,
-  withData: number,
-  empty: number,
-  templateSkipped = 0
-) {
-  try {
-    const context = await resolveChangeLogContext('transactions:import');
-    await recordChange(
-      {
-        entityType: 'transaction',
-        action: 'import',
-        field: 'bulkImport',
-        oldValue: null,
-        newValue: {
-          count,
-          withData,
-          empty,
-          templateSkipped,
-        },
-        metadata: {
-          emptyRows: empty,
-          templateRows: templateSkipped,
-        },
-      },
-      context
-    );
-  } catch (error) {
-    logger.warn('Failed to record change log for transaction import', {
-      error,
-    });
-  }
-}
-
-async function logUpdateChanges(
-  entries: ChangeLogEntryInput[],
-  source: string
-) {
-  if (entries.length === 0) {
-    return;
-  }
-
-  try {
-    const context = await resolveChangeLogContext(source);
-    await recordChanges(entries, context);
-  } catch (error) {
-    logger.warn('Failed to record change log entries', { error, source });
-  }
-}
-
-function buildUpdatePayload(values: TransactionUpdateRecord['values']) {
-  const data: Prisma.TransactionUpdateInput = {};
-
-  if (values['Order Date'] !== undefined) {
-    data.orderDate = values['Order Date'];
-  }
-  if (values.Customers !== undefined) {
-    data.customers = values.Customers;
-  }
-  if (values['Product Code'] !== undefined) {
-    data.productCode = values['Product Code'];
-  }
-  if (values.Quantity !== undefined) {
-    data.quantity = values.Quantity;
-  }
-  if (values['Unit Price'] !== undefined) {
-    data.unitPrice = values['Unit Price'];
-  }
-  if (values.Discount !== undefined) {
-    data.discount = values.Discount;
-  }
-  if (values['Line Total'] !== undefined) {
-    data.lineTotal = values['Line Total'];
-  }
-  if (values['Order Status'] !== undefined) {
-    data.orderStatus = values['Order Status'];
-  }
-  if (values.Notes !== undefined) {
-    data.notes = values.Notes;
-  }
-  if (values['Invoice Date'] !== undefined) {
-    data.invoiceDate = values['Invoice Date'];
-  }
-  if (values['Packed Date'] !== undefined) {
-    data.packedDate = values['Packed Date'];
-  }
-  if (values['Shipment Code'] !== undefined) {
-    data.shipmentCode = values['Shipment Code'];
-  }
-
-  return data;
-}
-
 // =============================================================================
 // ⚠️ LINE TOTAL RECALC (UPDATE PATH)
 // =============================================================================
 // Line Total must stay aligned with Quantity × Unit Price - Adjustment on
 // *updates*, even when users do not explicitly edit Line Total.
 // =============================================================================
-function shouldRecalculateLineTotal(values: TransactionUpdateRecord['values']) {
-  return (
-    values.Quantity !== undefined ||
-    values['Unit Price'] !== undefined ||
-    values['Line Total'] !== undefined
-  );
-}
-
 function assertCanSetPaidStatus(params: {
   nextStatus: string | null | undefined;
   existing: ExistingTransactionForPaidStatusCheck;
@@ -449,78 +247,6 @@ function assertCanSetPaidStatus(params: {
   }
 }
 
-function describeChange(
-  field: string,
-  oldValue: unknown,
-  newValue: unknown
-): string {
-  const formattedOld =
-    oldValue === null || oldValue === undefined || oldValue === ''
-      ? 'empty'
-      : String(oldValue);
-  const formattedNew =
-    newValue === null || newValue === undefined || newValue === ''
-      ? 'empty'
-      : String(newValue);
-  return `${field}: ${formattedOld} → ${formattedNew}`;
-}
-
-async function logStatusChange(
-  client: Prisma.TransactionClient | typeof prisma,
-  transactionId: number,
-  previousStatus: string | null | undefined,
-  newStatus: string | null | undefined
-) {
-  const prev = previousStatus ?? null;
-  const next = newStatus ?? null;
-
-  if (prev === next) {
-    return;
-  }
-
-  await client.transactionStatusChange.create({
-    data: {
-      transactionId,
-      previousStatus: prev,
-      newStatus: next,
-    },
-  });
-}
-
-function normalizeProductCode(value: string | null | undefined): string {
-  return (value ?? '').trim();
-}
-
-function buildAutoSaleMovementNote(transactionId: number) {
-  return `auto-sale txn ${transactionId}`;
-}
-
-function buildAutoReserveMovementNote(transactionId: number) {
-  return `auto-reserve txn ${transactionId}`;
-}
-
-function buildAutoMixReserveMovementNote(
-  transactionId: number,
-  productCode: string
-) {
-  return `auto-reserve txn ${transactionId} mix ${productCode}`;
-}
-
-function buildAutoMixSaleMovementNote(
-  transactionId: number,
-  productCode: string
-) {
-  return `auto-sale txn ${transactionId} mix ${productCode}`;
-}
-
-function buildAutoMixReserveMovementPrefix(transactionId: number) {
-  return `auto-reserve txn ${transactionId} mix `;
-}
-
-function buildAutoMixSaleMovementPrefix(transactionId: number) {
-  return `auto-sale txn ${transactionId} mix `;
-}
-
 type MixAndMatchDefinition = {
   id: number;
   components: Array<{ componentProductCode: string }>;
@@ -539,119 +265,6 @@ type TransactionForInventorySync = Pick<
   | 'orderStatus'
   | 'adjustment'
 >;
-
-type AutoMovementRecord = {
-  id: number;
-  deletedAt: Date | null;
-};
-
-async function findLatestAutoMovement(
-  client: Prisma.TransactionClient | typeof prisma,
-  note: string
-): Promise<AutoMovementRecord | null> {
-  return client.inventoryMovement.findFirst({
-    where: { notes: note },
-    orderBy: { createdAt: 'desc' },
-    select: { id: true, deletedAt: true },
-  });
-}
-
-async function setAutoMovementActive(params: {
-  client: Prisma.TransactionClient | typeof prisma;
-  existing: AutoMovementRecord | null;
-  productCode: string;
-  quantity: number;
-  fromBucket: Prisma.InventoryMovementCreateInput['fromBucket'];
-  toBucket: Prisma.InventoryMovementCreateInput['toBucket'];
-  postingDate: string | null;
-  note: string;
-}) {
-  const {
-    client,
-    existing,
-    productCode,
-    quantity,
-    fromBucket,
-    toBucket,
-    postingDate,
-    note,
-  } = params;
-
-  const now = new Date();
-
-  let activeId: number | null = null;
-
-  if (existing) {
-    await client.inventoryMovement.update({
-      where: { id: existing.id },
-      data: {
-        deletedAt: null,
-        productCode,
-        quantity,
-        fromBucket,
-        toBucket,
-        postingDate,
-        notes: note,
-      },
-    });
-
-    activeId = existing.id;
-  } else {
-    const created = await client.inventoryMovement.create({
-      data: {
-        productCode,
-        quantity,
-        fromBucket,
-        toBucket,
-        postingDate,
-        notes: note,
-      },
-      select: { id: true },
-    });
-
-    activeId = created.id;
-  }
-
-  // Historical bug/behavior: some workspaces may contain multiple auto movements for the
-  // same txn note. Accounting reads all non-deleted movements, so we must ensure only one
-  // remains active.
-  if (activeId) {
-    await client.inventoryMovement.updateMany({
-      where: {
-        notes: note,
-        deletedAt: null,
-        NOT: { id: activeId },
-      },
-      data: { deletedAt: now },
-    });
-    return;
-  }
-}
-
-async function setAutoMovementInactive(params: {
-  client: Prisma.TransactionClient | typeof prisma;
-  note: string;
-}) {
-  const { client, note } = params;
-  await client.inventoryMovement.updateMany({
-    where: { notes: note, deletedAt: null },
-    data: { deletedAt: new Date() },
-  });
-}
-
-async function setAutoMovementsInactiveByPrefix(params: {
-  client: Prisma.TransactionClient | typeof prisma;
-  notePrefix: string;
-}) {
-  const { client, notePrefix } = params;
-  await client.inventoryMovement.updateMany({
-    where: {
-      notes: { startsWith: notePrefix },
-      deletedAt: null,
-    },
-    data: { deletedAt: new Date() },
-  });
-}
 
 async function findMixAndMatchBySku(
   client: Prisma.TransactionClient | typeof prisma,
@@ -985,50 +598,17 @@ async function handleNotificationBatch(
 
   await Promise.all(
     updates.map(async ({ id, transaction, changes }) => {
-      let message = `Updated transaction #${id}`;
-      if (transaction.customers && transaction.productCode) {
-        message += ` - ${transaction.customers} (${transaction.productCode})`;
-      } else if (transaction.customers) {
-        message += ` - ${transaction.customers}`;
-      } else if (transaction.productCode) {
-        message += ` - (${transaction.productCode})`;
-      }
-
-      if (changes.length > 0) {
-        message += ` - Modified: ${changes.join(', ')}`;
-      }
+      const message = buildTransactionUpdateMessage({
+        id,
+        transaction,
+        changes,
+      });
 
       await logOperationNotification('transactions', message, {
         transactionId: id,
       });
     })
   );
-}
-
-type TransactionDelegate = typeof prisma.transaction;
-
-async function fetchExistingTransaction(
-  delegate: TransactionDelegate,
-  id: number
-) {
-  return delegate.findUnique({
-    where: { id },
-    select: {
-      orderDate: true,
-      customers: true,
-      productCode: true,
-      quantity: true,
-      unitPrice: true,
-      discount: true,
-      adjustment: true,
-      lineTotal: true,
-      orderStatus: true,
-      notes: true,
-      invoiceDate: true,
-      packedDate: true,
-      shipmentCode: true,
-    },
-  });
 }
 
 export interface TransactionService {
@@ -1545,26 +1125,3 @@ export const transactionService: TransactionService = {
     };
   },
 };
-
-function mapFieldName(field: string): string {
-  switch (field) {
-    case 'Order Date':
-      return 'orderDate';
-    case 'Product Code':
-      return 'productCode';
-    case 'Unit Price':
-      return 'unitPrice';
-    case 'Line Total':
-      return 'lineTotal';
-    case 'Order Status':
-      return 'orderStatus';
-    case 'Invoice Date':
-      return 'invoiceDate';
-    case 'Packed Date':
-      return 'packedDate';
-    case 'Shipment Code':
-      return 'shipmentCode';
-    default:
-      return field.charAt(0).toLowerCase() + field.slice(1);
-  }
-}

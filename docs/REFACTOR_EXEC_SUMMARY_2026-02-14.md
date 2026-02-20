@@ -2579,3 +2579,323 @@ This change resolves full-suite regressions caused by environment differences be
 - No intentional behavior change to business flows.
 - Changes are compatibility hardening for delegate/file handling across runtime and test environments.
 - Full regression gate confirms no detected downstream breakage.
+
+---
+
+## Addendum — Repository-Wide Scope Expansion + Fresh Audit Baseline (Feb 20, 2026)
+
+This is an append-only update for history tracking. Prior sections remain unchanged.
+
+### What changed in governance scope
+
+- Expanded mandatory refactor-audit scope in policy to explicitly include:
+  - trucking (`src/modules/trucking/**`, `src/app/trucking/**`)
+  - home-finance (`src/modules/household/**`, `src/app/personal/**`)
+  - repository-wide baseline coverage (`src/modules/**`, `src/app/**`)
+  - additional shared/repository surfaces (`src/core/**`, `src/shared/**`, `src/services/**`, `src/hooks/**`, `src/utils/**`, `src/constants/**`, `src/types/**`, `src/pages/**`, `src/styles/**`, `src/middleware.ts`)
+- Intent: ensure “repository-wide” scans cannot omit active business domains or shared runtime surfaces.
+
+### 1. Scope coverage checklist (covered / N/A)
+
+- Covered: `src/modules/clothing/operations/**` (`301` files)
+- Covered: `src/modules/clothing/ledger/**` (`13` files)
+- Covered: `src/modules/clothing/employees/**` (`33` files)
+- Covered: `src/modules/general-merchandise/operations/**` (`24` files)
+- Covered: `src/modules/general-merchandise/ledger/**` (`7` files)
+- N/A: `src/modules/general-merchandise/employees/**` (path missing, expected optional)
+- Covered: `src/modules/trucking/**` (`62` files)
+- Covered: `src/modules/household/**` (`20` files)
+- Covered: `src/modules/**` (`563` files)
+- Covered: `src/app/clothing/**` (`194` files)
+- Covered: `src/app/general-merchandise/**` (`43` files)
+- Covered: `src/app/trucking/**` (`110` files)
+- Covered: `src/app/personal/**` (`35` files)
+- Covered: `src/app/api/**` (`261` files)
+- Covered: `src/app/**` (`687` files)
+- Covered shared/repo surfaces: `src/lib/**` (`117`), `src/components/**` (`99`), `src/core/**` (`25`), `src/shared/**` (`2`), `src/services/**` (`19`), `src/hooks/**` (`10`), `src/utils/**` (`5`), `src/constants/**` (`6`), `src/types/**` (`7`), `src/pages/**` (`1`), `tests/**` (`84`), `src/styles/**` (`3`), `src/middleware.ts` (file)
+
+### 2. Large-file metrics
+
+- Distribution:
+  - `>=500`: `157`
+  - `>=800`: `59`
+  - `>=1000`: `27`
+  - `>=1200`: `16`
+  - `>=1500`: `2`
+- Highest entries in this full-scope pass:
+  - `src/app/trucking/employees/payroll/hooks/usePayroll.ts` (`1666`)
+  - `src/modules/transactions/api/service.ts` (`1570`)
+  - `src/components/ui/HandsontableGrid.tsx` (`1466`)
+  - `src/lib/openapi/spec.ts` (`1448`)
+
+### 3. Duplication metrics
+
+- Strict four-family intersections:
+  - `src/app` (clothing/general-merchandise/trucking/personal): shared `0`, exact `0`, ratio `0.00%`
+  - `src/modules` (clothing/general-merchandise/trucking/household): shared `0`, exact `0`, ratio `0.00%`
+- Pairwise hotspots (actionable):
+  - `src/app` clothing vs trucking: shared `81`, exact `30`, ratio `37.04%`
+  - `src/modules` clothing vs trucking: shared `18`, exact `9`, ratio `50.00%`
+  - `src/app` clothing vs general-merchandise: shared `38`, exact `1`, ratio `2.63%`
+
+### 4. Risk markers
+
+- Aggregate (`src/**` + `tests/**`):
+  - `as unknown as`: `2`
+  - `TODO/FIXME`: `0`
+  - `eslint-disable @typescript-eslint/no-explicit-any`: `0`
+- Current marker files:
+  - `src/modules/clothing/operations/shipments/services/ShipmentService.ts`
+  - `src/app/api/customers/import/route.ts`
+
+### 5. Prioritized backlog (P1/P2/P3)
+
+- **P1**: decompose large payroll/attendance/schedules hooks across clothing + trucking and extract shared employee-domain primitives.
+- **P1**: split `src/modules/transactions/api/service.ts` into smaller service units.
+- **P2**: normalize payroll deduction engine structure across domains and reduce heavy shared UI container complexity.
+- **P3**: clear the remaining two `as unknown as` occurrences with typed boundary adapters.
+
+### 6. Cross-family parity actions
+
+- Prioritize clothing↔trucking paired refactors first (highest clone ratios in both app and module families).
+- Keep clothing↔general-merchandise parity propagation active where equivalent relative paths exist.
+- Keep household/personal implementation domain-specific, but apply identical architecture guardrails and validation gates.
+
+### Delta vs previous snapshot (quick view)
+
+- **Scope expansion:** trucking and home-finance are now explicitly mandatory audit domains, plus full baseline coverage for `src/modules/**` and `src/app/**`.
+- **New mandatory surfaces:** shared/runtime and repo-level paths now include `src/core/**`, `src/shared/**`, `src/services/**`, `src/hooks/**`, `src/utils/**`, `src/constants/**`, `src/types/**`, `src/pages/**`, `src/styles/**`, and `src/middleware.ts`.
+- **Metric baseline shift:** large-file counts increased in this pass because scan scope expanded from a narrower domain set to full repository-wide coverage.
+- **Duplication signal shift:** the strongest actionable clone hotspot is now clothing↔trucking (rather than clothing↔general-merchandise), guiding next P1 parity work.
+- **Risk posture:** marker totals remain low, with only two `as unknown as` occurrences currently flagged.
+
+---
+
+## Addendum — Live Refactor Execution Queue (Feb 20, 2026)
+
+This is an append-only update for history tracking. Prior sections remain unchanged.
+
+### Completed in this slice
+
+- Extracted shared uploaded-file text reader utility:
+  - `src/lib/files/readUploadedText.ts`
+- Migrated duplicate fallback logic to the shared utility in:
+  - `src/modules/clothing/operations/shipments/services/ShipmentService.ts`
+  - `src/app/api/customers/import/route.ts`
+- Removed the remaining `as unknown as` file-reader bridge casts by replacing them with typed stream/blob handling in the shared utility.
+
+### Validation outcomes
+
+- `npm run lint`: pass
+- `npm run typecheck`: pass (`TYPECHECK_EXIT:0`)
+
+### Live TODO Queue (sequential, no-skip)
+
+Current active item: **RQ2**.
+
+- [x] **RQ1:** Remove remaining `as unknown as` markers in runtime paths via shared helper extraction.
+  - Completed in this slice.
+- [ ] **RQ2:** Re-scan repository-wide risk markers and confirm marker totals after the helper rollout.
+- [ ] **RQ3:** Begin P1 decomposition pass on `src/modules/transactions/api/service.ts` (first extraction slice only, behavior-preserving).
+- [ ] **RQ4:** Run validation for RQ3 (`npm run lint` + `npm run typecheck`) and record results.
+- [ ] **RQ5:** Update this executive summary with RQ3/RQ4 outcomes and next active item.
+
+Execution rule for this queue: complete exactly one item at a time in order and update status immediately after each item.
+
+---
+
+## Addendum — Live Refactor Execution Progress Update (Feb 20, 2026)
+
+This is an append-only update for history tracking. Prior sections remain unchanged.
+
+### Queue progress
+
+- **RQ2 complete:** repository-wide marker re-scan baseline
+  - `RISK_TOTALS|0`
+  - `as unknown as|0`
+  - `TODO/FIXME|0`
+  - `eslint-disable no-explicit-any|0`
+- **RQ3 complete:** first decomposition slice of `src/modules/transactions/api/service.ts`
+  - Extracted pure helper functions into `src/modules/transactions/api/inventoryMovementNotes.ts`
+  - Migrated note/prefix/product-code normalization helpers from the large service file to the new module (behavior-preserving).
+- **RQ4 complete:** post-slice validation
+  - `npm run lint`: pass
+  - `npm run typecheck`: pass (`TYPECHECK_EXIT:0`)
+
+### Live TODO Queue (updated)
+
+Current active item: **None** — all RQ items completed.
+
+- [x] **RQ1:** Remove remaining `as unknown as` markers in runtime paths via shared helper extraction.
+- [x] **RQ2:** Re-scan repository-wide risk markers and confirm marker totals after the helper rollout.
+- [x] **RQ3:** Begin P1 decomposition pass on `src/modules/transactions/api/service.ts` (first extraction slice only, behavior-preserving).
+- [x] **RQ4:** Run validation for RQ3 (`npm run lint` + `npm run typecheck`) and record results.
+- [x] **RQ5:** Continue next decomposition slice in `src/modules/transactions/api/service.ts` and update this summary with outcomes.
+
+RQ5 completion note:
+
+- Extracted update/change helpers from `src/modules/transactions/api/service.ts` into:
+  - `src/modules/transactions/api/updateHelpers.ts`
+- Migrated service usage to imported helpers (no behavior change):
+  - `buildUpdatePayload`
+  - `shouldRecalculateLineTotal`
+  - `describeChange`
+  - `mapFieldName`
+- Post-RQ5 validation:
+  - `npm run lint`: pass
+  - `npm run typecheck`: pass (`TYPECHECK_EXIT:0`)
+
+---
+
+## Addendum — Live Refactor Execution Progress Update 2 (Feb 20, 2026)
+
+This is an append-only update for history tracking. Prior sections remain unchanged.
+
+### Queue progress
+
+- **RQ6 complete:** next decomposition slice of `src/modules/transactions/api/service.ts`
+  - Extracted create-input pricing helpers into:
+    - `src/modules/transactions/api/createInputHelpers.ts`
+  - Migrated service usage to imported helper:
+    - `buildCreateInput`
+  - Removed duplicated in-file helper definitions (behavior preserved).
+
+### Validation outcomes
+
+- `npm run lint`: pass
+- `npm run typecheck`: pass (`TYPECHECK_EXIT:0`)
+
+### Live TODO Queue (updated)
+
+Current active item: **RQ7**.
+
+- [x] **RQ1:** Remove remaining `as unknown as` markers in runtime paths via shared helper extraction.
+- [x] **RQ2:** Re-scan repository-wide risk markers and confirm marker totals after the helper rollout.
+- [x] **RQ3:** Begin P1 decomposition pass on `src/modules/transactions/api/service.ts` (first extraction slice only, behavior-preserving).
+- [x] **RQ4:** Run validation for RQ3 (`npm run lint` + `npm run typecheck`) and record results.
+- [x] **RQ5:** Continue next decomposition slice in `src/modules/transactions/api/service.ts` and update this summary with outcomes.
+- [x] **RQ6:** Extract create-input pricing helpers from transaction service and validate.
+- [ ] **RQ7:** Continue next behavior-preserving helper extraction slice from transaction service and record outcomes.
+
+---
+
+## Addendum — Live Refactor Execution Progress Update 3 (Feb 20, 2026)
+
+This is an append-only update for history tracking. Prior sections remain unchanged.
+
+### Queue progress
+
+- **RQ7 complete:** extracted audit/change-log helper functions from `src/modules/transactions/api/service.ts` into:
+  - `src/modules/transactions/api/auditLogHelpers.ts`
+- Migrated service usage to imported helpers (behavior-preserving):
+  - `logOperationNotification`
+  - `logImportChange`
+  - `logUpdateChanges`
+
+### Validation outcomes
+
+- `npm run lint`: pass
+- `npm run typecheck`: pass (`TYPECHECK_EXIT:0`)
+
+### Live TODO Queue (updated)
+
+Current active item: **RQ8**.
+
+- [x] **RQ1:** Remove remaining `as unknown as` markers in runtime paths via shared helper extraction.
+- [x] **RQ2:** Re-scan repository-wide risk markers and confirm marker totals after the helper rollout.
+- [x] **RQ3:** Begin P1 decomposition pass on `src/modules/transactions/api/service.ts` (first extraction slice only, behavior-preserving).
+- [x] **RQ4:** Run validation for RQ3 (`npm run lint` + `npm run typecheck`) and record results.
+- [x] **RQ5:** Continue next decomposition slice in `src/modules/transactions/api/service.ts` and update this summary with outcomes.
+- [x] **RQ6:** Extract create-input pricing helpers from transaction service and validate.
+- [x] **RQ7:** Extract audit/change-log helpers from transaction service and validate.
+- [ ] **RQ8:** Continue next behavior-preserving helper extraction slice from transaction service and record outcomes.
+
+---
+
+## Addendum — Live Refactor Execution Progress Update 4 (Feb 20, 2026)
+
+This is an append-only update for history tracking. Prior sections remain unchanged.
+
+### Queue progress
+
+- **RQ8 complete:** extracted movement state helpers from `src/modules/transactions/api/service.ts` into:
+  - `src/modules/transactions/api/movementStateHelpers.ts`
+- Migrated service usage to imported helpers (behavior-preserving):
+  - `logStatusChange`
+  - `findLatestAutoMovement`
+  - `setAutoMovementActive`
+  - `setAutoMovementInactive`
+  - `setAutoMovementsInactiveByPrefix`
+
+### Validation outcomes
+
+- `npm run lint`: pass (no warnings/errors)
+- `npm run typecheck`: pass (`TYPECHECK_EXIT:0`)
+
+### Live TODO Queue (updated)
+
+Current active item: **RQ9**.
+
+- [x] **RQ1:** Remove remaining `as unknown as` markers in runtime paths via shared helper extraction.
+- [x] **RQ2:** Re-scan repository-wide risk markers and confirm marker totals after the helper rollout.
+- [x] **RQ3:** Begin P1 decomposition pass on `src/modules/transactions/api/service.ts` (first extraction slice only, behavior-preserving).
+- [x] **RQ4:** Run validation for RQ3 (`npm run lint` + `npm run typecheck`) and record results.
+- [x] **RQ5:** Continue next decomposition slice in `src/modules/transactions/api/service.ts` and update this summary with outcomes.
+- [x] **RQ6:** Extract create-input pricing helpers from transaction service and validate.
+- [x] **RQ7:** Extract audit/change-log helpers from transaction service and validate.
+- [x] **RQ8:** Extract movement state helpers from transaction service and validate.
+- [ ] **RQ9:** Continue next behavior-preserving helper extraction slice from transaction service and record outcomes.
+
+---
+
+## Addendum — Live Refactor Execution Progress Update 5 (Feb 20, 2026)
+
+This is an append-only update for history tracking. Prior sections remain unchanged.
+
+### Queue progress
+
+- **RQ9 complete:** extracted runtime update helpers from `src/modules/transactions/api/service.ts` into:
+  - `src/modules/transactions/api/runtimeHelpers.ts`
+- Migrated service usage to imported helpers (behavior-preserving):
+  - `buildTransactionUpdateMessage`
+  - `fetchExistingTransaction`
+
+### Validation outcomes
+
+- `npm run lint`: pass (no warnings/errors)
+- `npm run typecheck`: pass (`TYPECHECK_EXIT:0`)
+
+### Live TODO Queue (final)
+
+Current active item: **None** — queue complete.
+
+- [x] **RQ1:** Remove remaining `as unknown as` markers in runtime paths via shared helper extraction.
+- [x] **RQ2:** Re-scan repository-wide risk markers and confirm marker totals after the helper rollout.
+- [x] **RQ3:** Begin P1 decomposition pass on `src/modules/transactions/api/service.ts` (first extraction slice only, behavior-preserving).
+- [x] **RQ4:** Run validation for RQ3 (`npm run lint` + `npm run typecheck`) and record results.
+- [x] **RQ5:** Continue next decomposition slice in `src/modules/transactions/api/service.ts` and update this summary with outcomes.
+- [x] **RQ6:** Extract create-input pricing helpers from transaction service and validate.
+- [x] **RQ7:** Extract audit/change-log helpers from transaction service and validate.
+- [x] **RQ8:** Extract movement state helpers from transaction service and validate.
+- [x] **RQ9:** Extract runtime update helpers from transaction service and validate.
+
+---
+
+## Addendum — Full-Suite Closure After RQ Queue Completion (Feb 20, 2026)
+
+This is an append-only update for history tracking. Prior sections remain unchanged.
+
+### Full validation chain outcomes
+
+- `npm run lint`: pass
+- `npm run typecheck`: pass
+- `npm run test:unit`: pass (`129` files, `1935` tests)
+- `npm run test:integration`: pass (`2` files, `5` tests)
+- `npm run test:hardening`: pass (`4` files, `8` tests)
+- `npm run test:coverage`: pass (`COVERAGE_EXIT:0`)
+
+### Closure status
+
+- Refactor execution queue (`RQ1`–`RQ9`) remains complete.
+- Full quality chain is green after queue completion.
+- No new blockers were introduced in this validation cycle.

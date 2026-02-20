@@ -21,6 +21,7 @@ import { FORM_VALIDATION_RULES } from '../types/shipment.types';
 import { api } from '@/lib/api/client';
 import { logger } from '@/lib/logger';
 import { buildApiPath } from '@/lib/api/paths';
+import { readUploadedText } from '@/lib/files/readUploadedText';
 
 /**
  * ShipmentService - Static methods for shipment business logic
@@ -32,36 +33,7 @@ export class ShipmentService {
       arrayBuffer?: () => Promise<ArrayBuffer>;
     }
   ): Promise<string> {
-    if (typeof file.text === 'function') {
-      return file.text();
-    }
-
-    if (typeof file.arrayBuffer === 'function') {
-      return new TextDecoder().decode(await file.arrayBuffer());
-    }
-
-    if (
-      typeof FileReader !== 'undefined' &&
-      typeof Blob !== 'undefined' &&
-      file instanceof Blob
-    ) {
-      return await new Promise<string>((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = () =>
-          resolve(typeof reader.result === 'string' ? reader.result : '');
-        reader.onerror = () =>
-          reject(reader.error ?? new Error('Unable to read uploaded file'));
-        reader.readAsText(file);
-      });
-    }
-
-    try {
-      return await new Response(file as unknown as BodyInit).text();
-    } catch {
-      // no-op: handled by final throw
-    }
-
-    throw new Error('Unable to read uploaded file');
+    return readUploadedText(file);
   }
 
   private static buildPath(apiBasePath: string | undefined, path: string) {
