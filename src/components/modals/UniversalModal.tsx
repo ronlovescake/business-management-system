@@ -9,16 +9,17 @@ import { MantineProvider, Modal, type ModalProps } from '@mantine/core';
 export const polishedModalOverlayProps: NonNullable<
   ModalProps['overlayProps']
 > = {
-  color: '#0b1120',
-  opacity: 1,
+  color: '#000000',
+  opacity: 0.5,
   blur: 0,
 };
 
 export const polishedModalStyles: NonNullable<ModalProps['styles']> = {
   content: {
+    backgroundColor: '#ffffff',
     borderRadius: '6px',
     border: '1px solid #ebedf2',
-    boxShadow: '0 32px 60px rgba(15, 23, 42, 0.18)',
+    boxShadow: '0 0px 0px rgba(15, 23, 42, 0.18)',
   },
   header: {
     padding: '1.5rem 1.75rem 0.75rem',
