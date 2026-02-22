@@ -502,7 +502,12 @@ export function HandsontableGrid<T extends object>({
     }
 
     const handleKeyDown = (event: KeyboardEvent) => {
-      if ((event.ctrlKey || event.metaKey) && event.key === 'f') {
+      const isFindShortcut =
+        (event.ctrlKey || event.metaKey) &&
+        !event.altKey &&
+        (event.key.toLowerCase() === 'f' || event.code === 'KeyF');
+
+      if (isFindShortcut) {
         event.preventDefault();
         event.stopPropagation(); // Stop event from reaching other handlers
 
@@ -516,8 +521,14 @@ export function HandsontableGrid<T extends object>({
 
         // Small delay to ensure cell editor is closed before focusing search
         setTimeout(() => {
-          searchInputRef.current?.focus();
-          searchInputRef.current?.select();
+          const fallbackSearchInput =
+            searchInputRef.current ??
+            (document.querySelector(
+              'input[placeholder*="Ctrl+F"], input[placeholder*="Search"]'
+            ) as HTMLInputElement | null);
+
+          fallbackSearchInput?.focus();
+          fallbackSearchInput?.select();
         }, 10);
       }
     };

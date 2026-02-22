@@ -1,9 +1,20 @@
 'use client';
 
-import { AppShell, MantineProvider, createTheme } from '@mantine/core';
+import { useEffect, useRef, useState } from 'react';
+import {
+  ActionIcon,
+  AppShell,
+  MantineProvider,
+  Tooltip,
+  createTheme,
+} from '@mantine/core';
 import type { MantineColorsTuple } from '@mantine/core';
 import { Notifications } from '@mantine/notifications';
 import { ModalsProvider } from '@mantine/modals';
+import {
+  IconLayoutSidebarLeftCollapse,
+  IconLayoutSidebarLeftExpand,
+} from '@tabler/icons-react';
 import Sidebar from '../navigation/Sidebar';
 import BreadcrumbNavigation from '../navigation/BreadcrumbNavigation';
 import HeaderQuickActions from '../navigation/HeaderQuickActions';
@@ -60,6 +71,57 @@ const theme = createTheme({
 });
 
 export function AppLayout({ children }: AppLayoutProps) {
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
+  const [isSidebarVisualCollapsed, setIsSidebarVisualCollapsed] =
+    useState(false);
+  const [isSidebarTransitioning, setIsSidebarTransitioning] = useState(false);
+  const transitionTimerRef = useRef<number | null>(null);
+  const SIDEBAR_PHASE_MS = 120;
+
+  const clearTransitionTimer = () => {
+    if (transitionTimerRef.current !== null) {
+      window.clearTimeout(transitionTimerRef.current);
+      transitionTimerRef.current = null;
+    }
+  };
+
+  useEffect(() => {
+    return () => {
+      clearTransitionTimer();
+    };
+  }, []);
+
+  const handleSidebarToggle = () => {
+    if (isSidebarTransitioning) {
+      return;
+    }
+
+    clearTransitionTimer();
+    setIsSidebarTransitioning(true);
+
+    if (isSidebarCollapsed) {
+      setIsSidebarCollapsed(false);
+
+      transitionTimerRef.current = window.setTimeout(() => {
+        setIsSidebarVisualCollapsed(false);
+        setIsSidebarTransitioning(false);
+        transitionTimerRef.current = null;
+      }, SIDEBAR_PHASE_MS);
+
+      return;
+    }
+
+    setIsSidebarVisualCollapsed(true);
+
+    transitionTimerRef.current = window.setTimeout(() => {
+      setIsSidebarCollapsed(true);
+      setIsSidebarTransitioning(false);
+      transitionTimerRef.current = null;
+    }, SIDEBAR_PHASE_MS);
+  };
+
+  const sidebarWidth = isSidebarCollapsed ? 76 : 280;
+
   return (
     <MantineProvider theme={theme}>
       <DynamicDocumentTitle />
@@ -92,8 +154,13 @@ export function AppLayout({ children }: AppLayoutProps) {
             </a>
             <Notifications />
             <AppShell
-              navbar={{ width: 280, breakpoint: 'sm' }}
+              navbar={{
+                width: sidebarWidth,
+                breakpoint: 'sm',
+              }}
               header={{ height: 80 }}
+              transitionDuration={120}
+              transitionTimingFunction="ease"
               padding="md"
               style={{
                 '--mantine-color-body': 'var(--background)',
@@ -119,7 +186,42 @@ export function AppLayout({ children }: AppLayoutProps) {
                     gap: '1.5rem',
                   }}
                 >
-                  <BreadcrumbNavigation />
+                  <div
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '0.75rem',
+                      minWidth: 0,
+                    }}
+                  >
+                    <Tooltip
+                      label={
+                        isSidebarCollapsed
+                          ? 'Expand side panel'
+                          : 'Collapse side panel'
+                      }
+                    >
+                      <ActionIcon
+                        variant="subtle"
+                        color="gray"
+                        size="lg"
+                        radius="md"
+                        onClick={handleSidebarToggle}
+                        aria-label={
+                          isSidebarCollapsed
+                            ? 'Expand side panel'
+                            : 'Collapse side panel'
+                        }
+                      >
+                        {isSidebarCollapsed ? (
+                          <IconLayoutSidebarLeftExpand size={20} />
+                        ) : (
+                          <IconLayoutSidebarLeftCollapse size={20} />
+                        )}
+                      </ActionIcon>
+                    </Tooltip>
+                    <BreadcrumbNavigation />
+                  </div>
                   <HeaderQuickActions />
                 </div>
               </AppShell.Header>
@@ -131,9 +233,10 @@ export function AppLayout({ children }: AppLayoutProps) {
                   border: 'none',
                   borderRight: '1px solid #e2e8f0',
                   boxShadow: '0 1px 2px 0 rgba(0, 0, 0, 0.05)',
+                  overflowX: 'hidden',
                 }}
               >
-                <Sidebar />
+                <Sidebar collapsed={isSidebarVisualCollapsed} />
               </AppShell.Navbar>
 
               <AppShell.Main
