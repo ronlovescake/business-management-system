@@ -166,44 +166,8 @@ export function TransactionsLayout<T extends object = Record<string, unknown>>({
       csvFile={csvFile || null}
       onFileChange={onFileChange || (() => {})}
       onCSVImport={onCSVImport}
-      searchRightButtons={
-        secondarySearchControl ? (
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '12px',
-              flex: 1,
-              minWidth: 0,
-              overflow: 'hidden',
-            }}
-          >
-            <div
-              style={{
-                flex: '1 1 260px',
-                minWidth: 160,
-                transition: 'flex-basis 220ms ease, min-width 220ms ease',
-              }}
-            >
-              {secondarySearchControl}
-            </div>
-            <div
-              style={{
-                flex: '0 0 auto',
-                minWidth: 'max-content',
-                display: 'flex',
-                justifyContent: 'flex-end',
-                overflowX: 'auto',
-                whiteSpace: 'nowrap',
-              }}
-            >
-              {searchRightButtons}
-            </div>
-          </div>
-        ) : (
-          searchRightButtons
-        )
-      }
+      secondarySearchControl={secondarySearchControl}
+      searchRightButtons={searchRightButtons}
       searchBottomContent={undefined}
       stackActionsBelowSearch={false}
       actionButtons={actionButtons}

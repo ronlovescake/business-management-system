@@ -103,6 +103,7 @@ export interface HandsontableGridProps<T extends object> {
   csvFile: File | null;
   onFileChange: (file: File | null) => void;
   actionButtons?: React.ReactNode;
+  secondarySearchControl?: React.ReactNode;
   searchRightButtons?: React.ReactNode;
   searchBottomContent?: React.ReactNode;
   stackActionsBelowSearch?: boolean;
@@ -159,6 +160,7 @@ export function HandsontableGrid<T extends object>({
   csvFile,
   onFileChange,
   actionButtons,
+  secondarySearchControl,
   searchRightButtons,
   searchBottomContent,
   stackActionsBelowSearch = false,
@@ -981,49 +983,75 @@ export function HandsontableGrid<T extends object>({
             <Group
               gap="md"
               align="flex-start"
+              wrap="nowrap"
               style={{
                 flex: 1,
                 minWidth: 0,
                 overflow: 'hidden',
               }}
             >
-              <TextInput
-                ref={searchInputRef}
-                placeholder={
-                  enableCtrlF
-                    ? `${searchPlaceholder} (Ctrl+F)`
-                    : searchPlaceholder
-                }
-                leftSection={<IconSearch size={16} />}
-                value={searchQuery}
-                onChange={(e) => onSearch(e.target.value)}
-                onFocus={handleSearchFocus}
-                style={{
-                  flex: '1 1 320px',
-                  minWidth: 200,
-                  transition: 'flex-basis 220ms ease, min-width 220ms ease',
-                }}
-                styles={{
-                  input: {
-                    backgroundColor: '#ffffff',
-                    borderColor: 'rgba(255, 255, 255, 0.5)',
-                    borderWidth: '1px',
-                    borderStyle: 'solid',
-                    color: '#333333',
-                    boxShadow: '0 4px 12px rgba(0, 0, 0, 0.1)',
-                    '&::placeholder': {
-                      color: '#999999',
+              <div style={{ flex: '1 1 0', minWidth: 0 }}>
+                <TextInput
+                  ref={searchInputRef}
+                  placeholder={
+                    enableCtrlF
+                      ? `${searchPlaceholder} (Ctrl+F)`
+                      : searchPlaceholder
+                  }
+                  leftSection={<IconSearch size={16} />}
+                  value={searchQuery}
+                  onChange={(e) => onSearch(e.target.value)}
+                  onFocus={handleSearchFocus}
+                  style={{
+                    width: '100%',
+                    minWidth: 0,
+                    transition: 'width 220ms ease, min-width 220ms ease',
+                  }}
+                  styles={{
+                    input: {
+                      backgroundColor: '#ffffff',
+                      borderColor: 'rgba(255, 255, 255, 0.5)',
+                      borderWidth: '1px',
+                      borderStyle: 'solid',
+                      color: '#333333',
+                      boxShadow: '0 4px 12px rgba(0, 0, 0, 0.1)',
+                      '&::placeholder': {
+                        color: '#999999',
+                      },
+                      '&:focus': {
+                        borderColor: '#667eea',
+                        boxShadow: '0 4px 16px rgba(102, 126, 234, 0.2)',
+                      },
                     },
-                    '&:focus': {
-                      borderColor: '#667eea',
-                      boxShadow: '0 4px 16px rgba(102, 126, 234, 0.2)',
-                    },
-                  },
-                }}
-                size="md"
-                radius="md"
-              />
-              {searchRightButtons}
+                  }}
+                  size="md"
+                  radius="md"
+                />
+              </div>
+
+              {secondarySearchControl ? (
+                <>
+                  <div style={{ flex: '1 1 0', minWidth: 0 }}>
+                    {secondarySearchControl}
+                  </div>
+                  {searchRightButtons ? (
+                    <div
+                      style={{
+                        flex: '0 0 auto',
+                        minWidth: 'max-content',
+                        display: 'flex',
+                        alignItems: 'center',
+                        overflowX: 'auto',
+                        whiteSpace: 'nowrap',
+                      }}
+                    >
+                      {searchRightButtons}
+                    </div>
+                  ) : null}
+                </>
+              ) : (
+                searchRightButtons
+              )}
             </Group>
 
             {(enableCSVImport || actionButtons) && (
