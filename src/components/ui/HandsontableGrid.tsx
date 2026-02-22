@@ -984,7 +984,7 @@ export function HandsontableGrid<T extends object>({
               style={{
                 flex: 1,
                 minWidth: 0,
-                overflowX: 'auto',
+                overflow: 'hidden',
               }}
             >
               <TextInput
@@ -999,9 +999,9 @@ export function HandsontableGrid<T extends object>({
                 onChange={(e) => onSearch(e.target.value)}
                 onFocus={handleSearchFocus}
                 style={{
-                  flex: '0 1 clamp(260px, 34vw, 520px)',
+                  flex: '1 1 320px',
                   minWidth: 200,
-                  maxWidth: 520,
+                  transition: 'flex-basis 220ms ease, min-width 220ms ease',
                 }}
                 styles={{
                   input: {

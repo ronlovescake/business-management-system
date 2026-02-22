@@ -277,7 +277,7 @@ export function useTransactionsLayout<T extends object>({
     </Group>
   );
 
-  const actionButtons = showActionButtons ? (
+  const toolsButton = showActionButtons ? (
     <Popover
       opened={toolsOpened}
       onChange={setToolsOpened}
@@ -306,10 +306,18 @@ export function useTransactionsLayout<T extends object>({
     </Popover>
   ) : null;
 
+  const searchRightButtons =
+    statusFilterPills || toolsButton ? (
+      <Group gap="xs" wrap="nowrap">
+        {statusFilterPills}
+        {toolsButton}
+      </Group>
+    ) : undefined;
+
   return {
     handleExportToXLSX,
-    searchRightButtons: statusFilterPills,
+    searchRightButtons,
     statusFilterPills,
-    actionButtons,
+    actionButtons: null,
   };
 }

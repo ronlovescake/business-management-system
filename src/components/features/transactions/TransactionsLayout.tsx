@@ -133,21 +133,20 @@ export function TransactionsLayout<T extends object = Record<string, unknown>>({
   stretchColumnId,
 }: TransactionsLayoutProps<T>) {
   // Use hook for export, filters, and action buttons
-  const { searchRightButtons, statusFilterPills, actionButtons } =
-    useTransactionsLayout({
-      filteredData,
-      statusOptions,
-      selectedStatuses,
-      onStatusFilter,
-      extraActionButtons,
-      showActionButtons,
-      onGenerateInvoice,
-      onGeneratePackingList,
-      onGenerateDistribution,
-      isGeneratingInvoice,
-      isGeneratingPackingList,
-      isGeneratingDistribution,
-    });
+  const { searchRightButtons, actionButtons } = useTransactionsLayout({
+    filteredData,
+    statusOptions,
+    selectedStatuses,
+    onStatusFilter,
+    extraActionButtons,
+    showActionButtons,
+    onGenerateInvoice,
+    onGeneratePackingList,
+    onGenerateDistribution,
+    isGeneratingInvoice,
+    isGeneratingPackingList,
+    isGeneratingDistribution,
+  });
 
   return (
     <HandsontableGrid<T>
@@ -176,29 +175,29 @@ export function TransactionsLayout<T extends object = Record<string, unknown>>({
               gap: '12px',
               flex: 1,
               minWidth: 0,
+              overflow: 'hidden',
             }}
           >
             <div
               style={{
-                flex: '0 1 clamp(220px, 26vw, 420px)',
-                minWidth: 180,
-                maxWidth: 420,
+                flex: '1 1 260px',
+                minWidth: 160,
+                transition: 'flex-basis 220ms ease, min-width 220ms ease',
               }}
             >
               {secondarySearchControl}
             </div>
             <div
               style={{
-                flex: 1,
-                minWidth: 0,
-                flexShrink: 0,
+                flex: '0 0 auto',
+                minWidth: 'max-content',
                 display: 'flex',
                 justifyContent: 'flex-end',
-                overflowX: 'visible',
+                overflowX: 'auto',
                 whiteSpace: 'nowrap',
               }}
             >
-              {statusFilterPills}
+              {searchRightButtons}
             </div>
           </div>
         ) : (
