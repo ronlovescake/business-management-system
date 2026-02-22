@@ -88,8 +88,24 @@ export function TransactionsPage({ apiBasePath }: TransactionsPageProps) {
     'due-dates': '',
     'recently-updated': '',
   });
+  const [tabProductCodeSearchQueries, setTabProductCodeSearchQueries] =
+    useState<Record<TransactionsTabValue, string>>({
+      main: '',
+      invoicing: '',
+      'warehouse-prepared': '',
+      'packing-list': '',
+      packed: '',
+      'due-dates': '',
+      'recently-updated': '',
+    });
 
   const [showPaymentsModal, setShowPaymentsModal] = useState(false);
+  const [paymentsCustomerFilter, setPaymentsCustomerFilter] = useState<
+    string | null
+  >(null);
+  const [paymentsProductCodeFilter, setPaymentsProductCodeFilter] = useState<
+    string | null
+  >(null);
   const [customerDetailsId, setCustomerDetailsId] = useState<string | null>(
     null
   );
@@ -152,7 +168,10 @@ export function TransactionsPage({ apiBasePath }: TransactionsPageProps) {
     handleStatusFilter,
     bulkUpdate,
     update,
-  } = useTransactionsData({ apiBasePath });
+  } = useTransactionsData({
+    apiBasePath,
+    productCodeSearchQuery: tabProductCodeSearchQueries[activeTab] ?? '',
+  });
 
   const handleTabChange = useCallback(
     (value: TransactionsTabValue) => {
@@ -179,28 +198,81 @@ export function TransactionsPage({ apiBasePath }: TransactionsPageProps) {
     [activeTab, handleSearch]
   );
 
+  const handleTabProductCodeSearchChange = useCallback(
+    (tab: TransactionsTabValue, query: string) => {
+      setTabProductCodeSearchQueries((prev) => {
+        if (prev[tab] === query) {
+          return prev;
+        }
+        return { ...prev, [tab]: query };
+      });
+    },
+    []
+  );
+
+  const buildPaymentsSearchQuery = useCallback(
+    (customerName: string | null, productCode: string | null) => {
+      const normalizedCustomer = customerName?.trim() ?? '';
+      const normalizedProductCode = productCode?.trim() ?? '';
+
+      if (normalizedCustomer) {
+        return normalizedCustomer;
+      }
+
+      if (normalizedProductCode) {
+        return normalizedProductCode;
+      }
+
+      return '';
+    },
+    []
+  );
+
   const syncCustomerFilter = useCallback(
     (customerName: string | null) => {
-      const query = customerName?.trim() ?? '';
+      setPaymentsCustomerFilter(customerName);
+
+      const query = buildPaymentsSearchQuery(
+        customerName,
+        paymentsProductCodeFilter
+      );
       setTabSearchQueries((prev) => {
         const next = { ...prev, main: query, [activeTab]: query };
         return next;
       });
       handleSearch(query);
     },
-    [activeTab, handleSearch]
+    [
+      activeTab,
+      buildPaymentsSearchQuery,
+      handleSearch,
+      paymentsProductCodeFilter,
+    ]
   );
 
   const syncProductCodeFilter = useCallback(
     (productCode: string | null) => {
-      const query = productCode?.trim() ?? '';
+      setPaymentsProductCodeFilter(productCode);
+
+      const normalizedProductCode = productCode?.trim() ?? '';
+      const query = paymentsCustomerFilter?.trim()
+        ? paymentsCustomerFilter
+        : buildPaymentsSearchQuery(null, normalizedProductCode);
       setTabSearchQueries((prev) => {
         const next = { ...prev, main: query, [activeTab]: query };
         return next;
       });
+      setTabProductCodeSearchQueries((prev) => {
+        const next = {
+          ...prev,
+          main: normalizedProductCode,
+          [activeTab]: normalizedProductCode,
+        };
+        return next;
+      });
       handleSearch(query);
     },
-    [activeTab, handleSearch]
+    [activeTab, buildPaymentsSearchQuery, handleSearch, paymentsCustomerFilter]
   );
 
   useEffect(() => {
@@ -849,6 +921,8 @@ export function TransactionsPage({ apiBasePath }: TransactionsPageProps) {
           extraActionButtons={paymentsActionButton}
           searchQueries={tabSearchQueries}
           onTabSearch={handleTabSearchChange}
+          productSearchQueries={tabProductCodeSearchQueries}
+          onTabProductSearch={handleTabProductCodeSearchChange}
           stretchColumnId={STRETCH_COLUMN_ID}
         />
       </PageLayout>

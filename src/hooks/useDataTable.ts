@@ -8,12 +8,14 @@ export interface UseDataTableProps<T> {
   data: T[];
   searchFields: (keyof T)[];
   initialSearchQuery?: string;
+  searchMode?: 'contains' | 'terms-all';
 }
 
 export function useDataTable<T>({
   data,
   searchFields,
   initialSearchQuery = '',
+  searchMode = 'contains',
 }: UseDataTableProps<T>) {
   const [searchQuery, setSearchQuery] = useState(initialSearchQuery);
 
@@ -28,8 +30,26 @@ export function useDataTable<T>({
       return data;
     }
 
-    const searchTerm = searchQuery.toLowerCase();
+    const searchTerm = searchQuery.toLowerCase().trim();
+    const searchTerms = searchTerm
+      .split(/\s+/)
+      .map((term) => term.trim())
+      .filter(Boolean);
+
     return data.filter((item) => {
+      if (searchMode === 'terms-all') {
+        const haystack = searchFields
+          .map((field) => {
+            const value = item[field];
+            return value === null || value === undefined
+              ? ''
+              : value.toString().toLowerCase();
+          })
+          .join(' ');
+
+        return searchTerms.every((term) => haystack.includes(term));
+      }
+
       return searchFields.some((field) => {
         const value = item[field];
         if (value === null || value === undefined) {
@@ -38,7 +58,7 @@ export function useDataTable<T>({
         return value.toString().toLowerCase().includes(searchTerm);
       });
     });
-  }, [data, searchFields, searchQuery]);
+  }, [data, searchFields, searchMode, searchQuery]);
 
   // Default cell content getter
   const getCellContent = useCallback(

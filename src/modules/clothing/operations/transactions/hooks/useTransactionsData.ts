@@ -132,8 +132,10 @@ const loadSavedSearchQuery = (): string => {
  */
 export function useTransactionsData({
   apiBasePath,
+  productCodeSearchQuery,
 }: {
   apiBasePath?: string;
+  productCodeSearchQuery?: string;
 } = {}): UseTransactionsDataReturn {
   const resolvedApiBasePath = apiBasePath ?? '/api';
   const customerLookupBasePath =
@@ -480,6 +482,7 @@ export function useTransactionsData({
       'Notes',
       'Shipment Code',
     ],
+    searchMode: 'terms-all',
     initialSearchQuery: searchQueryInitialRef.current ?? '',
   });
 
@@ -545,6 +548,20 @@ export function useTransactionsData({
     return filtered;
   }, [searchFilteredData, selectedStatuses, searchQuery, transactions]);
 
+  const productCodeFilteredData = useMemo(() => {
+    const normalizedProductCodeSearch =
+      productCodeSearchQuery?.trim().toLowerCase() ?? '';
+
+    if (!normalizedProductCodeSearch) {
+      return filteredData;
+    }
+
+    return filteredData.filter((transaction) => {
+      const productCode = transaction['Product Code']?.toLowerCase() ?? '';
+      return productCode.includes(normalizedProductCodeSearch);
+    });
+  }, [filteredData, productCodeSearchQuery]);
+
   // Provide stable placeholder rows so users can create new transactions from the grid
   const placeholderRows = useMemo(() => {
     return Array.from({ length: MAX_PLACEHOLDER_ROWS }).map(
@@ -569,16 +586,16 @@ export function useTransactionsData({
   }, []);
 
   const filteredDataWithPlaceholders = useMemo(() => {
-    return [...filteredData, ...placeholderRows];
-  }, [filteredData, placeholderRows]);
+    return [...productCodeFilteredData, ...placeholderRows];
+  }, [productCodeFilteredData, placeholderRows]);
 
   // ============================================================================
   // STATISTICS CALCULATION
   // ============================================================================
 
   const statistics = useMemo(() => {
-    return TransactionService.calculateStatistics(filteredData);
-  }, [filteredData]);
+    return TransactionService.calculateStatistics(productCodeFilteredData);
+  }, [productCodeFilteredData]);
 
   // ============================================================================
   // TRANSACTION SYNC - Update order status based on shipment status

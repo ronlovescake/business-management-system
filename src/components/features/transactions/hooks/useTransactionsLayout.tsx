@@ -1,6 +1,6 @@
 import React from 'react';
 import { showNotification } from '@mantine/notifications';
-import { Group, Button, Pill, Loader } from '@mantine/core';
+import { Group, Button, Pill, Loader, Popover } from '@mantine/core';
 import { IconFileSpreadsheet } from '@tabler/icons-react';
 
 interface UseTransactionsLayoutProps<T> {
@@ -8,6 +8,7 @@ interface UseTransactionsLayoutProps<T> {
   statusOptions?: string[];
   selectedStatuses?: Set<string>;
   onStatusFilter?: (status: string) => void;
+  extraActionButtons?: React.ReactNode;
   showActionButtons?: boolean;
   onGenerateInvoice?: (data: T[]) => void | Promise<void>;
   onGeneratePackingList?: (data: T[]) => void | Promise<void>;
@@ -22,6 +23,7 @@ export function useTransactionsLayout<T extends object>({
   statusOptions = [],
   selectedStatuses = new Set(),
   onStatusFilter,
+  extraActionButtons,
   showActionButtons = true,
   onGenerateInvoice,
   onGeneratePackingList,
@@ -30,6 +32,48 @@ export function useTransactionsLayout<T extends object>({
   isGeneratingPackingList = false,
   isGeneratingDistribution = false,
 }: UseTransactionsLayoutProps<T>) {
+  const [showMoreOpened, setShowMoreOpened] = React.useState(false);
+  const [toolsOpened, setToolsOpened] = React.useState(false);
+
+  const secondaryStatuses = React.useMemo(
+    () => new Set(['Shipped', 'Cancelled', 'Forfeited', 'Voided']),
+    []
+  );
+
+  const { primaryStatusOptions, extraStatusOptions } = React.useMemo(() => {
+    const primary: string[] = [];
+    const extra: string[] = [];
+
+    statusOptions.forEach((status) => {
+      if (secondaryStatuses.has(status)) {
+        extra.push(status);
+        return;
+      }
+      primary.push(status);
+    });
+
+    return {
+      primaryStatusOptions: primary,
+      extraStatusOptions: extra,
+    };
+  }, [secondaryStatuses, statusOptions]);
+
+  const hasActiveExtraStatus = React.useMemo(
+    () => extraStatusOptions.some((status) => selectedStatuses.has(status)),
+    [extraStatusOptions, selectedStatuses]
+  );
+
+  const getPillStyles = React.useCallback(
+    (isSelected: boolean) => ({
+      backgroundColor: isSelected ? '#228be6' : '#e9ecef',
+      color: isSelected ? '#ffffff' : '#495057',
+      cursor: 'pointer',
+      fontWeight: isSelected ? 600 : 400,
+      transition: 'all 0.2s ease',
+    }),
+    []
+  );
+
   // Export to XLSX function
   const handleExportToXLSX = React.useCallback(async () => {
     try {
@@ -64,24 +108,16 @@ export function useTransactionsLayout<T extends object>({
   }, [filteredData]);
 
   // Status filter pills
-  const searchRightButtons =
+  const statusFilterPills =
     statusOptions.length > 0 && onStatusFilter ? (
-      <Group gap="xs" wrap="wrap">
-        {statusOptions.map((status) => (
+      <Group gap="xs" wrap="nowrap">
+        {primaryStatusOptions.map((status) => (
           <Pill
             key={status}
             size="md"
             withRemoveButton={false}
             onClick={() => onStatusFilter(status)}
-            style={{
-              backgroundColor: selectedStatuses.has(status)
-                ? '#228be6'
-                : '#e9ecef',
-              color: selectedStatuses.has(status) ? '#ffffff' : '#495057',
-              cursor: 'pointer',
-              fontWeight: selectedStatuses.has(status) ? 600 : 400,
-              transition: 'all 0.2s ease',
-            }}
+            style={getPillStyles(selectedStatuses.has(status))}
             onMouseEnter={(e: React.MouseEvent<HTMLDivElement>) => {
               if (!selectedStatuses.has(status)) {
                 e.currentTarget.style.backgroundColor = '#dee2e6';
@@ -96,11 +132,67 @@ export function useTransactionsLayout<T extends object>({
             {status}
           </Pill>
         ))}
+
+        {extraStatusOptions.length > 0 && (
+          <Popover
+            opened={showMoreOpened}
+            onChange={setShowMoreOpened}
+            position="bottom-start"
+            withArrow
+            shadow="md"
+          >
+            <Popover.Target>
+              <Pill
+                size="md"
+                withRemoveButton={false}
+                onClick={() => setShowMoreOpened((prev) => !prev)}
+                style={getPillStyles(hasActiveExtraStatus || showMoreOpened)}
+                onMouseEnter={(e: React.MouseEvent<HTMLDivElement>) => {
+                  if (!hasActiveExtraStatus && !showMoreOpened) {
+                    e.currentTarget.style.backgroundColor = '#dee2e6';
+                  }
+                }}
+                onMouseLeave={(e: React.MouseEvent<HTMLDivElement>) => {
+                  if (!hasActiveExtraStatus && !showMoreOpened) {
+                    e.currentTarget.style.backgroundColor = '#e9ecef';
+                  }
+                }}
+              >
+                Show More
+              </Pill>
+            </Popover.Target>
+            <Popover.Dropdown>
+              <Group gap="xs" wrap="wrap">
+                {extraStatusOptions.map((status) => (
+                  <Pill
+                    key={status}
+                    size="md"
+                    withRemoveButton={false}
+                    onClick={() => onStatusFilter(status)}
+                    style={getPillStyles(selectedStatuses.has(status))}
+                    onMouseEnter={(e: React.MouseEvent<HTMLDivElement>) => {
+                      if (!selectedStatuses.has(status)) {
+                        e.currentTarget.style.backgroundColor = '#dee2e6';
+                      }
+                    }}
+                    onMouseLeave={(e: React.MouseEvent<HTMLDivElement>) => {
+                      if (!selectedStatuses.has(status)) {
+                        e.currentTarget.style.backgroundColor = '#e9ecef';
+                      }
+                    }}
+                  >
+                    {status}
+                  </Pill>
+                ))}
+              </Group>
+            </Popover.Dropdown>
+          </Popover>
+        )}
       </Group>
     ) : undefined;
 
   // Action buttons for document generation
-  const actionButtons = showActionButtons ? (
+  const toolsButtons = (
     <Group>
       {onGenerateDistribution && (
         <Button
@@ -181,12 +273,43 @@ export function useTransactionsLayout<T extends object>({
       >
         Export to XLSX
       </Button>
+      {extraActionButtons}
     </Group>
+  );
+
+  const actionButtons = showActionButtons ? (
+    <Popover
+      opened={toolsOpened}
+      onChange={setToolsOpened}
+      position="bottom-end"
+      withArrow
+      shadow="md"
+    >
+      <Popover.Target>
+        <Button
+          variant="outline"
+          radius="sm"
+          onClick={() => setToolsOpened((prev) => !prev)}
+          style={{
+            backgroundColor: toolsOpened ? '#228be6' : '#e9ecef',
+            borderColor: toolsOpened ? '#1c7ed6' : '#dee2e6',
+            borderWidth: '1.5px',
+            color: toolsOpened ? '#ffffff' : '#495057',
+            minWidth: '120px',
+            fontWeight: 600,
+          }}
+        >
+          TOOLS
+        </Button>
+      </Popover.Target>
+      <Popover.Dropdown>{toolsButtons}</Popover.Dropdown>
+    </Popover>
   ) : null;
 
   return {
     handleExportToXLSX,
-    searchRightButtons,
+    searchRightButtons: statusFilterPills,
+    statusFilterPills,
     actionButtons,
   };
 }

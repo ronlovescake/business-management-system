@@ -104,6 +104,8 @@ export interface HandsontableGridProps<T extends object> {
   onFileChange: (file: File | null) => void;
   actionButtons?: React.ReactNode;
   searchRightButtons?: React.ReactNode;
+  searchBottomContent?: React.ReactNode;
+  stackActionsBelowSearch?: boolean;
   onCellClick?: (event: CellClickEvent<T>) => void;
   getCellData: GetCellData<T>;
   onCellEdited?: (
@@ -158,6 +160,8 @@ export function HandsontableGrid<T extends object>({
   onFileChange,
   actionButtons,
   searchRightButtons,
+  searchBottomContent,
+  stackActionsBelowSearch = false,
   onCellClick,
   getCellData,
   onCellEdited,
@@ -901,71 +905,162 @@ export function HandsontableGrid<T extends object>({
       )}
 
       {/* Search and controls */}
-      <Group justify="space-between" align="flex-end" wrap="wrap" gap="md">
-        <Group gap="md" style={{ flex: 1 }}>
-          <TextInput
-            ref={searchInputRef}
-            placeholder={
-              enableCtrlF ? `${searchPlaceholder} (Ctrl+F)` : searchPlaceholder
-            }
-            leftSection={<IconSearch size={16} />}
-            value={searchQuery}
-            onChange={(e) => onSearch(e.target.value)}
-            onFocus={handleSearchFocus}
-            style={{
-              flex: 1,
-              minWidth: 300,
-            }}
-            styles={{
-              input: {
-                backgroundColor: '#ffffff',
-                borderColor: 'rgba(255, 255, 255, 0.5)',
-                borderWidth: '1px',
-                borderStyle: 'solid',
-                color: '#333333',
-                boxShadow: '0 4px 12px rgba(0, 0, 0, 0.1)',
-                '&::placeholder': {
-                  color: '#999999',
-                },
-                '&:focus': {
-                  borderColor: '#667eea',
-                  boxShadow: '0 4px 16px rgba(102, 126, 234, 0.2)',
-                },
-              },
-            }}
-            size="md"
-            radius="md"
-          />
-          {searchRightButtons}
-        </Group>
-
-        {(enableCSVImport || actionButtons) && (
-          <Group gap="sm">
-            {enableCSVImport && (
-              <>
-                <FileInput
-                  placeholder="Select CSV file"
-                  leftSection={<IconUpload size={16} />}
-                  value={csvFile}
-                  onChange={onFileChange}
-                  accept=".csv"
-                  size="md"
-                  radius="md"
-                />
-                <Button
-                  onClick={handleCSVImport}
-                  disabled={!csvFile}
-                  size="md"
-                  radius="md"
-                >
-                  Import
-                </Button>
-              </>
-            )}
-            {actionButtons}
+      {stackActionsBelowSearch ? (
+        <Stack gap="md">
+          <Group align="flex-end" wrap="wrap" gap="md">
+            <Group gap="md" style={{ flex: 1, minWidth: 0 }}>
+              <TextInput
+                ref={searchInputRef}
+                placeholder={
+                  enableCtrlF
+                    ? `${searchPlaceholder} (Ctrl+F)`
+                    : searchPlaceholder
+                }
+                leftSection={<IconSearch size={16} />}
+                value={searchQuery}
+                onChange={(e) => onSearch(e.target.value)}
+                onFocus={handleSearchFocus}
+                style={{
+                  flex: 1,
+                  minWidth: 300,
+                }}
+                styles={{
+                  input: {
+                    backgroundColor: '#ffffff',
+                    borderColor: 'rgba(255, 255, 255, 0.5)',
+                    borderWidth: '1px',
+                    borderStyle: 'solid',
+                    color: '#333333',
+                    boxShadow: '0 4px 12px rgba(0, 0, 0, 0.1)',
+                    '&::placeholder': {
+                      color: '#999999',
+                    },
+                    '&:focus': {
+                      borderColor: '#667eea',
+                      boxShadow: '0 4px 16px rgba(102, 126, 234, 0.2)',
+                    },
+                  },
+                }}
+                size="md"
+                radius="md"
+              />
+              {searchRightButtons}
+            </Group>
           </Group>
-        )}
-      </Group>
+
+          {(enableCSVImport || actionButtons) && (
+            <Group justify="flex-end" gap="sm" wrap="wrap">
+              {enableCSVImport && (
+                <>
+                  <FileInput
+                    placeholder="Select CSV file"
+                    leftSection={<IconUpload size={16} />}
+                    value={csvFile}
+                    onChange={onFileChange}
+                    accept=".csv"
+                    size="md"
+                    radius="md"
+                  />
+                  <Button
+                    onClick={handleCSVImport}
+                    disabled={!csvFile}
+                    size="md"
+                    radius="md"
+                  >
+                    Import
+                  </Button>
+                </>
+              )}
+              {actionButtons}
+            </Group>
+          )}
+        </Stack>
+      ) : (
+        <Stack gap="xs">
+          <Group justify="flex-start" align="flex-start" wrap="nowrap" gap="md">
+            <Group
+              gap="md"
+              align="flex-start"
+              style={{
+                flex: 1,
+                minWidth: 0,
+                overflowX: 'auto',
+              }}
+            >
+              <TextInput
+                ref={searchInputRef}
+                placeholder={
+                  enableCtrlF
+                    ? `${searchPlaceholder} (Ctrl+F)`
+                    : searchPlaceholder
+                }
+                leftSection={<IconSearch size={16} />}
+                value={searchQuery}
+                onChange={(e) => onSearch(e.target.value)}
+                onFocus={handleSearchFocus}
+                style={{
+                  flex: '0 1 clamp(260px, 34vw, 520px)',
+                  minWidth: 200,
+                  maxWidth: 520,
+                }}
+                styles={{
+                  input: {
+                    backgroundColor: '#ffffff',
+                    borderColor: 'rgba(255, 255, 255, 0.5)',
+                    borderWidth: '1px',
+                    borderStyle: 'solid',
+                    color: '#333333',
+                    boxShadow: '0 4px 12px rgba(0, 0, 0, 0.1)',
+                    '&::placeholder': {
+                      color: '#999999',
+                    },
+                    '&:focus': {
+                      borderColor: '#667eea',
+                      boxShadow: '0 4px 16px rgba(102, 126, 234, 0.2)',
+                    },
+                  },
+                }}
+                size="md"
+                radius="md"
+              />
+              {searchRightButtons}
+            </Group>
+
+            {(enableCSVImport || actionButtons) && (
+              <Group
+                gap="sm"
+                wrap="nowrap"
+                style={{ flexShrink: 0, marginLeft: 'auto' }}
+              >
+                {enableCSVImport && (
+                  <>
+                    <FileInput
+                      placeholder="Select CSV file"
+                      leftSection={<IconUpload size={16} />}
+                      value={csvFile}
+                      onChange={onFileChange}
+                      accept=".csv"
+                      size="md"
+                      radius="md"
+                    />
+                    <Button
+                      onClick={handleCSVImport}
+                      disabled={!csvFile}
+                      size="md"
+                      radius="md"
+                    >
+                      Import
+                    </Button>
+                  </>
+                )}
+                {actionButtons}
+              </Group>
+            )}
+          </Group>
+
+          {searchBottomContent}
+        </Stack>
+      )}
 
       {/* Handsontable Grid */}
       <div

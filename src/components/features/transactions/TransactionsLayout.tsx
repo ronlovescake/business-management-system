@@ -58,6 +58,7 @@ export interface TransactionsLayoutProps<T = Record<string, unknown>> {
   searchQuery: string;
   onSearch: (query: string) => void;
   searchPlaceholder?: string;
+  secondarySearchControl?: React.ReactNode;
 
   // Stats
   statsCards?: StatCard[];
@@ -107,6 +108,7 @@ export function TransactionsLayout<T extends object = Record<string, unknown>>({
   searchQuery,
   onSearch,
   searchPlaceholder = 'Search transactions...',
+  secondarySearchControl,
   statsCards,
   statusOptions = [],
   selectedStatuses = new Set(),
@@ -131,19 +133,21 @@ export function TransactionsLayout<T extends object = Record<string, unknown>>({
   stretchColumnId,
 }: TransactionsLayoutProps<T>) {
   // Use hook for export, filters, and action buttons
-  const { searchRightButtons, actionButtons } = useTransactionsLayout({
-    filteredData,
-    statusOptions,
-    selectedStatuses,
-    onStatusFilter,
-    showActionButtons,
-    onGenerateInvoice,
-    onGeneratePackingList,
-    onGenerateDistribution,
-    isGeneratingInvoice,
-    isGeneratingPackingList,
-    isGeneratingDistribution,
-  });
+  const { searchRightButtons, statusFilterPills, actionButtons } =
+    useTransactionsLayout({
+      filteredData,
+      statusOptions,
+      selectedStatuses,
+      onStatusFilter,
+      extraActionButtons,
+      showActionButtons,
+      onGenerateInvoice,
+      onGeneratePackingList,
+      onGenerateDistribution,
+      isGeneratingInvoice,
+      isGeneratingPackingList,
+      isGeneratingDistribution,
+    });
 
   return (
     <HandsontableGrid<T>
@@ -163,17 +167,47 @@ export function TransactionsLayout<T extends object = Record<string, unknown>>({
       csvFile={csvFile || null}
       onFileChange={onFileChange || (() => {})}
       onCSVImport={onCSVImport}
-      searchRightButtons={searchRightButtons}
-      actionButtons={
-        extraActionButtons ? (
-          <>
-            {actionButtons}
-            {extraActionButtons}
-          </>
+      searchRightButtons={
+        secondarySearchControl ? (
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '12px',
+              flex: 1,
+              minWidth: 0,
+            }}
+          >
+            <div
+              style={{
+                flex: '0 1 clamp(220px, 26vw, 420px)',
+                minWidth: 180,
+                maxWidth: 420,
+              }}
+            >
+              {secondarySearchControl}
+            </div>
+            <div
+              style={{
+                flex: 1,
+                minWidth: 0,
+                flexShrink: 0,
+                display: 'flex',
+                justifyContent: 'flex-end',
+                overflowX: 'visible',
+                whiteSpace: 'nowrap',
+              }}
+            >
+              {statusFilterPills}
+            </div>
+          </div>
         ) : (
-          actionButtons
+          searchRightButtons
         )
       }
+      searchBottomContent={undefined}
+      stackActionsBelowSearch={false}
+      actionButtons={actionButtons}
       showFooter={false}
       // scrollToLastNonEmptyRows removed
       stretchColumnId={stretchColumnId}

@@ -1,7 +1,8 @@
 'use client';
 
 import React, { memo, useMemo } from 'react';
-import { Tabs } from '@mantine/core';
+import { Tabs, TextInput } from '@mantine/core';
+import { IconSearch } from '@tabler/icons-react';
 import { TransactionsLayout } from '@/components/features/transactions';
 import type {
   HandsontableColumn,
@@ -49,6 +50,8 @@ interface MainTransactionsTabProps extends BaseTabProps {
   isGeneratingPackingList: boolean;
   isGeneratingDistribution: boolean;
   extraActionButtons?: React.ReactNode;
+  productSearchQuery: string;
+  onProductSearch: (query: string) => void;
 }
 
 const MainTransactionsTab = memo(function MainTransactionsTab({
@@ -70,6 +73,8 @@ const MainTransactionsTab = memo(function MainTransactionsTab({
   isGeneratingPackingList,
   isGeneratingDistribution,
   extraActionButtons,
+  productSearchQuery,
+  onProductSearch,
   stretchColumnId,
 }: MainTransactionsTabProps) {
   return (
@@ -80,6 +85,17 @@ const MainTransactionsTab = memo(function MainTransactionsTab({
       searchQuery={searchQuery}
       onSearch={onSearch}
       searchPlaceholder="Search transactions by customer, product code, status, notes, or shipment code..."
+      secondarySearchControl={
+        <TextInput
+          placeholder="Search product code..."
+          leftSection={<IconSearch size={16} />}
+          value={productSearchQuery}
+          onChange={(event) => onProductSearch(event.currentTarget.value)}
+          style={{ flex: 1, minWidth: 0, width: '100%' }}
+          size="md"
+          radius="md"
+        />
+      }
       getCellData={getCellData}
       onCellEdited={onCellEdited}
       onCellClick={onCellClick}
@@ -287,6 +303,8 @@ interface TransactionsTabsProps {
   extraActionButtons?: React.ReactNode;
   searchQueries: Record<TransactionsTabValue, string>;
   onTabSearch: (tab: TransactionsTabValue, query: string) => void;
+  productSearchQueries: Record<TransactionsTabValue, string>;
+  onTabProductSearch: (tab: TransactionsTabValue, query: string) => void;
   stretchColumnId?: string;
 }
 
@@ -324,6 +342,8 @@ export const TransactionsTabs = memo(function TransactionsTabs({
   extraActionButtons,
   searchQueries,
   onTabSearch,
+  productSearchQueries,
+  onTabProductSearch,
   stretchColumnId,
   onhandEligibleTransactions,
   onhandEligibleFilteredTransactions,
@@ -370,6 +390,8 @@ export const TransactionsTabs = memo(function TransactionsTabs({
           onStatusFilter={onStatusFilter}
           searchQuery={searchQueries.main}
           onSearch={(query) => onTabSearch('main', query)}
+          productSearchQuery={productSearchQueries.main}
+          onProductSearch={(query) => onTabProductSearch('main', query)}
           onGenerateInvoice={onGenerateInvoice}
           onGeneratePackingList={onGeneratePackingList}
           onGenerateDistribution={onGenerateDistribution}
