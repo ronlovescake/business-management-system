@@ -1005,24 +1005,6 @@ export function HandsontableGrid<T extends object>({
                   style={{
                     width: '100%',
                     minWidth: 0,
-                    transition: 'width 220ms ease, min-width 220ms ease',
-                  }}
-                  styles={{
-                    input: {
-                      backgroundColor: '#ffffff',
-                      borderColor: 'rgba(255, 255, 255, 0.5)',
-                      borderWidth: '1px',
-                      borderStyle: 'solid',
-                      color: '#333333',
-                      boxShadow: '0 4px 12px rgba(0, 0, 0, 0.1)',
-                      '&::placeholder': {
-                        color: '#999999',
-                      },
-                      '&:focus': {
-                        borderColor: '#667eea',
-                        boxShadow: '0 4px 16px rgba(102, 126, 234, 0.2)',
-                      },
-                    },
                   }}
                   size="md"
                   radius="md"
