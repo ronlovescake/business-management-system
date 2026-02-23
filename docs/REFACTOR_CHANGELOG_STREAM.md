@@ -6,6 +6,15 @@ This compact stream summarizes backlog execution addenda and active report artif
 
 ## Backlog Execution Stream
 
+### Addendum — UX Consistency + Sorting Options Update (Feb 23, 2026)
+
+- Standardized dropdown viewport behavior globally by setting Mantine defaults to `maxDropdownHeight=556` (about 15 visible rows) for `Select`, `MultiSelect`, `Autocomplete`, and `TagsInput`.
+- Applied the same dropdown default policy in both app-level and modal-level theme providers to keep behavior consistent across regular pages and universal modals.
+- Updated sorting-distribution product option loading to combine `/products` codes and `/mix-and-match` SKUs with deduplication and stable sort ordering.
+- Kept local sorting-distribution dropdown behavior aligned with global policy by removing local override logic in the info section.
+- Validation run passed: `npm run lint && npm run typecheck && npm run test:unit && npm run test:integration && npm run test:hardening && npm run test:coverage`.
+- Commit reference: `e38d8a27` (pushed to `main`).
+
 ### Addendum — Backlog Execution Update (Feb 21, 2026)
 
 - Decomposed `src/app/trucking/employees/payroll/hooks/usePayroll.ts` by extracting large inline workflows into dedicated helper modules:
