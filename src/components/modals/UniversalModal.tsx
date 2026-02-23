@@ -133,6 +133,7 @@ export const polishedReadOnlyFieldStyles = {
 const UNIVERSAL_PRIMARY_BUTTON_COLOR = '#228be6';
 const UNIVERSAL_PRIMARY_BUTTON_HOVER_COLOR = '#1c7ed6';
 const UNIVERSAL_PRIMARY_BUTTON_DISABLED_COLOR = '#74c0fc';
+const MAX_DROPDOWN_HEIGHT_PX = 556;
 
 // Match SweetAlert2 default confirm button sizing:
 // padding: 0.625em 1.1em; font-size: 1em; font-weight: 500
@@ -198,7 +199,7 @@ const universalModalTheme = {
     Select: {
       defaultProps: {
         withCheckIcon: false,
-        maxDropdownHeight: 400,
+        maxDropdownHeight: MAX_DROPDOWN_HEIGHT_PX,
         comboboxProps: { withinPortal: true, zIndex: 500 },
       },
       styles: {
@@ -210,6 +211,24 @@ const universalModalTheme = {
           width: 0,
           margin: 0,
         },
+      },
+    },
+    MultiSelect: {
+      defaultProps: {
+        maxDropdownHeight: MAX_DROPDOWN_HEIGHT_PX,
+        comboboxProps: { withinPortal: true, zIndex: 500 },
+      },
+    },
+    Autocomplete: {
+      defaultProps: {
+        maxDropdownHeight: MAX_DROPDOWN_HEIGHT_PX,
+        comboboxProps: { withinPortal: true, zIndex: 500 },
+      },
+    },
+    TagsInput: {
+      defaultProps: {
+        maxDropdownHeight: MAX_DROPDOWN_HEIGHT_PX,
+        comboboxProps: { withinPortal: true, zIndex: 500 },
       },
     },
     DateInput: {

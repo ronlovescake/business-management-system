@@ -200,10 +200,17 @@ export class SortingDistributionService {
     allProducts: Product[];
   }> {
     try {
-      const rawProducts = await api.get<Product[] | Product | null | undefined>(
-        buildApiPath(apiBasePath, '/products')
-      );
+      const [rawProducts, rawMixAndMatchRows] = await Promise.all([
+        api.get<Product[] | Product | null | undefined>(
+          buildApiPath(apiBasePath, '/products')
+        ),
+        api.get<Array<Record<string, unknown>> | null | undefined>(
+          buildApiPath(apiBasePath, '/mix-and-match')
+        ),
+      ]);
       const products = this.ensureArray<Product>(rawProducts);
+      const mixAndMatchRows =
+        this.ensureArray<Record<string, unknown>>(rawMixAndMatchRows);
 
       if (products.length === 0) {
         logger.warn('Products API returned no items');
@@ -234,15 +241,30 @@ export class SortingDistributionService {
         )
       ).sort((a, b) => a.localeCompare(b));
 
+      const uniqueMixAndMatchCodes = Array.from(
+        new Set(
+          mixAndMatchRows
+            .map((row) => {
+              const code = row['mixAndMatchSku'] ?? row['Mix & Match SKU'];
+              return typeof code === 'string' ? code.trim() : '';
+            })
+            .filter((code) => code !== '')
+        )
+      ).sort((a, b) => a.localeCompare(b));
+
+      const uniqueDropdownCodes = Array.from(
+        new Set([...uniqueSortedProductCodes, ...uniqueMixAndMatchCodes])
+      ).sort((a, b) => a.localeCompare(b));
+
       logger.debug(
         includeAllProducts
-          ? 'Unique product codes (all statuses):'
-          : 'Unique sorting product codes:',
-        uniqueSortedProductCodes.length
+          ? 'Unique product and mix-and-match codes (all statuses):'
+          : 'Unique sorting product and mix-and-match codes:',
+        uniqueDropdownCodes.length
       );
 
       return {
-        productOptions: uniqueSortedProductCodes,
+        productOptions: uniqueDropdownCodes,
         allProducts: products,
       };
     } catch (error) {

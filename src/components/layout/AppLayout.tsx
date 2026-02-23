@@ -42,6 +42,8 @@ const primaryColor: MantineColorsTuple = [
   '#312e81',
 ];
 
+const MAX_DROPDOWN_HEIGHT_PX = 556;
+
 const theme = createTheme({
   primaryColor: 'indigo',
   colors: {
@@ -68,6 +70,28 @@ const theme = createTheme({
     xl: '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1)',
   },
   defaultRadius: 'md',
+  components: {
+    Select: {
+      defaultProps: {
+        maxDropdownHeight: MAX_DROPDOWN_HEIGHT_PX,
+      },
+    },
+    MultiSelect: {
+      defaultProps: {
+        maxDropdownHeight: MAX_DROPDOWN_HEIGHT_PX,
+      },
+    },
+    Autocomplete: {
+      defaultProps: {
+        maxDropdownHeight: MAX_DROPDOWN_HEIGHT_PX,
+      },
+    },
+    TagsInput: {
+      defaultProps: {
+        maxDropdownHeight: MAX_DROPDOWN_HEIGHT_PX,
+      },
+    },
+  },
 });
 
 export function AppLayout({ children }: AppLayoutProps) {

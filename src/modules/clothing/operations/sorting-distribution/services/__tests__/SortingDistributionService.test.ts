@@ -440,13 +440,21 @@ describe('SortingDistributionService', () => {
           Quantity: 75,
         },
       ];
+      const mockMixAndMatchRows = [
+        {
+          mixAndMatchSku: 'MMSKU-100',
+        },
+      ];
 
-      vi.mocked(api.get).mockResolvedValue(mockProducts);
+      vi.mocked(api.get)
+        .mockResolvedValueOnce(mockProducts)
+        .mockResolvedValueOnce(mockMixAndMatchRows);
 
       const result = await SortingDistributionService.loadProducts();
 
       expect(api.get).toHaveBeenCalledWith('/api/products');
-      expect(result.productOptions).toEqual(['PROD-001']);
+      expect(api.get).toHaveBeenCalledWith('/api/mix-and-match');
+      expect(result.productOptions).toEqual(['MMSKU-100', 'PROD-001']);
       expect(result.allProducts).toEqual(mockProducts);
     });
 
@@ -463,14 +471,49 @@ describe('SortingDistributionService', () => {
           Quantity: 50,
         },
       ];
+      const mockMixAndMatchRows = [
+        {
+          mixAndMatchSku: 'MMSKU-100',
+        },
+      ];
 
-      vi.mocked(api.get).mockResolvedValue(mockProducts);
+      vi.mocked(api.get)
+        .mockResolvedValueOnce(mockProducts)
+        .mockResolvedValueOnce(mockMixAndMatchRows);
 
       const result = await SortingDistributionService.loadProducts(true);
 
       expect(api.get).toHaveBeenCalledWith('/api/products');
-      expect(result.productOptions).toEqual(['PROD-001', 'PROD-002']);
+      expect(api.get).toHaveBeenCalledWith('/api/mix-and-match');
+      expect(result.productOptions).toEqual([
+        'MMSKU-100',
+        'PROD-001',
+        'PROD-002',
+      ]);
       expect(result.allProducts).toEqual(mockProducts);
+    });
+
+    it('should dedupe identical product and mix-and-match codes', async () => {
+      const mockProducts: Product[] = [
+        {
+          'Product Code': 'PROD-001',
+          'Shipment Status': 'Sorting',
+          Quantity: 100,
+        },
+      ];
+      const mockMixAndMatchRows = [
+        {
+          mixAndMatchSku: 'PROD-001',
+        },
+      ];
+
+      vi.mocked(api.get)
+        .mockResolvedValueOnce(mockProducts)
+        .mockResolvedValueOnce(mockMixAndMatchRows);
+
+      const result = await SortingDistributionService.loadProducts();
+
+      expect(result.productOptions).toEqual(['PROD-001']);
     });
 
     it('should return empty arrays on error', async () => {

@@ -97,11 +97,6 @@ export function InfoSection({
   productPhotoLink,
 }: InfoSectionProps) {
   const SELECT_WIDTH_PX = 500;
-  const ITEM_HEIGHT_PX = 36;
-  const DROPDOWN_PADDING_PX = 16;
-  const dropdownHeight = productOptions.length
-    ? productOptions.length * ITEM_HEIGHT_PX + DROPDOWN_PADDING_PX
-    : undefined;
 
   const totalDistribution = statistics.totalDistribution;
   const quantityDifference =
@@ -343,16 +338,12 @@ export function InfoSection({
                 searchable
                 clearable
                 style={{ width: '100%' }}
-                maxDropdownHeight={dropdownHeight}
                 ref={productSelectRef}
                 comboboxProps={{
                   withinPortal: true,
                   styles: {
                     dropdown: {
                       width: `${SELECT_WIDTH_PX}px`,
-                      maxHeight: dropdownHeight
-                        ? `${dropdownHeight}px`
-                        : 'none',
                       boxShadow: '0 12px 30px rgba(15, 23, 42, 0.25)',
                     },
                   },
