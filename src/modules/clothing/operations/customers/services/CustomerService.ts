@@ -74,6 +74,26 @@ type CustomerImportApiResponse = ApiResponse<{
  * CSV import/export, validation, and statistics calculation
  */
 class CustomerService {
+  private static normalizeSearchValue(value: unknown): string {
+    return typeof value === 'string' ? value.toLowerCase() : '';
+  }
+
+  private static getCustomerSearchColumns(customer: CustomerData): string[] {
+    return [
+      customer['Customer Name'],
+      customer['Phone Number'],
+      customer.Address,
+      customer.Facebook,
+      customer['Email Address'],
+      customer['Business Name'],
+      customer['Tax Number'],
+      customer['Business Address'],
+      customer['Business Contact Number'],
+      customer.Date,
+      customer['Customer Status'],
+    ];
+  }
+
   private static buildPath(apiBasePath: string | undefined, path: string) {
     return buildApiPath(apiBasePath, path);
   }
@@ -725,22 +745,10 @@ class CustomerService {
       return customers;
     }
 
-    const searchTerm = query.toLowerCase();
+    const searchTerm = query.trim().toLowerCase();
     return customers.filter((customer) => {
-      return (
-        customer.Date.toLowerCase().includes(searchTerm) ||
-        customer['Customer Name'].toLowerCase().includes(searchTerm) ||
-        customer['Phone Number'].toLowerCase().includes(searchTerm) ||
-        customer.Address.toLowerCase().includes(searchTerm) ||
-        customer.Facebook.toLowerCase().includes(searchTerm) ||
-        customer['Email Address'].toLowerCase().includes(searchTerm) ||
-        customer['Business Name'].toLowerCase().includes(searchTerm) ||
-        customer['Tax Number'].toLowerCase().includes(searchTerm) ||
-        customer['Business Address'].toLowerCase().includes(searchTerm) ||
-        customer['Business Contact Number']
-          .toLowerCase()
-          .includes(searchTerm) ||
-        customer['Customer Status'].toLowerCase().includes(searchTerm)
+      return CustomerService.getCustomerSearchColumns(customer).some((value) =>
+        CustomerService.normalizeSearchValue(value).includes(searchTerm)
       );
     });
   }
@@ -753,15 +761,9 @@ class CustomerService {
   ): CustomerWithSearchIndex[] {
     return customers.map((customer) => ({
       ...customer,
-      _searchIndex: [
-        customer['Customer Name'],
-        customer['Phone Number'],
-        customer.Address,
-        customer.Facebook,
-        customer['Email Address'],
-        customer['Business Name'],
-      ]
-        .filter(Boolean)
+      _searchIndex: CustomerService.getCustomerSearchColumns(customer)
+        .map((value) => CustomerService.normalizeSearchValue(value))
+        .filter((value) => value.length > 0)
         .join('|')
         .toLowerCase(),
     }));
