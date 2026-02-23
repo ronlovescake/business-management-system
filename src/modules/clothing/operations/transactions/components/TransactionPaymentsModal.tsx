@@ -176,15 +176,8 @@ export function TransactionPaymentsModal({
 
     if (match) {
       setSelectedCustomer(match);
-      onCustomerChange?.(match);
     }
-  }, [
-    customerNames,
-    defaultCustomerName,
-    onCustomerChange,
-    opened,
-    selectedCustomer,
-  ]);
+  }, [customerNames, defaultCustomerName, opened, selectedCustomer]);
 
   const resetAmountsOnly = useCallback(() => {
     setAmountByTransactionId({});
@@ -231,15 +224,8 @@ export function TransactionPaymentsModal({
 
     if (match?.value) {
       setSelectedProductCode(match.value);
-      onProductCodeChange?.(match.value);
     }
-  }, [
-    defaultProductCode,
-    onProductCodeChange,
-    opened,
-    productCodeOptions,
-    selectedProductCode,
-  ]);
+  }, [defaultProductCode, opened, productCodeOptions, selectedProductCode]);
 
   const statusFilterPills = useMemo(() => {
     return (

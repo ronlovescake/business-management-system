@@ -100,12 +100,13 @@ export function TransactionsPage({ apiBasePath }: TransactionsPageProps) {
     });
 
   const [showPaymentsModal, setShowPaymentsModal] = useState(false);
-  const [paymentsCustomerFilter, setPaymentsCustomerFilter] = useState<
-    string | null
-  >(null);
-  const [paymentsProductCodeFilter, setPaymentsProductCodeFilter] = useState<
-    string | null
-  >(null);
+  const paymentsFiltersRef = useRef<{
+    customer: string | null;
+    productCode: string | null;
+  }>({
+    customer: null,
+    productCode: null,
+  });
   const [customerDetailsId, setCustomerDetailsId] = useState<string | null>(
     null
   );
@@ -210,58 +211,39 @@ export function TransactionsPage({ apiBasePath }: TransactionsPageProps) {
     []
   );
 
-  const buildPaymentsSearchQuery = useCallback(
-    (customerName: string | null, productCode: string | null) => {
-      const normalizedCustomer = customerName?.trim() ?? '';
-      const normalizedProductCode = productCode?.trim() ?? '';
-
-      if (normalizedCustomer) {
-        return normalizedCustomer;
-      }
-
-      if (normalizedProductCode) {
-        return normalizedProductCode;
-      }
-
-      return '';
-    },
-    []
-  );
-
   const syncCustomerFilter = useCallback(
     (customerName: string | null) => {
-      setPaymentsCustomerFilter(customerName);
+      const normalizedCustomer = customerName?.trim() ?? '';
+      const nextCustomer =
+        normalizedCustomer.length > 0 ? normalizedCustomer : null;
+      const nextProductCode = paymentsFiltersRef.current.productCode;
 
-      const query = buildPaymentsSearchQuery(
-        customerName,
-        paymentsProductCodeFilter
-      );
+      paymentsFiltersRef.current = {
+        customer: nextCustomer,
+        productCode: nextProductCode,
+      };
+
+      const query = nextCustomer ?? '';
       setTabSearchQueries((prev) => {
         const next = { ...prev, main: query, [activeTab]: query };
         return next;
       });
       handleSearch(query);
     },
-    [
-      activeTab,
-      buildPaymentsSearchQuery,
-      handleSearch,
-      paymentsProductCodeFilter,
-    ]
+    [activeTab, handleSearch]
   );
 
   const syncProductCodeFilter = useCallback(
     (productCode: string | null) => {
-      setPaymentsProductCodeFilter(productCode);
-
       const normalizedProductCode = productCode?.trim() ?? '';
-      const query = paymentsCustomerFilter?.trim()
-        ? paymentsCustomerFilter
-        : buildPaymentsSearchQuery(null, normalizedProductCode);
-      setTabSearchQueries((prev) => {
-        const next = { ...prev, main: query, [activeTab]: query };
-        return next;
-      });
+      const nextProductCode =
+        normalizedProductCode.length > 0 ? normalizedProductCode : null;
+      const nextCustomer = paymentsFiltersRef.current.customer;
+
+      paymentsFiltersRef.current = {
+        customer: nextCustomer,
+        productCode: nextProductCode,
+      };
       setTabProductCodeSearchQueries((prev) => {
         const next = {
           ...prev,
@@ -270,10 +252,17 @@ export function TransactionsPage({ apiBasePath }: TransactionsPageProps) {
         };
         return next;
       });
-      handleSearch(query);
     },
-    [activeTab, buildPaymentsSearchQuery, handleSearch, paymentsCustomerFilter]
+    [activeTab]
   );
+
+  const handlePaymentsModalClose = useCallback(() => {
+    setShowPaymentsModal(false);
+    paymentsFiltersRef.current = {
+      customer: null,
+      productCode: null,
+    };
+  }, []);
 
   useEffect(() => {
     const activeQuery = tabSearchQueries[activeTab] ?? '';
@@ -830,7 +819,7 @@ export function TransactionsPage({ apiBasePath }: TransactionsPageProps) {
       <PageLayout fluid withPadding>
         <TransactionPaymentsModal
           opened={showPaymentsModal}
-          onClose={() => setShowPaymentsModal(false)}
+          onClose={handlePaymentsModalClose}
           transactions={transactions}
           customerNames={customerNames}
           defaultCustomerName={defaultPaymentsCustomer}
