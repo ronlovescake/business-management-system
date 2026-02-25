@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { showNotification } from '@mantine/notifications';
 import { getSwal } from '@/lib/alerts';
@@ -95,10 +95,10 @@ export function usePackingListGeneration(
     props;
   const queryClient = useQueryClient();
   const resolvedApiBasePath = apiBasePath ?? '/api';
-  const transactionsQueryKey = [
-    ...queryKeys.transactions.lists(),
-    resolvedApiBasePath,
-  ];
+  const transactionsQueryKey = useMemo(
+    () => [...queryKeys.transactions.lists(), resolvedApiBasePath],
+    [resolvedApiBasePath]
+  );
 
   const [isGeneratingPackingList, setIsGeneratingPackingList] = useState(false);
 
@@ -688,7 +688,6 @@ export function usePackingListGeneration(
       saveTransactionToDatabase,
       apiBasePath,
       queryClient,
-      resolvedApiBasePath,
       transactionsQueryKey,
     ]
   );

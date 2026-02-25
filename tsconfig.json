@@ -28,6 +28,7 @@
     ".next",
     "out",
     "dist",
+    "ezpm2gui/**",
     "tmp-*.ts",
     "tmp-*.tsx",
     "scripts/tmp/**",
