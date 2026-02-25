@@ -43,6 +43,7 @@ const primaryColor: MantineColorsTuple = [
 ];
 
 const MAX_DROPDOWN_HEIGHT_PX = 556;
+const SIDEBAR_COLLAPSED_STORAGE_KEY = 'app-layout-sidebar-collapsed';
 
 const theme = createTheme({
   primaryColor: 'indigo',
@@ -99,6 +100,7 @@ export function AppLayout({ children }: AppLayoutProps) {
   const [isSidebarVisualCollapsed, setIsSidebarVisualCollapsed] =
     useState(false);
   const [isSidebarTransitioning, setIsSidebarTransitioning] = useState(false);
+  const hasLoadedSidebarPreferenceRef = useRef(false);
   const transitionTimerRef = useRef<number | null>(null);
   const SIDEBAR_PHASE_MS = 120;
 
@@ -114,6 +116,39 @@ export function AppLayout({ children }: AppLayoutProps) {
       clearTransitionTimer();
     };
   }, []);
+
+  useEffect(() => {
+    try {
+      const storedValue = window.localStorage.getItem(
+        SIDEBAR_COLLAPSED_STORAGE_KEY
+      );
+      const shouldCollapse = storedValue === 'true';
+
+      if (shouldCollapse) {
+        setIsSidebarCollapsed(true);
+        setIsSidebarVisualCollapsed(true);
+      }
+    } catch {
+      // Silently ignore storage read errors (private mode, restricted browser, etc.)
+    } finally {
+      hasLoadedSidebarPreferenceRef.current = true;
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!hasLoadedSidebarPreferenceRef.current) {
+      return;
+    }
+
+    try {
+      window.localStorage.setItem(
+        SIDEBAR_COLLAPSED_STORAGE_KEY,
+        isSidebarCollapsed ? 'true' : 'false'
+      );
+    } catch {
+      // Silently ignore storage write errors (private mode, restricted browser, etc.)
+    }
+  }, [isSidebarCollapsed]);
 
   const handleSidebarToggle = () => {
     if (isSidebarTransitioning) {
