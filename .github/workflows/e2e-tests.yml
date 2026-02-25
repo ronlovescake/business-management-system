@@ -24,6 +24,9 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Legacy browser engine guard
+        run: npm run guard:no-legacy-browser-engine
+
       - name: Run ESLint
         run: npm run lint
 
@@ -59,6 +62,9 @@ jobs:
 
       - name: Install dependencies
         run: npm ci
+
+      - name: Legacy browser engine guard
+        run: npm run guard:no-legacy-browser-engine
 
       - name: Setup test environment
         run: |

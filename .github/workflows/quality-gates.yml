@@ -30,6 +30,9 @@ jobs:
       - name: Guardrails check
         run: npm run guardrails:check
 
+      - name: Legacy browser engine guard
+        run: npm run guard:no-legacy-browser-engine
+
       - name: Lint
         run: npm run lint
 
