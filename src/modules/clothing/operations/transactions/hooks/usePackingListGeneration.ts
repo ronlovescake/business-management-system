@@ -1,12 +1,14 @@
 'use client';
 
 import { useCallback, useState } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { showNotification } from '@mantine/notifications';
 import { getSwal } from '@/lib/alerts';
 import { TransactionService } from '../services/TransactionService';
 import { buildApiPath } from '@/lib/api/paths';
 import { logger } from '@/lib/logger';
 import { normalizeOrderStatus } from '@/lib/transactions/order-status';
+import { queryKeys } from '@/lib/queryKeys';
 import type { TransactionData } from '../types/transaction.types';
 
 interface UsePackingListGenerationProps {
@@ -91,6 +93,12 @@ export function usePackingListGeneration(
 ): UsePackingListGenerationReturn {
   const { transactions, bulkUpdate, apiBasePath, saveTransactionToDatabase } =
     props;
+  const queryClient = useQueryClient();
+  const resolvedApiBasePath = apiBasePath ?? '/api';
+  const transactionsQueryKey = [
+    ...queryKeys.transactions.lists(),
+    resolvedApiBasePath,
+  ];
 
   const [isGeneratingPackingList, setIsGeneratingPackingList] = useState(false);
 
@@ -612,6 +620,10 @@ export function usePackingListGeneration(
           });
 
           bulkUpdate(TransactionService.sanitizeTransactions(updated));
+          queryClient.setQueryData(
+            transactionsQueryKey,
+            TransactionService.sanitizeTransactions(updated)
+          );
 
           const toSave = updated.filter((transaction) =>
             processedIds.has(transaction.id)
@@ -639,6 +651,15 @@ export function usePackingListGeneration(
                 autoClose: 8000,
               });
             }
+
+            await queryClient.invalidateQueries({
+              queryKey: transactionsQueryKey,
+              refetchType: 'active',
+            });
+            await queryClient.refetchQueries({
+              queryKey: transactionsQueryKey,
+              type: 'active',
+            });
           }
         } else {
           const errorData = (await response.json()) as { error?: string };
@@ -661,7 +682,15 @@ export function usePackingListGeneration(
         setIsGeneratingPackingList(false);
       }
     },
-    [transactions, bulkUpdate, saveTransactionToDatabase, apiBasePath]
+    [
+      transactions,
+      bulkUpdate,
+      saveTransactionToDatabase,
+      apiBasePath,
+      queryClient,
+      resolvedApiBasePath,
+      transactionsQueryKey,
+    ]
   );
 
   return {
