@@ -477,16 +477,22 @@ export function useThirteenthMonthPay() {
 
   // Stats
   const stats = useMemo(() => {
-    const total = records.length;
-    const pending = records.filter((r) => r.status === 'pending').length;
-    const calculated = records.filter((r) => r.status === 'calculated').length;
-    const approved = records.filter((r) => r.status === 'approved').length;
-    const paid = records.filter((r) => r.status === 'paid').length;
-    const totalAmount = records.reduce(
+    const total = filteredRecords.length;
+    const pending = filteredRecords.filter(
+      (r) => r.status === 'pending'
+    ).length;
+    const calculated = filteredRecords.filter(
+      (r) => r.status === 'calculated'
+    ).length;
+    const approved = filteredRecords.filter(
+      (r) => r.status === 'approved'
+    ).length;
+    const paid = filteredRecords.filter((r) => r.status === 'paid').length;
+    const totalAmount = filteredRecords.reduce(
       (sum, r) => sum + r.thirteenthMonthPay,
       0
     );
-    const paidAmount = records
+    const paidAmount = filteredRecords
       .filter((r) => r.status === 'paid')
       .reduce((sum, r) => sum + r.thirteenthMonthPay, 0);
 
@@ -499,7 +505,7 @@ export function useThirteenthMonthPay() {
       totalAmount,
       paidAmount,
     };
-  }, [records]);
+  }, [filteredRecords]);
 
   // Edit record mutation
   const editRecordMutation = useMutation({

@@ -69,12 +69,14 @@ export function usePayroll() {
   });
 
   // Computed Values
-  const totalPayrolls = payrolls.length;
-  const pendingPayrolls = payrolls.filter((p) => p.status === 'pending').length;
-  const approvedPayrolls = payrolls.filter(
+  const totalPayrolls = filteredPayrolls.length;
+  const pendingPayrolls = filteredPayrolls.filter(
+    (p) => p.status === 'pending'
+  ).length;
+  const approvedPayrolls = filteredPayrolls.filter(
     (p) => p.status === 'approved'
   ).length;
-  const totalNetPay = payrolls
+  const totalNetPay = filteredPayrolls
     .filter((p) => p.status === 'paid')
     .reduce((sum, p) => sum + p.netPay, 0);
 

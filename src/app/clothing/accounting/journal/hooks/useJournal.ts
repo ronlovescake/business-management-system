@@ -143,6 +143,38 @@ export function useJournal(options: { apiBasePath?: string } = {}) {
       .sort((a, b) => getEntryTimestamp(b.date) - getEntryTimestamp(a.date));
   }, [entries, filterAccount, searchQuery]);
 
+  const filteredStats = useMemo<JournalStats>(() => {
+    const totalDebits = filteredEntries.reduce(
+      (sum, entry) => sum + Number(entry.debit || 0),
+      0
+    );
+    const totalCredits = filteredEntries.reduce(
+      (sum, entry) => sum + Number(entry.credit || 0),
+      0
+    );
+
+    const now = new Date();
+    const currentMonth = now.getMonth();
+    const currentYear = now.getFullYear();
+    const entriesThisMonth = filteredEntries.filter((entry) => {
+      const date = parseDate(entry.date);
+      if (!date) {
+        return false;
+      }
+      return (
+        date.getMonth() === currentMonth && date.getFullYear() === currentYear
+      );
+    }).length;
+
+    return {
+      totalDebits,
+      totalCredits,
+      netChange: totalDebits - totalCredits,
+      entriesThisMonth,
+      period: stats.period,
+    };
+  }, [filteredEntries, stats.period]);
+
   const accounts = useMemo(() => {
     const set = new Set<string>();
     entries.forEach((e) => set.add(e.account));
@@ -510,7 +542,7 @@ export function useJournal(options: { apiBasePath?: string } = {}) {
   return {
     entries,
     filteredEntries,
-    stats,
+    stats: filteredStats,
     period,
     setPeriod,
     accounts,

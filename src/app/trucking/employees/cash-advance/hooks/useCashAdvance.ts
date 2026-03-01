@@ -225,14 +225,14 @@ export function useCashAdvance() {
     });
   }, [cashAdvances, searchQuery, statusFilter]);
 
-  const totalRequests = cashAdvances.length;
-  const pendingRequests = cashAdvances.filter(
+  const totalRequests = filteredRequests.length;
+  const pendingRequests = filteredRequests.filter(
     (r) => r.status === 'pending'
   ).length;
-  const approvedRequests = cashAdvances.filter(
+  const approvedRequests = filteredRequests.filter(
     (r) => r.status === 'approved'
   ).length;
-  const totalAmount = cashAdvances
+  const totalAmount = filteredRequests
     .filter((r) => r.status === 'approved' || r.status === 'paid')
     .reduce((sum, r) => sum + r.amount, 0);
 

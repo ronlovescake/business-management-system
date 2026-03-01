@@ -77,7 +77,7 @@ export function usePayroll(apiBasePath?: string) {
 
   // Computed Values
   const { totalPayrolls, pendingPayrolls, approvedPayrolls, totalNetPay } =
-    useMemo(() => derivePayrollSummary(payrolls), [payrolls]);
+    useMemo(() => derivePayrollSummary(filteredPayrolls), [filteredPayrolls]);
 
   // Get unique pay periods for filter
   const payPeriods = useMemo(() => {

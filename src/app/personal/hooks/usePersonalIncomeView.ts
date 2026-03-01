@@ -101,15 +101,18 @@ export function usePersonalIncomeView() {
     });
   }, [filterAccount, filterType, income, searchQuery]);
 
-  const totalIncome = income.reduce((sum, r) => sum + (r.amount || 0), 0);
-  const incomeCount = income.length;
+  const totalIncome = filteredIncome.reduce(
+    (sum, r) => sum + (r.amount || 0),
+    0
+  );
+  const incomeCount = filteredIncome.length;
 
   const now = new Date();
   const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
   const last30 = new Date(now);
   last30.setDate(now.getDate() - 30);
 
-  const thisMonthIncome = income.reduce((sum, r) => {
+  const thisMonthIncome = filteredIncome.reduce((sum, r) => {
     const d = parseYmd(r.date);
     if (!d) {
       return sum;
@@ -117,7 +120,7 @@ export function usePersonalIncomeView() {
     return d >= startOfMonth ? sum + (r.amount || 0) : sum;
   }, 0);
 
-  const last30DaysIncome = income.reduce((sum, r) => {
+  const last30DaysIncome = filteredIncome.reduce((sum, r) => {
     const d = parseYmd(r.date);
     if (!d) {
       return sum;

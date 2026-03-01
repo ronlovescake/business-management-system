@@ -285,8 +285,10 @@ export function useVehicleAssignmentsDashboard() {
     const weekFromNow = new Date(now);
     weekFromNow.setDate(now.getDate() + 7);
 
-    const activeCount = records.filter((r) => r.status === 'active').length;
-    const scheduledThisWeek = records.filter((r) => {
+    const activeCount = filteredRecords.filter(
+      (r) => r.status === 'active'
+    ).length;
+    const scheduledThisWeek = filteredRecords.filter((r) => {
       if (r.status !== 'scheduled') {
         return false;
       }
@@ -294,11 +296,11 @@ export function useVehicleAssignmentsDashboard() {
       return start >= now && start <= weekFromNow;
     }).length;
 
-    const endingSoon = records.filter((r) =>
+    const endingSoon = filteredRecords.filter((r) =>
       isWithinDaysFromNow(r.endDate, 7)
     ).length;
 
-    const completedThisMonth = records.filter((r) => {
+    const completedThisMonth = filteredRecords.filter((r) => {
       if (r.status !== 'completed') {
         return false;
       }
@@ -314,7 +316,7 @@ export function useVehicleAssignmentsDashboard() {
       endingSoon,
       completedThisMonth,
     };
-  }, [records]);
+  }, [filteredRecords]);
 
   const summary: VehicleAssignmentSummary = useMemo(() => {
     const filteredActiveCount = filteredRecords.filter(

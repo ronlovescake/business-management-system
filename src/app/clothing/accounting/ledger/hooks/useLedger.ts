@@ -235,6 +235,27 @@ export function useLedger(options: { apiBasePath?: string } = {}) {
     return filterAndSortLedgerEntries(entries, searchQuery, filterAccount);
   }, [entries, filterAccount, searchQuery]);
 
+  const filteredStats = useMemo<LedgerStats>(() => {
+    const totalDebits = filteredEntries.reduce(
+      (sum, entry) => sum + Number(entry.debit || 0),
+      0
+    );
+    const totalCredits = filteredEntries.reduce(
+      (sum, entry) => sum + Number(entry.credit || 0),
+      0
+    );
+    const accounts = new Set(filteredEntries.map((entry) => entry.account))
+      .size;
+
+    return {
+      totalDebits,
+      totalCredits,
+      netChange: totalDebits - totalCredits,
+      accounts,
+      period: stats.period,
+    };
+  }, [filteredEntries, stats.period]);
+
   const accounts = useMemo(() => {
     return buildLedgerAccounts(entries);
   }, [entries]);
@@ -932,7 +953,7 @@ export function useLedger(options: { apiBasePath?: string } = {}) {
   return {
     entries,
     filteredEntries,
-    stats,
+    stats: filteredStats,
     refreshLedger,
     period,
     setPeriod,

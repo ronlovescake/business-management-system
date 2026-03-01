@@ -436,10 +436,13 @@ export function useTripsDashboard() {
   const sumField = (records: TripRecord[], key: keyof TripRecord) =>
     records.reduce((sum, record) => sum + (record[key] as number), 0);
 
-  const totalRevenue = useMemo(() => sumField(trips, 'grossRevenue'), [trips]);
+  const totalRevenue = useMemo(
+    () => sumField(filteredTrips, 'grossRevenue'),
+    [filteredTrips]
+  );
   const totalExpenses = useMemo(
-    () => sumField(trips, 'totalExpenses'),
-    [trips]
+    () => sumField(filteredTrips, 'totalExpenses'),
+    [filteredTrips]
   );
   const netIncome = useMemo(
     () => totalRevenue - totalExpenses,
@@ -464,13 +467,13 @@ export function useTripsDashboard() {
     const currentMonth = now.getMonth();
     const currentYear = now.getFullYear();
 
-    return trips.filter((trip) => {
+    return filteredTrips.filter((trip) => {
       const date = new Date(trip.date);
       return (
         date.getMonth() === currentMonth && date.getFullYear() === currentYear
       );
     }).length;
-  }, [trips]);
+  }, [filteredTrips]);
 
   const driverOptions = useMemo(() => {
     const seed = Array.from(

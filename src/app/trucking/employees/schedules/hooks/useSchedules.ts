@@ -315,14 +315,14 @@ export function useSchedules() {
   }, [filteredSchedules]);
 
   // Stats
-  const totalSchedules = schedules.length;
-  const scheduledCount = schedules.filter(
+  const totalSchedules = filteredSchedules.length;
+  const scheduledCount = filteredSchedules.filter(
     (s) => s.status === 'scheduled'
   ).length;
-  const completedCount = schedules.filter(
+  const completedCount = filteredSchedules.filter(
     (s) => s.status === 'completed'
   ).length;
-  const cancelledCount = schedules.filter(
+  const cancelledCount = filteredSchedules.filter(
     (s) => s.status === 'cancelled'
   ).length;
 
@@ -330,7 +330,7 @@ export function useSchedules() {
   const weeklyBreakdown = useMemo(() => {
     const breakdown: Record<string, number> = {};
 
-    schedules.forEach((schedule) => {
+    filteredSchedules.forEach((schedule) => {
       const date = new Date(schedule.date);
       const weekStart = new Date(date);
       weekStart.setDate(date.getDate() - date.getDay()); // Start of week (Sunday)
@@ -343,7 +343,7 @@ export function useSchedules() {
       week,
       count,
     }));
-  }, [schedules]);
+  }, [filteredSchedules]);
 
   // ============================================================================
   // UTILITY FUNCTIONS

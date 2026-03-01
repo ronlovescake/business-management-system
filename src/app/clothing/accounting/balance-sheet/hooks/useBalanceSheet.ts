@@ -136,6 +136,26 @@ export function useBalanceSheet(options: { apiBasePath?: string } = {}) {
       );
   }, [rows, searchQuery]);
 
+  const filteredStats = useMemo<BalanceSheetStats>(() => {
+    const assets = filteredRows
+      .filter((row) => row.type === 'Asset')
+      .reduce((sum, row) => sum + row.amount, 0);
+    const liabilities = filteredRows
+      .filter((row) => row.type === 'Liability')
+      .reduce((sum, row) => sum + row.amount, 0);
+    const equity = filteredRows
+      .filter((row) => row.type === 'Equity')
+      .reduce((sum, row) => sum + row.amount, 0);
+
+    return {
+      assets,
+      liabilities,
+      equity,
+      balance: assets - liabilities - equity,
+      asOf: stats.asOf,
+    };
+  }, [filteredRows, stats.asOf]);
+
   const formatCurrency = formatCurrencyPHP;
 
   const toDisplayAmount = (row: BalanceSheetRow, amount: number) =>
@@ -184,7 +204,7 @@ export function useBalanceSheet(options: { apiBasePath?: string } = {}) {
   return {
     rows,
     filteredRows,
-    stats,
+    stats: filteredStats,
     asOf,
     setAsOf,
     searchQuery,

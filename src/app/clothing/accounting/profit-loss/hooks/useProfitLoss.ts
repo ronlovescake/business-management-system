@@ -69,7 +69,7 @@ export function useProfitLoss(options: { apiBasePath?: string } = {}) {
   const [period, setPeriod] = useState<ProfitLossPeriodOption>('All Time');
   const [rows, setRows] = useState<ProfitLossRow[]>([]);
   const [detailRows, setDetailRows] = useState<ProfitLossDetailRow[]>([]);
-  const [stats, setStats] = useState<ProfitLossStats>({
+  const [, setStats] = useState<ProfitLossStats>({
     revenueTotal: 0,
     cogsTotal: 0,
     grossProfit: 0,
@@ -210,15 +210,15 @@ export function useProfitLoss(options: { apiBasePath?: string } = {}) {
   }, [detailRows, searchQuery]);
 
   const derivedStats: ProfitLossStats = useMemo(() => {
-    const revenueTotal = rows
+    const revenueTotal = filteredRows
       .filter((row) => row.type === 'Revenue')
       .reduce((sum, row) => sum + row.amount, 0);
 
-    const cogsTotal = rows
+    const cogsTotal = filteredRows
       .filter((row) => row.type === 'Expense' && row.category === 'COGS')
       .reduce((sum, row) => sum + row.amount, 0);
 
-    const expenseTotal = rows
+    const expenseTotal = filteredRows
       .filter((row) => row.type === 'Expense')
       .reduce((sum, row) => sum + row.amount, 0);
 
@@ -230,7 +230,7 @@ export function useProfitLoss(options: { apiBasePath?: string } = {}) {
       netProfit: revenueTotal - expenseTotal,
       period,
     };
-  }, [period, rows]);
+  }, [filteredRows, period]);
 
   const formatCurrency = formatCurrencyPHP;
 
@@ -287,7 +287,7 @@ export function useProfitLoss(options: { apiBasePath?: string } = {}) {
     ]);
   };
 
-  const effectiveStats = stats ?? derivedStats;
+  const effectiveStats = derivedStats;
 
   return {
     rows,

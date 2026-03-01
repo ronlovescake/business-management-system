@@ -164,9 +164,12 @@ export function usePersonalAccountsView() {
     });
   }, [accounts, filterInstitution, filterStatus, filterType, searchQuery]);
 
-  const totalAccounts = accounts.length;
-  const activeAccounts = accounts.filter((a) => a.isActive).length;
-  const totalBalance = accounts.reduce((sum, a) => sum + (a.balance || 0), 0);
+  const totalAccounts = filteredAccounts.length;
+  const activeAccounts = filteredAccounts.filter((a) => a.isActive).length;
+  const totalBalance = filteredAccounts.reduce(
+    (sum, a) => sum + (a.balance || 0),
+    0
+  );
   const thisMonthChange = 0;
 
   const handleAddAccount = useCallback(() => {

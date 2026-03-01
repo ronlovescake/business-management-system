@@ -118,13 +118,17 @@ export function useFleetRegistryDashboard() {
   }, [fuelFilter, makerFilter, records, searchQuery, statusFilter, yearFilter]);
 
   const stats: FleetRegistryStats = useMemo(() => {
-    const activeUnits = records.filter((r) => r.status === 'active').length;
-    const inMaintenance = records.filter(
+    const activeUnits = filteredRecords.filter(
+      (r) => r.status === 'active'
+    ).length;
+    const inMaintenance = filteredRecords.filter(
       (r) => r.status === 'maintenance'
     ).length;
-    const retiredUnits = records.filter((r) => r.status === 'retired').length;
+    const retiredUnits = filteredRecords.filter(
+      (r) => r.status === 'retired'
+    ).length;
 
-    const registeredThisYear = records.filter((r) => {
+    const registeredThisYear = filteredRecords.filter((r) => {
       const year = new Date(r.ltoRegisterDate).getFullYear();
       const nowYear = new Date().getFullYear();
       return year === nowYear;
@@ -136,7 +140,7 @@ export function useFleetRegistryDashboard() {
       registeredThisYear,
       retiredUnits,
     };
-  }, [records]);
+  }, [filteredRecords]);
 
   const summary: FleetRegistrySummary = useMemo(() => {
     const activeCount = filteredRecords.filter(

@@ -33,13 +33,15 @@ export function useEmployeeLoans() {
     });
   }, [loans, searchQuery, statusFilter, loanTypeFilter]);
 
-  const totalLoans = loans.length;
-  const pendingLoans = loans.filter((l) => l.status === 'pending').length;
-  const activeLoans = loans.filter((l) => l.status === 'active').length;
-  const totalDisbursed = loans
+  const totalLoans = filteredLoans.length;
+  const pendingLoans = filteredLoans.filter(
+    (l) => l.status === 'pending'
+  ).length;
+  const activeLoans = filteredLoans.filter((l) => l.status === 'active').length;
+  const totalDisbursed = filteredLoans
     .filter((l) => l.status === 'active' || l.status === 'completed')
     .reduce((sum, l) => sum + l.amount, 0);
-  const totalOutstanding = loans
+  const totalOutstanding = filteredLoans
     .filter((l) => l.status === 'active')
     .reduce((sum, l) => sum + l.remainingBalance, 0);
 

@@ -37,6 +37,7 @@ import { InventoryTableControls } from './InventoryTableControls';
 import { InventorySummary } from './InventorySummary';
 import { InventoryTable } from './InventoryTable';
 import { numberFormatter } from '../lib/formatters';
+import { calculateTotals } from '../lib/inventoryTransforms';
 import { UniversalModal } from '@/components/modals/UniversalModal';
 import { normalizeProductCode } from '@/lib/inventory/movements';
 
@@ -65,7 +66,6 @@ export function InventoryPage({ apiBasePath }: InventoryPageProps) {
     headers,
     totalItemCount,
     filteredData,
-    totals,
     emptyStateMessage,
     handleImportCSV,
     handleExportCSV,
@@ -197,6 +197,11 @@ export function InventoryPage({ apiBasePath }: InventoryPageProps) {
     emptyStateMessage,
     searchQuery,
   });
+
+  const displayedTotals = useMemo(
+    () => calculateTotals(sellableFilteredData),
+    [sellableFilteredData]
+  );
 
   const {
     productOptions,
@@ -727,7 +732,7 @@ export function InventoryPage({ apiBasePath }: InventoryPageProps) {
         <InventorySummary
           filteredCount={sellableFilteredData.length}
           totalCount={totalItemCount}
-          totals={totals}
+          totals={displayedTotals}
         />
 
         <Tabs.List>

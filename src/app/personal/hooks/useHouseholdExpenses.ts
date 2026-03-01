@@ -361,15 +361,15 @@ export function useHouseholdExpenses() {
     pendingCount: pendingExpenses,
     approvedTotal: approvedExpenses,
     thisMonthTotal: thisMonthExpenses,
-  } = useMemo(() => computeExpenseTotals(expenses), [expenses]);
+  } = useMemo(() => computeExpenseTotals(filteredExpenses), [filteredExpenses]);
 
   const monthlyBreakdown = useMemo((): MonthlyBreakdown[] => {
     return computeMonthlyBreakdownByCategory(
-      expenses,
+      filteredExpenses,
       categories,
       totalExpenses
     ) as MonthlyBreakdown[];
-  }, [expenses, categories, totalExpenses]);
+  }, [filteredExpenses, categories, totalExpenses]);
 
   const formatDate = (dateString: string): string => {
     return formatLongDateUS(dateString);

@@ -163,18 +163,18 @@ export function usePersonalBudgetsView() {
   }, [displayBudgets]);
 
   const stats: BudgetStats = useMemo(() => {
-    const totalPlanned = displayBudgets.reduce(
+    const totalPlanned = filteredBudgets.reduce(
       (sum, budget) => sum + budget.planned,
       0
     );
-    const totalActual = displayBudgets.reduce(
+    const totalActual = filteredBudgets.reduce(
       (sum, budget) => sum + budget.actual,
       0
     );
     const totalRemaining = totalPlanned - totalActual;
 
     const currentMonth = new Date().getMonth() + 1;
-    const thisMonthBudgets = displayBudgets.filter(
+    const thisMonthBudgets = filteredBudgets.filter(
       (budget) => budget.period === 'monthly' && budget.month === currentMonth
     );
 
@@ -194,7 +194,7 @@ export function usePersonalBudgetsView() {
       thisMonthPlanned,
       thisMonthActual,
     };
-  }, [displayBudgets]);
+  }, [filteredBudgets]);
 
   const analyticsByCategory: BudgetAnalyticsRow[] = useMemo(() => {
     const map = new Map<string, { planned: number; actual: number }>();

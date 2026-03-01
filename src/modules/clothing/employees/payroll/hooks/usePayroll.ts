@@ -138,7 +138,7 @@ export function usePayroll() {
   }, [payrolls, searchQuery, statusFilter, payPeriodFilter]);
 
   const { totalPayrolls, pendingPayrolls, approvedPayrolls, totalNetPay } =
-    useMemo(() => derivePayrollSummary(payrolls), [payrolls]);
+    useMemo(() => derivePayrollSummary(filteredPayrolls), [filteredPayrolls]);
 
   // Get unique pay periods for filter
   const payPeriods = useMemo(() => {

@@ -117,19 +117,21 @@ export function useAttendance(apiBasePath?: string) {
     });
   }, [sortedRecords, searchQuery, statusFilter]);
 
-  const totalRecords = records.length;
-  const presentCount = records.filter(
+  const totalRecords = filteredRecords.length;
+  const presentCount = filteredRecords.filter(
     (record) => record.status === 'present'
   ).length;
-  const lateCount = records.filter((record) => record.status === 'late').length;
-  const absentCount = records.filter(
+  const lateCount = filteredRecords.filter(
+    (record) => record.status === 'late'
+  ).length;
+  const absentCount = filteredRecords.filter(
     (record) => record.status === 'absent'
   ).length;
-  const onLeaveCount = records.filter(
+  const onLeaveCount = filteredRecords.filter(
     (record) => record.status === 'on-leave'
   ).length;
 
-  const totalHours = records.reduce(
+  const totalHours = filteredRecords.reduce(
     (sum, record) => sum + record.totalHours,
     0
   );
