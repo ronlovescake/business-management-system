@@ -84,6 +84,13 @@ interface StandardDataTableProps {
    * Optional: Show table border (default: true)
    */
   withTableBorder?: boolean;
+
+  /**
+   * Optional: Header styling variant
+   * - standard: existing StandardDataTable header style
+   * - attendance: matches PageTemplates/DataTable attendance header style
+   */
+  headerVariant?: 'standard' | 'attendance';
 }
 
 /**
@@ -124,7 +131,10 @@ export function StandardDataTable({
   withColumnBorders = false,
   withoutRowBorders = false,
   withTableBorder = true,
+  headerVariant = 'standard',
 }: StandardDataTableProps) {
+  const attendanceHeader = headerVariant === 'attendance';
+
   return (
     <Card withBorder padding={0} style={{ overflow: 'hidden', height: height }}>
       <Box style={{ height: '100%', overflowY: 'auto' }}>
@@ -138,9 +148,11 @@ export function StandardDataTable({
             style={{
               backgroundColor: '#f1f3f5',
               position: 'sticky',
-              top: -1,
-              zIndex: 100,
-              boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)',
+              top: attendanceHeader ? 0 : -1,
+              zIndex: attendanceHeader ? 2 : 100,
+              boxShadow: attendanceHeader
+                ? '0 2px 4px rgba(0, 0, 0, 0.05)'
+                : '0 2px 4px rgba(0, 0, 0, 0.1)',
             }}
           >
             <Table.Tr style={{ backgroundColor: '#f1f3f5' }}>
@@ -157,8 +169,12 @@ export function StandardDataTable({
                       color: '#495057',
                       backgroundColor: '#f1f3f5',
                       textAlign: 'center',
-                      borderBottom: '2px solid #dee2e6',
-                      borderTop: '1px solid #f1f3f5',
+                      borderBottom: attendanceHeader
+                        ? undefined
+                        : '2px solid #dee2e6',
+                      borderTop: attendanceHeader
+                        ? undefined
+                        : '1px solid #f1f3f5',
                     }}
                   >
                     {content}
