@@ -11,6 +11,8 @@ import fs from 'fs';
 import path from 'path';
 import { logger } from '@/lib/logger';
 
+export const dynamic = 'force-dynamic';
+
 interface InvoiceSettings {
   format: 'pdf' | 'png';
   pngQuality: number;

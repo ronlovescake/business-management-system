@@ -4,6 +4,8 @@ import { getTestApiUrl, mockNextRequest } from '@/core/testing/test-helpers';
 // Freeze cutover for test determinism.
 vi.mock('@/lib/accounting/cutover', () => ({
   getAccountingCutoverDate: () => new Date('2026-01-17T00:00:00.000Z'),
+  getRuntimeAccountingCutoverDate: async () =>
+    new Date('2026-01-17T00:00:00.000Z'),
 }));
 
 vi.mock('@/lib/accounting/inventory-cogs', () => ({

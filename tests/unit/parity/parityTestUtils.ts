@@ -58,8 +58,13 @@ export function readWorkspaceFile(relativePath: string): string {
 }
 
 export function getExportedHttpMethods(source: string): string[] {
-  const matches =
+  const constMatches =
     source.match(/export\s+const\s+(GET|POST|PUT|PATCH|DELETE)\s*=/g) ?? [];
+  const functionMatches =
+    source.match(
+      /export\s+(?:async\s+)?function\s+(GET|POST|PUT|PATCH|DELETE)\s*\(/g
+    ) ?? [];
+  const matches = [...constMatches, ...functionMatches];
   const methods = new Set<string>();
   for (const match of matches) {
     for (const method of HTTP_METHODS) {

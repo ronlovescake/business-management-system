@@ -8,6 +8,8 @@ import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
 
+export const dynamic = 'force-dynamic';
+
 const DEFAULT_MIN_SPARE_ROWS = 50;
 
 /**

@@ -9,6 +9,8 @@ import { prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
 import { getAccountingCutoverDate } from '@/lib/accounting/cutover';
 
+export const dynamic = 'force-dynamic';
+
 type AccountingSettingsRecord = {
   id: string;
   clothingCutoverDate: Date;
