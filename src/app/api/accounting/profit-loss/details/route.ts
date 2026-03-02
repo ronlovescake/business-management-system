@@ -10,7 +10,7 @@ import {
   isCancelledOrderStatus,
   isDepositForfeitureOrderStatus,
 } from '@/lib/transactions/order-status';
-import { getAccountingCutoverDate } from '@/lib/accounting/cutover';
+import { getRuntimeAccountingCutoverDate } from '@/lib/accounting/cutover';
 import {
   fetchApprovedExpenses,
   fetchPaidTransactions,
@@ -26,13 +26,11 @@ import { prisma } from '@/lib/db';
 
 export const dynamic = 'force-dynamic';
 
-const CUTOVER = getAccountingCutoverDate();
-
-function clampFrom(from: Date | null): Date {
+function clampFrom(from: Date | null, cutover: Date): Date {
   if (!from) {
-    return CUTOVER;
+    return cutover;
   }
-  return from < CUTOVER ? CUTOVER : from;
+  return from < cutover ? cutover : from;
 }
 
 export type ProfitLossDetailRow = {
@@ -51,8 +49,9 @@ export type ProfitLossDetailRow = {
 };
 
 export const GET = withErrorHandler(async (req: NextRequest) => {
+  const cutover = await getRuntimeAccountingCutoverDate();
   const { from, to } = parseDateRangeFromParams(req.nextUrl.searchParams);
-  const effectiveFrom = clampFrom(from);
+  const effectiveFrom = clampFrom(from, cutover);
   const effectiveTo = to ?? null;
 
   const [transactions, expenses, refunds, payments] = await Promise.all([

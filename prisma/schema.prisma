@@ -1900,6 +1900,16 @@ model TransactionsSettings {
   @@schema("public")
 }
 
+model AccountingSettings {
+  id                 String   @id @default(cuid())
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+  clothingCutoverDate DateTime
+
+  @@map("accounting_settings")
+  @@schema("public")
+}
+
 // ============================================================================
 // GENERAL MERCHANDISE (GM) SCHEMA MODELS
 // ============================================================================

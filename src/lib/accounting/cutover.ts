@@ -1,3 +1,5 @@
+import { prisma } from '@/lib/db';
+
 const DEFAULT_ACCOUNTING_CUTOVER = new Date(Date.UTC(2026, 0, 17));
 
 export type AccountingModule = 'clothing' | 'generalMerchandise';
@@ -42,6 +44,12 @@ function parseCutoverDate(raw: string): Date | null {
   return dt;
 }
 
+function normalizeToUtcDateOnly(input: Date): Date {
+  return new Date(
+    Date.UTC(input.getUTCFullYear(), input.getUTCMonth(), input.getUTCDate())
+  );
+}
+
 /**
  * Accounting cutover date in UTC midnight.
  *
@@ -65,4 +73,48 @@ export function getAccountingCutoverDate(
   }
 
   return parseCutoverDate(raw) ?? DEFAULT_ACCOUNTING_CUTOVER;
+}
+
+/**
+ * Runtime cutover resolver for server-side routes.
+ *
+ * Priority (clothing module):
+ * 1) DB setting (if available)
+ * 2) Environment variable(s)
+ * 3) Default hardcoded fallback
+ *
+ * General Merchandise currently uses env/default only.
+ */
+export async function getRuntimeAccountingCutoverDate(
+  module: AccountingModule = 'clothing'
+): Promise<Date> {
+  const fallback = getAccountingCutoverDate(module);
+
+  if (module !== 'clothing') {
+    return fallback;
+  }
+
+  try {
+    const rows = await prisma.$queryRaw<Array<{ clothingCutoverDate: Date }>>`
+      SELECT "clothingCutoverDate"
+      FROM "public"."accounting_settings"
+      ORDER BY "createdAt" DESC
+      LIMIT 1
+    `;
+
+    const settings = rows[0] ?? null;
+
+    if (!settings?.clothingCutoverDate) {
+      return fallback;
+    }
+
+    const normalized = normalizeToUtcDateOnly(settings.clothingCutoverDate);
+    if (Number.isNaN(normalized.getTime())) {
+      return fallback;
+    }
+
+    return normalized;
+  } catch {
+    return fallback;
+  }
 }

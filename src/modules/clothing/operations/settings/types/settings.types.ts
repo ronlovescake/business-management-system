@@ -187,6 +187,7 @@ export const SETTINGS_TABS = [
   { value: 'invoice', label: 'Invoice Settings', icon: 'file-invoice' },
   { value: 'message', label: 'Templates', icon: 'message' },
   { value: 'transactions', label: 'Transactions', icon: 'table' },
+  { value: 'accounting', label: 'Accounting', icon: 'calendar' },
   { value: 'change-log', label: 'Change Log', icon: 'history' },
 ] as const;
 

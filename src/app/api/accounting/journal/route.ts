@@ -22,7 +22,7 @@ import {
   buildInventorySeedAndShrinkageEntries,
 } from '@/lib/accounting/inventory-cogs';
 import { prisma } from '@/lib/db';
-import { getAccountingCutoverDate } from '@/lib/accounting/cutover';
+import { getRuntimeAccountingCutoverDate } from '@/lib/accounting/cutover';
 import { normalizeAccountForReporting } from '@/lib/accounting/account-normalization';
 import {
   isCancelledOrderStatus,
@@ -35,18 +35,17 @@ import {
 
 export const dynamic = 'force-dynamic';
 
-const CUTOVER = getAccountingCutoverDate();
-
-function clampFrom(from: Date | null): Date {
+function clampFrom(from: Date | null, cutover: Date): Date {
   if (!from) {
-    return CUTOVER;
+    return cutover;
   }
-  return from < CUTOVER ? CUTOVER : from;
+  return from < cutover ? cutover : from;
 }
 
 export const GET = withErrorHandler(async (req: NextRequest) => {
+  const cutover = await getRuntimeAccountingCutoverDate();
   const { from, to } = parseDateRangeFromParams(req.nextUrl.searchParams);
-  const effectiveFrom = clampFrom(from);
+  const effectiveFrom = clampFrom(from, cutover);
   const effectiveTo = to ?? null;
 
   const transactions = await fetchPaidTransactions();

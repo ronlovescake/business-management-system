@@ -18,6 +18,7 @@ import {
 } from '@mantine/core';
 import { DateInput } from '@mantine/dates';
 import {
+  IconCalendar,
   IconFileInvoice,
   IconHistory,
   IconMessage,
@@ -27,6 +28,7 @@ import {
 import { useSearchParams } from 'next/navigation';
 import { COMMON_DATE_INPUT_PROPS } from '@/lib/dateInputConfig';
 import { ChangeLogPage } from '@/modules/clothing/operations/settings/change-log';
+import { AccountingSettingsTab } from './AccountingSettingsTab';
 import { InvoiceSettingsTab } from './InvoiceSettingsTab';
 import InvoiceMessageTab, { type TemplateSubTab } from './InvoiceMessageTab';
 import { TransactionsSettingsTab } from './TransactionsSettingsTab';
@@ -41,6 +43,7 @@ const QUICK_ACTION_BUTTONS: Array<{
   { id: 'invoice-settings', label: 'Invoice Settings', tab: 'invoice' },
   { id: 'invoice-message', label: 'Templates', tab: 'message' },
   { id: 'transactions', label: 'Transactions', tab: 'transactions' },
+  { id: 'accounting', label: 'Accounting', tab: 'accounting' },
 ];
 
 interface SettingsPageProps {
@@ -55,6 +58,7 @@ export function SettingsPage({ apiBasePath }: SettingsPageProps) {
       'invoice',
       'message',
       'transactions',
+      'accounting',
       'change-log',
     ];
 
@@ -169,6 +173,12 @@ export function SettingsPage({ apiBasePath }: SettingsPageProps) {
               Transactions
             </Tabs.Tab>
             <Tabs.Tab
+              value="accounting"
+              leftSection={<IconCalendar size={16} />}
+            >
+              Accounting
+            </Tabs.Tab>
+            <Tabs.Tab
               value="change-log"
               leftSection={<IconHistory size={16} />}
             >
@@ -189,6 +199,10 @@ export function SettingsPage({ apiBasePath }: SettingsPageProps) {
 
           <Tabs.Panel value="transactions" pt="md">
             <TransactionsSettingsTab />
+          </Tabs.Panel>
+
+          <Tabs.Panel value="accounting" pt="md">
+            <AccountingSettingsTab />
           </Tabs.Panel>
 
           <Tabs.Panel value="change-log" pt="md">

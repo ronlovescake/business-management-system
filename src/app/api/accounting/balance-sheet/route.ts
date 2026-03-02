@@ -22,7 +22,7 @@ import {
   buildInventorySeedAndShrinkageEntries,
 } from '@/lib/accounting/inventory-cogs';
 import { prisma } from '@/lib/db';
-import { getAccountingCutoverDate } from '@/lib/accounting/cutover';
+import { getRuntimeAccountingCutoverDate } from '@/lib/accounting/cutover';
 import { normalizeAccountForReporting } from '@/lib/accounting/account-normalization';
 import {
   detectAccountType,
@@ -35,15 +35,14 @@ import {
 
 export const dynamic = 'force-dynamic';
 
-const CUTOVER = getAccountingCutoverDate();
 const CASH_ACCOUNT = 'Cash';
 const STOCK_ON_HAND_ACCOUNT = 'Stock on Hand';
 
-function clampAsOf(raw: Date | null): Date {
+function clampAsOf(raw: Date | null, cutover: Date): Date {
   if (!raw || Number.isNaN(raw.getTime())) {
-    return CUTOVER;
+    return cutover;
   }
-  return raw < CUTOVER ? CUTOVER : raw;
+  return raw < cutover ? cutover : raw;
 }
 
 type BalanceRow = {
@@ -147,17 +146,21 @@ function aggregateBalancesFromRows(
 }
 
 export const GET = withErrorHandler(async (req: NextRequest) => {
+  const cutover = await getRuntimeAccountingCutoverDate();
   const asOfParam = req.nextUrl.searchParams.get('asOf');
   const asOfRaw = parseDate(asOfParam);
   const asOfDateOnly = !!asOfParam && /^\d{4}-\d{2}-\d{2}$/.test(asOfParam);
-  const asOf = clampAsOf(asOfDateOnly && asOfRaw ? endOfDay(asOfRaw) : asOfRaw);
+  const asOf = clampAsOf(
+    asOfDateOnly && asOfRaw ? endOfDay(asOfRaw) : asOfRaw,
+    cutover
+  );
 
   const transactions = await fetchRecognizedTransactions();
   const payments = await fetchTransactionPayments();
   const expenses = await fetchApprovedExpenses();
   const refunds = await fetchTransactionRefunds();
   const manualLines = await fetchManualJournalLines({
-    from: CUTOVER,
+    from: cutover,
     to: asOf,
   });
 
@@ -179,7 +182,7 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
       Reflect.get(payment as object, 'isReservation') === true;
 
     const paymentAt = parseDate(payment.paymentDate);
-    if (!isWithinDateRange(paymentAt, CUTOVER, asOf)) {
+    if (!isWithinDateRange(paymentAt, cutover, asOf)) {
       continue;
     }
 
@@ -240,7 +243,7 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
     await prisma.clothingAccountingOpeningBalance.findMany({
       where: {
         date: {
-          gte: CUTOVER,
+          gte: cutover,
           lte: asOf,
         },
       },
@@ -409,7 +412,7 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
         where: {
           deletedAt: null,
           postingDate: {
-            gte: CUTOVER,
+            gte: cutover,
             lte: asOf,
           },
         },
@@ -447,7 +450,7 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
         where: {
           deletedAt: null,
           postingDate: {
-            gte: CUTOVER,
+            gte: cutover,
             lte: asOf,
           },
         },
@@ -549,7 +552,7 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
           : earliestPaymentAtByTxId.get(tx.id)) ?? null;
       const recognizedAt =
         usePaymentEvents && paymentAnchor ? paymentAnchor : getRecognizedAt(tx);
-      if (!isWithinDateRange(recognizedAt, CUTOVER, asOf)) {
+      if (!isWithinDateRange(recognizedAt, cutover, asOf)) {
         return null;
       }
 
@@ -627,7 +630,7 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
         ? getCancelledAtDate(tx)
         : null;
 
-      if (cancelledAt && isWithinDateRange(cancelledAt, CUTOVER, asOf)) {
+      if (cancelledAt && isWithinDateRange(cancelledAt, cutover, asOf)) {
         addCashDetail(
           'Reservation Deposits (forfeited)',
           CASH_ACCOUNT,
@@ -657,7 +660,7 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
       }
 
       const expDate = parseDate(exp.date);
-      if (!isWithinDateRange(expDate, CUTOVER, asOf)) {
+      if (!isWithinDateRange(expDate, cutover, asOf)) {
         return null;
       }
 
@@ -675,7 +678,7 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
 
   // COGS reduces equity and reduces the inventory asset.
   // This makes old stock depletion visible on the balance sheet even in cash-basis mode.
-  const cogsTotal = await computeCogsTotal({ from: CUTOVER, to: asOf });
+  const cogsTotal = await computeCogsTotal({ from: cutover, to: asOf });
   const cogsEntries: BalanceRow[] =
     Number.isFinite(cogsTotal) && cogsTotal > 0
       ? [
@@ -694,7 +697,7 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
 
   const { entries: inventorySeedAndShrinkEntries } =
     await buildInventorySeedAndShrinkageEntries({
-      from: CUTOVER,
+      from: cutover,
       to: asOf,
     });
 
@@ -720,7 +723,7 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
   const refundEntries = refunds
     .map((refund) => {
       const refundAt = parseDate(refund.refundDate);
-      if (!isWithinDateRange(refundAt, CUTOVER, asOf)) {
+      if (!isWithinDateRange(refundAt, cutover, asOf)) {
         return null;
       }
 

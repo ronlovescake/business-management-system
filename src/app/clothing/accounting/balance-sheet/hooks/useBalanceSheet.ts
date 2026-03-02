@@ -29,6 +29,42 @@ export type BalanceSheetStats = {
   asOf: string;
 };
 
+export type CashBreakdownRow = {
+  id: string;
+  tag: string;
+  amount: number;
+};
+
+export type CashBreakdownSummary = {
+  cashAccountBalance: number;
+  detailSum: number;
+  unclassifiedDelta: number;
+};
+
+export type StockBreakdownRow = {
+  id: string;
+  tag: string;
+  amount: number;
+};
+
+export type StockBreakdownSummary = {
+  stockOnHandBalance: number;
+  detailSum: number;
+  unclassifiedDelta: number;
+};
+
+export type TransitBreakdownRow = {
+  id: string;
+  tag: string;
+  amount: number;
+};
+
+export type TransitBreakdownSummary = {
+  inventoryInTransitBalance: number;
+  detailSum: number;
+  unclassifiedDelta: number;
+};
+
 type BalanceSheetResponse = {
   rows: BalanceSheetRow[];
   stats: BalanceSheetStats;
@@ -156,10 +192,128 @@ export function useBalanceSheet(options: { apiBasePath?: string } = {}) {
     };
   }, [filteredRows, stats.asOf]);
 
-  const formatCurrency = formatCurrencyPHP;
-
   const toDisplayAmount = (row: BalanceSheetRow, amount: number) =>
     row.type === 'Asset' ? amount : -amount;
+
+  const cashBreakdownData = useMemo(() => {
+    const cashRow =
+      rows.find((row) => row.account.trim().toLowerCase() === 'cash') ??
+      rows.find((row) => row.account.toLowerCase().includes('cash'));
+
+    const cashAccountBalance = cashRow?.amount ?? 0;
+    const details = cashRow?.details ?? [];
+
+    const normalized = details.map((detail, index) => ({
+      id: `${index}-${detail.label}`,
+      tag: detail.label,
+      amount: cashRow ? toDisplayAmount(cashRow, detail.amount) : detail.amount,
+    }));
+
+    const detailSum = normalized.reduce(
+      (sum, detail) => sum + detail.amount,
+      0
+    );
+    const summary: CashBreakdownSummary = {
+      cashAccountBalance,
+      detailSum,
+      unclassifiedDelta: cashAccountBalance - detailSum,
+    };
+
+    const search = searchQuery.trim().toLowerCase();
+    if (!search) {
+      return { rows: normalized, totalRows: normalized.length, summary };
+    }
+
+    const filtered = normalized.filter((detail) =>
+      detail.tag.toLowerCase().includes(search)
+    );
+
+    return { rows: filtered, totalRows: normalized.length, summary };
+  }, [rows, searchQuery]);
+
+  const stockBreakdownData = useMemo(() => {
+    const stockRow =
+      rows.find(
+        (row) => row.account.trim().toLowerCase() === 'stock on hand'
+      ) ??
+      rows.find((row) => row.account.toLowerCase().includes('stock on hand'));
+
+    const stockOnHandBalance = stockRow?.amount ?? 0;
+    const details = stockRow?.details ?? [];
+
+    const normalized = details.map((detail, index) => ({
+      id: `${index}-${detail.label}`,
+      tag: detail.label,
+      amount: stockRow
+        ? toDisplayAmount(stockRow, detail.amount)
+        : detail.amount,
+    }));
+
+    const detailSum = normalized.reduce(
+      (sum, detail) => sum + detail.amount,
+      0
+    );
+    const summary: StockBreakdownSummary = {
+      stockOnHandBalance,
+      detailSum,
+      unclassifiedDelta: stockOnHandBalance - detailSum,
+    };
+
+    const search = searchQuery.trim().toLowerCase();
+    if (!search) {
+      return { rows: normalized, totalRows: normalized.length, summary };
+    }
+
+    const filtered = normalized.filter((detail) =>
+      detail.tag.toLowerCase().includes(search)
+    );
+
+    return { rows: filtered, totalRows: normalized.length, summary };
+  }, [rows, searchQuery]);
+
+  const transitBreakdownData = useMemo(() => {
+    const transitRow =
+      rows.find(
+        (row) => row.account.trim().toLowerCase() === 'inventory in transit'
+      ) ??
+      rows.find((row) =>
+        row.account.toLowerCase().includes('inventory in transit')
+      );
+
+    const inventoryInTransitBalance = transitRow?.amount ?? 0;
+    const details = transitRow?.details ?? [];
+
+    const normalized = details.map((detail, index) => ({
+      id: `${index}-${detail.label}`,
+      tag: detail.label,
+      amount: transitRow
+        ? toDisplayAmount(transitRow, detail.amount)
+        : detail.amount,
+    }));
+
+    const detailSum = normalized.reduce(
+      (sum, detail) => sum + detail.amount,
+      0
+    );
+    const summary: TransitBreakdownSummary = {
+      inventoryInTransitBalance,
+      detailSum,
+      unclassifiedDelta: inventoryInTransitBalance - detailSum,
+    };
+
+    const search = searchQuery.trim().toLowerCase();
+    if (!search) {
+      return { rows: normalized, totalRows: normalized.length, summary };
+    }
+
+    const filtered = normalized.filter((detail) =>
+      detail.tag.toLowerCase().includes(search)
+    );
+
+    return { rows: filtered, totalRows: normalized.length, summary };
+  }, [rows, searchQuery]);
+
+  const formatCurrency = formatCurrencyPHP;
 
   const handleExportCSV = () => {
     if (filteredRows.length === 0) {
@@ -204,6 +358,15 @@ export function useBalanceSheet(options: { apiBasePath?: string } = {}) {
   return {
     rows,
     filteredRows,
+    cashBreakdownRows: cashBreakdownData.rows,
+    cashBreakdownTotalRows: cashBreakdownData.totalRows,
+    cashBreakdownSummary: cashBreakdownData.summary,
+    stockBreakdownRows: stockBreakdownData.rows,
+    stockBreakdownTotalRows: stockBreakdownData.totalRows,
+    stockBreakdownSummary: stockBreakdownData.summary,
+    transitBreakdownRows: transitBreakdownData.rows,
+    transitBreakdownTotalRows: transitBreakdownData.totalRows,
+    transitBreakdownSummary: transitBreakdownData.summary,
     stats: filteredStats,
     asOf,
     setAsOf,
