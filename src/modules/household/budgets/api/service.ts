@@ -47,7 +47,7 @@ export class HouseholdBudgetService {
     const currentYear = now.getFullYear();
     const currentMonth = now.getMonth() + 1; // 1-based month for DTO
 
-    // Month-to-date average: consider from Jan 1 of current year through now.
+    // Build category totals from Jan 1 of current year through now.
     const windowStart = new Date(currentYear, 0, 1);
 
     // HouseholdExpense.date is stored as a string (VarChar), so we cannot
@@ -107,11 +107,15 @@ export class HouseholdBudgetService {
       agg.set(category, entry);
     }
 
-    const monthsElapsed = currentMonth; // 1-based month already
+    const previousMonthsElapsed = currentMonth - 1;
 
     const derivedBudgets: HouseholdBudgetDTO[] = Array.from(agg.entries()).map(
       ([category, { totalYtd, currentMonthTotal }]) => {
-        const plannedAverage = monthsElapsed > 0 ? totalYtd / monthsElapsed : 0;
+        const totalBeforeCurrentMonth = totalYtd - currentMonthTotal;
+        const plannedAverage =
+          previousMonthsElapsed > 0
+            ? totalBeforeCurrentMonth / previousMonthsElapsed
+            : 0;
 
         return {
           id: `derived-${category}-${currentYear}-${currentMonth}`,
