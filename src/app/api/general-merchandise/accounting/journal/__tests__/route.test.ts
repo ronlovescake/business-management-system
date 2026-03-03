@@ -3,6 +3,8 @@ import { getTestApiUrl, mockNextRequest } from '@/core/testing/test-helpers';
 
 vi.mock('@/lib/accounting/cutover', () => ({
   getAccountingCutoverDate: () => new Date('2020-01-01T00:00:00.000Z'),
+  getRuntimeAccountingCutoverDate: async () =>
+    new Date('2020-01-01T00:00:00.000Z'),
 }));
 
 const mockPrisma = vi.hoisted(() => ({

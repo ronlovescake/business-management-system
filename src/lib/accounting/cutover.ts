@@ -90,13 +90,14 @@ export async function getRuntimeAccountingCutoverDate(
 ): Promise<Date> {
   const fallback = getAccountingCutoverDate(module);
 
-  if (module !== 'clothing') {
-    return fallback;
-  }
-
   try {
-    const rows = await prisma.$queryRaw<Array<{ clothingCutoverDate: Date }>>`
-      SELECT "clothingCutoverDate"
+    const rows = await prisma.$queryRaw<
+      Array<{
+        clothingCutoverDate: Date | null;
+        generalMerchandiseCutoverDate: Date | null;
+      }>
+    >`
+      SELECT "clothingCutoverDate", "generalMerchandiseCutoverDate"
       FROM "public"."accounting_settings"
       ORDER BY "createdAt" DESC
       LIMIT 1
@@ -104,11 +105,16 @@ export async function getRuntimeAccountingCutoverDate(
 
     const settings = rows[0] ?? null;
 
-    if (!settings?.clothingCutoverDate) {
+    const rawCutoverDate =
+      module === 'generalMerchandise'
+        ? settings?.generalMerchandiseCutoverDate
+        : settings?.clothingCutoverDate;
+
+    if (!rawCutoverDate) {
       return fallback;
     }
 
-    const normalized = normalizeToUtcDateOnly(settings.clothingCutoverDate);
+    const normalized = normalizeToUtcDateOnly(rawCutoverDate);
     if (Number.isNaN(normalized.getTime())) {
       return fallback;
     }

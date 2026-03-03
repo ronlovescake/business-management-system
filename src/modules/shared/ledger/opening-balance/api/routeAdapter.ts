@@ -44,12 +44,18 @@ export type OpeningBalanceModel = {
 };
 
 type OpeningBalanceAdapterConfig = {
-  cutover: Date;
+  cutover: Date | (() => Date | Promise<Date>);
   getModel: () => OpeningBalanceModel | undefined;
   modelUnavailableMessage: string;
   modelUnavailableDetail: string;
   getReturnsEmptyWhenModelMissing: boolean;
 };
+
+async function resolveCutover(
+  cutover: OpeningBalanceAdapterConfig['cutover']
+): Promise<Date> {
+  return typeof cutover === 'function' ? await cutover() : cutover;
+}
 
 function serialize(entry: OpeningBalanceEntry) {
   return {
@@ -141,6 +147,7 @@ export function createOpeningBalanceRouteHandlers(
   config: OpeningBalanceAdapterConfig
 ) {
   const GET = withErrorHandler(async (req: NextRequest) => {
+    const cutover = await resolveCutover(config.cutover);
     const { from, to } = parseDateRangeFromParams(req.nextUrl.searchParams);
 
     const where: { date?: { gte?: Date; lte?: Date } } = {};
@@ -162,14 +169,13 @@ export function createOpeningBalanceRouteHandlers(
       : [];
 
     return ApiResponse.success({
-      cutoverDate: normalizedCutoverDate(config.cutover)
-        .toISOString()
-        .slice(0, 10),
+      cutoverDate: normalizedCutoverDate(cutover).toISOString().slice(0, 10),
       entries: entries.map(serialize),
     });
   });
 
   const POST = withErrorHandler(async (req: NextRequest) => {
+    const cutover = await resolveCutover(config.cutover);
     const body = (await req.json().catch(() => null)) ?? {};
 
     const validation = validateOpeningBalancePayload(body);
@@ -185,7 +191,7 @@ export function createOpeningBalanceRouteHandlers(
     const { account, ref, description, debit, credit } = validation.value;
     const entry = await model.create({
       data: {
-        date: normalizedCutoverDate(config.cutover),
+        date: normalizedCutoverDate(cutover),
         ref,
         account,
         debit,
@@ -201,6 +207,7 @@ export function createOpeningBalanceRouteHandlers(
   });
 
   const PUT = withErrorHandler(async (req: NextRequest) => {
+    const cutover = await resolveCutover(config.cutover);
     const body = (await req.json().catch(() => null)) ?? {};
     const id = (body.id ?? '').trim();
 
@@ -222,7 +229,7 @@ export function createOpeningBalanceRouteHandlers(
     const entry = await model.update({
       where: { id },
       data: {
-        date: normalizedCutoverDate(config.cutover),
+        date: normalizedCutoverDate(cutover),
         ref,
         account,
         debit,

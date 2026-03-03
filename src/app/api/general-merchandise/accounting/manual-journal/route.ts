@@ -1,11 +1,9 @@
-import { getAccountingCutoverDate } from '@/lib/accounting/cutover';
+import { getRuntimeAccountingCutoverDate } from '@/lib/accounting/cutover';
 import { prisma } from '@/lib/db';
 import { createManualJournalRouteHandlers } from '@/modules/shared/ledger/manual-journal/api/routeAdapter';
 
-const CUTOVER = getAccountingCutoverDate('generalMerchandise');
-
 const handlers = createManualJournalRouteHandlers(prisma, {
-  cutover: CUTOVER,
+  cutover: () => getRuntimeAccountingCutoverDate('generalMerchandise'),
   missingTableResponseDetail:
     'Missing table: general_merchandise.accounting_journal_lines. Create/apply the required schema to enable manual entries.',
   getModel: (client) => {

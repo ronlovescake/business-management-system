@@ -22,7 +22,7 @@ import {
 } from '@/lib/accounting/general-merchandise/data-fetchers';
 import { normalizeTransactionAmountsForAccounting } from '@/lib/accounting/transaction-normalization';
 import { buildCogsAndInventoryEntries } from '@/lib/accounting/general-merchandise/inventory-cogs';
-import { getAccountingCutoverDate } from '@/lib/accounting/cutover';
+import { getRuntimeAccountingCutoverDate } from '@/lib/accounting/cutover';
 import { normalizeAccountForReporting } from '@/lib/accounting/account-normalization';
 import { prisma } from '@/lib/db';
 import {
@@ -34,18 +34,17 @@ import {
 export const dynamic = 'force-dynamic';
 
 // Only show ledger activity from the accounting cutover date forward.
-const CUTOVER = getAccountingCutoverDate('generalMerchandise');
-
-function clampFrom(from: Date | null): Date {
+async function clampFrom(from: Date | null): Promise<Date> {
+  const cutover = await getRuntimeAccountingCutoverDate('generalMerchandise');
   if (!from) {
-    return CUTOVER;
+    return cutover;
   }
-  return from < CUTOVER ? CUTOVER : from;
+  return from < cutover ? cutover : from;
 }
 
 export const GET = withErrorHandler(async (req: NextRequest) => {
   const { from, to } = parseDateRangeFromParams(req.nextUrl.searchParams);
-  const effectiveFrom = clampFrom(from);
+  const effectiveFrom = await clampFrom(from);
   const effectiveTo = to ?? null;
 
   const transactions = await fetchGeneralMerchandisePaidTransactions();

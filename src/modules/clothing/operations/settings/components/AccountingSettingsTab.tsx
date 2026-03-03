@@ -19,6 +19,7 @@ import { COMMON_DATE_INPUT_PROPS } from '@/lib/dateInputConfig';
 type AccountingSettings = {
   id: string;
   clothingCutoverDate: string;
+  generalMerchandiseCutoverDate: string;
   createdAt: string;
   updatedAt: string;
 };
@@ -55,7 +56,11 @@ function formatDateOnly(date: Date): string {
 
 export function AccountingSettingsTab() {
   const [settings, setSettings] = useState<AccountingSettings | null>(null);
-  const [cutoverDate, setCutoverDate] = useState<Date | null>(null);
+  const [clothingCutoverDate, setClothingCutoverDate] = useState<Date | null>(
+    null
+  );
+  const [generalMerchandiseCutoverDate, setGeneralMerchandiseCutoverDate] =
+    useState<Date | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
 
@@ -69,7 +74,10 @@ export function AccountingSettingsTab() {
 
         const data = (await response.json()) as AccountingSettings;
         setSettings(data);
-        setCutoverDate(parseDateOnly(data.clothingCutoverDate));
+        setClothingCutoverDate(parseDateOnly(data.clothingCutoverDate));
+        setGeneralMerchandiseCutoverDate(
+          parseDateOnly(data.generalMerchandiseCutoverDate)
+        );
       } catch (error) {
         logger.error('Error fetching accounting settings:', error);
         showNotification({
@@ -87,15 +95,19 @@ export function AccountingSettingsTab() {
   }, []);
 
   const hasChanges = useMemo(() => {
-    if (!settings || !cutoverDate) {
+    if (!settings || !clothingCutoverDate || !generalMerchandiseCutoverDate) {
       return false;
     }
 
-    return formatDateOnly(cutoverDate) !== settings.clothingCutoverDate;
-  }, [settings, cutoverDate]);
+    return (
+      formatDateOnly(clothingCutoverDate) !== settings.clothingCutoverDate ||
+      formatDateOnly(generalMerchandiseCutoverDate) !==
+        settings.generalMerchandiseCutoverDate
+    );
+  }, [settings, clothingCutoverDate, generalMerchandiseCutoverDate]);
 
   const handleSave = async () => {
-    if (!cutoverDate) {
+    if (!clothingCutoverDate || !generalMerchandiseCutoverDate) {
       showNotification({
         title: '❌ Invalid Date',
         message: 'Please pick a valid cutover date.',
@@ -111,7 +123,10 @@ export function AccountingSettingsTab() {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          clothingCutoverDate: formatDateOnly(cutoverDate),
+          clothingCutoverDate: formatDateOnly(clothingCutoverDate),
+          generalMerchandiseCutoverDate: formatDateOnly(
+            generalMerchandiseCutoverDate
+          ),
         }),
       });
 
@@ -121,12 +136,14 @@ export function AccountingSettingsTab() {
 
       const updated = (await response.json()) as AccountingSettings;
       setSettings(updated);
-      setCutoverDate(parseDateOnly(updated.clothingCutoverDate));
+      setClothingCutoverDate(parseDateOnly(updated.clothingCutoverDate));
+      setGeneralMerchandiseCutoverDate(
+        parseDateOnly(updated.generalMerchandiseCutoverDate)
+      );
 
       showNotification({
         title: '✅ Settings Saved',
-        message:
-          'Accounting cutover date updated. New API requests will use this date.',
+        message: 'Accounting cutover dates updated for Clothing and GM.',
         color: 'green',
         autoClose: 5000,
       });
@@ -159,7 +176,7 @@ export function AccountingSettingsTab() {
           Accounting Settings
         </Title>
         <Text size="sm" c="dimmed" mt="xs">
-          Configure accounting behavior for Clothing module.
+          Configure accounting behavior for Clothing and General Merchandise.
         </Text>
       </div>
 
@@ -171,10 +188,26 @@ export function AccountingSettingsTab() {
           </Text>
 
           <DateInput
-            value={cutoverDate}
-            onChange={setCutoverDate}
+            value={clothingCutoverDate}
+            onChange={setClothingCutoverDate}
             placeholder="Pick cutover date"
             aria-label="Clothing accounting cutover date"
+            valueFormat="MMMM D, YYYY"
+            clearable={false}
+            {...COMMON_DATE_INPUT_PROPS}
+          />
+
+          <Text fw={600}>General Merchandise Cutover Date</Text>
+          <Text size="sm" c="dimmed">
+            Transactions before this date are excluded from GM accounting
+            reports.
+          </Text>
+
+          <DateInput
+            value={generalMerchandiseCutoverDate}
+            onChange={setGeneralMerchandiseCutoverDate}
+            placeholder="Pick GM cutover date"
+            aria-label="General merchandise accounting cutover date"
             valueFormat="MMMM D, YYYY"
             clearable={false}
             {...COMMON_DATE_INPUT_PROPS}
@@ -185,9 +218,13 @@ export function AccountingSettingsTab() {
               leftSection={<IconDeviceFloppy size={16} />}
               onClick={handleSave}
               loading={isSaving}
-              disabled={!hasChanges || !cutoverDate}
+              disabled={
+                !hasChanges ||
+                !clothingCutoverDate ||
+                !generalMerchandiseCutoverDate
+              }
             >
-              Save Cutover Date
+              Save Cutover Dates
             </Button>
           </Group>
         </Stack>

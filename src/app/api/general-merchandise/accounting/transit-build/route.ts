@@ -1,11 +1,10 @@
 import type { NextRequest } from 'next/server';
 import { ApiResponse } from '@/core/api';
 import { withErrorHandler } from '@/core/api/middleware';
+import { getRuntimeAccountingCutoverDate } from '@/lib/accounting/cutover';
 import { parseDate } from '@/lib/accounting/date-utils';
 import { prisma } from '@/lib/db';
 import { sanitizers } from '@/lib/security/sanitize';
-
-const ACCOUNTING_CUTOVER = new Date(Date.UTC(2026, 0, 1));
 
 const ALLOWED_CREDIT_ACCOUNTS = new Set([
   'Cash',
@@ -55,6 +54,8 @@ const getTransitBuildModel = (): GMTransitBuildModel | null => {
 };
 
 export const PATCH = withErrorHandler(async (request: NextRequest) => {
+  const accountingCutover =
+    await getRuntimeAccountingCutoverDate('generalMerchandise');
   const transitBuildModel = getTransitBuildModel();
   if (!transitBuildModel) {
     return ApiResponse.badRequest('Transit build-up not available for GM');
@@ -98,9 +99,9 @@ export const PATCH = withErrorHandler(async (request: NextRequest) => {
       });
     }
 
-    if (postingDate < ACCOUNTING_CUTOVER) {
+    if (postingDate < accountingCutover) {
       return ApiResponse.badRequest('Posting date is before cutover', {
-        postingDate: `Posting date must be on or after ${ACCOUNTING_CUTOVER.toISOString().slice(0, 10)}. Use opening balances for pre-cutover values.`,
+        postingDate: `Posting date must be on or after ${accountingCutover.toISOString().slice(0, 10)}. Use opening balances for pre-cutover values.`,
       });
     }
 

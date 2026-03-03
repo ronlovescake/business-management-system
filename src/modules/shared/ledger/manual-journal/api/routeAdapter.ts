@@ -50,8 +50,10 @@ type ManualJournalModel = {
 
 type UpdateMode = 'inplace' | 'replace';
 
+type CutoverResolver = Date | (() => Date | Promise<Date>);
+
 type ManualJournalRouteAdapterConfig = {
-  cutover: Date;
+  cutover: CutoverResolver;
   missingTableResponseDetail: string;
   getModel: (client: unknown) => ManualJournalModel | undefined;
   updateMode: UpdateMode;
@@ -65,6 +67,10 @@ type ManualJournalRouteAdapterConfig = {
   inplaceDebitWhere: (sourceId: string) => Record<string, unknown>;
   inplaceCreditWhere: (sourceId: string) => Record<string, unknown>;
 };
+
+async function resolveCutover(cutover: CutoverResolver): Promise<Date> {
+  return typeof cutover === 'function' ? await cutover() : cutover;
+}
 
 function normalizedDateOrNull(raw: unknown): Date | null {
   const date = parseDate(typeof raw === 'string' ? raw : null);
@@ -200,8 +206,9 @@ export function createManualJournalRouteHandlers(
   config: ManualJournalRouteAdapterConfig
 ) {
   const POST = withErrorHandler(async (req: NextRequest) => {
+    const cutover = await resolveCutover(config.cutover);
     const body = (await req.json().catch(() => null)) ?? {};
-    const validation = validate(body, config.cutover);
+    const validation = validate(body, cutover);
     if (!validation.ok) {
       return ApiResponse.badRequest(validation.errorMessage);
     }
@@ -277,8 +284,9 @@ export function createManualJournalRouteHandlers(
   });
 
   const PUT = withErrorHandler(async (req: NextRequest) => {
+    const cutover = await resolveCutover(config.cutover);
     const body = (await req.json().catch(() => null)) ?? {};
-    const validation = validate(body, config.cutover);
+    const validation = validate(body, cutover);
     if (!validation.ok) {
       return ApiResponse.badRequest(validation.errorMessage);
     }

@@ -14,6 +14,7 @@ export const dynamic = 'force-dynamic';
 type AccountingSettingsRecord = {
   id: string;
   clothingCutoverDate: Date;
+  generalMerchandiseCutoverDate: Date | null;
   createdAt: Date;
   updatedAt: Date;
 };
@@ -33,14 +34,20 @@ async function ensureAccountingSettingsTable(): Promise<void> {
       "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
       "updatedAt" TIMESTAMP(3) NOT NULL,
       "clothingCutoverDate" TIMESTAMP(3) NOT NULL,
+      "generalMerchandiseCutoverDate" TIMESTAMP(3),
       CONSTRAINT "accounting_settings_pkey" PRIMARY KEY ("id")
     )
+  `;
+
+  await prisma.$executeRaw`
+    ALTER TABLE "public"."accounting_settings"
+    ADD COLUMN IF NOT EXISTS "generalMerchandiseCutoverDate" TIMESTAMP(3)
   `;
 }
 
 async function fetchLatestSettings(): Promise<AccountingSettingsRecord | null> {
   const rows = await prisma.$queryRaw<AccountingSettingsRecord[]>`
-    SELECT "id", "createdAt", "updatedAt", "clothingCutoverDate"
+    SELECT "id", "createdAt", "updatedAt", "clothingCutoverDate", "generalMerchandiseCutoverDate"
     FROM "public"."accounting_settings"
     ORDER BY "createdAt" DESC
     LIMIT 1
@@ -50,16 +57,17 @@ async function fetchLatestSettings(): Promise<AccountingSettingsRecord | null> {
 }
 
 async function insertSettings(
-  clothingCutoverDate: Date
+  clothingCutoverDate: Date,
+  generalMerchandiseCutoverDate: Date
 ): Promise<AccountingSettingsRecord> {
   const id = globalThis.crypto?.randomUUID
     ? globalThis.crypto.randomUUID()
     : `${Date.now()}-${Math.random().toString(16).slice(2)}`;
 
   const rows = await prisma.$queryRaw<AccountingSettingsRecord[]>`
-    INSERT INTO "public"."accounting_settings" ("id", "updatedAt", "clothingCutoverDate")
-    VALUES (${id}, CURRENT_TIMESTAMP, ${clothingCutoverDate})
-    RETURNING "id", "createdAt", "updatedAt", "clothingCutoverDate"
+    INSERT INTO "public"."accounting_settings" ("id", "updatedAt", "clothingCutoverDate", "generalMerchandiseCutoverDate")
+    VALUES (${id}, CURRENT_TIMESTAMP, ${clothingCutoverDate}, ${generalMerchandiseCutoverDate})
+    RETURNING "id", "createdAt", "updatedAt", "clothingCutoverDate", "generalMerchandiseCutoverDate"
   `;
 
   const row = rows[0];
@@ -72,13 +80,16 @@ async function insertSettings(
 
 async function updateSettings(
   id: string,
-  clothingCutoverDate: Date
+  clothingCutoverDate: Date,
+  generalMerchandiseCutoverDate: Date
 ): Promise<AccountingSettingsRecord> {
   const rows = await prisma.$queryRaw<AccountingSettingsRecord[]>`
     UPDATE "public"."accounting_settings"
-    SET "clothingCutoverDate" = ${clothingCutoverDate}, "updatedAt" = CURRENT_TIMESTAMP
+    SET "clothingCutoverDate" = ${clothingCutoverDate},
+        "generalMerchandiseCutoverDate" = ${generalMerchandiseCutoverDate},
+        "updatedAt" = CURRENT_TIMESTAMP
     WHERE "id" = ${id}
-    RETURNING "id", "createdAt", "updatedAt", "clothingCutoverDate"
+    RETURNING "id", "createdAt", "updatedAt", "clothingCutoverDate", "generalMerchandiseCutoverDate"
   `;
 
   const row = rows[0];
@@ -148,15 +159,24 @@ export async function GET() {
 
     if (!settings) {
       settings = await insertSettings(
-        toDateOnlyUtc(getAccountingCutoverDate('clothing'))
+        toDateOnlyUtc(getAccountingCutoverDate('clothing')),
+        toDateOnlyUtc(getAccountingCutoverDate('generalMerchandise'))
       );
       logger.info('Created default accounting settings');
     }
+
+    const generalMerchandiseCutoverDate = toDateOnlyUtc(
+      settings.generalMerchandiseCutoverDate ??
+        getAccountingCutoverDate('generalMerchandise')
+    );
 
     return NextResponse.json({
       ...settings,
       clothingCutoverDate: formatDateOnly(
         toDateOnlyUtc(settings.clothingCutoverDate)
+      ),
+      generalMerchandiseCutoverDate: formatDateOnly(
+        generalMerchandiseCutoverDate
       ),
     });
   } catch (error) {
@@ -167,6 +187,9 @@ export async function GET() {
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
         clothingCutoverDate: formatDateOnly(fallbackDate),
+        generalMerchandiseCutoverDate: formatDateOnly(
+          toDateOnlyUtc(getAccountingCutoverDate('generalMerchandise'))
+        ),
       });
     }
 
@@ -182,13 +205,18 @@ export async function PUT(request: NextRequest) {
   try {
     await ensureAccountingSettingsTable();
     const body = await request.json();
-    const parsedDate = parseDateOnly(String(body?.clothingCutoverDate ?? ''));
+    const parsedClothingDate = parseDateOnly(
+      String(body?.clothingCutoverDate ?? '')
+    );
+    const parsedGeneralMerchandiseDate = parseDateOnly(
+      String(body?.generalMerchandiseCutoverDate ?? '')
+    );
 
-    if (!parsedDate) {
+    if (!parsedClothingDate || !parsedGeneralMerchandiseDate) {
       return NextResponse.json(
         {
           error:
-            'Invalid clothingCutoverDate. Use YYYY-MM-DD format with a valid calendar date.',
+            'Invalid cutover date. Use YYYY-MM-DD format with a valid calendar date.',
         },
         { status: 400 }
       );
@@ -196,21 +224,34 @@ export async function PUT(request: NextRequest) {
 
     const existing = await fetchLatestSettings();
 
-    const nextDate = toDateOnlyUtc(parsedDate);
+    const nextClothingDate = toDateOnlyUtc(parsedClothingDate);
+    const nextGeneralMerchandiseDate = toDateOnlyUtc(
+      parsedGeneralMerchandiseDate
+    );
 
     const saved = existing
-      ? await updateSettings(existing.id, nextDate)
-      : await insertSettings(nextDate);
+      ? await updateSettings(
+          existing.id,
+          nextClothingDate,
+          nextGeneralMerchandiseDate
+        )
+      : await insertSettings(nextClothingDate, nextGeneralMerchandiseDate);
 
     logger.info('Updated accounting settings', {
       id: saved.id,
-      clothingCutoverDate: formatDateOnly(nextDate),
+      clothingCutoverDate: formatDateOnly(nextClothingDate),
+      generalMerchandiseCutoverDate: formatDateOnly(nextGeneralMerchandiseDate),
     });
 
     return NextResponse.json({
       ...saved,
       clothingCutoverDate: formatDateOnly(
         toDateOnlyUtc(saved.clothingCutoverDate)
+      ),
+      generalMerchandiseCutoverDate: formatDateOnly(
+        toDateOnlyUtc(
+          saved.generalMerchandiseCutoverDate ?? nextGeneralMerchandiseDate
+        )
       ),
     });
   } catch (error) {

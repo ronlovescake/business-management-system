@@ -1,9 +1,7 @@
-import { getAccountingCutoverDate } from '@/lib/accounting/cutover';
+import { getRuntimeAccountingCutoverDate } from '@/lib/accounting/cutover';
 import { prisma } from '@/lib/db';
 import { createOpeningBalanceRouteHandlers } from '@/modules/shared/ledger/opening-balance/api/routeAdapter';
 import type { OpeningBalanceModel } from '@/modules/shared/ledger/opening-balance/api/routeAdapter';
-
-const CUTOVER = getAccountingCutoverDate();
 
 function getOpeningBalanceModel(
   modelName: string
@@ -31,7 +29,7 @@ function getOpeningBalanceModel(
 }
 
 const handlers = createOpeningBalanceRouteHandlers({
-  cutover: CUTOVER,
+  cutover: () => getRuntimeAccountingCutoverDate('generalMerchandise'),
   getModel: () =>
     getOpeningBalanceModel('generalMerchandiseAccountingOpeningBalance'),
   modelUnavailableMessage:
