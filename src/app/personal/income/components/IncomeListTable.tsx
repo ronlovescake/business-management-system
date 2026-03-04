@@ -42,6 +42,8 @@ function typeLabel(type: PersonalIncomeType): string {
       return 'FREELANCE';
     case 'GIFT':
       return 'GIFT';
+    case 'CASHBACK':
+      return 'CASHBACK';
     case 'REFUND':
       return 'REFUND';
     case 'OTHER':

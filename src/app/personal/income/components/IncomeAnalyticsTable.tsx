@@ -17,6 +17,8 @@ function colorForType(type: string): string {
       return 'teal';
     case 'GIFT':
       return 'grape';
+    case 'CASHBACK':
+      return 'lime';
     case 'REFUND':
       return 'orange';
     case 'OTHER':

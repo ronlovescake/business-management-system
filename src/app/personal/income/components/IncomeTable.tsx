@@ -31,6 +31,8 @@ function labelForType(type: PersonalIncomeType): string {
       return 'Freelance';
     case 'GIFT':
       return 'Gift';
+    case 'CASHBACK':
+      return 'Cashback';
     case 'REFUND':
       return 'Refund';
     case 'OTHER':

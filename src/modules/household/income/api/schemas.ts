@@ -5,6 +5,7 @@ export const HouseholdIncomeTypeSchema = z.enum([
   'SALARY',
   'FREELANCE',
   'GIFT',
+  'CASHBACK',
   'REFUND',
   'OTHER',
 ]);

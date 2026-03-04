@@ -25,6 +25,7 @@ export type PersonalIncomeType =
   | 'SALARY'
   | 'FREELANCE'
   | 'GIFT'
+  | 'CASHBACK'
   | 'REFUND'
   | 'OTHER';
 
@@ -54,6 +55,7 @@ const INCOME_TYPE_OPTIONS: Array<{ value: PersonalIncomeType; label: string }> =
     { value: 'SALARY', label: 'Salary' },
     { value: 'FREELANCE', label: 'Freelance' },
     { value: 'GIFT', label: 'Gift' },
+    { value: 'CASHBACK', label: 'Cashback' },
     { value: 'REFUND', label: 'Refund' },
     { value: 'OTHER', label: 'Other' },
   ];
