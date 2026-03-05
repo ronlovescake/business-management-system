@@ -422,14 +422,17 @@ export class TransactionService {
         return transaction;
       }
 
-      // Get shipment status from the map
-      const currentShipmentStatus = statusMap[productCode] || '';
+      // Get shipment status from the map.
+      // If there is no mapping yet (or it's blank), skip sync for this row.
+      // This prevents refresh-time fetch-order races from forcing "In Transit".
+      const currentShipmentStatus = statusMap[productCode];
+      if (!currentShipmentStatus || currentShipmentStatus.trim() === '') {
+        return transaction;
+      }
 
-      // If shipment status is blank, set to "In Transit"
-      // Otherwise, convert shipment status to order status
-      const newOrderStatus = currentShipmentStatus
-        ? this.getOrderStatusFromShipmentStatus(currentShipmentStatus)
-        : 'In Transit';
+      const newOrderStatus = this.getOrderStatusFromShipmentStatus(
+        currentShipmentStatus
+      );
 
       if (
         normalizeOrderStatus(currentOrderStatus) !==

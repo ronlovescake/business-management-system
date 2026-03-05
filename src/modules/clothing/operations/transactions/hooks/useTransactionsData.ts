@@ -374,7 +374,12 @@ export function useTransactionsData({
 
               const correspondingShipmentStatus =
                 shipmentCodeToStatus[shipmentCode] || '';
-              statusMapping[productCode] = correspondingShipmentStatus;
+              // Avoid writing blank shipment statuses into the sync map.
+              // Blank here is typically a transient fetch-order state and can
+              // incorrectly force transactions back to "In Transit".
+              if (correspondingShipmentStatus.trim() !== '') {
+                statusMapping[productCode] = correspondingShipmentStatus;
+              }
             }
           });
 
