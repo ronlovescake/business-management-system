@@ -131,6 +131,9 @@ export class ProductService {
     _isEditMode: boolean = false,
     existingProduct?: ProductData
   ): ProductData {
+    const normalizedShipmentCode = form.shipmentCode?.trim() || '';
+    const hasShipmentCode = normalizedShipmentCode.length > 0;
+
     // Calculate all financial metrics
     const calculations = this.calculateFinancials({
       unitPrice: form.unitPrice,
@@ -166,12 +169,16 @@ export class ProductService {
 
     return {
       id: existingProduct?.id,
-      'Shipment Code': form.shipmentCode?.trim() || '',
-      'CV Number': existingProduct?.['CV Number'] || '',
-      'No. Of Sacks': existingProduct?.['No. Of Sacks'] || 0,
-      'Total CBM': existingProduct?.['Total CBM'] || 0,
-      Weight: existingProduct?.Weight || 0,
-      'Shipment Status': existingProduct?.['Shipment Status'] || '',
+      'Shipment Code': normalizedShipmentCode,
+      'CV Number': hasShipmentCode ? existingProduct?.['CV Number'] || '' : '',
+      'No. Of Sacks': hasShipmentCode
+        ? existingProduct?.['No. Of Sacks'] || 0
+        : 0,
+      'Total CBM': hasShipmentCode ? existingProduct?.['Total CBM'] || 0 : 0,
+      Weight: hasShipmentCode ? existingProduct?.Weight || 0 : 0,
+      'Shipment Status': hasShipmentCode
+        ? existingProduct?.['Shipment Status'] || ''
+        : '',
       'Posting Date': form.postingDate || '',
       'Order Date': form.orderDate || '',
       Payment: form.payment || '',
