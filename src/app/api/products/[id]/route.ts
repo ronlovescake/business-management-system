@@ -165,6 +165,25 @@ export async function PUT(
       },
     });
 
+    // Keep transaction shipment linkage aligned with the product's shipment code.
+    // This ensures removing a shipment code from a product also clears it in
+    // related transactions.
+    const normalizedProductCode = (updatedProduct.productCode ?? '').trim();
+    if (normalizedProductCode) {
+      await prisma.transaction.updateMany({
+        where: {
+          deletedAt: null,
+          productCode: {
+            equals: normalizedProductCode,
+            mode: 'insensitive',
+          },
+        },
+        data: {
+          shipmentCode: updatedProduct.shipmentCode,
+        },
+      });
+    }
+
     if (existingProduct) {
       try {
         await postSupplierSettlementForProductPaymentChange({

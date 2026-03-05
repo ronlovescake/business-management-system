@@ -575,6 +575,34 @@ export const productService: ProductService = {
             where: { id: existing.id },
             data: buildUpdateData(dto),
           });
+
+          const normalizedProductCode = (data.productCode ?? '').trim();
+          const transactionModel = (
+            tx as Prisma.TransactionClient & {
+              transaction?: {
+                updateMany: (args: {
+                  where: Prisma.TransactionWhereInput;
+                  data: Prisma.TransactionUpdateManyMutationInput;
+                }) => Promise<unknown>;
+              };
+            }
+          ).transaction;
+
+          if (normalizedProductCode && transactionModel?.updateMany) {
+            await transactionModel.updateMany({
+              where: {
+                deletedAt: null,
+                productCode: {
+                  equals: normalizedProductCode,
+                  mode: 'insensitive',
+                },
+              },
+              data: {
+                shipmentCode: data.shipmentCode,
+              },
+            });
+          }
+
           postings.push({ productId: existing.id, dto });
 
           const nextPayment = dto.Payment;
