@@ -13,6 +13,7 @@ import { IconCheck } from '@tabler/icons-react';
 import type { CellChange, ChangeSource } from 'handsontable/common';
 import { useCtrlFFocus } from '@/hooks/useCtrlFFocus';
 import { showCustomAlert } from '@/lib/alerts';
+import { calculateProductFinancials } from '@/lib/productCalculations';
 import { useProductsData } from './useProductsData';
 import { useProductForm } from './useProductForm';
 import type { ProductData } from '../types/product.types';
@@ -27,6 +28,26 @@ type LastClick = {
   col: number;
   time: number;
 };
+
+const COST_RECALC_TRIGGER_KEYS = new Set<keyof ProductData>([
+  'Alibaba Shipping Cost',
+  "Forwarder's Fee",
+  'Lalamove',
+  'Packaging Cost',
+]);
+
+function toSafeNumber(value: unknown): number {
+  if (typeof value === 'number') {
+    return Number.isFinite(value) ? value : 0;
+  }
+
+  if (typeof value === 'string') {
+    const parsed = Number.parseFloat(value.replace(/,/g, '').trim());
+    return Number.isFinite(parsed) ? parsed : 0;
+  }
+
+  return 0;
+}
 
 interface UseProductsGridResult {
   searchQuery: string;
@@ -439,6 +460,7 @@ export function useProductsGrid({
       }
 
       const updatedProducts = [...products];
+      const recalcGlobalIndexes = new Set<number>();
 
       changes.forEach(([row, col, _oldValue, newValue]) => {
         if (row < filteredProducts.length) {
@@ -466,9 +488,51 @@ export function useProductsGrid({
                 ...updatedProducts[globalIndex],
                 [key]: newValue as ProductData[keyof ProductData],
               };
+
+              if (COST_RECALC_TRIGGER_KEYS.has(key)) {
+                recalcGlobalIndexes.add(globalIndex);
+              }
             }
           }
         }
+      });
+
+      recalcGlobalIndexes.forEach((index) => {
+        const current = updatedProducts[index];
+        if (!current) {
+          return;
+        }
+
+        const calculations = calculateProductFinancials({
+          unitPrice: toSafeNumber(current['Unit Price']),
+          quantity: toSafeNumber(current.Quantity),
+          alibabaShippingCost: toSafeNumber(current['Alibaba Shipping Cost']),
+          exchangeRates: toSafeNumber(current['Exchange Rates']),
+          forwardersFee: toSafeNumber(current["Forwarder's Fee"]),
+          lalamove: toSafeNumber(current.Lalamove),
+          packagingCost: toSafeNumber(current['Packaging Cost']),
+          actualPrice: toSafeNumber(current['Actual Price']),
+          // Preserve prior toggle behavior: if fee is zero, keep fee off.
+          applyTransactionFee: toSafeNumber(current['Transaction Fee']) > 0,
+          bulkQuantity: toSafeNumber(current['Bulk Quantity']),
+          bulkWeight: toSafeNumber(current['Bulk Weight']),
+        });
+
+        updatedProducts[index] = {
+          ...current,
+          PHP: calculations.php,
+          'Sub Total (PHP)': calculations.subTotalPHP,
+          'Transaction Fee': calculations.transactionFee,
+          'Grand Total': calculations.grandTotal,
+          'Suggested Price': calculations.suggestedPrice,
+          'Landed Unit Cost': calculations.basePrice,
+          COGS: calculations.cogs,
+          'Projected Sales': calculations.projectedSales,
+          'Projected Profit': calculations.projectedProfit,
+          'Projected Profit (%)': calculations.projectedProfitPercent,
+          'Total Markup': calculations.totalMarkup,
+          'Weight Per Piece': calculations.weightPerPiece,
+        };
       });
 
       bulkUpdateProducts(updatedProducts);
