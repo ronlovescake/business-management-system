@@ -2,6 +2,7 @@ import type { Prisma, Transaction } from '@prisma/client';
 import type { ChangeLogEntryInput } from '@/core/change-log';
 import { prisma } from '@/lib/db';
 import { isFulfilledStatus, isReservedStatus } from '@/lib/inventory/statuses';
+import { normalizeOrderStatus } from '@/lib/transactions/order-status';
 import {
   buildSellableDeltaMap,
   buildSellableReceiptCodeSet,
@@ -245,6 +246,102 @@ function assertCanSetPaidStatus(params: {
       )}). Record full payment first, or use "Pending Payment" for shipped-but-unpaid orders.`
     );
   }
+}
+
+const WAREHOUSE_SHIPMENT_STATUSES = new Set([
+  'for pickup',
+  'sorting',
+  'delivered',
+]);
+
+async function resolveLinkedShipmentStatus(params: {
+  client: Prisma.TransactionClient | typeof prisma;
+  productCode: string | null | undefined;
+  shipmentCode: string | null | undefined;
+}): Promise<string | null> {
+  const { client } = params;
+  const normalizedProductCode = (params.productCode ?? '').trim();
+  const normalizedShipmentCode = (params.shipmentCode ?? '').trim();
+
+  let fallbackShipmentCode = normalizedShipmentCode;
+
+  if (normalizedProductCode) {
+    const linkedProduct = await client.product.findFirst({
+      where: {
+        deletedAt: null,
+        productCode: {
+          equals: normalizedProductCode,
+          mode: 'insensitive',
+        },
+      },
+      select: {
+        shipmentStatus: true,
+        shipmentCode: true,
+      },
+    });
+
+    const productShipmentStatus = (linkedProduct?.shipmentStatus ?? '').trim();
+    if (productShipmentStatus) {
+      return productShipmentStatus;
+    }
+
+    const productShipmentCode = (linkedProduct?.shipmentCode ?? '').trim();
+    if (!fallbackShipmentCode && productShipmentCode) {
+      fallbackShipmentCode = productShipmentCode;
+    }
+  }
+
+  if (!fallbackShipmentCode) {
+    return null;
+  }
+
+  const linkedShipment = await client.shipment.findFirst({
+    where: {
+      deletedAt: null,
+      shipmentCode: {
+        equals: fallbackShipmentCode,
+        mode: 'insensitive',
+      },
+    },
+    select: {
+      shipmentStatus: true,
+    },
+  });
+
+  const shipmentStatus = (linkedShipment?.shipmentStatus ?? '').trim();
+  return shipmentStatus || null;
+}
+
+async function assertOrderStatusNotBackwardToInTransit(params: {
+  client: Prisma.TransactionClient | typeof prisma;
+  nextStatus: string | null | undefined;
+  productCode: string | null | undefined;
+  shipmentCode: string | null | undefined;
+}) {
+  const { client, nextStatus, productCode, shipmentCode } = params;
+
+  if (normalizeOrderStatus(nextStatus) !== 'in transit') {
+    return;
+  }
+
+  const linkedShipmentStatus = await resolveLinkedShipmentStatus({
+    client,
+    productCode,
+    shipmentCode,
+  });
+
+  if (!linkedShipmentStatus) {
+    return;
+  }
+
+  const normalizedShipmentStatus = normalizeOrderStatus(linkedShipmentStatus);
+  if (!WAREHOUSE_SHIPMENT_STATUSES.has(normalizedShipmentStatus)) {
+    return;
+  }
+
+  throw new TransactionValidationError(
+    `Cannot set Order Status to "In Transit" because linked shipment status is "${linkedShipmentStatus}". Shipment statuses For Pickup, Sorting, and Delivered must stay at least "Warehouse".`
+  );
 }
 
 type MixAndMatchDefinition = {
@@ -655,14 +752,14 @@ export const transactionService: TransactionService = {
     const preparedRows: Prisma.TransactionCreateManyInput[] = [];
     let skippedTemplateRows = 0;
 
-    validRows.forEach(({ record, index }) => {
+    for (const { record, index } of validRows) {
       const validation = transactionDataSchema.safeParse(record);
       if (!validation.success) {
         logger.warn(`Transaction #${index + 1} skipped - validation failed`, {
           row: index + 1,
           issues: validation.error.issues,
         });
-        return;
+        continue;
       }
 
       if (isTemplatePreparedRow(validation.data)) {
@@ -673,11 +770,18 @@ export const transactionService: TransactionService = {
             row: index + 1,
           }
         );
-        return;
+        continue;
       }
 
+      await assertOrderStatusNotBackwardToInTransit({
+        client: prisma,
+        nextStatus: validation.data['Order Status'],
+        productCode: validation.data['Product Code'],
+        shipmentCode: validation.data['Shipment Code'],
+      });
+
       preparedRows.push(buildCreateInput(validation.data, priceTiers));
-    });
+    }
 
     const skippedEmptyRows = emptyRows.length;
     const allRows = preparedRows;
@@ -817,6 +921,14 @@ export const transactionService: TransactionService = {
             nextStatus: update.values['Order Status'],
             existing,
             updateValues: update.values,
+          });
+
+          await assertOrderStatusNotBackwardToInTransit({
+            client: tx,
+            nextStatus: update.values['Order Status'],
+            productCode: update.values['Product Code'] ?? existing.productCode,
+            shipmentCode:
+              update.values['Shipment Code'] ?? existing.shipmentCode,
           });
         }
 
@@ -1003,6 +1115,13 @@ export const transactionService: TransactionService = {
         nextStatus: update.values['Order Status'],
         existing,
         updateValues: update.values,
+      });
+
+      await assertOrderStatusNotBackwardToInTransit({
+        client: prisma,
+        nextStatus: update.values['Order Status'],
+        productCode: update.values['Product Code'] ?? existing.productCode,
+        shipmentCode: update.values['Shipment Code'] ?? existing.shipmentCode,
       });
     }
 

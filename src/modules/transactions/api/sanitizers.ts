@@ -1,4 +1,5 @@
 import { sanitizers } from '@/lib/security/sanitize';
+import { canonicalizeOrderStatus } from '@/lib/transactions/order-status';
 
 export const EMPTY_SHIPMENT_MARKER = '-';
 
@@ -38,6 +39,17 @@ export function parseOptional(value: unknown): string | null {
   return trimmed.length === 0 ? null : trimmed;
 }
 
+function parseOrderStatus(value: unknown): string {
+  const trimmed = parseTrimmed(value);
+  if (!trimmed) {
+    return '';
+  }
+
+  // Keep accepted statuses canonical while allowing strict schema rejection
+  // for unknown statuses.
+  return canonicalizeOrderStatus(trimmed) ?? trimmed;
+}
+
 export function sanitizeTransactionRecord(entry: unknown): TransactionRecord {
   if (!entry || typeof entry !== 'object') {
     return defaultRecord();
@@ -54,7 +66,7 @@ export function sanitizeTransactionRecord(entry: unknown): TransactionRecord {
     Discount: parseNumeric(record['Discount']),
     Adjustment: parseNumeric(record['Adjustment']),
     'Line Total': parseNumeric(record['Line Total']),
-    'Order Status': parseTrimmed(record['Order Status']),
+    'Order Status': parseOrderStatus(record['Order Status']),
     Notes: parseOptional(record['Notes']),
     'Invoice Date': parseOptional(record['Invoice Date']),
     'Packed Date': parseOptional(record['Packed Date']),
@@ -99,7 +111,7 @@ export function sanitizeTransactionUpdateRecord(
     values['Line Total'] = parseNumeric(record['Line Total']);
   }
   if ('Order Status' in record) {
-    values['Order Status'] = parseTrimmed(record['Order Status']);
+    values['Order Status'] = parseOrderStatus(record['Order Status']);
   }
   if ('Notes' in record) {
     values.Notes = parseOptional(record['Notes']);
