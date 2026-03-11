@@ -33,7 +33,6 @@ export function useTransactionsLayout<T extends object>({
   isGeneratingDistribution = false,
 }: UseTransactionsLayoutProps<T>) {
   const [showMoreOpened, setShowMoreOpened] = React.useState(false);
-  const [toolsOpened, setToolsOpened] = React.useState(false);
 
   const secondaryStatuses = React.useMemo(
     () => new Set(['Shipped', 'Cancelled', 'Forfeited', 'Voided']),
@@ -277,47 +276,16 @@ export function useTransactionsLayout<T extends object>({
     </Group>
   );
 
-  const toolsButton = showActionButtons ? (
-    <Popover
-      opened={toolsOpened}
-      onChange={setToolsOpened}
-      position="bottom-end"
-      withArrow
-      shadow="md"
-    >
-      <Popover.Target>
-        <Button
-          variant="outline"
-          radius="sm"
-          onClick={() => setToolsOpened((prev) => !prev)}
-          style={{
-            backgroundColor: toolsOpened ? '#228be6' : '#e9ecef',
-            borderColor: toolsOpened ? '#1c7ed6' : '#dee2e6',
-            borderWidth: '1.5px',
-            color: toolsOpened ? '#ffffff' : '#495057',
-            minWidth: '120px',
-            fontWeight: 600,
-          }}
-        >
-          TOOLS
-        </Button>
-      </Popover.Target>
-      <Popover.Dropdown>{toolsButtons}</Popover.Dropdown>
-    </Popover>
-  ) : null;
-
-  const searchRightButtons =
-    statusFilterPills || toolsButton ? (
-      <Group gap="xs" wrap="nowrap">
-        {statusFilterPills}
-        {toolsButton}
-      </Group>
-    ) : undefined;
+  const searchRightButtons = statusFilterPills ? (
+    <Group gap="xs" wrap="nowrap">
+      {statusFilterPills}
+    </Group>
+  ) : undefined;
 
   return {
     handleExportToXLSX,
     searchRightButtons,
     statusFilterPills,
-    actionButtons: null,
+    actionButtons: showActionButtons ? toolsButtons : null,
   };
 }
