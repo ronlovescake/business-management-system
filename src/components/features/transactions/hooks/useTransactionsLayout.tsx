@@ -1,7 +1,6 @@
 import React from 'react';
 import { showNotification } from '@mantine/notifications';
 import { Group, Button, Pill, Loader, Popover } from '@mantine/core';
-import { IconFileSpreadsheet } from '@tabler/icons-react';
 
 interface UseTransactionsLayoutProps<T> {
   filteredData: T[];
@@ -257,6 +256,11 @@ export function useTransactionsLayout<T extends object>({
           {isGeneratingPackingList ? 'GENERATING...' : 'Create Packing List'}
         </Button>
       )}
+      {/*
+        Temporarily hidden per request on operations/transactions.
+        Keep this block intact so the XLSX export action can be restored quickly.
+      */}
+      {/**
       <Button
         leftSection={<IconFileSpreadsheet size={16} />}
         variant="outline"
@@ -272,6 +276,7 @@ export function useTransactionsLayout<T extends object>({
       >
         Export to XLSX
       </Button>
+      */}
       {extraActionButtons}
     </Group>
   );
