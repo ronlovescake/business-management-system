@@ -29,6 +29,7 @@ const formatTime = formatTimeString;
 
 export function useAttendance(apiBasePath?: string) {
   const queryClient = useQueryClient();
+  const currentYear = String(new Date().getFullYear());
 
   const resolveApiPath = useCallback(
     (path: string) => buildApiPath(apiBasePath, path),
@@ -43,6 +44,15 @@ export function useAttendance(apiBasePath?: string) {
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | AttendanceStatus>(
     'all'
+  );
+  const [yearFilter, setYearFilter] = useState(currentYear);
+
+  const yearOptions = useMemo(
+    () =>
+      Array.from({ length: 7 }, (_, index) =>
+        String(Number(currentYear) - 1 + index)
+      ),
+    [currentYear]
   );
 
   // Query filters object for cache key
@@ -113,9 +123,12 @@ export function useAttendance(apiBasePath?: string) {
       const matchesStatus =
         statusFilter === 'all' || record.status === statusFilter;
 
-      return matchesSearch && matchesStatus;
+      const recordYear = (toDate(record.date)?.getFullYear() ?? -1).toString();
+      const matchesYear = recordYear === yearFilter;
+
+      return matchesSearch && matchesStatus && matchesYear;
     });
-  }, [sortedRecords, searchQuery, statusFilter]);
+  }, [sortedRecords, searchQuery, statusFilter, yearFilter]);
 
   const totalRecords = filteredRecords.length;
   const presentCount = filteredRecords.filter(
@@ -1148,6 +1161,7 @@ export function useAttendance(apiBasePath?: string) {
     filteredRecords,
     searchQuery,
     statusFilter,
+    yearFilter,
     isRecordModalOpen,
     recordForm,
     isLoading,
@@ -1160,10 +1174,12 @@ export function useAttendance(apiBasePath?: string) {
     onLeaveCount,
     totalHours,
     averageHours,
+    yearOptions,
 
     // Setters
     setSearchQuery,
     setStatusFilter,
+    setYearFilter,
 
     // Utility functions
     formatDate,

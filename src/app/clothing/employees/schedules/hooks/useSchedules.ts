@@ -43,6 +43,7 @@ type ScheduleOverlapCandidate = {
  */
 export function useSchedules(apiBasePath?: string) {
   const queryClient = useQueryClient();
+  const currentYear = String(new Date().getFullYear());
 
   const resolveApiPath = useCallback(
     (path: string) => buildApiPath(apiBasePath, path),
@@ -57,6 +58,7 @@ export function useSchedules(apiBasePath?: string) {
   const [searchQuery, setSearchQuery] = useState('');
   const [filterShiftType, setFilterShiftType] = useState<string | null>(null);
   const [filterStatus, setFilterStatus] = useState<string | null>(null);
+  const [yearFilter, setYearFilter] = useState(currentYear);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingSchedule, setEditingSchedule] = useState<Schedule | null>(null);
   const [activeTab, setActiveTab] = useState<string | null>('list');
@@ -165,6 +167,14 @@ export function useSchedules(apiBasePath?: string) {
     []
   );
 
+  const yearOptions = useMemo(
+    () =>
+      Array.from({ length: 7 }, (_, index) =>
+        String(Number(currentYear) - 1 + index)
+      ),
+    [currentYear]
+  );
+
   const stayInEmployees = useMemo(() => {
     return new Set(
       employees
@@ -192,9 +202,12 @@ export function useSchedules(apiBasePath?: string) {
       // Status filter
       const matchesStatus = !filterStatus || schedule.status === filterStatus;
 
-      return matchesSearch && matchesShiftType && matchesStatus;
+      const scheduleYear = new Date(schedule.date).getFullYear().toString();
+      const matchesYear = scheduleYear === yearFilter;
+
+      return matchesSearch && matchesShiftType && matchesStatus && matchesYear;
     });
-  }, [schedules, searchQuery, filterShiftType, filterStatus]);
+  }, [schedules, searchQuery, filterShiftType, filterStatus, yearFilter]);
 
   // Sort schedules by date (newest first)
   const sortedSchedules = useMemo(() => {
@@ -1113,6 +1126,8 @@ export function useSchedules(apiBasePath?: string) {
     setFilterShiftType,
     filterStatus,
     setFilterStatus,
+    yearFilter,
+    setYearFilter,
     isModalOpen,
     setIsModalOpen,
     editingSchedule,
@@ -1142,6 +1157,7 @@ export function useSchedules(apiBasePath?: string) {
 
     // Computed values
     shiftTypes,
+    yearOptions,
     totalSchedules,
     scheduledCount,
     completedCount,

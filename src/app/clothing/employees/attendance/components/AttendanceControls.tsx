@@ -20,6 +20,9 @@ interface AttendanceControlsProps {
   onSearchChange: (query: string) => void;
   statusFilter: AttendanceRecord['status'] | 'all';
   onStatusFilterChange: (status: AttendanceRecord['status'] | 'all') => void;
+  yearFilter: string;
+  yearOptions: string[];
+  onYearFilterChange: (year: string) => void;
   onImportCSV: (file: File | null) => void;
   onExportCSV: () => void;
   onAddRecord: () => void;
@@ -31,6 +34,9 @@ export const AttendanceControls = memo(function AttendanceControls({
   onSearchChange,
   statusFilter,
   onStatusFilterChange,
+  yearFilter,
+  yearOptions,
+  onYearFilterChange,
   onImportCSV,
   onExportCSV,
   onAddRecord,
@@ -66,6 +72,18 @@ export const AttendanceControls = memo(function AttendanceControls({
             }
             clearable
             style={{ width: 200 }}
+          />
+          <Select
+            data={yearOptions}
+            value={yearFilter}
+            placeholder="Year"
+            onChange={(value) => {
+              if (value) {
+                onYearFilterChange(value);
+              }
+            }}
+            allowDeselect={false}
+            style={{ width: 140 }}
           />
           <FileButton onChange={onImportCSV} accept=".csv,text/csv">
             {(props) => (

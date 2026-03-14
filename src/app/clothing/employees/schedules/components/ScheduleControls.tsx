@@ -26,6 +26,9 @@ interface ScheduleControlsProps {
   onShiftTypeFilterChange: (shiftType: string | null) => void;
   filterStatus: string | null;
   onStatusFilterChange: (status: string | null) => void;
+  yearFilter: string;
+  yearOptions: string[];
+  onYearFilterChange: (year: string) => void;
   onImportCSV: (file: File | null) => void;
   onExportCSV: () => void;
   onAddSchedule?: () => void;
@@ -55,6 +58,9 @@ export const ScheduleControls = memo(function ScheduleControls({
   onShiftTypeFilterChange,
   filterStatus,
   onStatusFilterChange,
+  yearFilter,
+  yearOptions,
+  onYearFilterChange,
   onImportCSV,
   onExportCSV,
   onAddSchedule: _onAddSchedule,
@@ -113,6 +119,18 @@ export const ScheduleControls = memo(function ScheduleControls({
               }
               clearable
               style={{ width: 200, minWidth: '180px' }}
+            />
+            <Select
+              data={yearOptions}
+              value={yearFilter}
+              placeholder="Year"
+              onChange={(value) => {
+                if (value) {
+                  onYearFilterChange(value);
+                }
+              }}
+              allowDeselect={false}
+              style={{ width: 140, minWidth: '120px' }}
             />
           </Group>
           <Group gap="sm">

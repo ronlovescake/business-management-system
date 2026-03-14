@@ -40,11 +40,14 @@ export function EmployeesSchedulesPage({
     setFilterShiftType,
     filterStatus,
     setFilterStatus,
+    yearFilter,
+    setYearFilter,
     activeTab,
     setActiveTab,
     isImporting,
 
     // Computed values
+    yearOptions,
     totalSchedules,
     scheduledCount,
     completedCount,
@@ -119,6 +122,9 @@ export function EmployeesSchedulesPage({
           onShiftTypeFilterChange={setFilterShiftType}
           filterStatus={filterStatus}
           onStatusFilterChange={setFilterStatus}
+          yearFilter={yearFilter}
+          yearOptions={yearOptions}
+          onYearFilterChange={setYearFilter}
           onImportCSV={handleImportCSV}
           onExportCSV={handleExportCSV}
           isImporting={isImporting}
@@ -143,6 +149,7 @@ export function EmployeesSchedulesPage({
         ) : (
           <CalendarView
             schedules={schedules}
+            selectedYear={yearFilter}
             getShiftTypeColor={getShiftTypeColor}
             getStatusColor={getStatusColor}
             onEditSchedule={handleEditSchedule}

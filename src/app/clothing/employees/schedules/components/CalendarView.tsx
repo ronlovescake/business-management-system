@@ -1,4 +1,11 @@
-import { useState, useMemo, cloneElement, isValidElement, memo } from 'react';
+import {
+  useState,
+  useMemo,
+  cloneElement,
+  isValidElement,
+  memo,
+  useEffect,
+} from 'react';
 import type { ReactNode } from 'react';
 import {
   Card,
@@ -20,6 +27,7 @@ import type { Schedule, ShiftType, ScheduleStatus } from '../types';
 
 interface CalendarViewProps {
   schedules: Schedule[];
+  selectedYear: string;
   getShiftTypeColor: (shiftType: ShiftType) => string;
   getStatusColor: (status: ScheduleStatus) => string;
   onAddSchedule?: () => void;
@@ -33,6 +41,7 @@ interface CalendarViewProps {
 
 export const CalendarView = memo(function CalendarView({
   schedules,
+  selectedYear,
   getShiftTypeColor,
   getStatusColor: _getStatusColor,
   onAddSchedule: _onAddSchedule,
@@ -42,6 +51,21 @@ export const CalendarView = memo(function CalendarView({
 }: CalendarViewProps) {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [openRecurringRulesModal, setOpenRecurringRulesModal] = useState(false);
+
+  useEffect(() => {
+    const nextYear = Number(selectedYear);
+    if (!Number.isFinite(nextYear)) {
+      return;
+    }
+
+    setCurrentDate((previousDate) => {
+      if (previousDate.getFullYear() === nextYear) {
+        return previousDate;
+      }
+
+      return new Date(nextYear, previousDate.getMonth(), 1);
+    });
+  }, [selectedYear]);
 
   const handleAddScheduleClick = () => {
     setOpenRecurringRulesModal(true);

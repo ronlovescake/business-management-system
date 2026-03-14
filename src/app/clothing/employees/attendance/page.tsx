@@ -31,6 +31,7 @@ function AttendanceContent({ apiBasePath }: { apiBasePath?: string }) {
     filteredRecords,
     searchQuery,
     statusFilter,
+    yearFilter,
     totalRecords,
     presentCount,
     lateCount,
@@ -38,6 +39,7 @@ function AttendanceContent({ apiBasePath }: { apiBasePath?: string }) {
     averageHours,
     setSearchQuery,
     setStatusFilter,
+    setYearFilter,
     formatDate,
     formatTime,
     formatHours,
@@ -52,6 +54,7 @@ function AttendanceContent({ apiBasePath }: { apiBasePath?: string }) {
     isRecordModalOpen,
     handleImportCSV,
     handleExportCSV,
+    yearOptions,
   } = useAttendance(apiBasePath);
 
   const getInitials = (record: AttendanceRecord) => {
@@ -231,6 +234,9 @@ function AttendanceContent({ apiBasePath }: { apiBasePath?: string }) {
           onSearchChange={setSearchQuery}
           statusFilter={statusFilter}
           onStatusFilterChange={setStatusFilter}
+          yearFilter={yearFilter}
+          yearOptions={yearOptions}
+          onYearFilterChange={setYearFilter}
           onImportCSV={handleImportCSV}
           onExportCSV={handleExportCSV}
           onAddRecord={handleAddRecord}
