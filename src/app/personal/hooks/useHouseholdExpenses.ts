@@ -550,7 +550,8 @@ export function useHouseholdExpenses() {
       // ⚠️ SAVE + RESET (KEEP MODAL OPEN)
       // ======================================================================
       // Create the expense, then clear the form for rapid entry without
-      // dismissing the modal.
+      // dismissing the modal. Preserve the date so users logging multiple
+      // expenses for the same day don't have to re-enter it each time.
       // ======================================================================
       createExpense(payload);
       showNotification({
@@ -559,7 +560,9 @@ export function useHouseholdExpenses() {
         color: 'green',
       });
 
+      const savedDate = formDate;
       resetForm();
+      setFormDate(savedDate);
     } catch (error) {
       logger.error('Failed to save expense', { error, payload });
       showError('Failed to save expense');
