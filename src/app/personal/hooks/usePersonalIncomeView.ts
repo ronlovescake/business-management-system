@@ -48,6 +48,35 @@ export function usePersonalIncomeView() {
   const [filterType, setFilterType] = useState<PersonalIncomeType | null>(null);
   const [filterAccount, setFilterAccount] = useState<string | null>(null);
 
+  const currentYear = String(new Date().getFullYear());
+  const currentMonth = String(new Date().getMonth() + 1).padStart(2, '0');
+  const [filterMonth, setFilterMonth] = useState<string>(currentMonth);
+  const [filterYear, setFilterYear] = useState<string>(currentYear);
+
+  const yearOptions = useMemo(
+    () =>
+      Array.from({ length: 7 }, (_, i) => String(Number(currentYear) - 1 + i)),
+    [currentYear]
+  );
+
+  const monthOptions = useMemo(
+    () => [
+      { value: '01', label: 'January' },
+      { value: '02', label: 'February' },
+      { value: '03', label: 'March' },
+      { value: '04', label: 'April' },
+      { value: '05', label: 'May' },
+      { value: '06', label: 'June' },
+      { value: '07', label: 'July' },
+      { value: '08', label: 'August' },
+      { value: '09', label: 'September' },
+      { value: '10', label: 'October' },
+      { value: '11', label: 'November' },
+      { value: '12', label: 'December' },
+    ],
+    []
+  );
+
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingIncome, setEditingIncome] = useState<PersonalIncomeRow | null>(
     null
@@ -97,9 +126,17 @@ export function usePersonalIncomeView() {
         return false;
       }
 
+      if (filterMonth && r.date.slice(5, 7) !== filterMonth) {
+        return false;
+      }
+
+      if (filterYear && r.date.slice(0, 4) !== filterYear) {
+        return false;
+      }
+
       return true;
     });
-  }, [filterAccount, filterType, income, searchQuery]);
+  }, [filterAccount, filterMonth, filterType, filterYear, income, searchQuery]);
 
   const totalIncome = filteredIncome.reduce(
     (sum, r) => sum + (r.amount || 0),
@@ -334,6 +371,12 @@ export function usePersonalIncomeView() {
     setFilterType,
     filterAccount,
     setFilterAccount,
+    filterMonth,
+    setFilterMonth,
+    filterYear,
+    setFilterYear,
+    monthOptions,
+    yearOptions,
     isModalOpen,
     setIsModalOpen,
     editingIncome,

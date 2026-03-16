@@ -31,6 +31,12 @@ export default function PersonalIncomePage() {
     setFilterType,
     filterAccount,
     setFilterAccount,
+    filterMonth,
+    setFilterMonth,
+    filterYear,
+    setFilterYear,
+    monthOptions,
+    yearOptions,
     isModalOpen,
     setIsModalOpen,
     editingIncome,
@@ -68,6 +74,12 @@ export default function PersonalIncomePage() {
           onTypeFilterChange={(val) => setFilterType(val as typeof filterType)}
           filterAccount={filterAccount}
           onAccountFilterChange={setFilterAccount}
+          filterMonth={filterMonth}
+          onMonthFilterChange={setFilterMonth}
+          filterYear={filterYear}
+          onYearFilterChange={setFilterYear}
+          monthOptions={monthOptions}
+          yearOptions={yearOptions}
           types={types}
           accounts={accounts}
           onImportCSV={handleImportCSV}

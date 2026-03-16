@@ -37,6 +37,9 @@ interface ExpenseControlsProps {
   onStatusFilterChange: (status: string | null) => void;
   filterSource: string | null;
   onSourceFilterChange: (source: string | null) => void;
+  filterYear?: string;
+  onYearFilterChange?: (year: string) => void;
+  yearOptions?: string[];
   categories: string[];
   sources: string[];
   onImportCSV: (file: File | null) => void;
@@ -71,6 +74,9 @@ export const ExpenseControls = memo(function ExpenseControls({
   onStatusFilterChange,
   filterSource,
   onSourceFilterChange,
+  filterYear,
+  onYearFilterChange,
+  yearOptions,
   categories,
   sources,
   onImportCSV,
@@ -141,6 +147,20 @@ export const ExpenseControls = memo(function ExpenseControls({
             clearable
             style={{ width: 200 }}
           />
+          {yearOptions && yearOptions.length > 0 && (
+            <Select
+              placeholder="Year"
+              data={yearOptions}
+              value={filterYear ?? null}
+              onChange={(value) => {
+                if (value) {
+                  onYearFilterChange?.(value);
+                }
+              }}
+              allowDeselect={false}
+              style={{ width: 110 }}
+            />
+          )}
           <FileButton onChange={onImportCSV} accept=".csv,text/csv">
             {(props) => (
               <Button

@@ -222,6 +222,15 @@ export function useHouseholdExpenses() {
   const [filterCategory, setFilterCategory] = useState<string | null>(null);
   const [filterStatus, setFilterStatus] = useState<string | null>(null);
   const [filterSource, setFilterSource] = useState<string | null>(null);
+
+  const currentYear = String(new Date().getFullYear());
+  const [filterYear, setFilterYear] = useState<string>(currentYear);
+  const yearOptions = useMemo(
+    () =>
+      Array.from({ length: 7 }, (_, i) => String(Number(currentYear) - 1 + i)),
+    [currentYear]
+  );
+
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingExpense, setEditingExpense] = useState<Expense | null>(null);
   const [activeTab, setActiveTab] = useState<string | null>('list');
@@ -329,7 +338,7 @@ export function useHouseholdExpenses() {
 
   const filteredExpenses = useMemo(() => {
     const dateRange = buildDateRange(dateFilter);
-    return filterAndSortExpenses(expenses, {
+    const base = filterAndSortExpenses(expenses, {
       searchQuery,
       filterDateRange: dateRange,
       filterCategory,
@@ -346,6 +355,10 @@ export function useHouseholdExpenses() {
       getSourceLabel: (expense) => getSourceLabel(expense.sourceType),
       getDate: (expense) => expense.date,
     });
+    if (!filterYear) {
+      return base;
+    }
+    return base.filter((e) => e.date.slice(0, 4) === filterYear);
   }, [
     expenses,
     searchQuery,
@@ -353,6 +366,7 @@ export function useHouseholdExpenses() {
     filterCategory,
     filterStatus,
     filterSource,
+    filterYear,
     getSourceLabel,
   ]);
 
@@ -664,6 +678,9 @@ export function useHouseholdExpenses() {
     setFilterStatus,
     filterSource,
     setFilterSource,
+    filterYear,
+    setFilterYear,
+    yearOptions,
     isModalOpen,
     setIsModalOpen,
     editingExpense,

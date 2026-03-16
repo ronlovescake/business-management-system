@@ -24,6 +24,12 @@ interface IncomeControlsProps {
   onTypeFilterChange: (type: string | null) => void;
   filterAccount: string | null;
   onAccountFilterChange: (account: string | null) => void;
+  filterMonth: string;
+  onMonthFilterChange: (month: string) => void;
+  filterYear: string;
+  onYearFilterChange: (year: string) => void;
+  monthOptions: { value: string; label: string }[];
+  yearOptions: string[];
   types: string[];
   accounts: string[];
   onImportCSV: (file: File | null) => void;
@@ -41,6 +47,12 @@ export const IncomeControls = memo(function IncomeControls({
   onTypeFilterChange,
   filterAccount,
   onAccountFilterChange,
+  filterMonth,
+  onMonthFilterChange,
+  filterYear,
+  onYearFilterChange,
+  monthOptions,
+  yearOptions,
   types,
   accounts,
   onImportCSV,
@@ -87,6 +99,30 @@ export const IncomeControls = memo(function IncomeControls({
             }
             clearable
             style={{ width: 200 }}
+          />
+          <Select
+            placeholder="Month"
+            data={monthOptions}
+            value={filterMonth}
+            onChange={(value) => {
+              if (value) {
+                onMonthFilterChange(value);
+              }
+            }}
+            allowDeselect={false}
+            style={{ width: 140 }}
+          />
+          <Select
+            placeholder="Year"
+            data={yearOptions}
+            value={filterYear}
+            onChange={(value) => {
+              if (value) {
+                onYearFilterChange(value);
+              }
+            }}
+            allowDeselect={false}
+            style={{ width: 110 }}
           />
           <FileButton onChange={onImportCSV} accept=".csv,text/csv">
             {(props) => (

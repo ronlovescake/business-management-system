@@ -35,6 +35,9 @@ export default function PersonalExpensesPage() {
     setFilterStatus,
     filterSource,
     setFilterSource,
+    filterYear,
+    setFilterYear,
+    yearOptions,
     isModalOpen,
     setIsModalOpen,
     editingExpense,
@@ -127,6 +130,9 @@ export default function PersonalExpensesPage() {
             onStatusFilterChange={setFilterStatus}
             filterSource={filterSource}
             onSourceFilterChange={setFilterSource}
+            filterYear={filterYear}
+            onYearFilterChange={setFilterYear}
+            yearOptions={yearOptions}
             categories={categories}
             sources={sourceOptions}
             onImportCSV={handleImportCSV}
