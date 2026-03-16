@@ -1,7 +1,5 @@
-import type { Payroll } from '@prisma/client';
-
-type PayrollCandidate = {
-  payroll: Payroll;
+type PayrollCandidate<TPayroll> = {
+  payroll: TPayroll;
   start: Date | null;
   end: Date | null;
 };
@@ -19,8 +17,8 @@ export const mergeCashAdvanceUpdate = <TUpdate>(
   store.set(id, update);
 };
 
-export const selectThirteenthMonthTarget = (
-  candidates: PayrollCandidate[],
+export const selectThirteenthMonthTarget = <TPayroll>(
+  candidates: PayrollCandidate<TPayroll>[],
   _approvedDate: Date | null,
   _paidDate: Date | null
 ) => {

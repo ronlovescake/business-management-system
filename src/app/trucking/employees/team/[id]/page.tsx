@@ -28,6 +28,7 @@ import type { EmployeeDetailField } from '../types/detail-field';
 export default function EmployeeDetailPage() {
   const params = useParams();
   const router = useRouter();
+  const apiBasePath = '/api/trucking';
 
   if (!params || !params.id) {
     throw new Error('Employee id is required for EmployeeDetailPage');
@@ -58,7 +59,7 @@ export default function EmployeeDetailPage() {
     thirteenthMonthRecords,
     totalThirteenthMonthPay,
     isLoadingThirteenthMonth,
-  } = useEmployeeDetail(employeeId);
+  } = useEmployeeDetail(employeeId, apiBasePath);
 
   const MAX_PROFILE_PHOTO_SIZE = 2 * 1024 * 1024; // 2MB
 

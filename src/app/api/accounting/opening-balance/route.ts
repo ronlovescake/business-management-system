@@ -1,4 +1,3 @@
-import type { NextRequest } from 'next/server';
 import { getRuntimeAccountingCutoverDate } from '@/lib/accounting/cutover';
 import { prisma } from '@/lib/db';
 import { createOpeningBalanceRouteHandlers } from '@/modules/shared/ledger/opening-balance/api/routeAdapter';
@@ -29,34 +28,17 @@ function getOpeningBalanceModel(
   return candidate as OpeningBalanceModel;
 }
 
-function createHandlers(cutover: Date) {
-  return createOpeningBalanceRouteHandlers({
-    cutover,
-    getModel: () => getOpeningBalanceModel('clothingAccountingOpeningBalance'),
-    modelUnavailableMessage:
-      'Opening balances are not enabled in this database yet',
-    modelUnavailableDetail:
-      'Missing table: clothing_accounting_opening_balances. Create/apply the required schema to enable opening balances.',
-    getReturnsEmptyWhenModelMissing: false,
-  });
-}
+const handlers = createOpeningBalanceRouteHandlers({
+  cutover: () => getRuntimeAccountingCutoverDate(),
+  getModel: () => getOpeningBalanceModel('clothingAccountingOpeningBalance'),
+  modelUnavailableMessage:
+    'Opening balances are not enabled in this database yet',
+  modelUnavailableDetail:
+    'Missing table: clothing_accounting_opening_balances. Create/apply the required schema to enable opening balances.',
+  getReturnsEmptyWhenModelMissing: false,
+});
 
-export async function GET(request: NextRequest) {
-  const handlers = createHandlers(await getRuntimeAccountingCutoverDate());
-  return handlers.GET(request);
-}
-
-export async function POST(request: NextRequest) {
-  const handlers = createHandlers(await getRuntimeAccountingCutoverDate());
-  return handlers.POST(request);
-}
-
-export async function PUT(request: NextRequest) {
-  const handlers = createHandlers(await getRuntimeAccountingCutoverDate());
-  return handlers.PUT(request);
-}
-
-export async function DELETE(request: NextRequest) {
-  const handlers = createHandlers(await getRuntimeAccountingCutoverDate());
-  return handlers.DELETE(request);
-}
+export const GET = handlers.GET;
+export const POST = handlers.POST;
+export const PUT = handlers.PUT;
+export const DELETE = handlers.DELETE;

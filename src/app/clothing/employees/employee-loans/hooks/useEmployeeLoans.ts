@@ -1,7 +1,15 @@
 import { useState, useMemo } from 'react';
 import type { EmployeeLoan, EmployeeLoanFormData } from '../types';
 import { getCurrentDateISO } from '@/utils/date';
-import { FormatterService } from '@/services/FormatterService';
+import {
+  calculateLoanMonthlyPayment,
+  createImportedLoanRecord,
+  formatLoanCurrency,
+  formatLoanDate,
+  formatLoanPercent,
+  getLoanStatusColor,
+  getLoanTypeColor,
+} from './employeeLoanUtils';
 
 export function useEmployeeLoans() {
   // State Management
@@ -45,70 +53,10 @@ export function useEmployeeLoans() {
     .filter((l) => l.status === 'active')
     .reduce((sum, l) => sum + l.remainingBalance, 0);
 
-  // Utility Functions
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-    });
-  };
-
-  const formatCurrency = (amount: number) =>
-    FormatterService.formatCurrency(amount);
-
-  const formatPercent = (rate: number) => {
-    return `${rate.toFixed(2)}%`;
-  };
-
-  const getStatusColor = (status: EmployeeLoan['status']) => {
-    switch (status) {
-      case 'pending':
-        return 'yellow';
-      case 'approved':
-        return 'blue';
-      case 'active':
-        return 'green';
-      case 'completed':
-        return 'teal';
-      case 'rejected':
-        return 'red';
-      default:
-        return 'gray';
-    }
-  };
-
-  const getLoanTypeColor = (type: EmployeeLoan['loanType']) => {
-    switch (type) {
-      case 'personal':
-        return 'blue';
-      case 'emergency':
-        return 'red';
-      case 'educational':
-        return 'violet';
-      case 'housing':
-        return 'green';
-      case 'vehicle':
-        return 'orange';
-      default:
-        return 'gray';
-    }
-  };
-
-  const calculateMonthlyPayment = (
-    principal: number,
-    annualRate: number,
-    months: number
-  ) => {
-    if (annualRate === 0) {
-      return principal / months;
-    }
-    const monthlyRate = annualRate / 100 / 12;
-    return (
-      (principal * monthlyRate * Math.pow(1 + monthlyRate, months)) /
-      (Math.pow(1 + monthlyRate, months) - 1)
-    );
-  };
+  const formatDate = formatLoanDate;
+  const formatCurrency = formatLoanCurrency;
+  const formatPercent = formatLoanPercent;
+  const getStatusColor = getLoanStatusColor;
 
   // Event Handlers
   const handleAddLoan = () => {
@@ -131,7 +79,7 @@ export function useEmployeeLoans() {
     const amount = parseFloat(formData.amount);
     const interestRate = parseFloat(formData.interestRate);
     const termMonths = parseInt(formData.termMonths);
-    const monthlyPayment = calculateMonthlyPayment(
+    const monthlyPayment = calculateLoanMonthlyPayment(
       amount,
       interestRate,
       termMonths
@@ -254,41 +202,7 @@ export function useEmployeeLoans() {
 
       const imported = rows
         .filter((row) => row.trim())
-        .map((row) => {
-          const [
-            employee,
-            loanType,
-            amount,
-            interestRate,
-            termMonths,
-            purpose,
-            applicationDate,
-          ] = row.split(',');
-
-          const loanAmount = parseFloat(amount?.trim() || '0');
-          const rate = parseFloat(interestRate?.trim() || '0');
-          const term = parseInt(termMonths?.trim() || '12');
-          const monthlyPayment = calculateMonthlyPayment(
-            loanAmount,
-            rate,
-            term
-          );
-
-          return {
-            id: Date.now().toString() + Math.random(),
-            employee: employee?.trim() || '',
-            loanType: (loanType?.trim() ||
-              'personal') as EmployeeLoan['loanType'],
-            amount: loanAmount,
-            interestRate: rate,
-            termMonths: term,
-            monthlyPayment,
-            remainingBalance: loanAmount,
-            status: 'pending' as const,
-            applicationDate: applicationDate?.trim() || getCurrentDateISO(),
-            purpose: purpose?.trim() || '',
-          };
-        });
+        .map((row) => createImportedLoanRecord(row));
 
       setLoans((prev) => [...imported, ...prev]);
     };

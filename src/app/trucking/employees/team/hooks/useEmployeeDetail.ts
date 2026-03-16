@@ -1,16 +1,27 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useCallback } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { showNotification } from '@mantine/notifications';
 import { logger } from '@/lib/logger';
 import { api } from '@/lib/api/client';
 import { getApiDataOrThrow } from '@/lib/api/response';
 import { queryKeys } from '@/lib/queryKeys';
+import { buildApiPath } from '@/lib/api/paths';
 import type { AttendanceRecord } from '@/app/trucking/employees/attendance/types';
 import type { LeaveRequest } from '@/app/trucking/employees/leave-tracker/types';
 import type { CashAdvance } from '@/app/trucking/employees/cash-advance/types';
 import type { Schedule } from '@/app/trucking/employees/schedules/types';
-import type { Employee, EmployeeFormData } from '../types';
+import {
+  EMPLOYEE_STATUS_COLORS,
+  type Employee,
+  type EmployeeFormData,
+} from '../types';
 import type { ApiResponse } from '@/types/api';
+import {
+  extractSuffixFromName,
+  parseNumberOrZero,
+  parseOptionalNumericInput,
+  toOptionalNumber,
+} from '@/app/clothing/employees/team/hooks/employeeDetailUtils';
 
 /**
  * Custom hook for employee detail page - React Query version
@@ -58,24 +69,15 @@ export interface EmployeeThirteenthMonthRecord {
   notes?: string;
 }
 
-export function useEmployeeDetail(employeeId: string) {
+export function useEmployeeDetail(employeeId: string, apiBasePath?: string) {
   const queryClient = useQueryClient();
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [isPhotoUploading, setIsPhotoUploading] = useState(false);
 
-  const extractSuffixFromName = (fullName?: string | null) => {
-    if (!fullName) {
-      return '';
-    }
-    const commaMatch = fullName.match(/,\s*(.+)$/);
-    if (commaMatch?.[1]) {
-      return commaMatch[1];
-    }
-    const parts = fullName.trim().split(/\s+/);
-    const lastPart = parts[parts.length - 1]?.toLowerCase();
-    const common = new Set(['jr', 'jr.', 'sr', 'sr.', 'ii', 'iii', 'iv', 'v']);
-    return lastPart && common.has(lastPart) ? parts[parts.length - 1] : '';
-  };
+  const resolveApiPath = useCallback(
+    (path: string) => buildApiPath(apiBasePath, path),
+    [apiBasePath]
+  );
 
   const showApiError = (error: unknown, fallback: string) => {
     const status =
@@ -108,23 +110,21 @@ export function useEmployeeDetail(employeeId: string) {
     });
   };
 
-  // Main employee query
+  const employeeDetailQueryKey = useMemo(
+    () => [...queryKeys.employees.detail(employeeId), apiBasePath ?? 'default'],
+    [employeeId, apiBasePath]
+  );
+
   const { data: employee = null, isLoading } = useQuery({
-    queryKey: queryKeys.employees.detail(employeeId),
+    queryKey: employeeDetailQueryKey,
     queryFn: async () => {
       const data = await api.get<Employee>(
-        `/api/trucking/employees/${employeeId}`
+        resolveApiPath(`/employees/${employeeId}`)
       );
-
-      // Transform database response to match Employee type
-      const toOptionalNumber = (value: unknown) => {
-        const parsed = Number(value);
-        return Number.isFinite(parsed) ? parsed : undefined;
-      };
 
       const transformedEmployee: Employee = {
         ...data,
-        id: data.id.toString(), // Convert number to string for UI
+        id: data.id.toString(),
         suffix: extractSuffixFromName(data.name),
         sssMonthlyContribution:
           toOptionalNumber(data.sssMonthlyContribution) ?? undefined,
@@ -143,12 +143,6 @@ export function useEmployeeDetail(employeeId: string) {
 
   const normalizedEmployeeId = employee?.employeeId?.trim() || '';
   const normalizedEmployeeKey = normalizedEmployeeId.toLowerCase();
-
-  // Helper functions for data transformation
-  const parseNumber = (value: unknown) => {
-    const parsed = Number(value);
-    return Number.isFinite(parsed) ? parsed : 0;
-  };
 
   const allowedAttendanceStatuses = useMemo(
     () => new Set(['present', 'late', 'absent', 'on-leave']),
@@ -208,14 +202,21 @@ export function useEmployeeDetail(employeeId: string) {
     []
   );
 
-  // Parallel queries for related data (enabled only when employee data is available)
+  const payrollHistoryQueryKey = useMemo(
+    () => [
+      ...queryKeys.payroll.byEmployee(normalizedEmployeeId),
+      apiBasePath ?? 'default',
+    ],
+    [normalizedEmployeeId, apiBasePath]
+  );
+
   const { data: payrollHistory = [], isLoading: isLoadingPayroll } = useQuery({
-    queryKey: queryKeys.payroll.byEmployee(normalizedEmployeeId),
+    queryKey: payrollHistoryQueryKey,
     queryFn: async () => {
       const query = encodeURIComponent(normalizedEmployeeId);
       const payrollJson = await api.get<
         Array<EmployeePayrollRecord & { employeeId?: string }>
-      >(`/api/trucking/payroll?employeeId=${query}`);
+      >(resolveApiPath(`/payroll?employeeId=${query}`));
 
       const payrollData: EmployeePayrollRecord[] = Array.isArray(payrollJson)
         ? payrollJson
@@ -235,12 +236,12 @@ export function useEmployeeDetail(employeeId: string) {
                 periodStart: record.periodStart ?? null,
                 periodEnd: record.periodEnd ?? null,
                 status,
-                grossPay: parseNumber(record.grossPay),
-                netPay: parseNumber(record.netPay),
-                totalDeductions: parseNumber(record.totalDeductions),
-                cashAdvance: parseNumber(record.cashAdvance),
-                basicSalary: parseNumber(record.basicSalary),
-                allowance: parseNumber(record.allowance),
+                grossPay: parseNumberOrZero(record.grossPay),
+                netPay: parseNumberOrZero(record.netPay),
+                totalDeductions: parseNumberOrZero(record.totalDeductions),
+                cashAdvance: parseNumberOrZero(record.cashAdvance),
+                basicSalary: parseNumberOrZero(record.basicSalary),
+                allowance: parseNumberOrZero(record.allowance),
                 createdAt: record.createdAt ?? undefined,
               } satisfies EmployeePayrollRecord;
             })
@@ -254,17 +255,25 @@ export function useEmployeeDetail(employeeId: string) {
 
       return payrollData;
     },
-    enabled: !!normalizedEmployeeId,
+    enabled: !!normalizedEmployeeKey,
     staleTime: 30 * 1000,
   });
 
+  const attendanceQueryKey = useMemo(
+    () => [
+      ...queryKeys.attendance.byEmployee(normalizedEmployeeId),
+      apiBasePath ?? 'default',
+    ],
+    [normalizedEmployeeId, apiBasePath]
+  );
+
   const { data: attendanceHistory = [], isLoading: isLoadingAttendance } =
     useQuery({
-      queryKey: ['attendance', 'byEmployee', normalizedEmployeeId],
+      queryKey: attendanceQueryKey,
       queryFn: async () => {
         const query = encodeURIComponent(normalizedEmployeeId);
         const attendanceJson = await api.get<AttendanceRecord[]>(
-          `/api/trucking/attendance?employeeId=${query}`
+          resolveApiPath(`/attendance?employeeId=${query}`)
         );
 
         const attendanceData: AttendanceRecord[] = Array.isArray(attendanceJson)
@@ -294,7 +303,7 @@ export function useEmployeeDetail(employeeId: string) {
                   lunchEnd: record.lunchEnd ?? undefined,
                   break2Start: record.break2Start ?? undefined,
                   break2End: record.break2End ?? undefined,
-                  totalHours: parseNumber(record.totalHours),
+                  totalHours: parseNumberOrZero(record.totalHours),
                   status,
                   details: record.details ?? undefined,
                   notes: record.notes ?? undefined,
@@ -305,18 +314,24 @@ export function useEmployeeDetail(employeeId: string) {
         attendanceData.sort((a, b) => b.date.localeCompare(a.date));
         return attendanceData;
       },
-      enabled: !!normalizedEmployeeId,
+      enabled: !!normalizedEmployeeKey,
       staleTime: 30 * 1000,
     });
 
+  const leaveRequestsQueryKey = useMemo(
+    () => [
+      ...queryKeys.leaveRequests.list({ employeeId: normalizedEmployeeId }),
+      apiBasePath ?? 'default',
+    ],
+    [normalizedEmployeeId, apiBasePath]
+  );
+
   const { data: leaveHistory = [], isLoading: isLoadingLeaves } = useQuery({
-    queryKey: queryKeys.leaveRequests.list({
-      employeeId: normalizedEmployeeId,
-    }),
+    queryKey: leaveRequestsQueryKey,
     queryFn: async () => {
       const query = encodeURIComponent(normalizedEmployeeId);
       const leaveJson = await api.get<LeaveRequest[]>(
-        `/api/trucking/leave-requests?employeeId=${query}`
+        resolveApiPath(`/leave-requests?employeeId=${query}`)
       );
 
       const leaveData: LeaveRequest[] = Array.isArray(leaveJson)
@@ -347,7 +362,7 @@ export function useEmployeeDetail(employeeId: string) {
                 leaveType,
                 startDate: String(record.startDate ?? ''),
                 endDate: String(record.endDate ?? ''),
-                numberOfDays: parseNumber(record.numberOfDays),
+                numberOfDays: parseNumberOrZero(record.numberOfDays),
                 reason: String(record.reason ?? ''),
                 status,
                 paymentStatus,
@@ -361,20 +376,26 @@ export function useEmployeeDetail(employeeId: string) {
       leaveData.sort((a, b) => b.startDate.localeCompare(a.startDate));
       return leaveData;
     },
-    enabled: !!normalizedEmployeeId,
+    enabled: !!normalizedEmployeeKey,
     staleTime: 30 * 1000,
   });
 
+  const cashAdvancesQueryKey = useMemo(
+    () => [
+      ...queryKeys.cashAdvances.list({ employeeId: normalizedEmployeeId }),
+      apiBasePath ?? 'default',
+    ],
+    [normalizedEmployeeId, apiBasePath]
+  );
+
   const { data: cashAdvanceRecords = [], isLoading: isLoadingCashAdvances } =
     useQuery({
-      queryKey: queryKeys.cashAdvances.list({
-        employeeId: normalizedEmployeeId,
-      }),
+      queryKey: cashAdvancesQueryKey,
       queryFn: async () => {
         const query = encodeURIComponent(normalizedEmployeeId);
         const response = await api.get<
           ApiResponse<Array<CashAdvance & { employeeName?: string }>>
-        >(`/api/trucking/cash-advances?employeeId=${query}`);
+        >(resolveApiPath(`/cash-advances?employeeId=${query}`));
         const cashAdvanceJson = getApiDataOrThrow(
           response,
           'Failed to fetch cash advances'
@@ -391,11 +412,11 @@ export function useEmployeeDetail(employeeId: string) {
               : false
           )
           .map((record) => {
-            const amount = parseNumber(record.amount);
-            const settledAmount = parseNumber(record.settledAmount);
+            const amount = parseNumberOrZero(record.amount);
+            const settledAmount = parseNumberOrZero(record.settledAmount);
             const remainingBalance =
               record.remainingBalance !== undefined
-                ? parseNumber(record.remainingBalance)
+                ? parseNumberOrZero(record.remainingBalance)
                 : Math.max(amount - settledAmount, 0);
             const status = allowedCashAdvanceStatuses.has(record.status)
               ? (record.status as CashAdvance['status'])
@@ -423,7 +444,7 @@ export function useEmployeeDetail(employeeId: string) {
               monthlyPayment:
                 record.monthlyPayment !== null &&
                 record.monthlyPayment !== undefined
-                  ? parseNumber(record.monthlyPayment)
+                  ? parseNumberOrZero(record.monthlyPayment)
                   : undefined,
               remainingBalance,
               settledAmount,
@@ -437,17 +458,25 @@ export function useEmployeeDetail(employeeId: string) {
 
         return cashAdvanceData;
       },
-      enabled: !!normalizedEmployeeId,
+      enabled: !!normalizedEmployeeKey,
       staleTime: 30 * 1000,
     });
 
+  const schedulesQueryKey = useMemo(
+    () => [
+      ...queryKeys.schedules.byEmployee(normalizedEmployeeId),
+      apiBasePath ?? 'default',
+    ],
+    [normalizedEmployeeId, apiBasePath]
+  );
+
   const { data: scheduleHistory = [], isLoading: isLoadingSchedules } =
     useQuery({
-      queryKey: queryKeys.schedules.byEmployee(normalizedEmployeeId),
+      queryKey: schedulesQueryKey,
       queryFn: async () => {
         const query = encodeURIComponent(normalizedEmployeeId);
         const scheduleJson = await api.get<Schedule[]>(
-          `/api/trucking/schedules?employeeId=${query}`
+          resolveApiPath(`/schedules?employeeId=${query}`)
         );
 
         const scheduleData: Schedule[] = Array.isArray(scheduleJson)
@@ -488,21 +517,29 @@ export function useEmployeeDetail(employeeId: string) {
         scheduleData.sort((a, b) => b.date.localeCompare(a.date));
         return scheduleData;
       },
-      enabled: !!normalizedEmployeeId,
+      enabled: !!normalizedEmployeeKey,
       staleTime: 30 * 1000,
     });
+
+  const thirteenthMonthQueryKey = useMemo(
+    () => [
+      ...queryKeys.thirteenthMonthPay.list({
+        employeeId: normalizedEmployeeKey,
+      }),
+      apiBasePath ?? 'default',
+    ],
+    [normalizedEmployeeKey, apiBasePath]
+  );
 
   const {
     data: thirteenthMonthRecords = [],
     isLoading: isLoadingThirteenthMonth,
   } = useQuery({
-    queryKey: queryKeys.thirteenthMonthPay.list({
-      employeeId: normalizedEmployeeKey,
-    }),
+    queryKey: thirteenthMonthQueryKey,
     queryFn: async () => {
       const query = encodeURIComponent(normalizedEmployeeKey);
       const response = await api.get<Array<Record<string, unknown>>>(
-        `/api/trucking/thirteenth-month-pay?employeeId=${query}`
+        resolveApiPath(`/thirteenth-month-pay?employeeId=${query}`)
       );
 
       if (!Array.isArray(response)) {
@@ -580,11 +617,11 @@ export function useEmployeeDetail(employeeId: string) {
               recordId,
             year,
             status,
-            totalBasicSalary: parseNumber(raw.totalBasicSalary),
-            totalLwop: parseNumber(raw.totalLwop),
-            totalAbsencesLates: parseNumber(raw.totalAbsencesLates),
-            netBasicSalary: parseNumber(raw.netBasicSalary),
-            thirteenthMonthPay: parseNumber(raw.thirteenthMonthPay),
+            totalBasicSalary: parseNumberOrZero(raw.totalBasicSalary),
+            totalLwop: parseNumberOrZero(raw.totalLwop),
+            totalAbsencesLates: parseNumberOrZero(raw.totalAbsencesLates),
+            netBasicSalary: parseNumberOrZero(raw.netBasicSalary),
+            thirteenthMonthPay: parseNumberOrZero(raw.thirteenthMonthPay),
             monthsWorked,
             calculatedDate: safeString(raw.calculatedDate),
             approvedDate: safeString(raw.approvedDate),
@@ -606,7 +643,6 @@ export function useEmployeeDetail(employeeId: string) {
     staleTime: 30 * 1000,
   });
 
-  // Computed values
   const isLoadingRelated =
     isLoadingPayroll ||
     isLoadingAttendance ||
@@ -671,28 +707,14 @@ export function useEmployeeDetail(employeeId: string) {
     [cashAdvanceRecords]
   );
 
-  // Update employee mutation
   const updateEmployeeMutation = useMutation({
     mutationFn: async (formData: EmployeeFormData) => {
       if (!employee) {
         throw new Error('No employee to update');
       }
 
-      const parseOptionalNumber = (value?: string) => {
-        if (!value) {
-          return null;
-        }
-        const trimmed = value.trim();
-        if (trimmed.length === 0) {
-          return null;
-        }
-        const parsed = Number.parseFloat(trimmed);
-        return Number.isFinite(parsed) ? parsed : null;
-      };
-
       const payload = {
         employeeId: formData.employeeId,
-        // Name fields - use the actual form data
         firstName: formData.firstName,
         lastName: formData.lastName,
         middleName: formData.middleName || null,
@@ -701,11 +723,9 @@ export function useEmployeeDetail(employeeId: string) {
           `${formData.firstName} ${formData.middleName || ''} ${formData.lastName}${formData.suffix ? ` ${formData.suffix}` : ''}`
             .replace(/\s+/g, ' ')
             .trim(),
-        // Contact
         phone: formData.phone,
         contact: formData.contact || formData.phone,
         email: formData.email || null,
-        // Employment
         department: formData.department,
         position: formData.position,
         jobTitle: formData.jobTitle || formData.position,
@@ -719,31 +739,28 @@ export function useEmployeeDetail(employeeId: string) {
         finalPayPending: !!formData.finalPayPending,
         finalPayEffectiveDate: formData.finalPayEffectiveDate || null,
         finalPayNotes: formData.finalPayNotes || null,
-        // Salary
         basicSalary: parseFloat(formData.basicSalary) || 0,
         currentSalary: formData.currentSalary
           ? parseFloat(formData.currentSalary)
           : parseFloat(formData.basicSalary) || 0,
-        allowance: parseOptionalNumber(formData.allowance),
+        allowance: parseOptionalNumericInput(formData.allowance),
         paymentSchedule: formData.paymentSchedule || null,
-        sssMonthlyContribution: parseOptionalNumber(
+        sssMonthlyContribution: parseOptionalNumericInput(
           formData.sssMonthlyContribution
         ),
-        philHealthMonthlyContribution: parseOptionalNumber(
+        philHealthMonthlyContribution: parseOptionalNumericInput(
           formData.philHealthMonthlyContribution
         ),
-        pagibigMonthlyContribution: parseOptionalNumber(
+        pagibigMonthlyContribution: parseOptionalNumericInput(
           formData.pagibigMonthlyContribution
         ),
-        taxMonthlyContribution: parseOptionalNumber(
+        taxMonthlyContribution: parseOptionalNumericInput(
           formData.taxMonthlyContribution
         ),
-        // Government IDs
         sssNumber: formData.sssNumber || null,
         philHealthNumber: formData.philHealthNumber || null,
         hdmfNumber: formData.hdmfNumber || null,
         tinNumber: formData.tinNumber || null,
-        // Personal Info
         gender: formData.gender || null,
         education: formData.education || null,
         dateOfBirth: formData.dateOfBirth || null,
@@ -752,13 +769,11 @@ export function useEmployeeDetail(employeeId: string) {
           ? parseInt(formData.numberOfKids)
           : null,
         drivingLicense: formData.drivingLicense || null,
-        // Address & Emergency
         address: formData.address || null,
         emergencyContactPerson: formData.emergencyContactPerson || null,
         emergencyContactNumber: formData.emergencyContactNumber || null,
         emergencyContact:
           formData.emergencyContact || formData.emergencyContactNumber || null,
-        // Financial
         bankAccount: formData.bankAccount || null,
         gcashAccount: formData.gcashAccount || null,
         profilePhoto:
@@ -768,11 +783,10 @@ export function useEmployeeDetail(employeeId: string) {
       };
 
       const updatedEmployee = await api.put<Employee>(
-        `/api/trucking/employees/${employee.id}`,
+        resolveApiPath(`/employees/${employee.id}`),
         payload
       );
 
-      // Return transformed employee
       return {
         ...updatedEmployee,
         id: updatedEmployee.id.toString(),
@@ -799,24 +813,27 @@ export function useEmployeeDetail(employeeId: string) {
       };
     },
     onMutate: async (formData) => {
-      // Cancel outgoing queries
-      await queryClient.cancelQueries({
-        queryKey: queryKeys.employees.detail(employeeId),
-      });
+      await queryClient.cancelQueries({ queryKey: employeeDetailQueryKey });
 
-      // Snapshot previous value
       const previous = queryClient.getQueryData<Employee>(
-        queryKeys.employees.detail(employeeId)
+        employeeDetailQueryKey
       );
 
-      // Optimistically update
       if (previous) {
+        const suffix = formData.suffix || extractSuffixFromName(previous.name);
+        const fullName =
+          formData.name ||
+          `${formData.firstName} ${formData.middleName || ''} ${formData.lastName}${suffix ? ` ${suffix}` : ''}`
+            .replace(/\s+/g, ' ')
+            .trim();
+
         const optimisticUpdate: Employee = {
           ...previous,
           firstName: formData.firstName,
           lastName: formData.lastName,
           middleName: formData.middleName || undefined,
-          name: formData.name || previous.name,
+          suffix: suffix || undefined,
+          name: fullName,
           email: formData.email || undefined,
           phone: formData.phone,
           contact: formData.contact || formData.phone,
@@ -836,7 +853,7 @@ export function useEmployeeDetail(employeeId: string) {
         };
 
         queryClient.setQueryData<Employee>(
-          queryKeys.employees.detail(employeeId),
+          employeeDetailQueryKey,
           optimisticUpdate
         );
       }
@@ -845,28 +862,20 @@ export function useEmployeeDetail(employeeId: string) {
     },
     onError: (error, variables, context) => {
       if (context?.previous) {
-        queryClient.setQueryData(
-          queryKeys.employees.detail(employeeId),
-          context.previous
-        );
+        queryClient.setQueryData(employeeDetailQueryKey, context.previous);
       }
       logger.error('Error updating employee:', error);
       showApiError(error, 'Failed to update employee. Please try again.');
     },
     onSuccess: () => {
-      // Close form on success
       setIsFormOpen(false);
     },
     onSettled: () => {
-      // Invalidate and refetch
-      queryClient.invalidateQueries({
-        queryKey: queryKeys.employees.detail(employeeId),
-      });
+      queryClient.invalidateQueries({ queryKey: employeeDetailQueryKey });
       queryClient.invalidateQueries({ queryKey: queryKeys.employees.lists() });
     },
   });
 
-  // Profile photo upload mutation
   const uploadPhotoMutation = useMutation({
     mutationFn: async (base64Photo: string) => {
       if (!employee) {
@@ -928,7 +937,7 @@ export function useEmployeeDetail(employeeId: string) {
       };
 
       const updatedEmployee = await api.put<Employee>(
-        `/api/trucking/employees/${employee.id}`,
+        resolveApiPath(`/employees/${employee.id}`),
         payload
       );
 
@@ -956,50 +965,35 @@ export function useEmployeeDetail(employeeId: string) {
     onMutate: async (base64Photo) => {
       setIsPhotoUploading(true);
 
-      // Cancel outgoing queries
-      await queryClient.cancelQueries({
-        queryKey: queryKeys.employees.detail(employeeId),
-      });
+      await queryClient.cancelQueries({ queryKey: employeeDetailQueryKey });
 
-      // Snapshot previous value
       const previous = queryClient.getQueryData<Employee>(
-        queryKeys.employees.detail(employeeId)
+        employeeDetailQueryKey
       );
 
-      // Optimistically update photo
       if (previous) {
-        queryClient.setQueryData<Employee>(
-          queryKeys.employees.detail(employeeId),
-          {
-            ...previous,
-            profilePhoto: base64Photo,
-          }
-        );
+        queryClient.setQueryData<Employee>(employeeDetailQueryKey, {
+          ...previous,
+          profilePhoto: base64Photo,
+        });
       }
 
       return { previous };
     },
     onError: (error, variables, context) => {
       if (context?.previous) {
-        queryClient.setQueryData(
-          queryKeys.employees.detail(employeeId),
-          context.previous
-        );
+        queryClient.setQueryData(employeeDetailQueryKey, context.previous);
       }
       logger.error('Error uploading photo:', error);
       showApiError(error, 'Failed to upload profile photo. Please try again.');
     },
     onSettled: () => {
       setIsPhotoUploading(false);
-      // Invalidate and refetch
-      queryClient.invalidateQueries({
-        queryKey: queryKeys.employees.detail(employeeId),
-      });
+      queryClient.invalidateQueries({ queryKey: employeeDetailQueryKey });
       queryClient.invalidateQueries({ queryKey: queryKeys.employees.lists() });
     },
   });
 
-  // Utility functions
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
     return date.toLocaleDateString('en-US', {
@@ -1017,18 +1011,8 @@ export function useEmployeeDetail(employeeId: string) {
     }).format(amount);
   };
 
-  const getStatusColor = (status: Employee['status']) => {
-    switch (status) {
-      case 'active':
-        return 'green';
-      case 'inactive':
-        return 'red';
-      case 'on-leave':
-        return 'orange';
-      default:
-        return 'gray';
-    }
-  };
+  const getStatusColor = (status: Employee['status']) =>
+    EMPLOYEE_STATUS_COLORS[status] || 'gray';
 
   const handleEdit = () => {
     setIsFormOpen(true);

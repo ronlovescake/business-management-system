@@ -24,14 +24,13 @@ import {
   determineCycleFromDate,
   ensureNextPayday,
 } from './cashAdvanceSchedule';
+import { mergeCashAdvanceUpdate } from './deductionUpdateHelpers';
 import {
-  mergeCashAdvanceUpdate,
-  selectThirteenthMonthTarget,
-} from './deductionUpdateHelpers';
-import {
-  calculateAttendanceDeductionEngine,
-  calculateLwopDeductionEngine,
-} from './payrollDeductionCalculationEngine';
+  applyAttendanceAdjustmentsGeneric,
+  applyLwopAdjustmentsGeneric,
+  applyStatutoryContributionAdjustmentsGeneric,
+  applyThirteenthMonthAdjustmentsGeneric,
+} from './payrollDeductionAdjustments';
 
 const getPayrollPeriodRange = (
   payroll: Payroll
@@ -379,433 +378,148 @@ const buildCashAdvanceIndex = async (
 
 const applyThirteenthMonthAdjustments = async (
   payrolls: Payroll[]
-): Promise<Payroll[]> => {
-  if (payrolls.length === 0) {
-    return payrolls;
-  }
-
-  const payrollMeta = payrolls.map((payroll) => {
-    const { start, end } = getPayrollPeriodRange(payroll);
-    const periodYear = end?.getUTCFullYear() ?? start?.getUTCFullYear() ?? null;
-    return { payroll, start, end, periodYear };
-  });
-
-  const relevantYears = Array.from(
-    new Set(
-      payrollMeta
-        .map((meta) => meta.periodYear)
-        .filter((year): year is number => year !== null)
-    )
-  );
-
-  if (relevantYears.length === 0) {
-    return payrolls;
-  }
-
-  const thirteenthMonthDelegate = prisma.thirteenthMonthPayRecord;
-
-  if (!thirteenthMonthDelegate?.findMany) {
-    return payrolls;
-  }
-
-  const thirteenthRecords = await thirteenthMonthDelegate.findMany({
-    where: {
-      status: { in: ['approved', 'paid'] },
-      year: { in: relevantYears },
-    },
-    select: {
-      recordId: true,
-      employeeId: true,
-      employeeName: true,
-      year: true,
-      status: true,
-      thirteenthMonthPay: true,
-      approvedDate: true,
-      paidDate: true,
-    },
-  });
-
-  if (thirteenthRecords.length === 0) {
-    return payrolls;
-  }
-
-  const updates: Array<{ id: string; data: Prisma.PayrollUpdateInput }> = [];
-  const updatedResults = new Map<string, Payroll>();
-
-  for (const record of thirteenthRecords) {
-    // CRITICAL FIX: If 13th month is already marked as 'paid', NEVER apply it to any payroll
-    // This prevents duplicate inclusion when payrolls are deleted/regenerated
-    if (record.status === 'paid') {
-      continue;
-    }
-
-    const normalizedId = normalizeIdentifier(record.employeeId);
-    const normalizedName = normalizeIdentifier(record.employeeName);
-
-    const candidates = payrollMeta.filter(({ payroll, periodYear }) => {
-      if (periodYear === null || periodYear !== record.year) {
-        return false;
-      }
-      if (payroll.status === 'paid') {
-        return false;
+): Promise<Payroll[]> =>
+  applyThirteenthMonthAdjustmentsGeneric({
+    payrolls,
+    getPayrollPeriodRange,
+    roundToCents,
+    normalizeIdentifier,
+    parseDate: (value?: string | Date | null) =>
+      value instanceof Date ? value : parseDate(value),
+    sumPayrollDeductions,
+    findThirteenthMonthRecords: async (relevantYears) => {
+      const thirteenthMonthDelegate = prisma.thirteenthMonthPayRecord;
+      if (!thirteenthMonthDelegate?.findMany) {
+        return [];
       }
 
-      const payrollId = normalizeIdentifier(payroll.employeeId);
-      const payrollName = normalizeIdentifier(payroll.employeeName);
-
-      if (normalizedId && payrollId && normalizedId === payrollId) {
-        return true;
-      }
-
-      if (!normalizedId && normalizedName && payrollName) {
-        return normalizedName === payrollName;
-      }
-
-      if (normalizedId && !payrollId && normalizedName && payrollName) {
-        return normalizedName === payrollName;
-      }
-
-      return false;
-    });
-
-    if (candidates.length === 0) {
-      continue;
-    }
-
-    const approvedDate = parseDate(record.approvedDate);
-    const paidDate = parseDate(record.paidDate);
-    const target = selectThirteenthMonthTarget(
-      candidates,
-      approvedDate,
-      paidDate
-    );
-    if (!target) {
-      continue;
-    }
-
-    const amount = roundToCents(Number(record.thirteenthMonthPay));
-
-    for (const candidate of candidates) {
-      const payroll =
-        updatedResults.get(candidate.payroll.id) ?? candidate.payroll;
-      const desiredAmount = candidate === target ? amount : 0;
-      const currentAmount = roundToCents(payroll.thirteenthMonth ?? 0);
-
-      // Avoid resetting other payrolls if they already match desired amount
-      if (candidate !== target && currentAmount === 0) {
-        continue;
-      }
-
-      const grossPay = roundToCents(
-        Number(payroll.basicSalary ?? 0) +
-          Number(payroll.allowance ?? 0) +
-          Number(payroll.overtime ?? 0) +
-          Number(payroll.bonuses ?? 0) +
-          desiredAmount
-      );
-
-      const totalDeductions = sumPayrollDeductions({
-        ...payroll,
-        thirteenthMonth: desiredAmount,
-      } as Payroll);
-      const netPay = roundToCents(Math.max(0, grossPay - totalDeductions));
-
-      const currentGross = roundToCents(payroll.grossPay ?? 0);
-      const currentTotal = roundToCents(payroll.totalDeductions ?? 0);
-      const currentNet = roundToCents(payroll.netPay ?? 0);
-
-      const needsUpdate =
-        currentAmount !== desiredAmount ||
-        currentGross !== grossPay ||
-        currentTotal !== totalDeductions ||
-        currentNet !== netPay;
-
-      if (!needsUpdate) {
-        continue;
-      }
-
-      const updateValues = {
-        thirteenthMonth: desiredAmount,
-        grossPay,
-        totalDeductions,
-        netPay,
-      } satisfies Prisma.PayrollUpdateInput;
-
-      updates.push({ id: payroll.id, data: updateValues });
-
-      updatedResults.set(payroll.id, {
-        ...payroll,
-        ...(updateValues as Partial<Payroll>),
+      return thirteenthMonthDelegate.findMany({
+        where: {
+          status: { in: ['approved', 'paid'] },
+          year: { in: relevantYears },
+        },
+        select: {
+          recordId: true,
+          employeeId: true,
+          employeeName: true,
+          year: true,
+          status: true,
+          thirteenthMonthPay: true,
+          approvedDate: true,
+          paidDate: true,
+        },
       });
-    }
-  }
-
-  if (updates.length === 0) {
-    return payrolls.map((payroll) => updatedResults.get(payroll.id) ?? payroll);
-  }
-
-  const persisted = await prisma.$transaction(
-    updates.map(({ id, data }) =>
-      prisma.payroll.update({
-        where: { id },
-        data,
-      })
-    )
-  );
-
-  for (const record of persisted) {
-    updatedResults.set(record.id, record);
-  }
-
-  return payrolls.map((payroll) => updatedResults.get(payroll.id) ?? payroll);
-};
+    },
+    persistUpdates: async (
+      updates: Array<{ id: string; data: Prisma.PayrollUpdateInput }>
+    ) =>
+      prisma.$transaction(
+        updates.map(({ id, data }) =>
+          prisma.payroll.update({
+            where: { id },
+            data,
+          })
+        )
+      ),
+    createUpdateValues: (values): Prisma.PayrollUpdateInput => {
+      return {
+        thirteenthMonth: values.thirteenthMonth,
+        grossPay: values.grossPay,
+        totalDeductions: values.totalDeductions,
+        netPay: values.netPay,
+      } satisfies Prisma.PayrollUpdateInput;
+    },
+  });
 
 const applyStatutoryContributionAdjustments = async (
   payrolls: Payroll[],
   employeeDataMap: Map<string, EmployeeMapEntry>
-): Promise<Payroll[]> => {
-  if (payrolls.length === 0) {
-    return payrolls;
-  }
-
-  const updates: Array<{ id: string; data: Prisma.PayrollUpdateInput }> = [];
-  const updatedResults = new Map<string, Payroll>();
-
-  for (const payroll of payrolls) {
-    // CRITICAL FIX: Do NOT sync statutory contributions for paid or approved payrolls
-    // These should retain their historical values as they were at the time of payment/approval
-    if (payroll.status === 'paid' || payroll.status === 'approved') {
-      continue;
-    }
-
-    const entry = employeeDataMap.get(payroll.employeeId);
-    const employee = entry?.employee;
-
-    const desiredSss = roundToCents(
-      Number(employee?.sssMonthlyContribution ?? payroll.sss ?? 0)
-    );
-    const desiredPhilHealth = roundToCents(
-      Number(employee?.philHealthMonthlyContribution ?? payroll.philHealth ?? 0)
-    );
-    const desiredPagIbig = roundToCents(
-      Number(employee?.pagibigMonthlyContribution ?? payroll.pagIbig ?? 0)
-    );
-    const desiredTax = roundToCents(
-      Number(employee?.taxMonthlyContribution ?? payroll.tax ?? 0)
-    );
-
-    const overrides = {
-      sss: desiredSss,
-      philHealth: desiredPhilHealth,
-      pagIbig: desiredPagIbig,
-      tax: desiredTax,
-    } as Partial<Payroll>;
-
-    const currentSss = roundToCents(Number(payroll.sss ?? 0));
-    const currentPhilHealth = roundToCents(Number(payroll.philHealth ?? 0));
-    const currentPagIbig = roundToCents(Number(payroll.pagIbig ?? 0));
-    const currentTax = roundToCents(Number(payroll.tax ?? 0));
-
-    const totalDeductions = sumPayrollDeductions(payroll, overrides);
-    const netPay = roundToCents(
-      Math.max(0, Number(payroll.grossPay ?? 0) - totalDeductions)
-    );
-
-    const currentTotal = roundToCents(Number(payroll.totalDeductions ?? 0));
-    const currentNetPay = roundToCents(Number(payroll.netPay ?? 0));
-
-    const needsUpdate =
-      currentSss !== desiredSss ||
-      currentPhilHealth !== desiredPhilHealth ||
-      currentPagIbig !== desiredPagIbig ||
-      currentTax !== desiredTax ||
-      currentTotal !== totalDeductions ||
-      currentNetPay !== netPay;
-
-    if (!needsUpdate) {
-      continue;
-    }
-
-    const updateValues = {
-      sss: desiredSss,
-      philHealth: desiredPhilHealth,
-      pagIbig: desiredPagIbig,
-      tax: desiredTax,
-      totalDeductions,
-      netPay,
-    } satisfies Prisma.PayrollUpdateInput;
-
-    updates.push({ id: payroll.id, data: updateValues });
-
-    updatedResults.set(payroll.id, {
-      ...payroll,
-      ...(updateValues as Partial<Payroll>),
-    });
-  }
-
-  if (updates.length === 0) {
-    return payrolls;
-  }
-
-  const persisted = await prisma.$transaction(
-    updates.map(({ id, data }) =>
-      prisma.payroll.update({
-        where: { id },
-        data,
-      })
-    )
-  );
-
-  for (const record of persisted) {
-    updatedResults.set(record.id, record);
-  }
-
-  return payrolls.map((payroll) => updatedResults.get(payroll.id) ?? payroll);
-};
-
-const calculateLwopForPayroll = (
-  payroll: Payroll,
-  entry: EmployeeMapEntry | undefined,
-  schedules: MinimalSchedule[] = []
-): {
-  unpaidDays: number;
-  dailyRate: number;
-  deduction: number;
-} =>
-  calculateLwopDeductionEngine({
-    payroll,
-    entry,
-    schedules,
-    getPayrollPeriodRange,
-    getEffectiveMonthlySalary,
-    parseDate,
-    getOverlapScheduledDays,
+): Promise<Payroll[]> =>
+  applyStatutoryContributionAdjustmentsGeneric({
+    payrolls,
+    employeeDataMap,
     roundToCents,
+    sumPayrollDeductions,
+    persistUpdates: async (
+      updates: Array<{ id: string; data: Prisma.PayrollUpdateInput }>
+    ) =>
+      prisma.$transaction(
+        updates.map(({ id, data }) =>
+          prisma.payroll.update({
+            where: { id },
+            data,
+          })
+        )
+      ),
+    createUpdateValues: (values): Prisma.PayrollUpdateInput => {
+      return {
+        sss: values.sss,
+        philHealth: values.philHealth,
+        pagIbig: values.pagIbig,
+        tax: values.tax,
+        totalDeductions: values.totalDeductions,
+        netPay: values.netPay,
+      } satisfies Prisma.PayrollUpdateInput;
+    },
   });
 
 const applyLwopAdjustments = async (
   payrolls: Payroll[],
   employeeDataMap: Map<string, EmployeeMapEntry>
-): Promise<Payroll[]> => {
-  const updates: Array<{ id: string; data: Prisma.PayrollUpdateInput }> = [];
-  const updatedResults = new Map<string, Payroll>();
-
-  // Fetch schedules for all employees and date ranges
-  const employeeIds = Array.from(
-    new Set(payrolls.map((payroll) => payroll.employeeId).filter(Boolean))
-  );
-
-  let globalStart: Date | null = null;
-  let globalEnd: Date | null = null;
-
-  for (const payroll of payrolls) {
-    const { start, end } = getPayrollPeriodRange(payroll);
-    if (!start || !end) {
-      continue;
-    }
-
-    if (!globalStart || start < globalStart) {
-      globalStart = start;
-    }
-    if (!globalEnd || end > globalEnd) {
-      globalEnd = end;
-    }
-  }
-
-  // Fetch all schedules for the period
-  const schedules =
-    employeeIds.length > 0 && globalStart && globalEnd
-      ? await prisma.schedule.findMany({
-          where: {
-            employeeId: { in: employeeIds },
-            deletedAt: null,
-            date: {
-              gte: formatDate(globalStart),
-              lte: formatDate(globalEnd),
-            },
+): Promise<Payroll[]> =>
+  applyLwopAdjustmentsGeneric({
+    payrolls,
+    employeeDataMap,
+    getPayrollPeriodRange,
+    getEffectiveMonthlySalary: (payroll, entry) =>
+      getEffectiveMonthlySalary(payroll, entry as EmployeeMapEntry | undefined),
+    fetchSchedules: ({ employeeIds, start, end }) =>
+      prisma.schedule.findMany({
+        where: {
+          employeeId: { in: employeeIds },
+          deletedAt: null,
+          date: {
+            gte: start,
+            lte: end,
           },
-          select: {
-            id: true,
-            employeeId: true,
-            date: true,
-            startTime: true,
-            endTime: true,
-            shiftType: true,
-          },
-        })
-      : [];
-
-  for (const payroll of payrolls) {
-    const entry = employeeDataMap.get(payroll.employeeId);
-    const employeeSchedules = schedules.filter(
-      (s) => s.employeeId === payroll.employeeId
-    );
-    const { unpaidDays, dailyRate, deduction } = calculateLwopForPayroll(
-      payroll,
-      entry,
-      employeeSchedules
-    );
-
-    // Always recalculate totalDeductions to ensure statutory deductions are included
-    const totalDeductions = sumPayrollDeductions(payroll, {
-      lwop: deduction,
-      absentsLates: payroll.absentsLates,
-    });
-    const netPay = roundToCents(
-      Math.max(0, payroll.grossPay - totalDeductions)
-    );
-
-    const currentDeduction = roundToCents(payroll.lwop ?? 0);
-    const currentTotal = roundToCents(payroll.totalDeductions ?? 0);
-    const currentNetPay = roundToCents(payroll.netPay ?? 0);
-
-    const needsUpdate =
-      roundToCents(payroll.unpaidDays ?? 0) !== unpaidDays ||
-      roundToCents(payroll.dailyRate ?? 0) !== dailyRate ||
-      currentDeduction !== deduction ||
-      currentTotal !== totalDeductions ||
-      currentNetPay !== netPay;
-
-    if (!needsUpdate) {
-      continue;
-    }
-
-    const updateValues = {
-      lwop: deduction,
-      unpaidDays,
-      dailyRate,
-      deduction,
-      totalDeductions,
-      netPay,
-    } satisfies Prisma.PayrollUpdateInput;
-
-    updates.push({ id: payroll.id, data: updateValues });
-
-    updatedResults.set(payroll.id, {
-      ...payroll,
-      ...(updateValues as Partial<Payroll>),
-    });
-  }
-
-  if (updates.length === 0) {
-    return payrolls;
-  }
-
-  const persisted = await prisma.$transaction(
-    updates.map(({ id, data }) =>
-      prisma.payroll.update({
-        where: { id },
-        data,
-      })
-    )
-  );
-
-  for (const record of persisted) {
-    updatedResults.set(record.id, record);
-  }
-
-  return payrolls.map((payroll) => updatedResults.get(payroll.id) ?? payroll);
-};
+        },
+        select: {
+          id: true,
+          employeeId: true,
+          date: true,
+          startTime: true,
+          endTime: true,
+          shiftType: true,
+        },
+      }),
+    formatDate,
+    getOverlapScheduledDays,
+    parseDate: (value?: string | Date | null) =>
+      value instanceof Date ? value : parseDate(value),
+    roundToCents,
+    sumPayrollDeductions,
+    persistUpdates: async (
+      updates: Array<{ id: string; data: Prisma.PayrollUpdateInput }>
+    ) =>
+      prisma.$transaction(
+        updates.map(({ id, data }) =>
+          prisma.payroll.update({
+            where: { id },
+            data,
+          })
+        )
+      ),
+    createUpdateValues: (values): Prisma.PayrollUpdateInput => {
+      return {
+        lwop: values.lwop,
+        unpaidDays: values.unpaidDays,
+        dailyRate: values.dailyRate,
+        deduction: values.deduction,
+        totalDeductions: values.totalDeductions,
+        netPay: values.netPay,
+      } satisfies Prisma.PayrollUpdateInput;
+    },
+  });
 
 export const syncPayrollLwop = async (
   payrolls: Payroll[]
@@ -818,112 +532,46 @@ export const syncPayrollLwop = async (
   return applyLwopAdjustments(payrolls, employeeDataMap);
 };
 
-interface AttendanceDeductionResult {
-  absentDays: number;
-  lateMinutes: number;
-  undertimeMinutes: number;
-  deduction: number;
-}
-
-const calculateAbsentsLatesForPayroll = (
-  payroll: Payroll,
-  entry: EmployeeMapEntry | undefined,
-  attendanceRecords: MinimalAttendance[] = [],
-  scheduleRecords: MinimalSchedule[] = []
-): AttendanceDeductionResult =>
-  calculateAttendanceDeductionEngine({
-    payroll,
-    entry,
-    attendanceRecords,
-    scheduleRecords,
+const applyAttendanceAdjustments = async (
+  payrolls: Payroll[],
+  employeeDataMap: Map<string, EmployeeMapEntry>,
+  attendanceIndex: AttendanceDataIndex
+): Promise<Payroll[]> =>
+  applyAttendanceAdjustmentsGeneric({
+    payrolls,
+    employeeDataMap,
+    attendanceIndex,
     getPayrollPeriodRange,
-    getEffectiveMonthlySalary,
-    parseDate,
+    getEffectiveMonthlySalary: (payroll, entry) =>
+      getEffectiveMonthlySalary(payroll, entry as EmployeeMapEntry | undefined),
+    parseDate: (value?: string | Date | null) =>
+      value instanceof Date ? value : parseDate(value),
     parseTimeToMinutes,
     roundToCents,
     toDateOnlyUtc,
     minutesPerDay: MINUTES_PER_DAY,
     defaultShiftStart: DEFAULT_SHIFT_START,
     defaultShiftEnd: DEFAULT_SHIFT_END,
+    sumPayrollDeductions,
+    persistUpdates: async (
+      updates: Array<{ id: string; data: Prisma.PayrollUpdateInput }>
+    ) =>
+      prisma.$transaction(
+        updates.map(({ id, data }) =>
+          prisma.payroll.update({
+            where: { id },
+            data,
+          })
+        )
+      ),
+    createUpdateValues: (values): Prisma.PayrollUpdateInput => {
+      return {
+        absentsLates: values.absentsLates,
+        totalDeductions: values.totalDeductions,
+        netPay: values.netPay,
+      } satisfies Prisma.PayrollUpdateInput;
+    },
   });
-
-const applyAttendanceAdjustments = async (
-  payrolls: Payroll[],
-  employeeDataMap: Map<string, EmployeeMapEntry>,
-  attendanceIndex: AttendanceDataIndex
-): Promise<Payroll[]> => {
-  const updates: Array<{ id: string; data: Prisma.PayrollUpdateInput }> = [];
-  const updatedResults = new Map<string, Payroll>();
-
-  for (const payroll of payrolls) {
-    const entry = employeeDataMap.get(payroll.employeeId);
-    const attendanceRecords =
-      attendanceIndex.attendanceByEmployee.get(payroll.employeeId) ?? [];
-    const scheduleRecords =
-      attendanceIndex.schedulesByEmployee.get(payroll.employeeId) ?? [];
-
-    const { deduction } = calculateAbsentsLatesForPayroll(
-      payroll,
-      entry,
-      attendanceRecords,
-      scheduleRecords
-    );
-
-    // Always recalculate totalDeductions to ensure statutory deductions are included
-    const totalDeductions = sumPayrollDeductions(payroll, {
-      absentsLates: deduction,
-      lwop: payroll.lwop,
-    });
-    const netPay = roundToCents(
-      Math.max(0, payroll.grossPay - totalDeductions)
-    );
-
-    const currentAbsentsLates = roundToCents(payroll.absentsLates ?? 0);
-    const currentTotal = roundToCents(payroll.totalDeductions ?? 0);
-    const currentNetPay = roundToCents(payroll.netPay ?? 0);
-
-    const needsUpdate =
-      currentAbsentsLates !== deduction ||
-      currentTotal !== totalDeductions ||
-      currentNetPay !== netPay;
-
-    if (!needsUpdate) {
-      continue;
-    }
-
-    const updateValues = {
-      absentsLates: deduction,
-      totalDeductions,
-      netPay,
-    } satisfies Prisma.PayrollUpdateInput;
-
-    updates.push({ id: payroll.id, data: updateValues });
-
-    updatedResults.set(payroll.id, {
-      ...payroll,
-      ...(updateValues as Partial<Payroll>),
-    });
-  }
-
-  if (updates.length === 0) {
-    return payrolls;
-  }
-
-  const persisted = await prisma.$transaction(
-    updates.map(({ id, data }) =>
-      prisma.payroll.update({
-        where: { id },
-        data,
-      })
-    )
-  );
-
-  for (const record of persisted) {
-    updatedResults.set(record.id, record);
-  }
-
-  return payrolls.map((payroll) => updatedResults.get(payroll.id) ?? payroll);
-};
 
 export const syncPayrollAttendanceDeductions = async (
   payrolls: Payroll[]

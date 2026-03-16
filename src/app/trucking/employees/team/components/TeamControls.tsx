@@ -14,6 +14,12 @@ import {
 } from '@/components/ui/ControlPanelCard';
 import { actionButtonStyles } from '@/components/shared/styles/actionButtonStyles';
 import { useCtrlFFocus } from '@/hooks/useCtrlFFocus';
+import { EMPLOYEE_STATUS_OPTIONS, type EmployeeStatus } from '../types';
+
+const STATUS_FILTER_OPTIONS = [
+  { value: 'all', label: 'All statuses' },
+  ...EMPLOYEE_STATUS_OPTIONS,
+];
 
 interface TeamControlsProps {
   activeTab: string | null;
@@ -23,8 +29,8 @@ interface TeamControlsProps {
   departments: string[];
   departmentFilter: string;
   onDepartmentFilterChange: (department: string) => void;
-  statusFilter: string;
-  onStatusFilterChange: (status: string) => void;
+  statusFilter: EmployeeStatus | 'all';
+  onStatusFilterChange: (status: EmployeeStatus | 'all') => void;
   onImportCSV: (file: File | null) => void;
   onExportCSV: () => void;
   onAddEmployee: () => void;
@@ -80,12 +86,14 @@ export const TeamControls = memo(function TeamControls({
           />
           <Select
             placeholder="Filter by status"
-            data={['All', 'active', 'inactive', 'on-leave']}
-            value={statusFilter === 'all' ? 'All' : statusFilter}
+            data={STATUS_FILTER_OPTIONS}
+            value={statusFilter}
             onChange={(value) =>
-              onStatusFilterChange(!value || value === 'All' ? 'all' : value)
+              onStatusFilterChange((value as EmployeeStatus | 'all') || 'all')
             }
             clearable
+            withCheckIcon={false}
+            comboboxProps={{ withinPortal: true, zIndex: 500 }}
             style={{ width: 220 }}
           />
           <FileButton onChange={onImportCSV} accept=".csv,text/csv">

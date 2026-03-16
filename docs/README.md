@@ -5,6 +5,7 @@
 - Current status: authentication is deferred and not active.
 - Local URLs: dev server at http://localhost:5001, Playwright dev server at http://localhost:3100.
 - Primary docs: [README.MD](../README.MD), [CONTRIBUTING.md](../CONTRIBUTING.md), and this file.
+- Debugging guide: [DEBUGGING.md](./DEBUGGING.md)
 
 ### Deprecated / Historical Docs (Do Not Follow)
 

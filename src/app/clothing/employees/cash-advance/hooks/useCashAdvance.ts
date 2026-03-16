@@ -19,6 +19,10 @@ export interface EmployeeOption {
   label: string;
 }
 
+interface UseCashAdvanceOptions {
+  currentUserName?: string;
+}
+
 export const calculateMonthlyPayment = (amount: number, terms: number) => {
   if (terms <= 0) {
     return undefined;
@@ -130,8 +134,12 @@ const getRemainingBalanceFromRecord = (record: CashAdvance) => {
   return Math.max(record.amount - settled, 0);
 };
 
-export function useCashAdvance(apiBasePath?: string) {
+export function useCashAdvance(
+  apiBasePath?: string,
+  options?: UseCashAdvanceOptions
+) {
   const queryClient = useQueryClient();
+  const currentUserName = options?.currentUserName?.trim() || 'Current User';
 
   const resolveApiPath = useCallback(
     (path: string) => buildApiPath(apiBasePath, path),
@@ -585,7 +593,7 @@ export function useCashAdvance(apiBasePath?: string) {
     updateStatusMutation.mutate({
       id,
       status: 'approved',
-      approvedBy: 'Current User',
+      approvedBy: currentUserName,
       approvedDate: new Date().toISOString(),
       rejectedBy: null,
       rejectedDate: null,
@@ -599,7 +607,7 @@ export function useCashAdvance(apiBasePath?: string) {
       updateStatusMutation.mutate({
         id,
         status: 'rejected',
-        rejectedBy: 'Current User',
+        rejectedBy: currentUserName,
         rejectedDate: new Date().toISOString(),
         rejectionReason: reason,
         approvedBy: null,

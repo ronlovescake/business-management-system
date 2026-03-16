@@ -50,6 +50,10 @@ Playwright-focused dev server:
 npm run dev:playwright
 ```
 
+VS Code debugging guide:
+
+- `docs/DEBUGGING.md`
+
 ### Typecheck and lint
 
 ```bash
