@@ -113,9 +113,9 @@ The single `@ts-expect-error` is in `src/app/api/docs/page.tsx:28` and is legiti
 
 **GM API routes — partial coverage, but broader than the initial audit claimed**:
 
-Covered: `cash-advances`, `thirteenth-month-pay`, `attendance`, `attendance/apply-leave`, `employees`, `leave-requests`, `schedules`, `transactions`, `transactions/payments/bulk`, `payroll`, `payroll/generate`, `payroll/cleanup`, `payroll/generate-payslips`, `payroll/sync-lwop`, `accounting/balance-sheet`, `accounting/ledger`, `accounting/journal`, `accounting/manual-journal`, `accounting/opening-balance`, `accounting/profit-loss`, `accounting/profit-loss/details`
+Covered: `cash-advances`, `thirteenth-month-pay`, `attendance`, `attendance/apply-leave`, `employees`, `leave-requests`, `schedules`, `transactions`, `transactions/payments/bulk`, `payroll`, `payroll/generate`, `payroll/cleanup`, `payroll/generate-payslips`, `payroll/sync-lwop`, `employee-automation-settings`, `expenses`, `products`, `products/[id]`, `customers`, `customers/[id]`, `shipments`, `shipments/[id]`, `accounting/balance-sheet`, `accounting/ledger`, `accounting/journal`, `accounting/manual-journal`, `accounting/opening-balance`, `accounting/profit-loss`, `accounting/profit-loss/details`
 
-Still untested or lightly covered (high priority): `employee-automation-settings`, `expenses`, `products`, `customers` (full CRUD), `shipments`
+Remaining GM route coverage gaps are now secondary subroutes rather than the base employee and operations families.
 
 **Trucking API routes — partial test coverage** (6 of 30+ routes have tests):
 
@@ -150,6 +150,9 @@ Untested: `analytics/profitability`, `attendance/apply-leave`, `employee-automat
 - [x] P2-9 `BackupRestoreTab.tsx` split completed.
 - [x] P2-9 slice: extracted `BackupSection.tsx`, `RestoreSection.tsx`, and `TablePreviewSection.tsx` so `BackupRestoreTab.tsx` now primarily owns shared fetch, preview, and restore orchestration.
 - [x] P2-9 validation: `npm run lint`, `npm run typecheck`, `tests/unit/api/backup-restore.api.test.ts`, and backup/restore hardening suites passed.
+- [x] P2-6 GM API test coverage expansion completed.
+- [x] P2-6 slice: added dedicated GM route tests for `employee-automation-settings`, `expenses`, `products` + `[id]`, `customers` + `[id]`, and `shipments` + `[id]`, closing the remaining base-route GM coverage gap from Audit Cycle 2.
+- [x] P2-6 validation: targeted GM API Vitest coverage passed, plus `npm run lint`, `npm run typecheck`, and `npm run test:unit` passed.
 - [x] P3-6 accounting payroll route consolidation completed.
 - [x] P3-6 slice: clothing and GM payroll routes now delegate GET/POST/PUT/DELETE orchestration to `src/modules/shared/ledger/payroll/api/routeAdapter.ts` while keeping route namespaces, Prisma models, deduction sync, and expense-sync bindings business-specific.
 - [x] P3-6 validation: `npm run lint`, `npm run typecheck`, `tests/unit/api/payroll.api.test.ts`, and `tests/unit/api/general-merchandise.payroll.api.test.ts` passed.
@@ -168,8 +171,7 @@ Untested: `analytics/profitability`, `attendance/apply-leave`, `employee-automat
 
 ### Pending (Audit Cycle 2)
 
-- P2-6 Expand GM API test coverage — most core employee/operations routes are now covered; remaining gaps are secondary GM routes
-- P2-8 Extract sub-hooks from large shared hooks (`useLeaveTracker`, `useAttendance`, `useSchedules`) — completed
+- No additional pending items beyond the active trucking coverage expansion in P2-7.
 
 ## Canonical Risk Boundaries
 
@@ -248,7 +250,7 @@ Untested: `analytics/profitability`, `attendance/apply-leave`, `employee-automat
 - [x] P2-4 Expand trucking API behavior tests
 - [x] P2-5 Standardize adapter usage for already-shared accounting routes
 
-- [ ] P2-6 Expand GM API test coverage (core routes covered; remaining GM routes are employee-automation-settings, expenses, products, customers, shipments)
+- [x] P2-6 Expand GM API test coverage (core and remaining base GM routes are now covered)
   - [x] Add GM accounting route coverage for `balance-sheet`, `ledger`, `journal`, `profit-loss`
   - [x] Add GM accounting route coverage for `manual-journal`, `opening-balance`
   - [x] Add `general-merchandise.attendance.api.test.ts` + `apply-leave`
@@ -257,6 +259,11 @@ Untested: `analytics/profitability`, `attendance/apply-leave`, `employee-automat
   - [x] Add `general-merchandise.payroll.api.test.ts` (generate, cleanup, sync-lwop, payslips)
   - [x] Add `general-merchandise.schedules.api.test.ts`
   - [x] Add `general-merchandise.transactions.api.test.ts`
+  - [x] Add `general-merchandise.employee-automation-settings.api.test.ts`
+  - [x] Add `general-merchandise.expenses.api.test.ts`
+  - [x] Add `general-merchandise.products.api.test.ts` (`route.ts` + `[id]/route.ts`)
+  - [x] Add `general-merchandise.customers.api.test.ts` (`route.ts` + `[id]/route.ts`)
+  - [x] Add `general-merchandise.shipments.api.test.ts` (`route.ts` + `[id]/route.ts`)
   - [x] Validate: `npm run test:unit`
 
 - [ ] P2-7 Expand trucking API test coverage (partial — 6 of 30+ routes tested)
@@ -335,7 +342,9 @@ Run this for each completed implementation ticket.
 
 ## Current Slice Notes
 
-- [x] Current active slice: `P3-8` header quick actions split
+- [x] Current active slice completed: `P2-6` GM API coverage expansion
+- [x] Added dedicated GM API tests for `employee-automation-settings`, `expenses`, `products` + `[id]`, `customers` + `[id]`, and `shipments` + `[id]`, closing the remaining base-route GM coverage gap from Audit Cycle 2
+- [x] GM API coverage expansion validation passed: targeted GM Vitest batch, `npm run lint`, `npm run typecheck`, `npm run test:unit`
 - [x] `HeaderQuickActions.tsx` now delegates the app launcher, messages popover, notification/settings/profile actions, and floating chat windows to focused components in `src/components/navigation/header-quick-actions/` while keeping routing/session/query orchestration in the parent
 - [x] Header quick actions validation passed: `npm run lint`, `npm run typecheck`
 - [x] Clothing and GM payroll routes now share `src/modules/shared/ledger/payroll/api/routeAdapter.ts` for CRUD orchestration while preserving per-business Prisma bindings, route namespaces, and payroll-to-expense sync delegates
@@ -389,10 +398,11 @@ Run this for each completed implementation ticket.
 - [x] Added general-merchandise leave-request and schedule API coverage: `tests/unit/api/general-merchandise.leave-requests.api.test.ts`, `tests/unit/api/general-merchandise.schedules.api.test.ts`
 - [x] Added general-merchandise transactions API coverage: `tests/unit/api/general-merchandise.transactions.api.test.ts`
 - [x] Added general-merchandise payroll API coverage: `tests/unit/api/general-merchandise.payroll.api.test.ts`, `tests/unit/api/general-merchandise.payroll-generate.api.test.ts`, `tests/unit/api/general-merchandise.payroll-cleanup.api.test.ts`, `tests/unit/api/general-merchandise.payroll-generate-payslips.api.test.ts`, `tests/unit/api/general-merchandise.payroll-sync-lwop.api.test.ts`
+- [x] Added remaining GM base-route coverage for employee automation settings, expenses, products, customers, and shipments: `tests/unit/api/general-merchandise.employee-automation-settings.api.test.ts`, `tests/unit/api/general-merchandise.expenses.api.test.ts`, `tests/unit/api/general-merchandise.products.api.test.ts`, `tests/unit/api/general-merchandise.customers.api.test.ts`, `tests/unit/api/general-merchandise.shipments.api.test.ts`
 - [x] Broader unit validation passed after GM API expansion: `npm run test:unit` (155 files, 2026 tests)
 - [x] Added general-merchandise payroll API coverage: `tests/unit/api/general-merchandise.payroll.api.test.ts`, `tests/unit/api/general-merchandise.payroll-generate.api.test.ts`, `tests/unit/api/general-merchandise.payroll-cleanup.api.test.ts`, `tests/unit/api/general-merchandise.payroll-generate-payslips.api.test.ts`, `tests/unit/api/general-merchandise.payroll-sync-lwop.api.test.ts`
 - [x] Final validation passed: `npm run typecheck`, `npm run lint`, `tests/unit/api/trucking.attendance.api.test.ts`, `tests/unit/api/trucking.schedules.api.test.ts`, `tests/unit/api/trucking.employees.api.test.ts`, `tests/unit/api/trucking.cash-advances.api.test.ts`, `tests/unit/api/trucking.thirteenth-month-pay.api.test.ts`, `tests/unit/api/general-merchandise.cash-advances.api.test.ts`, `tests/unit/api/general-merchandise.thirteenth-month-pay.api.test.ts`
-- [x] Next step narrowed: remaining GM API gaps are `employee-automation-settings`, `expenses`, `products`, `customers`, and `shipments`; the remaining non-trucking backlog is now primarily P2-8/P2-9/P3-6/P3-7/P3-8/P3-9.
+- [x] GM API base-route coverage gap is closed; the remaining repo test-expansion backlog is now primarily trucking-focused under P2-7.
 
 ## Notes
 
