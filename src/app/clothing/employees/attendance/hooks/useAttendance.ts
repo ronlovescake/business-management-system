@@ -17,13 +17,19 @@ import type {
   AttendanceStatus,
   AttendanceFormValues,
 } from '../types';
-import { formatDisplayDate, getCurrentDateISO, toDate } from '@/utils/date';
+import { formatDisplayDate, getCurrentDateISO } from '@/utils/date';
 import {
   AUTO_RECORD_LOOKBACK_DAYS,
   calculateTotalHours,
   createEmptyFormValues,
   getAutoRecordDateRange,
 } from './attendanceHookUtils';
+import { useAttendanceFiltering } from './useAttendanceFiltering';
+import {
+  buildAttendanceCsv,
+  parseImportedAttendanceCsv,
+} from './attendanceCsvUtils';
+import { prepareAutoRecordAttendance } from './attendanceAutoRecordUtils';
 
 const formatTime = formatTimeString;
 
@@ -92,63 +98,16 @@ export function useAttendance(apiBasePath?: string) {
     });
   }
 
-  const sortedRecords = useMemo(() => {
-    return [...records].sort((a, b) => {
-      const dateDifference =
-        (toDate(b.date)?.getTime() ?? 0) - (toDate(a.date)?.getTime() ?? 0);
-      if (dateDifference !== 0) {
-        return dateDifference;
-      }
-      return a.employeeName.localeCompare(b.employeeName);
-    });
-  }, [records]);
-
-  const filteredRecords = useMemo(() => {
-    const normalizedQuery = searchQuery.trim().toLowerCase();
-
-    return sortedRecords.filter((record) => {
-      const matchesSearch = normalizedQuery
-        ? [
-            record.employeeName,
-            record.employeeId,
-            record.department,
-            record.position,
-            record.details,
-            record.notes,
-          ]
-            .filter((value): value is string => Boolean(value))
-            .some((value) => value.toLowerCase().includes(normalizedQuery))
-        : true;
-
-      const matchesStatus =
-        statusFilter === 'all' || record.status === statusFilter;
-
-      const recordYear = (toDate(record.date)?.getFullYear() ?? -1).toString();
-      const matchesYear = recordYear === yearFilter;
-
-      return matchesSearch && matchesStatus && matchesYear;
-    });
-  }, [sortedRecords, searchQuery, statusFilter, yearFilter]);
-
-  const totalRecords = filteredRecords.length;
-  const presentCount = filteredRecords.filter(
-    (record) => record.status === 'present'
-  ).length;
-  const lateCount = filteredRecords.filter(
-    (record) => record.status === 'late'
-  ).length;
-  const absentCount = filteredRecords.filter(
-    (record) => record.status === 'absent'
-  ).length;
-  const onLeaveCount = filteredRecords.filter(
-    (record) => record.status === 'on-leave'
-  ).length;
-
-  const totalHours = filteredRecords.reduce(
-    (sum, record) => sum + record.totalHours,
-    0
-  );
-  const averageHours = totalRecords ? totalHours / totalRecords : 0;
+  const {
+    filteredRecords,
+    totalRecords,
+    presentCount,
+    lateCount,
+    absentCount,
+    onLeaveCount,
+    totalHours,
+    averageHours,
+  } = useAttendanceFiltering(records, searchQuery, statusFilter, yearFilter);
 
   const formatDate = (dateString: string) =>
     formatDisplayDate(dateString, 'MMM D, YYYY');
@@ -550,8 +509,6 @@ export function useAttendance(apiBasePath?: string) {
       const dateRange = getAutoRecordDateRange();
       const todayISO = dateRange[0];
       const oldestDateISO = dateRange[dateRange.length - 1];
-      const recentDateSet = new Set(dateRange);
-
       // Fetch all schedules
       const allSchedules = await api.get<
         Array<{
@@ -570,57 +527,12 @@ export function useAttendance(apiBasePath?: string) {
         }>
       >(resolveApiPath('/schedules'));
 
-      // Filter schedules for the rolling window that are not cancelled
-      const relevantSchedules = allSchedules.filter(
-        (schedule: { date: string; status: string }) =>
-          recentDateSet.has(schedule.date) && schedule.status !== 'cancelled'
-      );
-
-      if (relevantSchedules.length === 0) {
-        Swal.fire({
-          icon: 'info',
-          title: 'No Schedules Found',
-          text: `No employee schedules found from ${oldestDateISO} through ${todayISO}`,
-          allowOutsideClick: false,
-        });
-        return;
-      }
-
-      // Fetch existing attendance for the entire lookback window
       const existingAttendance = await api.get<
         Array<{ employeeId: string; date: string }>
       >(
         `${resolveApiPath('/attendance')}?startDate=${oldestDateISO}&endDate=${todayISO}`
       );
 
-      // Create a map of existing attendance by employeeId and date
-      const existingAttendanceMap = new Map<string, Set<string>>();
-      existingAttendance.forEach((a: { employeeId: string; date: string }) => {
-        if (!existingAttendanceMap.has(a.employeeId)) {
-          existingAttendanceMap.set(a.employeeId, new Set());
-        }
-        existingAttendanceMap.get(a.employeeId)?.add(a.date);
-      });
-
-      // Filter schedules for employees without attendance for that specific date
-      const schedulesNeedingAttendance = relevantSchedules.filter(
-        (schedule: { employeeId: string; date: string }) => {
-          const employeeDates = existingAttendanceMap.get(schedule.employeeId);
-          return !employeeDates || !employeeDates.has(schedule.date);
-        }
-      );
-
-      if (schedulesNeedingAttendance.length === 0) {
-        Swal.fire({
-          icon: 'info',
-          title: 'Already Recorded',
-          text: `All employees with schedules between ${oldestDateISO} and ${todayISO} already have attendance records.`,
-          allowOutsideClick: false,
-        });
-        return;
-      }
-
-      // Fetch leave requests
       const allLeaveRequests = await api.get<
         Array<{
           employeeId: string;
@@ -632,221 +544,34 @@ export function useAttendance(apiBasePath?: string) {
         }>
       >(resolveApiPath('/leave-requests'));
 
-      // Helper function to check if employee is on leave
-      const isOnLeave = (employeeId: string, date: string) => {
-        return allLeaveRequests.some(
-          (request: {
-            employeeId: string;
-            status: string;
-            startDate: string;
-            endDate: string;
-          }) => {
-            const requestId = String(request.employeeId || '')
-              .trim()
-              .toLowerCase();
-            const scheduleId = String(employeeId || '')
-              .trim()
-              .toLowerCase();
+      const preparedResult = prepareAutoRecordAttendance({
+        allSchedules,
+        existingAttendance,
+        allLeaveRequests,
+        dateRange,
+      });
 
-            if (requestId !== scheduleId) {
-              return false;
-            }
-            if (request.status !== 'approved') {
-              return false;
-            }
+      if (preparedResult.kind === 'no-schedules') {
+        Swal.fire({
+          icon: 'info',
+          title: 'No Schedules Found',
+          text: `No employee schedules found from ${preparedResult.oldestDateISO} through ${preparedResult.todayISO}`,
+          allowOutsideClick: false,
+        });
+        return;
+      }
 
-            return date >= request.startDate && date <= request.endDate;
-          }
-        );
-      };
+      if (preparedResult.kind === 'already-recorded') {
+        Swal.fire({
+          icon: 'info',
+          title: 'Already Recorded',
+          text: `All employees with schedules between ${preparedResult.oldestDateISO} and ${preparedResult.todayISO} already have attendance records.`,
+          allowOutsideClick: false,
+        });
+        return;
+      }
 
-      // Helper function to get leave info
-      const getLeaveInfo = (employeeId: string, date: string) => {
-        return allLeaveRequests.find(
-          (request: {
-            employeeId: string;
-            status: string;
-            startDate: string;
-            endDate: string;
-            leaveType: string;
-            reason: string;
-          }) => {
-            const requestId = String(request.employeeId || '')
-              .trim()
-              .toLowerCase();
-            const scheduleId = String(employeeId || '')
-              .trim()
-              .toLowerCase();
-            return (
-              requestId === scheduleId &&
-              request.status === 'approved' &&
-              date >= request.startDate &&
-              date <= request.endDate
-            );
-          }
-        );
-      };
-
-      // Helper function to calculate total hours
-      const calculateHours = (
-        startTime: string,
-        endTime: string,
-        breakMinutes = 0
-      ) => {
-        const [startHour, startMin] = startTime.split(':').map(Number);
-        const [endHour, endMin] = endTime.split(':').map(Number);
-
-        const startMinutes = startHour * 60 + startMin;
-        let endMinutes = endHour * 60 + endMin;
-
-        // Handle overnight shifts
-        if (endMinutes < startMinutes) {
-          endMinutes += 24 * 60;
-        }
-
-        const totalMinutes = endMinutes - startMinutes;
-        const workMinutes = totalMinutes - breakMinutes;
-
-        return Math.max(0, workMinutes / 60);
-      };
-
-      const addMinutesToTime = (time: string, minutesToAdd: number) => {
-        if (!time) {
-          return undefined;
-        }
-
-        const [hourStr, minuteStr] = time.split(':');
-        const hours = Number(hourStr);
-        const minutes = Number(minuteStr);
-
-        if (Number.isNaN(hours) || Number.isNaN(minutes)) {
-          return undefined;
-        }
-
-        let totalMinutes = hours * 60 + minutes + minutesToAdd;
-        totalMinutes = ((totalMinutes % 1440) + 1440) % 1440;
-
-        const nextHours = Math.floor(totalMinutes / 60);
-        const nextMinutes = totalMinutes % 60;
-
-        return `${String(nextHours).padStart(2, '0')}:${String(nextMinutes).padStart(2, '0')}`;
-      };
-
-      const resolveBreakWindow = (
-        value: string | null | undefined,
-        fallback: string,
-        durationMinutes: number
-      ) => {
-        const normalized = value?.trim() || '';
-        const start = normalized || fallback;
-
-        if (!start) {
-          return {
-            start: undefined as string | undefined,
-            end: undefined as string | undefined,
-            minutes: 0,
-          };
-        }
-
-        const end = addMinutesToTime(start, durationMinutes);
-
-        return {
-          start,
-          end,
-          minutes: end ? durationMinutes : 0,
-        };
-      };
-
-      const DEFAULT_BREAKS = {
-        break1: '09:00',
-        lunch: '12:00',
-        break2: '15:00',
-      } as const;
-
-      const BREAK_DURATIONS = {
-        break1: 15,
-        lunch: 60,
-        break2: 15,
-      } as const;
-
-      // Generate attendance records
-      const newAttendanceRecords = schedulesNeedingAttendance.map(
-        (schedule: {
-          employeeId: string;
-          employeeName: string;
-          department: string;
-          position: string;
-          date: string;
-          startTime: string;
-          break1?: string | null;
-          lunch?: string | null;
-          break2?: string | null;
-          endTime: string;
-          status: string;
-          notes?: string;
-        }) => {
-          const onLeave = isOnLeave(schedule.employeeId, schedule.date);
-          const leaveInfo = getLeaveInfo(schedule.employeeId, schedule.date);
-
-          let status: AttendanceStatus = 'present';
-          if (onLeave || schedule.status === 'on-leave') {
-            status = 'on-leave';
-          }
-
-          const break1Window = resolveBreakWindow(
-            schedule.break1,
-            DEFAULT_BREAKS.break1,
-            BREAK_DURATIONS.break1
-          );
-          const lunchWindow = resolveBreakWindow(
-            schedule.lunch,
-            DEFAULT_BREAKS.lunch,
-            BREAK_DURATIONS.lunch
-          );
-          const break2Window = resolveBreakWindow(
-            schedule.break2,
-            DEFAULT_BREAKS.break2,
-            BREAK_DURATIONS.break2
-          );
-
-          const totalBreakMinutes = [
-            break1Window,
-            lunchWindow,
-            break2Window,
-          ].reduce((sum, window) => sum + window.minutes, 0);
-
-          const totalHours = calculateHours(
-            schedule.startTime,
-            schedule.endTime,
-            totalBreakMinutes
-          );
-
-          return {
-            employeeId: schedule.employeeId,
-            employeeName: schedule.employeeName,
-            department: schedule.department,
-            position: schedule.position,
-            date: schedule.date,
-            timeIn: schedule.startTime,
-            timeOut: schedule.endTime,
-            break1Start: break1Window.start,
-            break1End: break1Window.end,
-            lunchStart: lunchWindow.start,
-            lunchEnd: lunchWindow.end,
-            break2Start: break2Window.start,
-            break2End: break2Window.end,
-            totalHours: totalHours,
-            status: status,
-            details: leaveInfo ? `On ${leaveInfo.leaveType}` : '',
-            notes: leaveInfo
-              ? `Leave period: ${leaveInfo.startDate} to ${leaveInfo.endDate}. Reason: ${leaveInfo.reason}`
-              : schedule.notes || '',
-          };
-        }
-      );
-
-      // Use bulk mutation
-      bulkCreateMutation.mutate(newAttendanceRecords);
+      bulkCreateMutation.mutate(preparedResult.newAttendanceRecords);
     } catch (error) {
       logger.error('Error in auto-record attendance:', error);
       Swal.fire({
@@ -926,128 +651,12 @@ export function useAttendance(apiBasePath?: string) {
     reader.onload = async (e) => {
       try {
         const text = e.target?.result as string;
-        const lines = text.split('\n').filter((line) => line.trim());
-
-        if (lines.length < 2) {
-          await showError('CSV file is empty or invalid', 'Import Error');
+        const parsed = await parseImportedAttendanceCsv(text);
+        if (!parsed) {
           return;
         }
 
-        const parseCSVLine = (line: string): string[] => {
-          const result: string[] = [];
-          let current = '';
-          let inQuotes = false;
-
-          for (let i = 0; i < line.length; i++) {
-            const char = line[i];
-
-            if (char === '"') {
-              inQuotes = !inQuotes;
-            } else if (char === ',' && !inQuotes) {
-              result.push(current.trim());
-              current = '';
-            } else {
-              current += char;
-            }
-          }
-          result.push(current.trim());
-          return result;
-        };
-
-        const headers = parseCSVLine(lines[0]).map((h) =>
-          h.toLowerCase().replace(/\s+/g, '')
-        );
-
-        const requiredColumns = ['employeeid', 'employeename', 'date'];
-        const missingColumns = requiredColumns.filter(
-          (col) => !headers.includes(col)
-        );
-
-        if (missingColumns.length > 0) {
-          await showError(
-            `Missing required columns: ${missingColumns.join(', ')}\n\n` +
-              'Required columns: employeeId, employeeName, date\n' +
-              'Optional columns: timeIn, timeOut, department, position, status, ' +
-              'break1Start, break1End, lunchStart, lunchEnd, break2Start, break2End, ' +
-              'totalHours, details, notes',
-            'Import Error'
-          );
-          return;
-        }
-
-        const importedRecords: Array<Omit<AttendanceRecord, 'id'>> = [];
-        let successCount = 0;
-        const errors: string[] = [];
-
-        for (let i = 1; i < lines.length; i++) {
-          try {
-            const values = parseCSVLine(lines[i]);
-            const row: Record<string, string> = {};
-
-            headers.forEach((header, index) => {
-              row[header] = values[index] || '';
-            });
-
-            if (!row.employeeid && !row.employeename && !row.date) {
-              continue;
-            }
-
-            // Validate required fields (timeIn/timeOut optional for on-leave)
-            if (!row.employeeid || !row.employeename || !row.date) {
-              errors.push(`Row ${i + 1}: Missing required field(s)`);
-              continue;
-            }
-
-            // Calculate total hours (only if timeIn and timeOut exist)
-            let totalHours = 0;
-            if (row.timein && row.timeout) {
-              const [inHours, inMinutes] = row.timein.split(':').map(Number);
-              const [outHours, outMinutes] = row.timeout.split(':').map(Number);
-              const totalMinutes =
-                outHours * 60 + outMinutes - (inHours * 60 + inMinutes);
-              totalHours = totalMinutes > 0 ? totalMinutes / 60 : 0;
-            } else if (row.totalhours) {
-              // Use provided totalHours if timeIn/timeOut missing
-              totalHours = parseFloat(row.totalhours) || 0;
-            }
-
-            const status =
-              (row.status?.toLowerCase() as AttendanceStatus) || 'present';
-            const validStatus: AttendanceStatus = [
-              'present',
-              'late',
-              'absent',
-              'on-leave',
-            ].includes(status)
-              ? status
-              : 'present';
-
-            const newRecord = {
-              employeeId: row.employeeid,
-              employeeName: row.employeename,
-              department: row.department || 'N/A',
-              position: row.position || 'N/A',
-              date: row.date,
-              timeIn: row.timein || '',
-              timeOut: row.timeout || '',
-              break1Start: row.break1start || undefined,
-              break1End: row.break1end || undefined,
-              lunchStart: row.lunchstart || undefined,
-              lunchEnd: row.lunchend || undefined,
-              break2Start: row.break2start || undefined,
-              break2End: row.break2end || undefined,
-              totalHours,
-              status: validStatus,
-              details: row.details || '',
-              notes: row.notes || undefined,
-            };
-
-            importedRecords.push(newRecord);
-            successCount++;
-          } catch (error) {
-            errors.push(`Row ${i + 1}: ${error}`);
-          }
-        }
+        const { importedRecords, successCount, errors } = parsed;
 
         if (importedRecords.length > 0) {
           // Use bulk mutation
@@ -1092,53 +701,7 @@ export function useAttendance(apiBasePath?: string) {
       return;
     }
 
-    const headers = [
-      'Employee ID',
-      'Employee Name',
-      'Department',
-      'Position',
-      'Date',
-      'Time In',
-      'Time Out',
-      'Total Hours',
-      'Status',
-      'Details',
-      'Notes',
-    ];
-
-    const escapeCSV = (value: string | number | null | undefined): string => {
-      if (value === null || value === undefined) {
-        return '';
-      }
-      const stringValue = String(value);
-      if (
-        stringValue.includes(',') ||
-        stringValue.includes('"') ||
-        stringValue.includes('\n')
-      ) {
-        return `"${stringValue.replace(/"/g, '""')}"`;
-      }
-      return stringValue;
-    };
-
-    const rows = filteredRecords.map((record) => [
-      escapeCSV(record.employeeId),
-      escapeCSV(record.employeeName),
-      escapeCSV(record.department),
-      escapeCSV(record.position),
-      escapeCSV(record.date),
-      escapeCSV(record.timeIn),
-      escapeCSV(record.timeOut),
-      escapeCSV(record.totalHours.toFixed(2)),
-      escapeCSV(record.status),
-      escapeCSV(record.details),
-      escapeCSV(record.notes || ''),
-    ]);
-
-    const csvContent = [
-      headers.join(','),
-      ...rows.map((row) => row.join(',')),
-    ].join('\n');
+    const csvContent = buildAttendanceCsv(filteredRecords);
 
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const link = document.createElement('a');

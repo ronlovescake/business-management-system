@@ -68,7 +68,16 @@ export interface EmployeeThirteenthMonthRecord {
   notes?: string;
 }
 
-export function useEmployeeDetail(employeeId: string, apiBasePath?: string) {
+export type EmployeeDetailErrorHandler = (
+  error: unknown,
+  fallback: string
+) => void;
+
+export function useEmployeeDetail(
+  employeeId: string,
+  apiBasePath?: string,
+  onApiError?: EmployeeDetailErrorHandler
+) {
   const queryClient = useQueryClient();
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [isPhotoUploading, setIsPhotoUploading] = useState(false);
@@ -76,6 +85,18 @@ export function useEmployeeDetail(employeeId: string, apiBasePath?: string) {
   const resolveApiPath = useCallback(
     (path: string) => buildApiPath(apiBasePath, path),
     [apiBasePath]
+  );
+
+  const handleApiError = useCallback(
+    (error: unknown, fallback: string) => {
+      if (onApiError) {
+        onApiError(error, fallback);
+        return;
+      }
+
+      alert(fallback);
+    },
+    [onApiError]
   );
 
   // Main employee query
@@ -852,7 +873,7 @@ export function useEmployeeDetail(employeeId: string, apiBasePath?: string) {
         queryClient.setQueryData(employeeDetailQueryKey, context.previous);
       }
       logger.error('Error updating employee:', error);
-      alert('Failed to update employee. Please try again.');
+      handleApiError(error, 'Failed to update employee. Please try again.');
     },
     onSuccess: () => {
       // Close form on success
@@ -985,7 +1006,10 @@ export function useEmployeeDetail(employeeId: string, apiBasePath?: string) {
         queryClient.setQueryData(employeeDetailQueryKey, context.previous);
       }
       logger.error('Error uploading photo:', error);
-      alert('Failed to upload profile photo. Please try again.');
+      handleApiError(
+        error,
+        'Failed to upload profile photo. Please try again.'
+      );
     },
     onSettled: () => {
       setIsPhotoUploading(false);

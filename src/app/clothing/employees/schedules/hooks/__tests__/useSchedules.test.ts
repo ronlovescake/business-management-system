@@ -19,40 +19,27 @@
  */
 
 import { describe, it, expect } from 'vitest';
+import type { ScheduleStatus, ShiftType } from '../../types';
+import { MINUTES_IN_DAY } from '../scheduleHookUtils';
+import {
+  calculateDuration,
+  getTimeRange,
+  rangesOverlap,
+  timeStringToMinutes,
+} from '../scheduleTimeUtils';
+import {
+  calculateScheduleStats,
+  calculateWeeklyBreakdown,
+  filterSchedules,
+  sortSchedules,
+} from '../scheduleListUtils';
+import { getEmployeeLeaveForDate as getEmployeeLeaveForDateFromList } from '../scheduleLeaveUtils';
 
 // ==========================================================================
 // TIME STRING PARSING
 // ==========================================================================
 
 describe('Time String to Minutes Conversion', () => {
-  const timeStringToMinutes = (value: string): number | null => {
-    const trimmed = value?.trim();
-    if (!trimmed) {
-      return null;
-    }
-
-    const match = /^([0-9]{1,2}):([0-9]{2})$/.exec(trimmed);
-    if (!match) {
-      return null;
-    }
-
-    const hours = Number(match[1]);
-    const minutes = Number(match[2]);
-
-    if (
-      Number.isNaN(hours) ||
-      Number.isNaN(minutes) ||
-      hours < 0 ||
-      hours > 23 ||
-      minutes < 0 ||
-      minutes > 59
-    ) {
-      return null;
-    }
-
-    return hours * 60 + minutes;
-  };
-
   it('should convert valid time to minutes', () => {
     expect(timeStringToMinutes('08:00')).toBe(480); // 8 * 60
     expect(timeStringToMinutes('12:30')).toBe(750); // 12 * 60 + 30
@@ -109,45 +96,6 @@ describe('Time String to Minutes Conversion', () => {
 // ==========================================================================
 
 describe('Time Range Calculations', () => {
-  const MINUTES_IN_DAY = 24 * 60;
-
-  const timeStringToMinutes = (value: string): number | null => {
-    const trimmed = value?.trim();
-    if (!trimmed) {
-      return null;
-    }
-    const match = /^([0-9]{1,2}):([0-9]{2})$/.exec(trimmed);
-    if (!match) {
-      return null;
-    }
-    const hours = Number(match[1]);
-    const minutes = Number(match[2]);
-    if (
-      Number.isNaN(hours) ||
-      Number.isNaN(minutes) ||
-      hours < 0 ||
-      hours > 23 ||
-      minutes < 0 ||
-      minutes > 59
-    ) {
-      return null;
-    }
-    return hours * 60 + minutes;
-  };
-
-  const getTimeRange = (startTime: string, endTime: string) => {
-    const start = timeStringToMinutes(startTime);
-    const end = timeStringToMinutes(endTime);
-
-    if (start === null || end === null) {
-      return null;
-    }
-
-    const adjustedEnd = end <= start ? end + MINUTES_IN_DAY : end;
-
-    return { start, end: adjustedEnd };
-  };
-
   it('should calculate range for same-day shift', () => {
     const range = getTimeRange('08:00', '17:00');
     expect(range).toEqual({ start: 480, end: 1020 });
@@ -191,13 +139,6 @@ describe('Time Range Calculations', () => {
 // ==========================================================================
 
 describe('Time Range Overlap Detection', () => {
-  const rangesOverlap = (
-    candidateStart: number,
-    candidateEnd: number,
-    existingStart: number,
-    existingEnd: number
-  ) => candidateStart < existingEnd && existingStart < candidateEnd;
-
   it('should detect overlap when ranges intersect', () => {
     // Candidate: 9:00-12:00, Existing: 10:00-14:00
     expect(rangesOverlap(540, 720, 600, 840)).toBe(true);
@@ -239,55 +180,6 @@ describe('Time Range Overlap Detection', () => {
 // ==========================================================================
 
 describe('Duration Calculations', () => {
-  const MINUTES_IN_DAY = 24 * 60;
-
-  const timeStringToMinutes = (value: string): number | null => {
-    const trimmed = value?.trim();
-    if (!trimmed) {
-      return null;
-    }
-    const match = /^([0-9]{1,2}):([0-9]{2})$/.exec(trimmed);
-    if (!match) {
-      return null;
-    }
-    const hours = Number(match[1]);
-    const minutes = Number(match[2]);
-    if (
-      Number.isNaN(hours) ||
-      Number.isNaN(minutes) ||
-      hours < 0 ||
-      hours > 23 ||
-      minutes < 0 ||
-      minutes > 59
-    ) {
-      return null;
-    }
-    return hours * 60 + minutes;
-  };
-
-  const getTimeRange = (startTime: string, endTime: string) => {
-    const start = timeStringToMinutes(startTime);
-    const end = timeStringToMinutes(endTime);
-    if (start === null || end === null) {
-      return null;
-    }
-    const adjustedEnd = end <= start ? end + MINUTES_IN_DAY : end;
-    return { start, end: adjustedEnd };
-  };
-
-  const calculateDuration = (startTime: string, endTime: string): number => {
-    if (!startTime || !endTime) {
-      return 0;
-    }
-
-    const range = getTimeRange(startTime, endTime);
-    if (!range) {
-      return 0;
-    }
-
-    return Math.max(0, (range.end - range.start) / 60);
-  };
-
   it('should calculate duration for same-day shift', () => {
     expect(calculateDuration('08:00', '17:00')).toBe(9); // 9 hours
     expect(calculateDuration('09:00', '12:00')).toBe(3); // 3 hours
@@ -318,6 +210,10 @@ describe('Duration Calculations', () => {
 
   it('should calculate full 24-hour shift', () => {
     expect(calculateDuration('00:00', '00:00')).toBe(24);
+  });
+
+  it('should deduct one hour when lunch is included', () => {
+    expect(calculateDuration('08:00', '17:00', true)).toBe(8);
   });
 });
 
@@ -496,35 +392,6 @@ describe('Date Utilities', () => {
 // ==========================================================================
 
 describe('Weekly Breakdown Calculations', () => {
-  interface Schedule {
-    date: string;
-  }
-
-  const toISODate = (date: Date) => {
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const day = String(date.getDate()).padStart(2, '0');
-    return `${year}-${month}-${day}`;
-  };
-
-  const calculateWeeklyBreakdown = (schedules: Schedule[]) => {
-    const breakdown: Record<string, number> = {};
-
-    schedules.forEach((schedule) => {
-      const date = new Date(schedule.date);
-      const weekStart = new Date(date);
-      weekStart.setDate(date.getDate() - date.getDay()); // Start of week (Sunday)
-      const weekKey = toISODate(weekStart);
-
-      breakdown[weekKey] = (breakdown[weekKey] || 0) + 1;
-    });
-
-    return Object.entries(breakdown).map(([week, count]) => ({
-      week,
-      count,
-    }));
-  };
-
   it('should calculate weekly breakdown for empty array', () => {
     const breakdown = calculateWeeklyBreakdown([]);
     expect(breakdown).toEqual([]);
@@ -570,37 +437,10 @@ describe('Schedule Filtering', () => {
     employeeId: string;
     position: string;
     department: string;
-    shiftType: string;
-    status: string;
+    shiftType: ShiftType;
+    status: ScheduleStatus;
+    date: string;
   }
-
-  const filterSchedules = (
-    schedules: Schedule[],
-    searchQuery: string,
-    filterShiftType: string | null,
-    filterStatus: string | null
-  ) => {
-    return schedules.filter((schedule) => {
-      const normalizedQuery = searchQuery.toLowerCase().trim();
-
-      // Search filter
-      const matchesSearch =
-        !normalizedQuery ||
-        schedule.employeeName.toLowerCase().includes(normalizedQuery) ||
-        schedule.employeeId.toLowerCase().includes(normalizedQuery) ||
-        schedule.position.toLowerCase().includes(normalizedQuery) ||
-        schedule.department.toLowerCase().includes(normalizedQuery);
-
-      // Shift type filter
-      const matchesShiftType =
-        !filterShiftType || schedule.shiftType === filterShiftType;
-
-      // Status filter
-      const matchesStatus = !filterStatus || schedule.status === filterStatus;
-
-      return matchesSearch && matchesShiftType && matchesStatus;
-    });
-  };
 
   const mockSchedules: Schedule[] = [
     {
@@ -610,6 +450,7 @@ describe('Schedule Filtering', () => {
       department: 'Engineering',
       shiftType: 'morning',
       status: 'scheduled',
+      date: '2024-01-15',
     },
     {
       employeeName: 'Jane Smith',
@@ -618,6 +459,7 @@ describe('Schedule Filtering', () => {
       department: 'Management',
       shiftType: 'afternoon',
       status: 'completed',
+      date: '2024-01-16',
     },
     {
       employeeName: 'Bob Johnson',
@@ -626,65 +468,101 @@ describe('Schedule Filtering', () => {
       department: 'Engineering',
       shiftType: 'night',
       status: 'cancelled',
+      date: '2024-01-17',
     },
   ];
 
   it('should return all schedules with no filters', () => {
-    const result = filterSchedules(mockSchedules, '', null, null);
+    const result = filterSchedules(mockSchedules, {
+      searchQuery: '',
+      filterShiftType: null,
+      filterStatus: null,
+    });
     expect(result).toHaveLength(3);
   });
 
   it('should filter by employee name', () => {
-    const result = filterSchedules(mockSchedules, 'John', null, null);
+    const result = filterSchedules(mockSchedules, {
+      searchQuery: 'John',
+      filterShiftType: null,
+      filterStatus: null,
+    });
     expect(result).toHaveLength(2); // John Doe and Bob Johnson
   });
 
   it('should filter by employee ID', () => {
-    const result = filterSchedules(mockSchedules, 'EMP-001', null, null);
+    const result = filterSchedules(mockSchedules, {
+      searchQuery: 'EMP-001',
+      filterShiftType: null,
+      filterStatus: null,
+    });
     expect(result).toHaveLength(1);
     expect(result[0].employeeName).toBe('John Doe');
   });
 
   it('should filter by position', () => {
-    const result = filterSchedules(mockSchedules, 'Engineer', null, null);
+    const result = filterSchedules(mockSchedules, {
+      searchQuery: 'Engineer',
+      filterShiftType: null,
+      filterStatus: null,
+    });
     expect(result).toHaveLength(2);
   });
 
   it('should filter by department', () => {
-    const result = filterSchedules(mockSchedules, 'Engineering', null, null);
+    const result = filterSchedules(mockSchedules, {
+      searchQuery: 'Engineering',
+      filterShiftType: null,
+      filterStatus: null,
+    });
     expect(result).toHaveLength(2);
   });
 
   it('should filter by shift type', () => {
-    const result = filterSchedules(mockSchedules, '', 'morning', null);
+    const result = filterSchedules(mockSchedules, {
+      searchQuery: '',
+      filterShiftType: 'morning',
+      filterStatus: null,
+    });
     expect(result).toHaveLength(1);
     expect(result[0].shiftType).toBe('morning');
   });
 
   it('should filter by status', () => {
-    const result = filterSchedules(mockSchedules, '', null, 'completed');
+    const result = filterSchedules(mockSchedules, {
+      searchQuery: '',
+      filterShiftType: null,
+      filterStatus: 'completed',
+    });
     expect(result).toHaveLength(1);
     expect(result[0].status).toBe('completed');
   });
 
   it('should combine all filters', () => {
-    const result = filterSchedules(
-      mockSchedules,
-      'Engineer',
-      'morning',
-      'scheduled'
-    );
+    const result = filterSchedules(mockSchedules, {
+      searchQuery: 'Engineer',
+      filterShiftType: 'morning',
+      filterStatus: 'scheduled',
+    });
     expect(result).toHaveLength(1);
     expect(result[0].employeeName).toBe('John Doe');
   });
 
   it('should be case-insensitive for search', () => {
-    const result = filterSchedules(mockSchedules, 'JOHN', null, null);
+    const result = filterSchedules(mockSchedules, {
+      searchQuery: 'JOHN',
+      filterShiftType: null,
+      filterStatus: null,
+    });
     expect(result).toHaveLength(2);
   });
 
   it('should trim search query', () => {
-    const result = filterSchedules(mockSchedules, '  John  ', null, null);
+    const result = filterSchedules(mockSchedules, {
+      searchQuery: '  John  ',
+      filterShiftType: null,
+      filterStatus: null,
+    });
     expect(result).toHaveLength(2);
   });
 });
@@ -699,22 +577,8 @@ describe('Schedule Sorting', () => {
     startTime: string;
   }
 
-  const sortSchedules = (schedules: Schedule[]) => {
-    return [...schedules].sort((a, b) => {
-      const dateA = new Date(a.date).getTime();
-      const dateB = new Date(b.date).getTime();
-
-      // If dates are equal, sort by start time
-      if (dateA === dateB) {
-        return a.startTime.localeCompare(b.startTime);
-      }
-
-      return dateB - dateA; // Newest first
-    });
-  };
-
   it('should sort by date (newest first)', () => {
-    const schedules = [
+    const schedules: Schedule[] = [
       { date: '2024-01-15', startTime: '08:00' },
       { date: '2024-01-20', startTime: '09:00' },
       { date: '2024-01-10', startTime: '10:00' },
@@ -727,7 +591,7 @@ describe('Schedule Sorting', () => {
   });
 
   it('should sort by start time when dates are equal', () => {
-    const schedules = [
+    const schedules: Schedule[] = [
       { date: '2024-01-15', startTime: '12:00' },
       { date: '2024-01-15', startTime: '08:00' },
       { date: '2024-01-15', startTime: '15:00' },
@@ -745,7 +609,7 @@ describe('Schedule Sorting', () => {
   });
 
   it('should not mutate original array', () => {
-    const schedules = [
+    const schedules: Schedule[] = [
       { date: '2024-01-15', startTime: '08:00' },
       { date: '2024-01-20', startTime: '09:00' },
     ];
@@ -762,20 +626,11 @@ describe('Schedule Sorting', () => {
 
 describe('Statistics Calculations', () => {
   interface Schedule {
-    status: string;
+    status: ScheduleStatus;
   }
 
-  const calculateStats = (schedules: Schedule[]) => {
-    return {
-      total: schedules.length,
-      scheduled: schedules.filter((s) => s.status === 'scheduled').length,
-      completed: schedules.filter((s) => s.status === 'completed').length,
-      cancelled: schedules.filter((s) => s.status === 'cancelled').length,
-    };
-  };
-
   it('should calculate stats for empty array', () => {
-    const stats = calculateStats([]);
+    const stats = calculateScheduleStats([]);
     expect(stats).toEqual({
       total: 0,
       scheduled: 0,
@@ -785,14 +640,14 @@ describe('Statistics Calculations', () => {
   });
 
   it('should count schedules by status', () => {
-    const schedules = [
+    const schedules: Schedule[] = [
       { status: 'scheduled' },
       { status: 'scheduled' },
       { status: 'completed' },
       { status: 'cancelled' },
     ];
 
-    const stats = calculateStats(schedules);
+    const stats = calculateScheduleStats(schedules);
     expect(stats).toEqual({
       total: 4,
       scheduled: 2,
@@ -802,18 +657,71 @@ describe('Statistics Calculations', () => {
   });
 
   it('should handle all same status', () => {
-    const schedules = [
+    const schedules: Schedule[] = [
       { status: 'completed' },
       { status: 'completed' },
       { status: 'completed' },
     ];
 
-    const stats = calculateStats(schedules);
+    const stats = calculateScheduleStats(schedules);
     expect(stats).toEqual({
       total: 3,
       scheduled: 0,
       completed: 3,
       cancelled: 0,
     });
+  });
+});
+
+// ==========================================================================
+// LEAVE MATCHING
+// ==========================================================================
+
+describe('Schedule Leave Matching', () => {
+  const leaveRequests = [
+    {
+      employeeId: ' emp-001 ',
+      employeeName: 'John Doe',
+      leaveType: 'vacation',
+      startDate: '2024-01-15',
+      endDate: '2024-01-17',
+      status: 'approved',
+    },
+    {
+      employeeId: 'EMP-002',
+      employeeName: 'Jane Smith',
+      leaveType: 'sick',
+      startDate: '2024-01-16',
+      endDate: '2024-01-16',
+      status: 'pending',
+    },
+  ];
+
+  it('should match approved leave within the date range', () => {
+    expect(
+      getEmployeeLeaveForDateFromList(leaveRequests, 'EMP-001', '2024-01-16')
+    ).toEqual({
+      leaveType: 'vacation',
+      status: 'approved',
+      employeeName: 'John Doe',
+    });
+  });
+
+  it('should normalize employee IDs before matching', () => {
+    expect(
+      getEmployeeLeaveForDateFromList(leaveRequests, ' emp-001 ', '2024-01-15')
+    ).not.toBeNull();
+  });
+
+  it('should ignore non-approved leave requests', () => {
+    expect(
+      getEmployeeLeaveForDateFromList(leaveRequests, 'EMP-002', '2024-01-16')
+    ).toBeNull();
+  });
+
+  it('should return null when no leave covers the date', () => {
+    expect(
+      getEmployeeLeaveForDateFromList(leaveRequests, 'EMP-001', '2024-01-20')
+    ).toBeNull();
   });
 });

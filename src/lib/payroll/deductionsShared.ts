@@ -212,3 +212,93 @@ export const getOverlapScheduledDays = <TSchedule extends Schedulable>(
 
   return countScheduledDays(employeeId, overlapStart, overlapEnd, schedules);
 };
+
+export const syncPayrollLwopGeneric = async <TPayroll, TEmployeeMap>(
+  payrolls: TPayroll[],
+  buildEmployeeDataMap: (payrolls: TPayroll[]) => Promise<TEmployeeMap>,
+  applyLwopAdjustments: (
+    payrolls: TPayroll[],
+    employeeDataMap: TEmployeeMap
+  ) => Promise<TPayroll[]>
+): Promise<TPayroll[]> => {
+  if (payrolls.length === 0) {
+    return payrolls;
+  }
+
+  const employeeDataMap = await buildEmployeeDataMap(payrolls);
+  return applyLwopAdjustments(payrolls, employeeDataMap);
+};
+
+export const syncPayrollAttendanceDeductionsGeneric = async <
+  TPayroll,
+  TEmployeeMap,
+  TAttendanceIndex,
+>(
+  payrolls: TPayroll[],
+  buildEmployeeDataMap: (payrolls: TPayroll[]) => Promise<TEmployeeMap>,
+  buildAttendanceDataIndex: (payrolls: TPayroll[]) => Promise<TAttendanceIndex>,
+  applyAttendanceAdjustments: (
+    payrolls: TPayroll[],
+    employeeDataMap: TEmployeeMap,
+    attendanceIndex: TAttendanceIndex
+  ) => Promise<TPayroll[]>
+): Promise<TPayroll[]> => {
+  if (payrolls.length === 0) {
+    return payrolls;
+  }
+
+  const employeeDataMap = await buildEmployeeDataMap(payrolls);
+  const attendanceIndex = await buildAttendanceDataIndex(payrolls);
+
+  return applyAttendanceAdjustments(payrolls, employeeDataMap, attendanceIndex);
+};
+
+export const syncPayrollDeductionsGeneric = async <
+  TPayroll,
+  TEmployeeMap,
+  TAttendanceIndex,
+>(
+  payrolls: TPayroll[],
+  buildEmployeeDataMap: (payrolls: TPayroll[]) => Promise<TEmployeeMap>,
+  applyStatutoryContributionAdjustments: (
+    payrolls: TPayroll[],
+    employeeDataMap: TEmployeeMap
+  ) => Promise<TPayroll[]>,
+  applyThirteenthMonthAdjustments: (
+    payrolls: TPayroll[]
+  ) => Promise<TPayroll[]>,
+  applyLwopAdjustments: (
+    payrolls: TPayroll[],
+    employeeDataMap: TEmployeeMap
+  ) => Promise<TPayroll[]>,
+  buildAttendanceDataIndex: (payrolls: TPayroll[]) => Promise<TAttendanceIndex>,
+  applyAttendanceAdjustments: (
+    payrolls: TPayroll[],
+    employeeDataMap: TEmployeeMap,
+    attendanceIndex: TAttendanceIndex
+  ) => Promise<TPayroll[]>,
+  applyCashAdvanceAdjustments: (payrolls: TPayroll[]) => Promise<TPayroll[]>
+): Promise<TPayroll[]> => {
+  if (payrolls.length === 0) {
+    return payrolls;
+  }
+
+  const employeeDataMap = await buildEmployeeDataMap(payrolls);
+  const afterStatutory = await applyStatutoryContributionAdjustments(
+    payrolls,
+    employeeDataMap
+  );
+  const afterThirteenth = await applyThirteenthMonthAdjustments(afterStatutory);
+  const afterLwop = await applyLwopAdjustments(
+    afterThirteenth,
+    employeeDataMap
+  );
+  const attendanceIndex = await buildAttendanceDataIndex(afterLwop);
+  const afterAttendance = await applyAttendanceAdjustments(
+    afterLwop,
+    employeeDataMap,
+    attendanceIndex
+  );
+
+  return applyCashAdvanceAdjustments(afterAttendance);
+};

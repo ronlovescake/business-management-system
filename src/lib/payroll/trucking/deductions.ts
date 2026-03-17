@@ -15,6 +15,9 @@ import {
   parseTimeToMinutes,
   roundToCents,
   sumPayrollDeductions,
+  syncPayrollAttendanceDeductionsGeneric,
+  syncPayrollDeductionsGeneric,
+  syncPayrollLwopGeneric,
   toDateOnlyUtc,
   toDecimalValue,
 } from '../deductionsShared';
@@ -523,14 +526,8 @@ const applyLwopAdjustments = async (
 
 export const syncTruckingPayrollLwop = async (
   payrolls: TruckingPayroll[]
-): Promise<TruckingPayroll[]> => {
-  if (payrolls.length === 0) {
-    return payrolls;
-  }
-
-  const employeeDataMap = await buildEmployeeDataMap(payrolls);
-  return applyLwopAdjustments(payrolls, employeeDataMap);
-};
+): Promise<TruckingPayroll[]> =>
+  syncPayrollLwopGeneric(payrolls, buildEmployeeDataMap, applyLwopAdjustments);
 
 const applyAttendanceAdjustments = async (
   payrolls: TruckingPayroll[],
@@ -578,16 +575,13 @@ const applyAttendanceAdjustments = async (
 
 export const syncTruckingPayrollAttendanceDeductions = async (
   payrolls: TruckingPayroll[]
-): Promise<TruckingPayroll[]> => {
-  if (payrolls.length === 0) {
-    return payrolls;
-  }
-
-  const employeeDataMap = await buildEmployeeDataMap(payrolls);
-  const attendanceIndex = await buildAttendanceDataIndex(payrolls);
-
-  return applyAttendanceAdjustments(payrolls, employeeDataMap, attendanceIndex);
-};
+): Promise<TruckingPayroll[]> =>
+  syncPayrollAttendanceDeductionsGeneric(
+    payrolls,
+    buildEmployeeDataMap,
+    buildAttendanceDataIndex,
+    applyAttendanceAdjustments
+  );
 
 const applyCashAdvanceAdjustments = async (
   payrolls: TruckingPayroll[]
@@ -849,27 +843,14 @@ const applyCashAdvanceAdjustments = async (
 
 export const syncTruckingPayrollDeductions = async (
   payrolls: TruckingPayroll[]
-): Promise<TruckingPayroll[]> => {
-  if (payrolls.length === 0) {
-    return payrolls;
-  }
-
-  const employeeDataMap = await buildEmployeeDataMap(payrolls);
-  const afterStatutory = await applyStatutoryContributionAdjustments(
+): Promise<TruckingPayroll[]> =>
+  syncPayrollDeductionsGeneric(
     payrolls,
-    employeeDataMap
+    buildEmployeeDataMap,
+    applyStatutoryContributionAdjustments,
+    applyThirteenthMonthAdjustments,
+    applyLwopAdjustments,
+    buildAttendanceDataIndex,
+    applyAttendanceAdjustments,
+    applyCashAdvanceAdjustments
   );
-  const afterThirteenth = await applyThirteenthMonthAdjustments(afterStatutory);
-  const afterLwop = await applyLwopAdjustments(
-    afterThirteenth,
-    employeeDataMap
-  );
-  const attendanceIndex = await buildAttendanceDataIndex(afterLwop);
-  const afterAttendance = await applyAttendanceAdjustments(
-    afterLwop,
-    employeeDataMap,
-    attendanceIndex
-  );
-
-  return applyCashAdvanceAdjustments(afterAttendance);
-};

@@ -1,7 +1,6 @@
 import { useState, useMemo, useEffect, useCallback } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQueryClient } from '@tanstack/react-query';
 import { logger } from '@/lib/logger';
-import { api } from '@/lib/api/client';
 import { buildApiPath } from '@/lib/api/paths';
 import type {
   LeaveRequest,
@@ -10,16 +9,20 @@ import type {
   PaymentStatus,
   MonthlyBreakdownItem,
 } from '../types';
-import type { Schedule } from '../../schedules/types';
 import {
-  buildEmployeeScheduleIndex,
   employeeKeys,
   leaveKeys,
   scheduleKeys,
   TIMEZONE,
 } from './leaveTrackerUtils';
 import { dayjs } from '@/utils/date';
-import { escapeCSV, parseCSVLine } from '@/components/expenses';
+import {
+  buildLeaveRequestsCsv,
+  parseImportedLeaveRequests,
+} from './leaveTrackerCsvUtils';
+import { useLeaveTrackerFormState } from './useLeaveTrackerFormState';
+import { useLeaveTrackerMutations } from './useLeaveTrackerMutations';
+import { useLeaveTrackerQueries } from './useLeaveTrackerQueries';
 
 export { employeeKeys, leaveKeys, scheduleKeys };
 
@@ -34,276 +37,52 @@ export default function useLeaveTracker(apiBasePath?: string) {
   const [filterLeaveType, setFilterLeaveType] = useState<string | null>('all');
   const [filterStatus, setFilterStatus] = useState<string | null>('all');
 
-  // Modal and form state
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [editingRequest, setEditingRequest] = useState<LeaveRequest | null>(
-    null
-  );
-  const [activeTab, setActiveTab] = useState<string | null>('list');
-
-  // Form fields
-  const [formEmployeeName, setFormEmployeeName] = useState('');
-  const [formEmployeeId, setFormEmployeeId] = useState('');
-  const [formLeaveType, setFormLeaveType] = useState<LeaveType | ''>('');
-  const [formPaymentStatus, setFormPaymentStatus] = useState('');
-  const [formStartDate, setFormStartDate] = useState('');
-  const [formEndDate, setFormEndDate] = useState('');
-  const [formReason, setFormReason] = useState('');
-  const [formNotes, setFormNotes] = useState('');
+  const {
+    isModalOpen,
+    setIsModalOpen,
+    editingRequest,
+    activeTab,
+    setActiveTab,
+    formEmployeeName,
+    setFormEmployeeName,
+    formEmployeeId,
+    setFormEmployeeId,
+    formLeaveType,
+    setFormLeaveType,
+    formPaymentStatus,
+    setFormPaymentStatus,
+    formStartDate,
+    setFormStartDate,
+    formEndDate,
+    setFormEndDate,
+    formReason,
+    setFormReason,
+    formNotes,
+    setFormNotes,
+    resetFormFields,
+    populateFormFromRequest,
+  } = useLeaveTrackerFormState();
 
   // Import state
   const [isImporting, setIsImporting] = useState(false);
 
-  // Schedule index for day counting
-  const [employeeScheduleIndex, setEmployeeScheduleIndex] = useState<
-    Record<string, Set<string>>
-  >({});
-
   const queryClient = useQueryClient();
+  const {
+    leaveRequests,
+    employeeOptions,
+    employeeScheduleIndex,
+    isLoading,
+    isLoadingEmployees,
+    leaveRequestsQueryKey,
+  } = useLeaveTrackerQueries(apiBasePath, resolveApiPath);
 
-  const leaveRequestsQueryKey = useMemo(
-    () => [...leaveKeys.lists(), apiBasePath],
-    [apiBasePath]
-  );
-  const schedulesQueryKey = useMemo(
-    () => [...scheduleKeys.lists(), apiBasePath],
-    [apiBasePath]
-  );
-  const employeesQueryKey = useMemo(
-    () => [...employeeKeys.lists(), apiBasePath],
-    [apiBasePath]
-  );
-
-  // Fetch leave requests
-  const { data: leaveRequests = [], isLoading } = useQuery({
-    queryKey: leaveRequestsQueryKey,
-    queryFn: async () => {
-      const data = await api.get<LeaveRequest[]>(
-        resolveApiPath('/leave-requests')
-      );
-      return data;
-    },
-  });
-
-  // Fetch schedules for day counting
-  const { data: schedules = [] } = useQuery({
-    queryKey: schedulesQueryKey,
-    queryFn: async () => {
-      const data = await api.get<Schedule[]>(resolveApiPath('/schedules'));
-      return data;
-    },
-  });
-
-  // Fetch employees for dropdown
-  const { data: employeeOptions = [], isLoading: isLoadingEmployees } =
-    useQuery({
-      queryKey: employeesQueryKey,
-      queryFn: async () => {
-        const data = await api.get<
-          Array<{
-            employeeId: string;
-            firstName: string;
-            lastName: string;
-            status?: string | null;
-          }>
-        >(resolveApiPath('/employees'));
-        return data
-          .filter((emp) => {
-            const normalizedStatus = (emp.status || '').toLowerCase();
-            return !['terminated', 'resigned'].includes(normalizedStatus);
-          })
-          .map((emp) => ({
-            value: emp.employeeId,
-            label: `${emp.firstName} ${emp.lastName}`,
-          }));
-      },
+  const { deleteMutation, saveMutation, approveMutation, rejectMutation } =
+    useLeaveTrackerMutations({
+      queryClient,
+      resolveApiPath,
+      leaveRequestsQueryKey,
+      leaveRequests,
     });
-
-  // Build schedule index
-  useEffect(() => {
-    if (schedules.length > 0) {
-      setEmployeeScheduleIndex(buildEmployeeScheduleIndex(schedules));
-    }
-  }, [schedules]);
-
-  // Delete mutation
-  const deleteMutation = useMutation({
-    mutationFn: async (id: string) => {
-      await api.delete(`${resolveApiPath('/leave-requests')}/${id}`);
-    },
-    onMutate: async (id) => {
-      // Cancel outgoing refetches
-      await queryClient.cancelQueries({ queryKey: leaveRequestsQueryKey });
-
-      // Snapshot previous value
-      const previousLeaveRequests = queryClient.getQueryData<LeaveRequest[]>(
-        leaveRequestsQueryKey
-      );
-
-      // Optimistically update
-      queryClient.setQueryData<LeaveRequest[]>(leaveRequestsQueryKey, (old) => {
-        return old ? old.filter((req) => req.id !== id) : [];
-      });
-
-      return { previousLeaveRequests };
-    },
-    onError: (err, _id, context) => {
-      // Rollback on error
-      if (context?.previousLeaveRequests) {
-        queryClient.setQueryData(
-          leaveRequestsQueryKey,
-          context.previousLeaveRequests
-        );
-      }
-      logger.error('Error deleting leave request:', err);
-      const errorMessage = err instanceof Error ? err.message : 'Unknown error';
-      alert(`Failed to delete leave request: ${errorMessage}`);
-    },
-    onSettled: () => {
-      // Refetch to ensure consistency
-      queryClient.invalidateQueries({ queryKey: leaveRequestsQueryKey });
-    },
-  });
-
-  // Save mutation (create or update + splitting logic)
-  const saveMutation = useMutation({
-    mutationFn: async (
-      payload:
-        | Omit<LeaveRequest, 'id'>
-        | Omit<LeaveRequest, 'id'>[]
-        | (Omit<LeaveRequest, 'id'> & { id?: string })
-    ) => {
-      const response = await api.post(
-        resolveApiPath('/leave-requests'),
-        payload
-      );
-      return response;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: leaveRequestsQueryKey });
-    },
-    onError: (err) => {
-      logger.error('Error saving leave request:', err);
-      alert('Failed to save leave request. Please try again.');
-    },
-  });
-
-  // Approve mutation (with attendance sync)
-  const approveMutation = useMutation({
-    mutationFn: async (id: string) => {
-      await api.patch(resolveApiPath('/leave-requests'), {
-        id,
-        status: 'approved',
-        approvedBy: 'System Admin',
-      });
-      return id;
-    },
-    onMutate: async (id) => {
-      await queryClient.cancelQueries({ queryKey: leaveRequestsQueryKey });
-
-      const previousLeaveRequests = queryClient.getQueryData<LeaveRequest[]>(
-        leaveRequestsQueryKey
-      );
-
-      queryClient.setQueryData<LeaveRequest[]>(leaveRequestsQueryKey, (old) => {
-        return old
-          ? old.map((req) =>
-              req.id === id
-                ? {
-                    ...req,
-                    status: 'approved' as LeaveStatus,
-                    approvedBy: 'System Admin',
-                  }
-                : req
-            )
-          : [];
-      });
-
-      return { previousLeaveRequests };
-    },
-    onSuccess: async (id) => {
-      // Sync attendance after approval
-      const targetRequest = leaveRequests.find((request) => request.id === id);
-
-      if (
-        targetRequest?.employeeId &&
-        targetRequest.startDate &&
-        targetRequest.endDate
-      ) {
-        try {
-          await api.post(resolveApiPath('/attendance/apply-leave'), {
-            employeeId: targetRequest.employeeId,
-            employeeName: targetRequest.employeeName,
-            leaveType: targetRequest.leaveType,
-            startDate: targetRequest.startDate,
-            endDate: targetRequest.endDate,
-          });
-        } catch (attendanceError) {
-          logger.error(
-            'Error synchronising attendance for approved leave:',
-            attendanceError
-          );
-        }
-      }
-    },
-    onError: (err, _id, context) => {
-      if (context?.previousLeaveRequests) {
-        queryClient.setQueryData(
-          leaveRequestsQueryKey,
-          context.previousLeaveRequests
-        );
-      }
-      logger.error('Error approving leave request:', err);
-      const errorMessage = err instanceof Error ? err.message : 'Unknown error';
-      alert(`Failed to approve leave request: ${errorMessage}`);
-    },
-    onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: leaveRequestsQueryKey });
-    },
-  });
-
-  // Reject mutation
-  const rejectMutation = useMutation({
-    mutationFn: async (id: string) => {
-      await api.patch(resolveApiPath('/leave-requests'), {
-        id,
-        status: 'rejected',
-      });
-    },
-    onMutate: async (id) => {
-      await queryClient.cancelQueries({ queryKey: leaveRequestsQueryKey });
-
-      const previousLeaveRequests = queryClient.getQueryData<LeaveRequest[]>(
-        leaveRequestsQueryKey
-      );
-
-      queryClient.setQueryData<LeaveRequest[]>(leaveRequestsQueryKey, (old) => {
-        return old
-          ? old.map((req) =>
-              req.id === id
-                ? { ...req, status: 'rejected' as LeaveStatus }
-                : req
-            )
-          : [];
-      });
-
-      return { previousLeaveRequests };
-    },
-    onError: (err, _id, context) => {
-      if (context?.previousLeaveRequests) {
-        queryClient.setQueryData(
-          leaveRequestsQueryKey,
-          context.previousLeaveRequests
-        );
-      }
-      logger.error('Error rejecting leave request:', err);
-      const errorMessage = err instanceof Error ? err.message : 'Unknown error';
-      alert(`Failed to reject leave request: ${errorMessage}`);
-    },
-    onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: leaveRequestsQueryKey });
-    },
-  });
 
   // Constants
   const leaveTypes = useMemo<LeaveType[]>(
@@ -655,39 +434,27 @@ export default function useLeaveTracker(apiBasePath?: string) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [formEmployeeId, formStartDate, formEndDate, employeeScheduleIndex]);
 
-  // Event handlers
-  const resetFormFields = () => {
-    setFormEmployeeName('');
-    setFormEmployeeId('');
-    setFormLeaveType('');
-    setFormPaymentStatus('');
-    setFormStartDate('');
-    setFormEndDate('');
-    setFormReason('');
-    setFormNotes('');
-    setEditingRequest(null);
-  };
-
   const handleAddRequest = useCallback(() => {
     resetFormFields();
     const today = getCurrentDateISO();
     setFormStartDate(today);
     setFormEndDate(today);
     setIsModalOpen(true);
-  }, [getCurrentDateISO]);
+  }, [
+    getCurrentDateISO,
+    resetFormFields,
+    setFormEndDate,
+    setFormStartDate,
+    setIsModalOpen,
+  ]);
 
-  const handleEditRequest = useCallback((request: LeaveRequest) => {
-    setEditingRequest(request);
-    setFormEmployeeName(request.employeeName);
-    setFormEmployeeId(request.employeeId);
-    setFormLeaveType(request.leaveType);
-    setFormPaymentStatus(request.paymentStatus);
-    setFormStartDate(request.startDate);
-    setFormEndDate(request.endDate);
-    setFormReason(request.reason);
-    setFormNotes(request.notes || '');
-    setIsModalOpen(true);
-  }, []);
+  const handleEditRequest = useCallback(
+    (request: LeaveRequest) => {
+      populateFormFromRequest(request);
+      setIsModalOpen(true);
+    },
+    [populateFormFromRequest, setIsModalOpen]
+  );
 
   const handleDeleteRequest = useCallback(
     async (id: string) => {
@@ -930,7 +697,9 @@ export default function useLeaveTracker(apiBasePath?: string) {
     employeeScheduleIndex,
     getCurrentDateISO,
     formatDate,
+    resetFormFields,
     saveMutation,
+    setIsModalOpen,
   ]);
 
   const isClearDisabled = useMemo(() => {
@@ -958,7 +727,7 @@ export default function useLeaveTracker(apiBasePath?: string) {
       return;
     }
     resetFormFields();
-  }, [isClearDisabled]);
+  }, [isClearDisabled, resetFormFields]);
 
   const handleApprove = useCallback(
     async (id: string) => {
@@ -986,152 +755,20 @@ export default function useLeaveTracker(apiBasePath?: string) {
       reader.onload = async (e) => {
         try {
           const text = e.target?.result as string;
-          const lines = text.split('\n').filter((line) => line.trim());
+          const result = parseImportedLeaveRequests({
+            text,
+            hasLeaveOverlap,
+            calculateDays,
+            getCurrentDateISO,
+          });
 
-          if (lines.length < 2) {
-            alert('CSV file is empty or invalid');
+          if ('error' in result) {
+            alert(result.error);
             setIsImporting(false);
             return;
           }
 
-          const headers = parseCSVLine(lines[0]).map((h) =>
-            h.toLowerCase().replace(/\s+/g, '')
-          );
-
-          const requiredColumns = [
-            'employeeid',
-            'employeename',
-            'leavetype',
-            'startdate',
-            'enddate',
-            'reason',
-          ];
-          const missingColumns = requiredColumns.filter(
-            (col) => !headers.includes(col)
-          );
-
-          if (missingColumns.length > 0) {
-            alert(
-              `Missing required columns: ${missingColumns.join(', ')}\n\n` +
-                'Required columns: employeeId, employeeName, leaveType, startDate, endDate, reason\n' +
-                'Optional columns: status, appliedDate, approvedBy, notes'
-            );
-            setIsImporting(false);
-            return;
-          }
-
-          const importedRequests: Omit<LeaveRequest, 'id'>[] = [];
-          let successCount = 0;
-          const errors: string[] = [];
-
-          for (let i = 1; i < lines.length; i++) {
-            try {
-              const values = parseCSVLine(lines[i]);
-              const row: Record<string, string> = {};
-
-              headers.forEach((header, index) => {
-                row[header] = values[index] || '';
-              });
-
-              if (
-                !row.employeeid &&
-                !row.employeename &&
-                !row.startdate &&
-                !row.enddate
-              ) {
-                continue;
-              }
-
-              if (
-                !row.employeeid ||
-                !row.employeename ||
-                !row.leavetype ||
-                !row.startdate ||
-                !row.enddate ||
-                !row.reason
-              ) {
-                errors.push(`Row ${i + 1}: Missing required field(s)`);
-                continue;
-              }
-
-              const csvStart = dayjs(row.startdate).tz(TIMEZONE).startOf('day');
-              const csvEnd = dayjs(row.enddate).tz(TIMEZONE).startOf('day');
-
-              if (!csvStart.isValid() || !csvEnd.isValid()) {
-                errors.push(`Row ${i + 1}: Invalid start or end date`);
-                continue;
-              }
-
-              if (csvEnd.isBefore(csvStart)) {
-                errors.push(`Row ${i + 1}: End date precedes start date`);
-                continue;
-              }
-
-              const startISO = csvStart.format('YYYY-MM-DD');
-              const endISO = csvEnd.format('YYYY-MM-DD');
-
-              if (
-                hasLeaveOverlap(
-                  row.employeeid,
-                  startISO,
-                  endISO,
-                  undefined,
-                  importedRequests
-                )
-              ) {
-                errors.push(
-                  `Row ${i + 1}: Leave dates overlap with an existing request for employee ${row.employeeid}`
-                );
-                continue;
-              }
-
-              const numberOfDays = calculateDays(
-                startISO,
-                endISO,
-                row.employeeid
-              );
-
-              const status =
-                (row.status?.toLowerCase() as LeaveStatus) || 'pending';
-              const validStatus: LeaveStatus = [
-                'pending',
-                'approved',
-                'rejected',
-              ].includes(status)
-                ? status
-                : 'pending';
-
-              const paymentStatus = (row.paymentstatus?.toLowerCase() ||
-                'unpaid') as PaymentStatus;
-              const validPaymentStatus: PaymentStatus = [
-                'paid',
-                'unpaid',
-                'not-applicable',
-              ].includes(paymentStatus)
-                ? paymentStatus
-                : 'unpaid';
-
-              const newRequest = {
-                employeeId: row.employeeid,
-                employeeName: row.employeename,
-                leaveType: row.leavetype as LeaveType,
-                paymentStatus: validPaymentStatus,
-                startDate: startISO,
-                endDate: endISO,
-                numberOfDays,
-                reason: row.reason,
-                status: validStatus,
-                appliedDate: row.applieddate || getCurrentDateISO(),
-                approvedBy: row.approvedby || undefined,
-                notes: row.notes || undefined,
-              };
-
-              importedRequests.push(newRequest);
-              successCount++;
-            } catch (error) {
-              errors.push(`Row ${i + 1}: ${error}`);
-            }
-          }
+          const { importedRequests, successCount, errors } = result;
 
           if (importedRequests.length > 0) {
             await saveMutation.mutateAsync(importedRequests);
@@ -1156,7 +793,13 @@ export default function useLeaveTracker(apiBasePath?: string) {
 
       reader.readAsText(file);
     },
-    [hasLeaveOverlap, calculateDays, getCurrentDateISO, saveMutation]
+    [
+      hasLeaveOverlap,
+      calculateDays,
+      getCurrentDateISO,
+      saveMutation,
+      setIsImporting,
+    ]
   );
 
   const handleExportCSV = useCallback(() => {
@@ -1164,39 +807,7 @@ export default function useLeaveTracker(apiBasePath?: string) {
       alert('No leave requests to export');
       return;
     }
-
-    const headers = [
-      'Employee ID',
-      'Employee Name',
-      'Leave Type',
-      'Start Date',
-      'End Date',
-      'Number of Days',
-      'Reason',
-      'Status',
-      'Applied Date',
-      'Approved By',
-      'Notes',
-    ];
-
-    const rows = filteredRequests.map((request: LeaveRequest) => [
-      escapeCSV(request.employeeId),
-      escapeCSV(request.employeeName),
-      escapeCSV(request.leaveType),
-      escapeCSV(request.startDate),
-      escapeCSV(request.endDate),
-      escapeCSV(request.numberOfDays),
-      escapeCSV(request.reason),
-      escapeCSV(request.status),
-      escapeCSV(request.appliedDate),
-      escapeCSV(request.approvedBy || ''),
-      escapeCSV(request.notes || ''),
-    ]);
-
-    const csvContent = [
-      headers.join(','),
-      ...rows.map((row: string[]) => row.join(',')),
-    ].join('\n');
+    const csvContent = buildLeaveRequestsCsv(filteredRequests);
 
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const link = document.createElement('a');
