@@ -12,6 +12,10 @@ import {
   calculateScheduleStats,
   calculateWeeklyBreakdown,
 } from '@/app/clothing/employees/schedules/hooks/scheduleListUtils';
+import type {
+  ScheduleStatus,
+  ShiftType,
+} from '@/app/clothing/employees/schedules/types';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -22,8 +26,8 @@ type MinSchedule = {
   employeeId: string;
   position: string;
   department: string;
-  shiftType: string;
-  status: string;
+  shiftType: ShiftType;
+  status: ScheduleStatus;
   date: string;
   startTime: string;
 };
@@ -33,7 +37,7 @@ const makeSchedule = (overrides: Partial<MinSchedule> = {}): MinSchedule => ({
   employeeId: 'EMP-001',
   position: 'Packer',
   department: 'Operations',
-  shiftType: 'Morning',
+  shiftType: 'morning',
   status: 'scheduled',
   date: '2025-06-10',
   startTime: '08:00',
@@ -48,19 +52,19 @@ describe('Schedules — filterSchedules', () => {
   const schedules = [
     makeSchedule({
       employeeName: 'Alice Santos',
-      shiftType: 'Morning',
+      shiftType: 'morning',
       status: 'scheduled',
       date: '2025-06-10',
     }),
     makeSchedule({
       employeeName: 'Bob Cruz',
-      shiftType: 'Afternoon',
+      shiftType: 'afternoon',
       status: 'completed',
       date: '2025-06-11',
     }),
     makeSchedule({
       employeeName: 'Carol Reyes',
-      shiftType: 'Morning',
+      shiftType: 'morning',
       status: 'cancelled',
       date: '2025-07-15',
       employeeId: 'EMP-003',
@@ -99,7 +103,7 @@ describe('Schedules — filterSchedules', () => {
   it('filters by shiftType', () => {
     const result = filterSchedules(schedules, {
       searchQuery: '',
-      filterShiftType: 'Morning',
+      filterShiftType: 'morning',
       filterStatus: null,
     });
     expect(result).toHaveLength(2);
@@ -128,7 +132,7 @@ describe('Schedules — filterSchedules', () => {
   it('combines multiple filters (shiftType + status)', () => {
     const result = filterSchedules(schedules, {
       searchQuery: '',
-      filterShiftType: 'Morning',
+      filterShiftType: 'morning',
       filterStatus: 'scheduled',
     });
     expect(result).toHaveLength(1);

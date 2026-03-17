@@ -46,8 +46,7 @@ const defaultForm = (): ProductFormData => ({
   bulkQuantity: 0,
   bulkWeight: 0,
   weightPerPiece: 0,
-  productCode: '',
-  notes: '',
+  previousProductCode: '',
 });
 
 // ---------------------------------------------------------------------------
