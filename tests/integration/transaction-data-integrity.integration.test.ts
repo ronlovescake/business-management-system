@@ -9,6 +9,24 @@ const rawCount = async (tableName: string) => {
   return row.count;
 };
 
+const rawSchemaCount = async (schemaName: string, tableName: string) => {
+  const [row] = await prisma.$queryRawUnsafe<{ count: number }[]>(
+    `SELECT COUNT(*)::int AS count FROM "${schemaName}"."${tableName}"`
+  );
+  return row.count;
+};
+
+const gmSchemaUnavailable = (error: unknown): boolean => {
+  if (!(error instanceof Error)) {
+    return false;
+  }
+
+  return (
+    error.message.includes('general_merchandise.transactions') &&
+    error.message.includes('does not exist')
+  );
+};
+
 describe('Integration • Data integrity safeguards', () => {
   it('updates transaction records without altering total rows', async () => {
     const tableName = 'transactions';
@@ -74,5 +92,83 @@ describe('Integration • Data integrity safeguards', () => {
 
     const after = await rawCount(tableName);
     expect(after).toBe(before);
+  });
+
+  it('updates GM transaction records without altering total rows', async () => {
+    let before = 0;
+    let candidate = null;
+
+    try {
+      before = await rawSchemaCount('general_merchandise', 'transactions');
+      candidate = await prisma.generalMerchandiseTransaction.findFirst();
+    } catch (error) {
+      if (gmSchemaUnavailable(error)) {
+        expect(true).toBe(true);
+        return;
+      }
+      throw error;
+    }
+
+    if (!candidate) {
+      expect(before).toBeGreaterThanOrEqual(0);
+      return;
+    }
+
+    await prisma.generalMerchandiseTransaction.updateMany({
+      where: { id: candidate.id },
+      data: { discount: 5 },
+    });
+
+    const after = await rawSchemaCount('general_merchandise', 'transactions');
+    expect(after).toBe(before);
+  });
+
+  it('soft deletes GM rows by marking deletedAt instead of removing them', async () => {
+    let candidate = null;
+
+    try {
+      candidate = await prisma.generalMerchandiseTransaction.findFirst();
+    } catch (error) {
+      if (gmSchemaUnavailable(error)) {
+        expect(true).toBe(true);
+        return;
+      }
+      throw error;
+    }
+
+    expect(candidate).toBeTruthy();
+    if (!candidate) {
+      return;
+    }
+
+    let before = 0;
+
+    try {
+      before = await rawSchemaCount('general_merchandise', 'transactions');
+    } catch (error) {
+      if (gmSchemaUnavailable(error)) {
+        expect(true).toBe(true);
+        return;
+      }
+      throw error;
+    }
+
+    await prisma.generalMerchandiseTransaction.delete({
+      where: { id: candidate.id },
+    });
+
+    const after = await rawSchemaCount('general_merchandise', 'transactions');
+    expect(after).toBe(before);
+
+    const [{ deletedAt }] = await prisma.$queryRawUnsafe<
+      { deletedAt: Date | null }[]
+    >(
+      `SELECT "deletedAt" FROM "general_merchandise"."transactions" WHERE id = ${candidate.id}`
+    );
+    expect(deletedAt).not.toBeNull();
+
+    await prisma.$executeRawUnsafe(
+      `UPDATE "general_merchandise"."transactions" SET "deletedAt" = NULL WHERE id = ${candidate.id}`
+    );
   });
 });

@@ -8,7 +8,9 @@ const dotenv = require('dotenv');
 const envFile = process.env.TEST_ENV_FILE || '.env.test';
 const envPath = path.resolve(process.cwd(), envFile);
 
-dotenv.config({ path: envPath });
+// Resetting and seeding must always use the explicit test env file rather than
+// any inherited shell DATABASE_URL.
+dotenv.config({ path: envPath, override: true });
 
 if (!process.env.DATABASE_URL) {
   console.error('❌ DATABASE_URL is not configured for the test environment.');
@@ -69,9 +71,12 @@ function run(command, description) {
 
 const shouldSeed = process.argv.includes('--seed');
 
+// For Playwright we need the database shape to match the current Prisma
+// multi-schema model exactly. On the dedicated test database only, force-reset
+// the schema and recreate it from the current Prisma schema before seeding.
 run(
-  `${prismaArgs.join(' ')} migrate reset --force --skip-generate --skip-seed --schema prisma/schema.prisma`,
-  'reset test database'
+  `${prismaArgs.join(' ')} db push --force-reset --schema prisma/schema.prisma --skip-generate`,
+  'reset and align test database schema'
 );
 
 if (shouldSeed) {

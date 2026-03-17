@@ -12,12 +12,15 @@ const isCI =
 const envFile = process.env.PLAYWRIGHT_ENV_FILE || '.env.test';
 const envPath = path.resolve(process.cwd(), envFile);
 
-dotenv.config({ path: envPath });
+// Test runs must prefer the dedicated Playwright env file over any inherited
+// shell environment to avoid pointing Next.js at a live database.
+dotenv.config({ path: envPath, override: true });
 
 const env = {
   ...process.env,
   BYPASS_AUTH_FOR_TESTS: process.env.BYPASS_AUTH_FOR_TESTS ?? 'true',
   PLAYWRIGHT_ENV_FILE: envFile,
+  TEST_ENV_FILE: envFile,
   PORT: process.env.PORT || '3100',
   NEXTAUTH_URL: process.env.NEXTAUTH_URL || 'http://localhost:3100',
   // Force webpack; Turbopack rejects some Next.js config options used in this repo.

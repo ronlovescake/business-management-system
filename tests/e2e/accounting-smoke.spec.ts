@@ -25,11 +25,19 @@ test.describe.configure({ timeout: 60_000 });
 // Shared helpers
 // ---------------------------------------------------------------------------
 
-async function gotoAccountingPage(page: Page, path: string) {
+async function gotoAccountingPage(
+  page: Page,
+  path: string,
+  options?: { waitForNetworkIdle?: boolean }
+) {
   await page.goto(path, { waitUntil: 'domcontentloaded', timeout: 60_000 });
-  await page.waitForLoadState('networkidle', { timeout: 20_000 }).catch(() => {
-    /* long-poll / analytics requests may keep the network busy */
-  });
+  if (options?.waitForNetworkIdle !== false) {
+    await page
+      .waitForLoadState('networkidle', { timeout: 20_000 })
+      .catch(() => {
+        /* long-poll / analytics requests may keep the network busy */
+      });
+  }
 }
 
 /** Wait for at least N stat cards to be visible (glassmorphic cards have a
@@ -643,10 +651,9 @@ test.describe('Accounting — Cross-Module Behaviors', () => {
       '/clothing/accounting/profit-loss',
     ];
     for (const route of routes) {
-      await gotoAccountingPage(page, route);
-      // Wait for page content to settle before checking for errors
-      await page.waitForTimeout(1_000);
+      await gotoAccountingPage(page, route, { waitForNetworkIdle: false });
       await expect(page.locator('body')).toBeVisible();
+      await expect(page.locator('main')).toBeVisible();
       // Next.js App Router full-page error boundaries render a specific structure:
       // a <div> with an <h2> "Something went wrong!" and a Reset button.
       // Use a narrow selector to avoid matching transient loading states.

@@ -498,7 +498,6 @@ export const generalMerchandiseTransactionService: TransactionService = {
     const validRows = normalized.filter(({ record }) => isValidRow(record));
 
     const preparedRows: Prisma.TransactionCreateManyInput[] = [];
-    let skippedTemplateRows = 0;
 
     validRows.forEach(({ record, index }) => {
       const validation = transactionDataSchema.safeParse(record);
@@ -514,7 +513,6 @@ export const generalMerchandiseTransactionService: TransactionService = {
       }
 
       if (isTemplatePreparedRow(validation.data)) {
-        skippedTemplateRows += 1;
         return;
       }
 
@@ -566,7 +564,7 @@ export const generalMerchandiseTransactionService: TransactionService = {
 
     return {
       count: result.count,
-      withData: preparedRows.length - skippedTemplateRows,
+      withData: preparedRows.length,
       empty: skippedEmptyRows,
     };
   },
