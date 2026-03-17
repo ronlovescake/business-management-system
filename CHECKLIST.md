@@ -17,6 +17,7 @@ These rules apply to every future refactor in this repository.
 - High-risk accounting refactors must be protected by per-business tests before consolidation.
 - A refactor is not complete until lint and typecheck pass.
 - A refactor is not complete until impacted business flows are validated for domain isolation.
+- A Clothing Operations, Accounting, or Employees workflow change is not complete until the affected docs under `docs/business-logic/clothing/` are updated in the same work item.
 
 ## Audit Cycle 2 — Results (2026-03-17)
 

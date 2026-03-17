@@ -5,6 +5,10 @@
 > - `src/app/clothing/employees/team/hooks/useTeam.ts`
 > - `src/app/clothing/employees/team/components/EmployeeFormDialog.tsx`
 > - `src/app/clothing/employees/team/types/index.ts`
+> - `src/app/clothing/employees/team/[id]/page.tsx`
+> - `src/app/clothing/employees/team/hooks/useEmployeeDetail.ts`
+> - `src/app/clothing/employees/team/components/EmployeeProfileSummaryCard.tsx`
+> - `src/app/clothing/employees/team/components/SalaryTimeline.tsx`
 
 ---
 
@@ -84,16 +88,28 @@
 
 ## G — Employee Detail View (`/team/[id]`)
 
-| #   | Logic                                                                           | Explanation                                                                                                   |
-| --- | ------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
-| 33  | Detail fields are organised by category                                         | `EmployeeDetailField` carries a `label`, `value`, and `category` — the detail page groups fields by category. |
-| 34  | Categories include: Personal, Employment, Compensation, Government IDs, Contact | Each section renders a labelled grid of field values.                                                         |
+| #   | Logic                                                                                            | Explanation                                                                                                                                             |
+| --- | ------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 33  | The detail page requires an `id` route param                                                     | Missing route params throw immediately; the page cannot render without an employee ID.                                                                  |
+| 34  | The page shows a text loading state while employee data is loading                               | The route renders `Loading...` inside `PageLayout` until `useEmployeeDetail` resolves the employee query.                                               |
+| 35  | Missing employees render a dedicated not-found state                                             | A bordered error panel shows `Employee Not Found` and a **Back to Team** button that routes back to `/clothing/employees/team`.                         |
+| 36  | Employee details are normalised for display before rendering                                     | The page derives display values such as `fullName`, suffix extraction, capitalized labels, formatted dates, and formatted currency before tab render.   |
+| 37  | Detail fields are organised by category                                                          | The detail page groups fields by categories such as Personal Information, Contact Information, Employment Details, Government IDs, and Compensation.    |
+| 38  | The hero section uses a profile summary card                                                     | `EmployeeProfileSummaryCard` renders the top-level employee summary, current status color, and profile-photo actions.                                   |
+| 39  | Profile photo upload accepts a file, converts it to base64, and sends it through the detail hook | `handleAvatarFileChange` uses `FileReader.readAsDataURL` and forwards the base64 string to `handleProfilePhotoUpload`.                                  |
+| 40  | Profile photo upload has a hard 2 MB size limit                                                  | Files larger than 2 MB show `showError('Please select an image that is 2MB or smaller.', 'File Size Error')` and are not uploaded.                      |
+| 41  | Profile photo upload failures show an explicit error dialog                                      | Read or upload errors show `showError('Failed to upload profile photo. Please try again.', 'Upload Failed')`.                                           |
+| 42  | The page exposes an Edit Employee primary action                                                 | The header action uses `handleEdit`; editing opens the shared `EmployeeFormDialog` in edit mode from the detail page.                                   |
+| 43  | Salary timeline is shown as part of the employee detail workflow                                 | The detail page includes `SalaryTimeline` alongside the tabbed detail content.                                                                          |
+| 44  | The detail page has eight detail/history tabs                                                    | Tabs are: Profile, Payroll History, 13th Month Pay, Schedules, Attendance, Leave Requests, Cash Advance, and Statutory Details.                         |
+| 45  | Related-history tabs use data already loaded by `useEmployeeDetail`                              | Payroll, attendance, schedule, leave, cash advance, and 13th month data are loaded up-front and passed into the tab content components.                 |
+| 46  | The detail page computes leave allocation context for the current year                           | It derives annual entitlement, used paid leave days, and remaining leave days from approved paid leaves in the current year for display in detail tabs. |
 
 ---
 
-## H — Tabs
+## H — Team List Behaviour
 
-| #   | Logic                                                      | Explanation                                                                                 |
-| --- | ---------------------------------------------------------- | ------------------------------------------------------------------------------------------- |
-| 35  | The page has two tabs: "Employees" (list) and a second tab | `activeTab` defaults to `'employees'`.                                                      |
-| 36  | Tab state is local to the hook                             | Switching tabs does not trigger data re-fetches unless tab content requires different data. |
+| #   | Logic                                                      | Explanation                                                                                                              |
+| --- | ---------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| 47  | The team module list view is separate from the detail page | The `/team` route manages list filters and employee CRUD; the `/team/[id]` route manages the detailed employee workflow. |
+| 48  | Navigating to the detail page changes workflow scope       | Once on `/team/[id]`, actions shift from directory management to profile, history, and employee-specific records.        |

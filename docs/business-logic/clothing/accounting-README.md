@@ -21,6 +21,8 @@ This README indexes all business logic documentation files for the **Clothing > 
 
 ## Key Technical Notes
 
+- **Accounting route entry**: `/clothing/accounting` is a root entry route that resolves into the Clothing accounting experience rather than being a self-contained page implementation.
+- **Legacy ledger route**: `/clothing/ledger` now redirects to `/clothing/accounting`; route-level navigation changes should be reflected in the accounting docs when this behaviour changes.
 - **Double-entry accounting**: All journal and ledger entries are balanced debit/credit pairs. Manual entries always create two lines.
 - **Account tagging**: Five accounts support sub-tags: Accounts Payable, Forwarder Payable, Courier Payable, Credit Card Payable, Loan Payable. Tagged accounts post as `"{Account} – {Tag}"` in the ledger.
 - **Opening balance cutover date**: All opening entries are posted on a server-configured cutover date; users cannot change the date.
