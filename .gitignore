@@ -53,6 +53,7 @@ snapshots/
 !prisma/migrations/20260111090000_add_household_budget_table/migration.sql
 !prisma/manual/20260116_create_clothing_recurring_payments.sql
 !prisma/manual/20260116_reconcile_prisma_drift.sql
+!archives/migration-scripts/20260318_backfill_missing_shipment_jt0012625740989.sql
 *.backup
 
 # Generated documents
