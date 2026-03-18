@@ -608,7 +608,7 @@ export function useHandsontableGridController<T extends object>({
       if (col.type === 'dropdown') {
         return {
           data: colIndex,
-          type: 'autocomplete',
+          type: 'dropdown',
           source: col.dropdownValues ?? [],
           strict: true,
           allowInvalid: false,
@@ -798,20 +798,6 @@ export function useHandsontableGridController<T extends object>({
           hotRef.current?.hotInstance
         );
 
-        try {
-          editor?.htEditor?.deselectCell?.();
-        } catch (error) {
-          logger.debug('Dropdown deselect failed', error);
-        }
-
-        if (editor?.htEditor?.getSelectedLast?.()) {
-          try {
-            editor.htEditor.selectCell?.(-1, -1);
-          } catch (error) {
-            logger.debug('Dropdown fallback deselect failed', error);
-          }
-        }
-
         const inputEl = editor?.TEXTAREA;
         if (inputEl) {
           const handleInput = () => {
@@ -837,21 +823,31 @@ export function useHandsontableGridController<T extends object>({
       }
 
       const state = dropdownEditStateRef.current;
-      if (state.selectionMade) {
-        return;
-      }
-
       changes.forEach((change) => {
         if (!change) {
           return;
         }
 
-        const [changeRow, changeCol, oldValue] = change;
+        const [changeRow, changeCol, oldValue, newValue] = change;
         if (
           changeRow === state.row &&
           changeCol === state.col &&
           columns[changeCol]?.type === 'dropdown'
         ) {
+          const normalizedNewValue =
+            newValue === null || newValue === undefined
+              ? ''
+              : String(newValue).trim();
+          const dropdownValues = columns[changeCol]?.dropdownValues ?? [];
+          const isAllowedDropdownValue =
+            normalizedNewValue === '' ||
+            dropdownValues.some((value) => value === normalizedNewValue);
+
+          if (state.selectionMade || isAllowedDropdownValue) {
+            state.selectionMade = true;
+            return;
+          }
+
           change[3] = oldValue;
         }
       });

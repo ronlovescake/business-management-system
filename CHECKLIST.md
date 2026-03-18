@@ -1,6 +1,6 @@
 # Refactor Checklist
 
-Last updated: 2026-03-17 (Audit Cycle 2 — full repo re-audit)
+Last updated: 2026-03-18 (Audit Cycle 2 — full repo re-audit + coverage matrix)
 
 This file is the canonical tracker for repo-wide refactor work.
 
@@ -173,6 +173,72 @@ Untested: `analytics/profitability`, `attendance/apply-leave`, `employee-automat
 ### Pending (Audit Cycle 2)
 
 - No additional pending items beyond the active trucking coverage expansion in P2-7.
+
+## Repository-Wide Coverage Matrix (2026-03-18)
+
+This matrix is the repo-wide test visibility view for the entire app.
+
+### Matrix Rules
+
+- `Docs` means a business-logic markdown baseline exists for the workflow family.
+- `Unit` means the workflow has direct logic or hook-level automated tests.
+- `API` means route or handler-level automated tests exist.
+- `Integration` means the workflow is validated across service, persistence, or multi-layer boundaries.
+- `Hardening` means security, atomicity, integrity, or abuse-path validation exists.
+- `E2E` means Playwright Chromium coverage only.
+- `Prod-Shape` means the workflow has explicit messy-data or production-shape fixture coverage.
+- Status legend: `✅ covered`, `◐ partial`, `❌ missing`, `n/a not applicable`.
+- Priority legend: `P1 high regression risk`, `P2 important gap`, `P3 secondary gap`, `keep` maintain current coverage.
+
+### Coverage Matrix
+
+| Domain              | Workflow Family                                                                                                                    | Docs | Unit | API | Integration | Hardening | E2E Chromium | Prod-Shape | Priority | Notes                                                                                                        |
+| ------------------- | ---------------------------------------------------------------------------------------------------------------------------------- | ---- | ---- | --- | ----------- | --------- | ------------ | ---------- | -------- | ------------------------------------------------------------------------------------------------------------ |
+| Clothing            | Operations core (`customers`, `products`, `prices`, `shipments`, `transactions`, `inventory`, `sorting-distribution`)              | ✅   | ✅   | ◐   | ◐           | ◐         | ✅           | ◐          | keep     | Broad validation exists, but API and integration depth is uneven by route family.                            |
+| Clothing            | Accounting / ledger (`balance-sheet`, `ledger`, `journal`, `manual-journal`, `opening-balance`, `profit-loss`, recurring payments) | ✅   | ✅   | ◐   | ◐           | ◐         | ✅           | ◐          | P2       | High-risk accounting surfaces are covered, but route-family parity is not yet uniformly deep.                |
+| Clothing            | Employees (`attendance`, `leave`, `payroll`, `cash advances`, `thirteenth-month`, schedules, team)                                 | ✅   | ✅   | ✅  | ◐           | ◐         | ✅           | ◐          | keep     | Strong shared-hook and route coverage; production-shape and deeper integration scenarios can still expand.   |
+| Clothing            | Operations settings / module management                                                                                            | ◐    | ◐    | ◐   | ◐           | ◐         | ◐            | ❌         | P3       | Backup/restore areas are stronger than other settings tabs.                                                  |
+| General Merchandise | Operations core (`customers`, `products`, `expenses`, `shipments`, `transactions`)                                                 | ✅   | ✅   | ✅  | ◐           | ◐         | ✅           | ◐          | keep     | Core GM API expansion is complete; next gains are deeper integration and messy-data cases.                   |
+| General Merchandise | Accounting / ledger (`balance-sheet`, `ledger`, `journal`, `manual-journal`, `opening-balance`, `profit-loss`, recurring payments) | ✅   | ✅   | ✅  | ◐           | ◐         | ✅           | ◐          | P2       | Route coverage is materially better; accounting parity and production-shape depth remain the next layer.     |
+| General Merchandise | Employees (`attendance`, `leave`, `payroll`, `cash advances`, `thirteenth-month`, schedules)                                       | ✅   | ✅   | ✅  | ◐           | ◐         | ◐            | ◐          | keep     | GM employee routes are now broadly covered; browser workflow depth is lighter than Clothing.                 |
+| Trucking            | Operations core (`trips`, `vehicle-assignments`, `fleet-vehicles`, `invoices`, `payments`)                                         | ❌   | ◐    | ❌  | ❌          | ❌        | ❌           | ❌         | P1       | This is the largest current repo-wide test gap and the main unresolved queue.                                |
+| Trucking            | Employees (`attendance`, `leave`, `payroll`, `cash advances`, `thirteenth-month`, schedules)                                       | ◐    | ✅   | ◐   | ❌          | ❌        | ◐            | ❌         | P1       | Shared hook coverage is good, but route, integration, and browser depth are still behind Clothing and GM.    |
+| Trucking            | Analytics / profitability / low-traffic ops routes                                                                                 | ❌   | ❌   | ❌  | ❌          | ❌        | ❌           | ❌         | P2       | Low-traffic trucking surfaces need explicit route and permission coverage.                                   |
+| Household           | Dashboard / navigation                                                                                                             | ✅   | n/a  | n/a | n/a         | n/a       | ✅           | ❌         | keep     | Dashboard is scaffolded and currently validated at the Chromium smoke level.                                 |
+| Household           | Accounts                                                                                                                           | ✅   | ◐    | ❌  | ❌          | ❌        | ✅           | ❌         | P2       | Docs and smoke coverage exist; direct API and integration depth is still light.                              |
+| Household           | Expenses                                                                                                                           | ✅   | ◐    | ❌  | ◐           | ❌        | ✅           | ❌         | P2       | Expense and recurring behavior are partly covered through shared flows and household integrations.           |
+| Household           | Recurring payments                                                                                                                 | ✅   | ✅   | ◐   | ✅          | ❌        | ✅           | ◐          | keep     | This is the strongest Household workflow and includes direct regression coverage for the date bug.           |
+| Household           | Income                                                                                                                             | ✅   | ◐    | ❌  | ❌          | ❌        | ✅           | ❌         | P2       | Good docs and smoke coverage, but deeper service and route coverage is still open.                           |
+| Household           | Budgets                                                                                                                            | ✅   | ❌   | ❌  | ❌          | ❌        | ✅           | ❌         | P2       | Current page contract is mostly scaffolded; add tests when live workflows deepen.                            |
+| Household           | Reports / Categories / Settings                                                                                                    | ✅   | ❌   | ❌  | ❌          | ❌        | ✅           | ❌         | P3       | Chromium smoke coverage exists for the scaffolded pages; deeper tests should wait for live workflows.        |
+| Admin               | Users / change log / admin operations                                                                                              | ◐    | ◐    | ◐   | ❌          | ❌        | ❌           | ❌         | P2       | Admin and low-traffic surfaces need stronger permission and negative-path validation.                        |
+| Auth                | Login / password reset / profile / permission boundaries                                                                           | ◐    | ◐    | ◐   | ❌          | ❌        | ◐            | ❌         | P2       | Core auth flows exist, but explicit role-boundary and negative-path coverage should be expanded.             |
+| Shared              | Backup / restore / safety-critical maintenance                                                                                     | ❌   | ✅   | ✅  | ✅          | ✅        | ❌           | ◐          | keep     | This is one of the strongest non-business workflow families because of hardening depth.                      |
+| Shared              | Cross-domain route adapters, repositories, middleware, shared payroll and ledger scaffolding                                       | ❌   | ✅   | ◐   | ◐           | ◐         | ❌           | ◐          | keep     | Shared infrastructure is tested indirectly through domain suites; direct contract coverage can keep growing. |
+| Shared              | Navigation, layout, header quick actions, workspace switching                                                                      | ❌   | ◐    | n/a | ❌          | ❌        | ◐            | ❌         | P3       | UI orchestration is partly validated through smoke coverage, but not deeply across all interaction paths.    |
+
+### Current High-Value Gaps
+
+| Priority | Area                                   | Gap                                                                          | Recommended Next Step                                                                                                  |
+| -------- | -------------------------------------- | ---------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| P1       | Trucking operations routes             | Route families remain the most obvious repo-wide blind spot                  | Complete `P2-7` with route tests for trips, vehicle assignments, fleet vehicles, invoices, expenses, and payroll flow. |
+| P1       | Trucking employees integration         | Shared hooks are covered, but multi-layer flow confidence is still low       | Add integration tests for trucking payroll, leave, and attendance data paths.                                          |
+| P2       | Household non-recurring live workflows | Accounts, income, and budgets rely mostly on docs plus Chromium smoke        | Add focused unit and integration tests for account balance rules, income CRUD, and budget derivations.                 |
+| P2       | Admin and auth permission boundaries   | Low-traffic and role-gated areas have weaker explicit negative-path coverage | Add route-level permission and malformed-request tests for admin, auth, and settings surfaces.                         |
+| P2       | Cross-domain production-shape fixtures | Most domains still rely more on clean fixtures than messy real-world states  | Add shared production-shape fixture packs for imports, null-heavy rows, and historical soft-delete states.             |
+| P3       | Shared UI interaction depth            | Browser coverage is mostly smoke-oriented outside critical business pages    | Add Chromium workflow tests for high-value modal, tab, import, and error-recovery paths.                               |
+
+### Chromium E2E Policy
+
+- Repository-wide browser coverage is tracked as Playwright Chromium only.
+- Firefox and WebKit are not required for this matrix unless explicitly added later.
+- `E2E Chromium` should represent either smoke coverage or critical workflow coverage, not just page existence checks.
+
+### Maintenance Notes
+
+- Keep this matrix at workflow-family level, not individual component level, so it remains maintainable.
+- When a new workflow is added, update the matching row instead of creating ad hoc coverage notes elsewhere.
+- When a scaffolded page becomes a live workflow, upgrade its row from smoke-only coverage to unit, API, and integration expectations.
 
 ## Canonical Risk Boundaries
 
