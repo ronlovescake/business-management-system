@@ -107,6 +107,9 @@ export function sanitizeTransactionUpdateRecord(
   if ('Discount' in record) {
     values.Discount = parseNumeric(record['Discount']);
   }
+  if ('Adjustment' in record) {
+    values.Adjustment = parseNumeric(record['Adjustment']);
+  }
   if ('Line Total' in record) {
     values['Line Total'] = parseNumeric(record['Line Total']);
   }

@@ -24,6 +24,9 @@ export function buildUpdatePayload(
   if (values.Discount !== undefined) {
     data.discount = values.Discount;
   }
+  if (values.Adjustment !== undefined) {
+    data.adjustment = values.Adjustment;
+  }
   if (values['Line Total'] !== undefined) {
     data.lineTotal = values['Line Total'];
   }
@@ -52,6 +55,7 @@ export function shouldRecalculateLineTotal(
   return (
     values.Quantity !== undefined ||
     values['Unit Price'] !== undefined ||
+    values.Adjustment !== undefined ||
     values['Line Total'] !== undefined
   );
 }

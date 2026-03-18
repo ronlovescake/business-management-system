@@ -619,15 +619,20 @@ export function usePackingListGeneration(
             return transaction;
           });
 
-          bulkUpdate(TransactionService.sanitizeTransactions(updated));
+          const toSave = updated.filter(
+            (transaction) =>
+              processedIds.has(transaction.id) && transaction.id !== undefined
+          );
+
+          if (toSave.length > 0) {
+            bulkUpdate(TransactionService.sanitizeTransactions(toSave));
+          }
+
           queryClient.setQueryData(
             transactionsQueryKey,
             TransactionService.sanitizeTransactions(updated)
           );
 
-          const toSave = updated.filter((transaction) =>
-            processedIds.has(transaction.id)
-          );
           if (toSave.length > 0) {
             const results = await Promise.allSettled(
               toSave.map((transaction) =>

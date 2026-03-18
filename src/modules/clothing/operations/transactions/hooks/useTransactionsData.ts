@@ -368,18 +368,23 @@ export function useTransactionsData({
             const shipmentCode = String(
               product.shipmentCode || product['Shipment Code'] || ''
             );
+            const directShipmentStatus = String(
+              product.shipmentStatus || product['Shipment Status'] || ''
+            ).trim();
 
             if (productCode && shipmentCode) {
               shipmentMapping[productCode] = shipmentCode;
 
               const correspondingShipmentStatus =
-                shipmentCodeToStatus[shipmentCode] || '';
+                shipmentCodeToStatus[shipmentCode] || directShipmentStatus;
               // Avoid writing blank shipment statuses into the sync map.
               // Blank here is typically a transient fetch-order state and can
               // incorrectly force transactions back to "In Transit".
               if (correspondingShipmentStatus.trim() !== '') {
                 statusMapping[productCode] = correspondingShipmentStatus;
               }
+            } else if (productCode && directShipmentStatus !== '') {
+              statusMapping[productCode] = directShipmentStatus;
             }
           });
 
@@ -619,9 +624,23 @@ export function useTransactionsData({
           `✅ Synced ${updatedCount} transactions with current shipment status`
         );
 
-        // Sanitize transactions for API (convert nullable to non-null)
+        const changedTransactions = updatedTransactions.filter(
+          (transaction, index) => {
+            const previous = transactions[index];
+            return (
+              previous &&
+              transaction.id !== undefined &&
+              transaction['Order Status'] !== previous['Order Status']
+            );
+          }
+        );
+
+        if (changedTransactions.length === 0) {
+          return 0;
+        }
+
         const sanitized =
-          TransactionService.sanitizeTransactions(updatedTransactions);
+          TransactionService.sanitizeTransactions(changedTransactions);
 
         // Update via service layer
         bulkUpdateTransactions(sanitized as never);

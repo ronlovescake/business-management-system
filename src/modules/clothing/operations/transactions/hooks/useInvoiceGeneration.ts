@@ -830,13 +830,15 @@ export function useInvoiceGeneration(
             return hasUpdates ? { ...transaction, ...updates } : transaction;
           });
 
-          bulkUpdate(
-            TransactionService.sanitizeTransactions(updatedTransactions)
+          const toSave = updatedTransactions.filter(
+            (transaction) =>
+              processedIds.has(transaction.id) && transaction.id !== undefined
           );
 
-          const toSave = updatedTransactions.filter((transaction) =>
-            processedIds.has(transaction.id)
-          );
+          if (toSave.length > 0) {
+            bulkUpdate(TransactionService.sanitizeTransactions(toSave));
+          }
+
           if (toSave.length > 0) {
             const results = await Promise.allSettled(
               toSave.map((transaction) =>
