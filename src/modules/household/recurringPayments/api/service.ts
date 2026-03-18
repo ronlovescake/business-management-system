@@ -8,7 +8,15 @@ import type {
 } from './schemas';
 
 const toDateString = (date: Date): string => {
-  return date.toISOString().split('T')[0];
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
+const parseStoredDate = (value: string): Date => {
+  const [year, month, day] = value.split('-').map((part) => Number(part));
+  return new Date(year, month - 1, day);
 };
 
 const monthKeyFromDate = (date: Date): string => {
@@ -150,7 +158,7 @@ export class HouseholdRecurringPaymentService {
       let skipped = 0;
 
       for (const tpl of templates) {
-        const start = new Date(tpl.startDate);
+        const start = parseStoredDate(tpl.startDate);
         const monthIndex = diffMonths(
           new Date(start.getFullYear(), start.getMonth(), 1),
           monthStart
@@ -182,7 +190,7 @@ export class HouseholdRecurringPaymentService {
           continue;
         }
 
-        const startDay = new Date(tpl.startDate).getDate();
+        const startDay = parseStoredDate(tpl.startDate).getDate();
         const year = monthStart.getFullYear();
         const month = monthStart.getMonth();
         const day = clampDayInMonth(year, month, startDay);

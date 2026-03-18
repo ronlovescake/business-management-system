@@ -25,6 +25,7 @@ export const SOFT_DELETE_MODELS = new Set([
   'Product',
   'Shipment',
   'Transaction',
+  'GeneralMerchandiseTransaction',
   'SortingDistribution',
   // Employee Workspace Models
   'Employee',

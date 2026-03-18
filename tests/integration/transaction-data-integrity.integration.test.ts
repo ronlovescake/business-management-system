@@ -27,6 +27,24 @@ const gmSchemaUnavailable = (error: unknown): boolean => {
   );
 };
 
+const createGmTransactionCandidate = async () => {
+  return prisma.generalMerchandiseTransaction.create({
+    data: {
+      orderDate: '2026-03-18',
+      customers: 'Integrity Test Customer',
+      productCode: 'GM-INTEGRITY-001',
+      quantity: 1,
+      unitPrice: 10,
+      discount: 0,
+      adjustment: 0,
+      lineTotal: 10,
+      orderStatus: 'Warehouse',
+      shipmentCode: 'GM-INTEGRITY-SHIP',
+      notes: 'temporary integration candidate',
+    },
+  });
+};
+
 describe('Integration • Data integrity safeguards', () => {
   it('updates transaction records without altering total rows', async () => {
     const tableName = 'transactions';
@@ -125,9 +143,14 @@ describe('Integration • Data integrity safeguards', () => {
 
   it('soft deletes GM rows by marking deletedAt instead of removing them', async () => {
     let candidate = null;
+    let createdCandidateId: number | null = null;
 
     try {
       candidate = await prisma.generalMerchandiseTransaction.findFirst();
+      if (!candidate) {
+        candidate = await createGmTransactionCandidate();
+        createdCandidateId = candidate.id;
+      }
     } catch (error) {
       if (gmSchemaUnavailable(error)) {
         expect(true).toBe(true);
@@ -166,6 +189,13 @@ describe('Integration • Data integrity safeguards', () => {
       `SELECT "deletedAt" FROM "general_merchandise"."transactions" WHERE id = ${candidate.id}`
     );
     expect(deletedAt).not.toBeNull();
+
+    if (createdCandidateId !== null) {
+      await prisma.$executeRawUnsafe(
+        `DELETE FROM "general_merchandise"."transactions" WHERE id = ${createdCandidateId}`
+      );
+      return;
+    }
 
     await prisma.$executeRawUnsafe(
       `UPDATE "general_merchandise"."transactions" SET "deletedAt" = NULL WHERE id = ${candidate.id}`
