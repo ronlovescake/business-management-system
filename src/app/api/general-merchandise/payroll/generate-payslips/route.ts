@@ -4,9 +4,12 @@ import path from 'path';
 import fs from 'fs';
 import type { TemplateDelegate as HandlebarsTemplateDelegate } from 'handlebars';
 import Handlebars from 'handlebars/dist/handlebars';
-import { chromium } from 'playwright';
 import { prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
+import {
+  getChromiumBrowserType,
+  getChromiumExecutablePath,
+} from '@/lib/playwright/chromium';
 import { ApiResponse } from '@/core/api';
 import { withErrorHandler } from '@/core/api/middleware';
 import { HTTP_STATUS } from '@/shared/constants/api';
@@ -320,9 +323,10 @@ export const POST = withErrorHandler(async (request: NextRequest) => {
   }
 
   const template = getTemplate();
-  const browser = await chromium.launch({
+  const browserType = await getChromiumBrowserType();
+  const browser = await browserType.launch({
     headless: true,
-    executablePath: chromium.executablePath(),
+    executablePath: browserType.executablePath(),
     args: ['--no-sandbox', '--disable-setuid-sandbox'],
   });
   const context = await browser.newContext();
@@ -370,8 +374,11 @@ export const POST = withErrorHandler(async (request: NextRequest) => {
       },
     });
   } catch (error) {
+    const chromiumPath = await getChromiumExecutablePath().catch(
+      () => 'unavailable'
+    );
     logger.error('Error generating payslips', {
-      chromiumPath: chromium.executablePath(),
+      chromiumPath,
       error,
     });
     throw error;

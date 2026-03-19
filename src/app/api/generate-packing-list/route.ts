@@ -38,11 +38,11 @@
 
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
-import { chromium } from 'playwright';
 import Handlebars from 'handlebars/dist/handlebars';
 import fs from 'fs';
 import path from 'path';
 import { logger } from '@/lib/logger';
+import { getChromiumBrowserType } from '@/lib/playwright/chromium';
 import { sanitizers } from '@/lib/security/sanitize';
 
 // Register Handlebars helper for empty rows
@@ -224,12 +224,13 @@ export async function POST(request: NextRequest) {
     // Always close Playwright even on errors to prevent leaked processes.
     // ==========================================================================
     const pdfBuffers: Buffer[] = [];
-    let browser: Awaited<ReturnType<typeof chromium.launch>> | null = null;
+    const browserType = await getChromiumBrowserType();
+    let browser: Awaited<ReturnType<typeof browserType.launch>> | null = null;
 
     try {
-      browser = await chromium.launch({
+      browser = await browserType.launch({
         headless: true,
-        executablePath: chromium.executablePath(),
+        executablePath: browserType.executablePath(),
         args: ['--no-sandbox', '--disable-setuid-sandbox'],
       });
 

@@ -4,9 +4,12 @@ import path from 'path';
 import fs from 'fs';
 import type { TemplateDelegate as HandlebarsTemplateDelegate } from 'handlebars';
 import Handlebars from 'handlebars/dist/handlebars';
-import { chromium } from 'playwright';
 import { prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
+import {
+  getChromiumBrowserType,
+  getChromiumExecutablePath,
+} from '@/lib/playwright/chromium';
 
 const COMPANY_NAME = 'Czarlie & Ron';
 const TEMPLATE_PATH = path.join(process.cwd(), 'templates', 'payslip.hbs');
@@ -264,75 +267,88 @@ export async function POST(request: NextRequest) {
 
     const generationTimestamp = new Date().toISOString().replace(/:/g, '-');
 
-    const browser = await chromium.launch({
+    const browserType = await getChromiumBrowserType();
+    const browser = await browserType.launch({
       headless: true,
-      executablePath: chromium.executablePath(),
+      executablePath: browserType.executablePath(),
       args: ['--no-sandbox', '--disable-setuid-sandbox'],
     });
-    const page = await browser.newPage();
-    await page.emulateMedia({ media: 'screen' });
+    try {
+      const page = await browser.newPage();
+      await page.emulateMedia({ media: 'screen' });
 
-    const files: { name: string; buffer: Buffer }[] = [];
+      const files: { name: string; buffer: Buffer }[] = [];
 
-    for (const record of payrolls) {
-      const context = await buildPayslipContext(record, periodStart, periodEnd);
-      const html = template(context);
+      for (const record of payrolls) {
+        const context = await buildPayslipContext(
+          record,
+          periodStart,
+          periodEnd
+        );
+        const html = template(context);
 
-      await page.setContent(html, {
-        waitUntil: 'domcontentloaded',
-        timeout: 15000,
-      });
-      await new Promise((resolve) => setTimeout(resolve, 200));
+        await page.setContent(html, {
+          waitUntil: 'domcontentloaded',
+          timeout: 15000,
+        });
+        await new Promise((resolve) => setTimeout(resolve, 200));
 
-      const pdfArray = await page.pdf({
-        format: 'A4',
-        printBackground: true,
-        margin: {
-          top: '0mm',
-          right: '0mm',
-          bottom: '0mm',
-          left: '0mm',
+        const pdfArray = await page.pdf({
+          format: 'A4',
+          printBackground: true,
+          margin: {
+            top: '0mm',
+            right: '0mm',
+            bottom: '0mm',
+            left: '0mm',
+          },
+        });
+
+        const pdfBuffer = Buffer.from(pdfArray);
+
+        const filename = sanitizeFilename(record.employeeName);
+        files.push({ name: filename, buffer: pdfBuffer });
+      }
+
+      const JSZip = (await import('jszip')).default;
+      const zip = new JSZip();
+
+      for (const file of files) {
+        zip.file(file.name, file.buffer);
+      }
+
+      const zipBuffer = await zip.generateAsync({ type: 'nodebuffer' });
+
+      const sanitizedLabel =
+        typeof body.payPeriodLabel === 'string' &&
+        body.payPeriodLabel.trim().length > 0
+          ? body.payPeriodLabel
+              .replace(/[^a-zA-Z0-9]+/g, '-')
+              .replace(/-+/g, '-')
+              .replace(/^-|-$/g, '')
+              .toLowerCase()
+          : null;
+
+      const zipFilename = `${sanitizedLabel ? `payslips-${sanitizedLabel}` : `payslips-${generationTimestamp}`}.zip`;
+
+      return new NextResponse(Buffer.from(zipBuffer), {
+        status: 200,
+        headers: {
+          'Content-Type': 'application/zip',
+          'Content-Disposition': `attachment; filename="${zipFilename}"`,
         },
       });
-
-      const pdfBuffer = Buffer.from(pdfArray);
-
-      const filename = sanitizeFilename(record.employeeName);
-      files.push({ name: filename, buffer: pdfBuffer });
+    } finally {
+      await browser.close();
     }
-
-    await browser.close();
-
-    const JSZip = (await import('jszip')).default;
-    const zip = new JSZip();
-
-    for (const file of files) {
-      zip.file(file.name, file.buffer);
-    }
-
-    const zipBuffer = await zip.generateAsync({ type: 'nodebuffer' });
-
-    const sanitizedLabel =
-      typeof body.payPeriodLabel === 'string' &&
-      body.payPeriodLabel.trim().length > 0
-        ? body.payPeriodLabel
-            .replace(/[^a-zA-Z0-9]+/g, '-')
-            .replace(/-+/g, '-')
-            .replace(/^-|-$/g, '')
-            .toLowerCase()
-        : null;
-
-    const zipFilename = `${sanitizedLabel ? `payslips-${sanitizedLabel}` : `payslips-${generationTimestamp}`}.zip`;
-
-    return new NextResponse(Buffer.from(zipBuffer), {
-      status: 200,
-      headers: {
-        'Content-Type': 'application/zip',
-        'Content-Disposition': `attachment; filename="${zipFilename}"`,
-      },
-    });
   } catch (error) {
-    logger.error('Error generating payslips:', error);
+    const chromiumPath = await getChromiumExecutablePath().catch(
+      () => 'unavailable'
+    );
+    logger.error('Error generating payslips:', {
+      chromiumPath,
+      error,
+    });
     return NextResponse.json(
       {
         success: false,

@@ -1,10 +1,13 @@
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
-import { chromium } from 'playwright';
 import Handlebars from 'handlebars/dist/handlebars';
 import fs from 'fs';
 import path from 'path';
 import { logger } from '@/lib/logger';
+import {
+  getChromiumBrowserType,
+  getChromiumExecutablePath,
+} from '@/lib/playwright/chromium';
 import { sanitizers } from '@/lib/security/sanitize';
 import { LOADING_SPINNER_DELAY } from '@/constants/timeouts';
 
@@ -147,162 +150,168 @@ export async function POST(request: NextRequest) {
     const logoBuffer = fs.readFileSync(logoPath);
     const logoData = logoBuffer.toString('base64');
 
-    const browser = await chromium.launch({
+    const browserType = await getChromiumBrowserType();
+    const browser = await browserType.launch({
       headless: true,
-      executablePath: chromium.executablePath(),
+      executablePath: browserType.executablePath(),
       args: ['--no-sandbox', '--disable-setuid-sandbox'],
     });
 
-    const context = await browser.newContext({
-      viewport: { width: 817, height: 1056 },
-      deviceScaleFactor: settings.pngQuality,
-    });
-
-    const page = await context.newPage();
-    const imageBuffers: Buffer[] = [];
-
-    const now = new Date();
-    const invoiceDate = now.toLocaleDateString('en-US', {
-      month: 'long',
-      day: 'numeric',
-      year: 'numeric',
-    });
-
-    for (const [customerName, customerTransactions] of Array.from(
-      groupedByCustomer.entries()
-    )) {
-      const customerData = customers?.find(
-        (c: Customer) => c['Customer Name'] === customerName
-      );
-
-      const phone = customerData?.['Phone Number'] || '';
-      const address = customerData?.Address || '';
-
-      const items: InvoiceItem[] = customerTransactions.map(
-        (transaction: Transaction) => ({
-          description: sanitizers.productCode(
-            transaction['Product Code'] || ''
-          ),
-          quantity: transaction.Quantity || 0,
-          unitPrice: transaction['Unit Price'] || 0,
-          adjustment: transaction.Adjustment || 0,
-          lineTotal: transaction['Line Total'] || 0,
-        })
-      );
-
-      const subTotal = items.reduce(
-        (sum, item) => sum + item.quantity * item.unitPrice,
-        0
-      );
-      const creditAmount = items.reduce(
-        (sum, item) => sum + item.adjustment,
-        0
-      );
-      const orderTotal = items.reduce((sum, item) => sum + item.lineTotal, 0);
-
-      const invoiceData: InvoiceData = {
-        date: invoiceDate,
-        dueDate: DUE_DATE_PLACEHOLDER,
-        logoData,
-        customerName: sanitizers.name(customerName),
-        phone: sanitizers.phone(phone),
-        address: sanitizers.address(address),
-        items,
-        subTotal,
-        creditAmount,
-        orderTotal,
-      };
-
-      const html = template(invoiceData);
-
-      await page.setContent(html, {
-        waitUntil: 'domcontentloaded',
-        timeout: 10000,
+    try {
+      const context = await browser.newContext({
+        viewport: { width: 817, height: 1056 },
+        deviceScaleFactor: settings.pngQuality,
       });
 
-      await new Promise((resolve) =>
-        setTimeout(resolve, LOADING_SPINNER_DELAY)
-      );
+      const page = await context.newPage();
+      const imageBuffers: Buffer[] = [];
 
-      if (settings.format === 'png') {
-        await page.setViewportSize({
-          width: 817,
-          height: 1056,
+      const now = new Date();
+      const invoiceDate = now.toLocaleDateString('en-US', {
+        month: 'long',
+        day: 'numeric',
+        year: 'numeric',
+      });
+
+      for (const [customerName, customerTransactions] of Array.from(
+        groupedByCustomer.entries()
+      )) {
+        const customerData = customers?.find(
+          (c: Customer) => c['Customer Name'] === customerName
+        );
+
+        const phone = customerData?.['Phone Number'] || '';
+        const address = customerData?.Address || '';
+
+        const items: InvoiceItem[] = customerTransactions.map(
+          (transaction: Transaction) => ({
+            description: sanitizers.productCode(
+              transaction['Product Code'] || ''
+            ),
+            quantity: transaction.Quantity || 0,
+            unitPrice: transaction['Unit Price'] || 0,
+            adjustment: transaction.Adjustment || 0,
+            lineTotal: transaction['Line Total'] || 0,
+          })
+        );
+
+        const subTotal = items.reduce(
+          (sum, item) => sum + item.quantity * item.unitPrice,
+          0
+        );
+        const creditAmount = items.reduce(
+          (sum, item) => sum + item.adjustment,
+          0
+        );
+        const orderTotal = items.reduce((sum, item) => sum + item.lineTotal, 0);
+
+        const invoiceData: InvoiceData = {
+          date: invoiceDate,
+          dueDate: DUE_DATE_PLACEHOLDER,
+          logoData,
+          customerName: sanitizers.name(customerName),
+          phone: sanitizers.phone(phone),
+          address: sanitizers.address(address),
+          items,
+          subTotal,
+          creditAmount,
+          orderTotal,
+        };
+
+        const html = template(invoiceData);
+
+        await page.setContent(html, {
+          waitUntil: 'domcontentloaded',
+          timeout: 10000,
         });
 
-        const imageBuffer = await page.screenshot({
-          type: 'png',
-          fullPage: true,
-          omitBackground: false,
-        });
+        await new Promise((resolve) =>
+          setTimeout(resolve, LOADING_SPINNER_DELAY)
+        );
 
-        imageBuffers.push(Buffer.from(imageBuffer));
-      } else {
-        const pdfBuffer = await page.pdf({
-          width: '817px',
-          printBackground: true,
-          margin: { top: '0px', right: '0px', bottom: '0px', left: '0px' },
-        });
+        if (settings.format === 'png') {
+          await page.setViewportSize({
+            width: 817,
+            height: 1056,
+          });
 
-        imageBuffers.push(Buffer.from(pdfBuffer));
+          const imageBuffer = await page.screenshot({
+            type: 'png',
+            fullPage: true,
+            omitBackground: false,
+          });
+
+          imageBuffers.push(Buffer.from(imageBuffer));
+        } else {
+          const pdfBuffer = await page.pdf({
+            width: '817px',
+            printBackground: true,
+            margin: { top: '0px', right: '0px', bottom: '0px', left: '0px' },
+          });
+
+          imageBuffers.push(Buffer.from(pdfBuffer));
+        }
       }
-    }
 
-    await browser.close();
+      const fileExtension = settings.format === 'png' ? 'png' : 'pdf';
+      const contentType =
+        settings.format === 'png' ? 'image/png' : 'application/pdf';
 
-    const fileExtension = settings.format === 'png' ? 'png' : 'pdf';
-    const contentType =
-      settings.format === 'png' ? 'image/png' : 'application/pdf';
+      const timestamp = new Date().toISOString().replace(/:/g, '-');
+      const customerNames = Array.from(groupedByCustomer.keys());
 
-    const timestamp = new Date().toISOString().replace(/:/g, '-');
-    const customerNames = Array.from(groupedByCustomer.keys());
+      const generatedFiles = imageBuffers.map((imageBuffer, index) => {
+        const customerName = customerNames[index] || 'Unknown Customer';
+        const sanitizedBase = customerName
+          .replace(/[<>:"/\\|?*\x00-\x1F]/g, '')
+          .trim();
+        const safeBase =
+          sanitizedBase.length > 0 ? sanitizedBase : `customer-${index + 1}`;
 
-    const generatedFiles = imageBuffers.map((imageBuffer, index) => {
-      const customerName = customerNames[index] || 'Unknown Customer';
-      const sanitizedBase = customerName
-        .replace(/[<>:"/\\|?*\x00-\x1F]/g, '')
-        .trim();
-      const safeBase =
-        sanitizedBase.length > 0 ? sanitizedBase : `customer-${index + 1}`;
+        return {
+          name: `${safeBase}.${fileExtension}`,
+          buffer: imageBuffer,
+        };
+      });
 
-      return {
-        name: `${safeBase}.${fileExtension}`,
-        buffer: imageBuffer,
-      };
-    });
+      if (generatedFiles.length === 1) {
+        const [{ name, buffer }] = generatedFiles;
+        const encodedName = encodeURIComponent(name);
 
-    if (generatedFiles.length === 1) {
-      const [{ name, buffer }] = generatedFiles;
-      const encodedName = encodeURIComponent(name);
+        return new NextResponse(Buffer.from(buffer), {
+          status: 200,
+          headers: {
+            'Content-Type': contentType,
+            'Content-Disposition': `attachment; filename="${encodedName}"`,
+          },
+        });
+      }
 
-      return new NextResponse(Buffer.from(buffer), {
+      const JSZip = (await import('jszip')).default;
+      const zip = new JSZip();
+
+      generatedFiles.forEach(({ name, buffer }) => {
+        zip.file(name, buffer);
+      });
+
+      const zipBuffer = await zip.generateAsync({ type: 'nodebuffer' });
+
+      return new NextResponse(Buffer.from(zipBuffer), {
         status: 200,
         headers: {
-          'Content-Type': contentType,
-          'Content-Disposition': `attachment; filename="${encodedName}"`,
+          'Content-Type': 'application/zip',
+          'Content-Disposition': `attachment; filename="in-transit-invoices-${timestamp}.zip"`,
         },
       });
+    } finally {
+      await browser.close();
     }
-
-    const JSZip = (await import('jszip')).default;
-    const zip = new JSZip();
-
-    generatedFiles.forEach(({ name, buffer }) => {
-      zip.file(name, buffer);
-    });
-
-    const zipBuffer = await zip.generateAsync({ type: 'nodebuffer' });
-
-    return new NextResponse(Buffer.from(zipBuffer), {
-      status: 200,
-      headers: {
-        'Content-Type': 'application/zip',
-        'Content-Disposition': `attachment; filename="in-transit-invoices-${timestamp}.zip"`,
-      },
-    });
   } catch (error) {
+    const chromiumPath = await getChromiumExecutablePath().catch(
+      () => 'unavailable'
+    );
     logger.error('Error generating In Transit invoice:', {
-      chromiumPath: chromium.executablePath(),
+      chromiumPath,
       error,
     });
     return NextResponse.json(
