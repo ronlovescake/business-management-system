@@ -10,7 +10,6 @@ import {
   ExpenseService,
   TruckingExpenseService,
   GeneralMerchandiseExpenseService,
-  HouseholdExpenseService,
 } from '../services';
 import type {
   CustomerDTO,
@@ -20,7 +19,6 @@ import type {
   PriceDTO,
   ExpenseDTO,
 } from '../types';
-import type { HouseholdExpenseDTO } from '@/services/ExpenseService';
 
 /**
  * Customer Data Hook
@@ -364,12 +362,6 @@ export function useGeneralMerchandiseExpenseData() {
   ]);
 }
 
-export function useHouseholdExpenseData() {
-  return useHouseholdExpenseDataFactory(HouseholdExpenseService, [
-    'household-expenses',
-  ]);
-}
-
 type ExpenseServiceClass = {
   getAll: () => Promise<ExpenseDTO[]>;
   create: (expense: Partial<ExpenseDTO>) => Promise<ExpenseDTO>;
@@ -450,88 +442,5 @@ function useExpenseDataFactory(
     isDeleting: deleteMutation.isPending,
     isBulkUpdating: bulkUpdateMutation.isPending,
     isBulkCreating: bulkCreateMutation.isPending,
-  };
-}
-
-type HouseholdExpenseServiceClass = {
-  getAll: () => Promise<HouseholdExpenseDTO[]>;
-  create: (
-    expense: Partial<HouseholdExpenseDTO>
-  ) => Promise<HouseholdExpenseDTO>;
-  update: (
-    id: string | number,
-    expense: Partial<HouseholdExpenseDTO>
-  ) => Promise<HouseholdExpenseDTO>;
-  deleteById: (id: string | number) => Promise<void>;
-  bulkUpdate: (expenses: HouseholdExpenseDTO[]) => Promise<{ count: number }>;
-  bulkCreate: (
-    expenses: Partial<HouseholdExpenseDTO>[]
-  ) => Promise<{ count: number }>;
-};
-
-function useHouseholdExpenseDataFactory(
-  service: HouseholdExpenseServiceClass,
-  queryKey: QueryKey
-) {
-  const queryClient = useQueryClient();
-
-  const {
-    data = [],
-    isLoading,
-    error,
-    refetch,
-  } = useQuery({
-    queryKey,
-    queryFn: () => service.getAll(),
-    staleTime: 5 * 60 * 1000,
-  });
-
-  const createMutation = useMutation({
-    mutationFn: (newItem: Partial<HouseholdExpenseDTO>) =>
-      service.create(newItem),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey }),
-  });
-
-  const updateMutation = useMutation({
-    mutationFn: ({
-      id,
-      data,
-    }: {
-      id: string | number;
-      data: Partial<HouseholdExpenseDTO>;
-    }) => service.update(id, data),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey }),
-  });
-
-  const deleteMutation = useMutation({
-    mutationFn: (id: string | number) => service.deleteById(id),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey }),
-  });
-
-  const bulkUpdateMutation = useMutation({
-    mutationFn: (newData: HouseholdExpenseDTO[]) => service.bulkUpdate(newData),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey }),
-  });
-
-  const bulkCreateMutation = useMutation({
-    mutationFn: (newData: Partial<HouseholdExpenseDTO>[]) =>
-      service.bulkCreate(newData),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey }),
-  });
-
-  return {
-    data,
-    isLoading,
-    error,
-    refetch,
-    create: createMutation.mutate,
-    update: updateMutation.mutate,
-    delete: deleteMutation.mutate,
-    bulkUpdate: bulkUpdateMutation.mutate,
-    bulkCreate: bulkCreateMutation.mutate,
-    isCreating: createMutation.isPending,
-    isUpdating: updateMutation.isPending,
-    isDeleting: deleteMutation.isPending,
-    isBulkUpdating: bulkUpdateMutation.isPending,
   };
 }

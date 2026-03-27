@@ -10,6 +10,7 @@ import { api } from '@/lib/api/client';
 import { logger } from '@/lib/logger';
 import { useMemo, useEffect } from 'react';
 import { buildApiPath } from '@/lib/api/paths';
+import { queryKeys } from '@/lib/queryKeys';
 import {
   calculateAddressSimilarity,
   calculatePhoneSimilarity,
@@ -200,6 +201,9 @@ export function usePossibleMatches(
   apiBasePath?: string
 ) {
   const shouldFetchCustomers = enabled && !serverCustomersWithAddresses;
+  const possibleMatchesQueryKey = queryKeys.dispatch.possibleMatches.list(
+    apiBasePath ?? 'default'
+  );
 
   // Fetch all customers WITH all their addresses in ONE query (no N+1 problem!)
   const {
@@ -207,10 +211,7 @@ export function usePossibleMatches(
     isLoading: loadingCustomers,
     refetch: refetchCustomers,
   } = useQuery({
-    queryKey: [
-      'possible-match-customers-with-addresses',
-      apiBasePath ?? 'default',
-    ],
+    queryKey: possibleMatchesQueryKey,
     queryFn: () => fetchCustomersWithAllAddresses(apiBasePath),
     staleTime: 30 * 1000, // 30 seconds - catch customer updates quickly
     refetchOnWindowFocus: true, // Refetch when user returns to tab

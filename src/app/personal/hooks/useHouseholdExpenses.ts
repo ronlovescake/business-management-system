@@ -1,7 +1,6 @@
 import { useEffect, useState, useMemo } from 'react';
 import { useSession } from 'next-auth/react';
 import { logger } from '@/lib/logger';
-import { useHouseholdExpenseData } from '@/hooks/useSheetData';
 import { showNotification } from '@mantine/notifications';
 import { showError, showLoading, closeAlert, showSuccess } from '@/lib/alerts';
 import { confirmTripleDelete } from '@/utils/confirmTripleDelete';
@@ -28,6 +27,7 @@ import { filterAndSortExpenses } from '@/lib/accounting/expense-filters';
 import { householdExpenseCategoryOptions } from '@/modules/household/expenses/utils';
 import type { HouseholdExpenseCategory } from '@/modules/household/expenses/api';
 import type { HouseholdExpenseDTO } from '@/services/ExpenseService';
+import { useHouseholdExpenseData } from './useHouseholdExpenseData';
 
 export interface Expense {
   id: string;

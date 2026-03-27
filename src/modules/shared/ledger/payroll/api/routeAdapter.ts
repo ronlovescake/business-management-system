@@ -121,6 +121,25 @@ type PayrollRouteConfig<TRecord extends PayrollRouteRecord> = {
   logPrefix?: string;
 };
 
+async function syncCreatedPayrollExpenses<TRecord extends PayrollRouteRecord>(
+  records: TRecord[],
+  config: PayrollRouteConfig<TRecord>,
+  processedBy?: string
+) {
+  const paidRecords = records.filter((record) => record.status === 'paid');
+
+  for (const payroll of paidRecords) {
+    try {
+      await config.syncExpenseFromPayroll(payroll, processedBy);
+    } catch (error) {
+      logger.error('Failed to sync created payroll to expenses', {
+        error,
+        payrollId: payroll.id,
+      });
+    }
+  }
+}
+
 function sanitizeMoney(
   value: unknown,
   options: { allowNegative?: boolean } = {}
@@ -507,6 +526,8 @@ export function createPayrollRouteHandlers<TRecord extends PayrollRouteRecord>(
     }
 
     const created = await config.createRecords(valid);
+    await syncCreatedPayrollExpenses(created, config);
+
     logger.info('Bulk payroll import complete', { count: created.length });
 
     return ApiResponse.success(
@@ -514,42 +535,6 @@ export function createPayrollRouteHandlers<TRecord extends PayrollRouteRecord>(
       'Payroll records imported',
       HTTP_STATUS.CREATED
     );
-  }
-
-  async function handleSinglePayload(body: unknown) {
-    const sanitized = sanitizePayrollRecord(body as PayrollRecord);
-    const validation = validatePayroll(sanitized);
-
-    if (!validation.success) {
-      return ApiResponse.badRequest(
-        'Validation failed',
-        formatValidationErrors(validation.error)
-      );
-    }
-
-    const missingEmployees = await findMissingEmployeeIds([
-      validation.data.employeeId,
-    ]);
-    if (missingEmployees.length) {
-      return ApiResponse.conflict(
-        'Employee not found',
-        `Employee with ID ${missingEmployees[0]} does not exist`,
-        'employeeId'
-      );
-    }
-
-    try {
-      const payroll = await config.payrollModel.create({
-        data: validation.data,
-      });
-      return ApiResponse.success(
-        payroll,
-        'Payroll record created',
-        HTTP_STATUS.CREATED
-      );
-    } catch (error) {
-      return handlePrismaError(error, config.logPrefix);
-    }
   }
 
   const GET = withErrorHandler(async (request: NextRequest) => {
@@ -584,8 +569,54 @@ export function createPayrollRouteHandlers<TRecord extends PayrollRouteRecord>(
     const body = await request.json();
     return Array.isArray(body)
       ? handleBulkPayload(body)
-      : handleSinglePayload(body);
+      : handleSinglePayloadWithRequest(request, body);
   });
+
+  async function handleSinglePayloadWithRequest(
+    request: NextRequest,
+    body: unknown
+  ) {
+    const sanitized = sanitizePayrollRecord(body as PayrollRecord);
+    const validation = validatePayroll(sanitized);
+
+    if (!validation.success) {
+      return ApiResponse.badRequest(
+        'Validation failed',
+        formatValidationErrors(validation.error)
+      );
+    }
+
+    const missingEmployees = await findMissingEmployeeIds([
+      validation.data.employeeId,
+    ]);
+    if (missingEmployees.length) {
+      return ApiResponse.conflict(
+        'Employee not found',
+        `Employee with ID ${missingEmployees[0]} does not exist`,
+        'employeeId'
+      );
+    }
+
+    try {
+      const payroll = await config.payrollModel.create({
+        data: validation.data,
+      });
+
+      await syncCreatedPayrollExpenses(
+        [payroll],
+        config,
+        getProcessedBy(request, body as Record<string, unknown>)
+      );
+
+      return ApiResponse.success(
+        payroll,
+        'Payroll record created',
+        HTTP_STATUS.CREATED
+      );
+    } catch (error) {
+      return handlePrismaError(error, config.logPrefix);
+    }
+  }
 
   const PUT = withErrorHandler(async (request: NextRequest) => {
     const body = (await request.json()) as Record<string, unknown>;

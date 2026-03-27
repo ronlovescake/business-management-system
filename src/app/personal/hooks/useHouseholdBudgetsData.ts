@@ -1,5 +1,6 @@
 import { useMemo } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { queryKeys } from '@/lib/queryKeys';
 import {
   HouseholdBudgetService,
   type HouseholdBudgetDTO,
@@ -9,9 +10,10 @@ export type HouseholdBudgetRow = HouseholdBudgetDTO;
 
 export function useHouseholdBudgetsData() {
   const queryClient = useQueryClient();
+  const budgetsQueryKey = queryKeys.household.budgets.list();
 
   const budgetsQuery = useQuery({
-    queryKey: ['household-budgets'],
+    queryKey: budgetsQueryKey,
     queryFn: () => HouseholdBudgetService.getAll(),
   });
 
@@ -30,7 +32,7 @@ export function useHouseholdBudgetsData() {
       >
     ) => HouseholdBudgetService.create(payload),
     onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ['household-budgets'] });
+      await queryClient.invalidateQueries({ queryKey: budgetsQueryKey });
     },
   });
 
@@ -43,14 +45,14 @@ export function useHouseholdBudgetsData() {
       data: Partial<HouseholdBudgetDTO>;
     }) => HouseholdBudgetService.update(id, data),
     onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ['household-budgets'] });
+      await queryClient.invalidateQueries({ queryKey: budgetsQueryKey });
     },
   });
 
   const deleteBudget = useMutation({
     mutationFn: (id: string) => HouseholdBudgetService.deleteById(id),
     onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ['household-budgets'] });
+      await queryClient.invalidateQueries({ queryKey: budgetsQueryKey });
     },
   });
 

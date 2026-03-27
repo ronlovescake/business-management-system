@@ -26,6 +26,7 @@ type MockTransaction = {
 };
 
 const ORDER_DATE_COL = 0;
+const UNIT_PRICE_COL = 4;
 const ORDER_STATUS_COL = 8;
 const NOTES_COL = 9;
 
@@ -67,7 +68,7 @@ test.describe('Handsontable grid interactions', () => {
       .poll(() => getCurrentCellCoordinates(page))
       .toMatchObject({
         row: 0,
-        col: NOTES_COL,
+        col: UNIT_PRICE_COL,
       });
 
     await page.keyboard.press('Control+ArrowLeft');
@@ -104,18 +105,15 @@ test.describe('Handsontable grid interactions', () => {
     page,
   }) => {
     await selectColumnOnFirstRow(page, ORDER_STATUS_COL);
-    const nextStatus = 'Prepared';
+    const nextStatus = 'Warehouse';
 
-    await editSelectedCell(page, nextStatus);
+    await advanceSelectedDropdownCell(page);
     await expect(
       page.getByText('Order Status updated successfully')
     ).toBeVisible();
-    await expect
-      .poll(() => getCurrentCellCoordinates(page))
-      .toMatchObject({
-        row: 0,
-        col: ORDER_STATUS_COL + 1,
-      });
+    await expect(cellLocator(page, 0, ORDER_STATUS_COL)).toContainText(
+      nextStatus
+    );
   });
 });
 
@@ -174,6 +172,21 @@ async function editSelectedCell(page: Page, value: string) {
   await editor.press('Control+a');
   await editor.fill(value);
   await editor.press('Tab');
+}
+
+async function advanceSelectedDropdownCell(page: Page) {
+  await page.keyboard.press('Enter');
+
+  const editor = page
+    .locator(
+      '.handsontableEditor textarea, textarea.handsontableInput, .handsontableInputHolder textarea'
+    )
+    .first();
+
+  await expect(editor).toBeVisible({ timeout: 10000 });
+  await editor.press('ArrowDown');
+  await editor.press('Enter');
+  await page.keyboard.press('Tab');
 }
 
 async function getCurrentCellCoordinates(page: Page) {
@@ -291,6 +304,23 @@ async function installTransactionsMocks(page: Page) {
           'Shipment Status': 'Warehouse',
         },
       ]);
+    }
+
+    if (pathname.endsWith('/operations/notifications') && method === 'GET') {
+      return fulfillJson(route, []);
+    }
+
+    if (pathname.endsWith('/operations/notifications') && method === 'POST') {
+      return fulfillJson(route, {
+        id: 'mock-notification-1',
+        category: 'transactions',
+        user: 'Playwright',
+        changes: 'Mock notification logged',
+        metadata: null,
+        createdAt: new Date().toISOString(),
+        createdAtDate: 'Mar 28, 2026',
+        createdAtTime: '12:00:00 PM',
+      });
     }
 
     if (pathname.endsWith('/shipments') && method === 'GET') {

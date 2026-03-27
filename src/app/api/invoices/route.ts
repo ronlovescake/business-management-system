@@ -3,10 +3,13 @@
  */
 
 import type { NextRequest } from 'next/server';
-import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
 import { ApiResponseUtil } from '@/core/api/response';
+
+type InvoicesClient = Pick<typeof prisma, 'invoice'>;
+
+const invoicesClient: InvoicesClient = prisma;
 
 /**
  * GET /api/invoices
@@ -15,18 +18,15 @@ import { ApiResponseUtil } from '@/core/api/response';
  */
 export async function GET() {
   try {
-    const invoices = await prisma.invoice.findMany({
+    const invoices = await invoicesClient.invoice.findMany({
       where: { deletedAt: null },
       orderBy: { createdAt: 'desc' },
     });
 
-    return NextResponse.json({ data: invoices });
+    return ApiResponseUtil.success(invoices);
   } catch (error) {
     logger.error('Error fetching invoices', error);
-    return NextResponse.json(
-      { error: 'Failed to fetch invoices' },
-      { status: 500 }
-    );
+    return ApiResponseUtil.error('Failed to fetch invoices', 500);
   }
 }
 
@@ -41,20 +41,18 @@ export async function POST(request: NextRequest) {
     const { invoices } = body;
 
     if (!Array.isArray(invoices)) {
-      return NextResponse.json(
-        { error: 'Invalid request: invoices must be an array' },
-        { status: 400 }
+      return ApiResponseUtil.error(
+        'Invalid request: invoices must be an array',
+        400
       );
     }
 
-    // Delete all existing invoices (soft delete)
-    await prisma.invoice.updateMany({
+    await invoicesClient.invoice.updateMany({
       where: { deletedAt: null },
       data: { deletedAt: new Date() },
     });
 
-    // Insert new invoices
-    const created = await prisma.invoice.createMany({
+    const created = await invoicesClient.invoice.createMany({
       data: invoices.map(
         (invoice: {
           id?: string;
@@ -79,23 +77,18 @@ export async function POST(request: NextRequest) {
       ),
     });
 
-    // Fetch the newly created records to return
-    const newInvoices = await prisma.invoice.findMany({
+    const newInvoices = await invoicesClient.invoice.findMany({
       where: { deletedAt: null },
       orderBy: { createdAt: 'desc' },
     });
 
-    return NextResponse.json({
-      success: true,
+    return ApiResponseUtil.success({
       count: created.count,
       data: newInvoices,
     });
   } catch (error) {
     logger.error('Error replacing invoices', error);
-    return NextResponse.json(
-      { error: 'Failed to replace invoices' },
-      { status: 500 }
-    );
+    return ApiResponseUtil.error('Failed to replace invoices', 500);
   }
 }
 
@@ -110,10 +103,10 @@ export async function PUT(request: NextRequest) {
     const { id, ...data } = body;
 
     if (!id) {
-      return NextResponse.json({ error: 'ID is required' }, { status: 400 });
+      return ApiResponseUtil.error('ID is required', 400);
     }
 
-    const updated = await prisma.invoice.update({
+    const updated = await invoicesClient.invoice.update({
       where: { id },
       data: {
         customerName: data.customerName,
@@ -130,10 +123,7 @@ export async function PUT(request: NextRequest) {
     return ApiResponseUtil.success(updated);
   } catch (error) {
     logger.error('Error updating invoice', error);
-    return NextResponse.json(
-      { error: 'Failed to update invoice' },
-      { status: 500 }
-    );
+    return ApiResponseUtil.error('Failed to update invoice', 500);
   }
 }
 
@@ -148,10 +138,10 @@ export async function DELETE(request: NextRequest) {
     const id = searchParams.get('id');
 
     if (!id) {
-      return NextResponse.json({ error: 'ID is required' }, { status: 400 });
+      return ApiResponseUtil.error('ID is required', 400);
     }
 
-    await prisma.invoice.update({
+    await invoicesClient.invoice.update({
       where: { id },
       data: { deletedAt: new Date() },
     });
@@ -159,9 +149,6 @@ export async function DELETE(request: NextRequest) {
     return ApiResponseUtil.ok();
   } catch (error) {
     logger.error('Error deleting invoice', error);
-    return NextResponse.json(
-      { error: 'Failed to delete invoice' },
-      { status: 500 }
-    );
+    return ApiResponseUtil.error('Failed to delete invoice', 500);
   }
 }

@@ -6,6 +6,7 @@ import { useSession } from 'next-auth/react';
 import { showNotification } from '@mantine/notifications';
 import { messagingService } from '@/services/messaging.service';
 import { usePathname } from 'next/navigation';
+import { queryKeys } from '@/lib/queryKeys';
 import {
   playMessageSound,
   initializeAudioContext,
@@ -24,6 +25,7 @@ export function GlobalMessageNotifications() {
   const messagingPath = getMessagingPath(selectedBusiness);
   const isMessagingPage = pathname?.startsWith(messagingPath);
   const { preferences } = useNotificationPreferences();
+  const conversationsQueryKey = queryKeys.messaging.conversations.list();
 
   // Load seen message IDs from localStorage on mount
   const previousMessagesRef = useRef<Set<string>>(new Set());
@@ -66,7 +68,7 @@ export function GlobalMessageNotifications() {
 
   // Fetch all conversations to get all messages
   const { data: conversations = [] } = useQuery({
-    queryKey: ['conversations'],
+    queryKey: conversationsQueryKey,
     queryFn: () => messagingService.getConversations(),
     refetchInterval: 5000, // Poll every 5 seconds
     enabled: !!currentUserId,

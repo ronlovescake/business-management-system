@@ -1,6 +1,7 @@
 import { useCallback, useMemo } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { exportToCSV } from '@/components/expenses';
+import { queryKeys } from '@/lib/queryKeys';
 import type { PersonalIncomeDraft } from '@/app/personal/income/components/IncomeFormDialog';
 import type { PersonalIncomeRow } from '@/app/personal/income/components/IncomeListTable';
 import {
@@ -36,14 +37,16 @@ function mapAccountOptions(
 
 export function useHouseholdIncomeData() {
   const queryClient = useQueryClient();
+  const incomeQueryKey = queryKeys.household.income.list();
+  const accountsQueryKey = queryKeys.household.accounts.list();
 
   const incomeQuery = useQuery({
-    queryKey: ['household-income'],
+    queryKey: incomeQueryKey,
     queryFn: () => HouseholdIncomeService.getAll(),
   });
 
   const accountsQuery = useQuery({
-    queryKey: ['household-accounts'],
+    queryKey: accountsQueryKey,
     queryFn: () => HouseholdAccountService.getAll(),
   });
 
@@ -72,7 +75,7 @@ export function useHouseholdIncomeData() {
         notes: draft.notes,
       }),
     onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ['household-income'] });
+      await queryClient.invalidateQueries({ queryKey: incomeQueryKey });
     },
   });
 
@@ -87,14 +90,14 @@ export function useHouseholdIncomeData() {
         notes: draft.notes,
       }),
     onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ['household-income'] });
+      await queryClient.invalidateQueries({ queryKey: incomeQueryKey });
     },
   });
 
   const deleteIncome = useMutation({
     mutationFn: (id: string) => HouseholdIncomeService.deleteById(id),
     onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ['household-income'] });
+      await queryClient.invalidateQueries({ queryKey: incomeQueryKey });
     },
   });
 

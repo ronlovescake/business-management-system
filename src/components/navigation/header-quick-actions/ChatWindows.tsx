@@ -19,6 +19,7 @@ import {
 } from '@mantine/core';
 import { showNotification } from '@mantine/notifications';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { queryKeys } from '@/lib/queryKeys';
 import {
   IconBellOff,
   IconDotsVertical,
@@ -87,7 +88,7 @@ const ChatWindow = memo(function ChatWindow({
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const queryClient = useQueryClient();
   const messagesQueryKey = useMemo(
-    () => ['header-messages', conversation.id] as const,
+    () => queryKeys.messaging.messages.headerDetail(conversation.id),
     [conversation.id]
   );
 
@@ -112,7 +113,9 @@ const ChatWindow = memo(function ChatWindow({
         }
         return [...old, newMessage];
       });
-      queryClient.invalidateQueries({ queryKey: ['conversations'] });
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.messaging.conversations.list(),
+      });
       setDraft('');
       setTimeout(() => {
         const viewport = scrollAreaRef.current?.querySelector(
@@ -135,7 +138,9 @@ const ChatWindow = memo(function ChatWindow({
   useEffect(() => {
     if (!minimized) {
       messagingService.markAsRead(conversation.id).catch(() => {});
-      queryClient.invalidateQueries({ queryKey: ['conversations'] });
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.messaging.conversations.list(),
+      });
     }
   }, [conversation.id, minimized, queryClient]);
 

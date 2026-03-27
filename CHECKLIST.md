@@ -1,6 +1,6 @@
 # Refactor Checklist
 
-Last updated: 2026-03-18 (Audit Cycle 2 — full repo re-audit + coverage matrix)
+Last updated: 2026-03-27 (Audit Cycle 2 + architecture standards codified)
 
 This file is the canonical tracker for repo-wide refactor work.
 
@@ -118,11 +118,11 @@ Covered: `cash-advances`, `thirteenth-month-pay`, `attendance`, `attendance/appl
 
 Remaining GM route coverage gaps are now secondary subroutes rather than the base employee and operations families.
 
-**Trucking API routes — partial test coverage** (6 of 30+ routes have tests):
+**Trucking API routes — materially improved, with remaining secondary gaps**:
 
-Covered: `attendance`, `cash-advances`, `employees` (basic), `employees/salary-history`, `schedules`, `thirteenth-month-pay`
+Covered: `attendance`, `attendance/apply-leave`, `cash-advances`, `employees` (basic), `employees/salary-history`, `expenses`, `fleet-vehicles`, `invoices`, `leave-requests`, `payroll` subflows (`generate`, `cleanup`, `sync-lwop`, `generate-payslips`), `schedules`, `thirteenth-month-pay`, `trips`, `vehicle-assignments`
 
-Untested: `analytics/profitability`, `attendance/apply-leave`, `employee-automation-settings`, `employees/[id]`, `expenses`, `fleet-vehicles`, `invoices`, `leave-requests`, `payments`, `payroll` (full flow), `trips`, `vehicle-assignments`, `thirteenth-month-pay/[recordId]/status`
+Remaining lower-coverage trucking routes: `analytics/profitability`, `employee-automation-settings`, `employees/[id]`, `payments`, `thirteenth-month-pay/[recordId]/status`, plus broader integration and browser workflow depth
 
 ---
 
@@ -154,6 +154,12 @@ Untested: `analytics/profitability`, `attendance/apply-leave`, `employee-automat
 - [x] P2-6 GM API test coverage expansion completed.
 - [x] P2-6 slice: added dedicated GM route tests for `employee-automation-settings`, `expenses`, `products` + `[id]`, `customers` + `[id]`, and `shipments` + `[id]`, closing the remaining base-route GM coverage gap from Audit Cycle 2.
 - [x] P2-6 validation: targeted GM API Vitest coverage passed, plus `npm run lint`, `npm run typecheck`, and `npm run test:unit` passed.
+- [x] P2-7 trucking API test coverage expansion completed.
+- [x] P2-7 slice: added dedicated trucking route tests for `attendance/apply-leave`, `leave-requests`, `expenses`, `fleet-vehicles`, `invoices`, `trips`, `vehicle-assignments`, and payroll subflows (`generate`, `cleanup`, `sync-lwop`, `generate-payslips`).
+- [x] P2-7 validation: targeted trucking API Vitest coverage passed (`11` files / `34` tests), plus focused lint and `npm run typecheck` passed.
+- [x] P2 users/payments/payroll hotspot decomposition completed.
+- [x] P2 hotspot slice: `src/app/clothing/users/page.tsx`, `src/modules/clothing/operations/transactions/components/TransactionPaymentsModal.tsx`, and `src/modules/clothing/employees/payroll/hooks/usePayroll.ts` now delegate page logic, modal workflow state, and payroll orchestration into focused local hooks/components/shared flows.
+- [x] P2 hotspot validation: focused lint and `npm run typecheck` passed after the extractions.
 - [x] P3-6 accounting payroll route consolidation completed.
 - [x] P3-6 slice: clothing and GM payroll routes now delegate GET/POST/PUT/DELETE orchestration to `src/modules/shared/ledger/payroll/api/routeAdapter.ts` while keeping route namespaces, Prisma models, deduction sync, and expense-sync bindings business-specific.
 - [x] P3-6 validation: `npm run lint`, `npm run typecheck`, `tests/unit/api/payroll.api.test.ts`, and `tests/unit/api/general-merchandise.payroll.api.test.ts` passed.
@@ -165,14 +171,23 @@ Untested: `analytics/profitability`, `attendance/apply-leave`, `employee-automat
 - [x] P3-9 `HandsontableGrid.tsx` split completed.
 - [x] P3-9 slice: extracted `useHandsontableGridController`, `HandsontableGridToolbar`, `HandsontableGridTable`, `HandsontableGridFooter`, and shared grid types under `src/components/ui/handsontable-grid/` while keeping `HandsontableGrid.tsx` as the public integration wrapper.
 - [x] P3-9 validation: `npm run lint`, `npm run typecheck`, `npx playwright test tests/e2e/example.spec.ts --project=chromium`, and `npx vitest run tests/unit/transactions/useTransactionOperations.test.tsx` passed.
+- [x] P3 global-settings JS cleanup completed.
+- [x] P3 slice: removed stale duplicate artifacts `src/modules/settings/global/components/GlobalSettingsPage.js`, `src/modules/settings/global/hooks/useGlobalSettingsTabs.js`, and `src/modules/settings/global/types/global-settings.types.js` because the live module already resolves to the TS/TSX sources.
+- [x] P3 validation: focused lint and `npm run typecheck` passed.
+- [x] P3 user-management shared panel consolidation completed.
+- [x] P3 slice: extracted a shared user-management module under `src/modules/shared/user-management/` and moved both `src/app/clothing/users/page.tsx` and `src/components/settings/UserManagementSection.tsx` to thin wrappers over the same panel, hook, and focused components.
+- [x] P3 validation: targeted ESLint on the shared user-management module and wrappers plus `npm run typecheck` passed.
+- [x] P3 trucking trips dashboard decomposition completed.
+- [x] P3 slice: split `src/modules/trucking/operations/trips/hooks/useTripsDashboard.ts` into shared dashboard types/utilities plus dedicated data-loading and view-model hooks so the main hook now focuses on import/export, CRUD/finalize actions, and modal orchestration.
+- [x] P3 validation: targeted ESLint on the trips dashboard hooks plus `npm run typecheck` passed.
 
 ### In Progress
 
-- P2-7 Expand trucking API test coverage — 30+ routes with only 6 covered
+- No active P2 items.
 
 ### Pending (Audit Cycle 2)
 
-- No additional pending items beyond the active trucking coverage expansion in P2-7.
+- P2 and current P3 implementation backlog closed. Remaining follow-up is secondary coverage expansion and future audit-cycle hygiene.
 
 ## Repository-Wide Coverage Matrix (2026-03-18)
 
@@ -239,6 +254,141 @@ This matrix is the repo-wide test visibility view for the entire app.
 - Keep this matrix at workflow-family level, not individual component level, so it remains maintainable.
 - When a new workflow is added, update the matching row instead of creating ad hoc coverage notes elsewhere.
 - When a scaffolded page becomes a live workflow, upgrade its row from smoke-only coverage to unit, API, and integration expectations.
+
+## Architecture Standards
+
+These rules turn the refactor audit conclusions into default implementation standards for all future work.
+
+### Feature Ownership
+
+- New business features must be module-first and live under the relevant domain path in `src/modules/**`.
+- `src/app/**` page files should stay thin and primarily compose routing, permission checks, and page-level orchestration.
+- Business rules, data mapping, and workflow logic must not be introduced directly in page files when a module hook, service, or utility is the correct boundary.
+- Generic cross-domain helpers must not become a parallel feature layer that competes with domain modules.
+
+### Shared Code Boundaries
+
+- Shared code must remain data-source agnostic and business-path agnostic.
+- Shared code may accept injected domain config, route builders, repository bindings, Prisma delegates, or query-key builders.
+- Shared code must not hard-code `/api/trucking`, `/api/general-merchandise`, `/api/clothing`, or equivalent business-specific paths.
+- When two businesses share behavior but keep different namespaces or bindings, use a thin wrapper over a shared core instead of duplicating the full implementation.
+- If domain behavior materially diverges, keep the implementation per-business until the exact shared seam is proven safe.
+
+### API Route Standards
+
+- New API routes must follow one shared route pattern per route family instead of ad hoc raw handlers.
+- Prefer shared route middleware or shared route adapters with explicit per-business bindings.
+- CRUD-style route families should use shared scaffolding where feasible, but business-specific Prisma models, repository bindings, and namespaces must remain explicit.
+- Route files should focus on request parsing, validation, authorization, and delegation. They should not absorb deep business logic that belongs in services or domain helpers.
+- When an existing route family already has a local standard, extend that standard instead of introducing a second pattern in the same family.
+
+### Query Key Standards
+
+- React Query keys must come from centralized builders when the data is shared across pages, workflows, or businesses.
+- Query keys must include domain context where relevant so cache invalidation cannot bleed across businesses.
+- Inline array query keys are allowed only for strictly local, isolated page state with no cross-domain reuse and no shared invalidation contract.
+- Shared hooks must not embed fixed business-specific query keys; inject the domain context instead.
+
+### Hook, Service, and Component Boundaries
+
+- Hooks should separate data loading, mutation orchestration, derived state, and UI-only form state whenever the file starts mixing multiple concerns.
+- Services should own business operations and persistence orchestration, not view concerns.
+- Components should prefer composition over monolithic “god components” that combine layout, data loading, business rules, and modal orchestration.
+- If a hook or component becomes a cross-business shared core, keep business-specific notifications, copy, route prefixes, and edge-case handling in thin wrappers when needed.
+
+### Size And Decomposition Guardrails
+
+- Treat `>=500` lines as a warning threshold that requires a decomposition note.
+- Treat `>=800` lines as mandatory decomposition planning work.
+- Do not add broad new logic to files at `>=1000` lines unless blocked; extract a seam first when feasible.
+- Large-file exceptions must be justified by the implementation shape, not by convenience or deadline pressure.
+
+### Legacy And Migration Rules
+
+- Legacy generic feature hooks or service layers should be retired, isolated, or marked as migration targets instead of expanded indefinitely.
+- When touching a known legacy hotspot, prefer moving the affected logic toward the current module-first standard rather than adding another layer of compatibility code.
+- New work must not introduce a fresh competing pattern when the repository already has an accepted shared approach for the same concern.
+
+### Enforcement Expectations
+
+- Code review should reject new work that adds architecture drift without an explicit reason and follow-up item.
+- Refactor follow-ups should name the violated boundary plainly: API pattern split, query-key inconsistency, monolithic hook, monolithic route, or domain leakage.
+- When equivalent route or hook families exist across clothing, GM, trucking, or household, apply the same refactor pattern consistently unless there is a documented business-specific reason not to.
+
+## Reusable Architecture Audit Rubric
+
+Use this rubric for future architecture audits so results stay measurable and comparable over time.
+
+### Scoring Model (0-2 per category)
+
+- `0`: no consistent pattern or active regression.
+- `1`: pattern exists but inconsistent enforcement or legacy drift remains.
+- `2`: pattern is clear, measurable, and consistently enforced.
+
+### Categories
+
+| Category                     | What To Measure                                                    | Score (0-2) |
+| ---------------------------- | ------------------------------------------------------------------ | ----------- |
+| Module ownership             | Feature logic in `src/modules/**` vs scattered route/page logic    |             |
+| API route consistency        | One family pattern per concern vs mixed raw/wrapper/factory styles |             |
+| Query-key discipline         | Centralized domain-aware keys vs inline ad hoc keys                |             |
+| Domain isolation             | No cross-business namespace/model leakage                          |             |
+| Shared-layer boundaries      | Injected config/delegates vs hard-coded business paths             |             |
+| File-size risk posture       | Large-file guardrails followed with decomposition evidence         |             |
+| Parity across route families | Equivalent families refactored with same pattern                   |             |
+| Legacy migration progress    | Known hotspots shrinking instead of expanding                      |             |
+
+### Rubric Output Requirements
+
+- Include a `score by category` table and total score.
+- Include measurable evidence for each category (counts, file paths, or route-family snapshots).
+- Include a `top drift items` list with explicit file paths.
+- Include a `P1/P2/P3` execution queue with owner-ready action wording.
+- Include a second-pass verification note confirming or correcting first-pass findings.
+
+## Current Architecture Violation Backlog (2026-03-27)
+
+This is the active file-by-file backlog generated from the current repo state.
+
+### P1 - High Blast Radius
+
+- [x] `src/app/api/trucking/expenses/route.ts` — aligned to the route-family shared API pattern used by comparable domains.
+- [x] `src/app/api/trucking/payroll/route.ts` — migrated to the shared payroll route adapter while preserving trucking-specific deduction sync rules and payroll-to-expense posting.
+- [x] `src/app/api/trucking/attendance/route.ts` — standardized route structure and helpers while preserving the current attendance response contract used by shared hooks.
+- [x] `src/app/api/inventory/check-stock/route.ts` — route is now thin, delegating clothing stock-check business logic into the products service layer.
+- [x] `src/app/api/invoices/route.ts` — aligned to the invoice route-family response pattern with focused regression coverage for fetch, replace, update guardrails, and soft delete.
+- [x] `src/modules/transactions/api/service.ts` — extracted reference-validation plus inventory/status orchestration into dedicated transaction API modules, reducing the service to transaction CRUD flow and audit wiring.
+- [x] `src/app/api/restore/route.ts` — extracted restore model bindings plus table preview/restore orchestration into dedicated restore modules so the route can focus on API flow.
+- [x] `src/app/clothing/accounting/ledger/hooks/useLedger.ts` — opening-balance and manual-journal managers now live in dedicated hooks, leaving the main hook focused on ledger data loading, derived state, CSV actions, and transit-build actions.
+- [x] `src/app/personal/hooks/useHouseholdAccountsData.ts` — migrated to centralized household query-key builders.
+- [x] `src/app/personal/hooks/useHouseholdIncomeData.ts` — migrated to centralized household query-key builders.
+
+### P2 - Important Consistency Gaps
+
+- [x] `src/app/personal/hooks/useHouseholdBudgetsData.ts` — migrated to centralized household query-key builders.
+- [x] `src/app/personal/expenses/components/RecurringPaymentsPanel.tsx` — now uses centralized household recurring-payment query keys, with shared household-expenses invalidation also centralized.
+- [x] `src/app/clothing/operations/messaging/MessagingClientPage.tsx` — messaging queries now use centralized messaging query keys shared with chat windows, global notifications, and header quick actions.
+- [x] `src/modules/clothing/operations/dispatch/hooks/useDispatchData.ts` — dispatch orders, transactions, possible matches, and customer invalidation now use centralized dispatch/customer query-key builders.
+- [x] `src/modules/clothing/operations/checkout-links/hooks/useCheckoutLinksPage.ts` — invoice settings and customer-orders queries now use centralized checkout-links query keys.
+- [x] `src/modules/clothing/operations/settings/change-log/hooks/useChangeLogQuery.ts` — change-log queries now use a centralized query-key namespace.
+- [x] `src/hooks/useSheetData.ts` — touched household-expense slice moved out into a module-local personal hook so the generic cross-domain hook layer is no longer expanding in that path.
+- [x] `src/app/clothing/users/page.tsx` — decomposed into a thin route composition layer plus page-local hook, table, modal, and permission-tree components.
+- [x] `src/modules/clothing/operations/transactions/components/TransactionPaymentsModal.tsx` — split payment-entry, validation, and side-effect orchestration into `useTransactionPaymentsState`, filter rendering, and table rendering helpers.
+- [x] `src/modules/clothing/employees/payroll/hooks/usePayroll.ts` — reduced to a shared-base payroll composition while keeping module-local CSV import/export behavior.
+
+### P3 - Secondary Migration/Hygiene
+
+- [x] `src/modules/settings/global/components/GlobalSettingsPage.js` — removed stale JS duplicate; TSX source is canonical.
+- [x] `src/modules/settings/global/hooks/useGlobalSettingsTabs.js` — removed stale JS duplicate; TS source is canonical.
+- [x] `src/modules/settings/global/types/global-settings.types.js` — removed stale JS duplicate; TS type source is canonical.
+- [x] `src/components/settings/UserManagementSection.tsx` — replaced the duplicated large UI section with a thin wrapper over the shared user-management panel.
+- [x] `src/modules/trucking/operations/trips/hooks/useTripsDashboard.ts` — split query/loading, derived view-model, and action orchestration concerns across dedicated hooks and shared utilities.
+
+### Backlog Maintenance Rules
+
+- Re-score this backlog during each audit cycle.
+- Move completed items into the implementation queue sections (`P1`, `P2`, `P3`) with validation evidence.
+- Do not close an item until lint/typecheck and impacted domain isolation checks pass.
 
 ## Canonical Risk Boundaries
 
@@ -333,16 +483,16 @@ This matrix is the repo-wide test visibility view for the entire app.
   - [x] Add `general-merchandise.shipments.api.test.ts` (`route.ts` + `[id]/route.ts`)
   - [x] Validate: `npm run test:unit`
 
-- [ ] P2-7 Expand trucking API test coverage (partial — 6 of 30+ routes tested)
-  - [ ] Add `trucking.attendance-apply-leave.api.test.ts`
-  - [ ] Add `trucking.leave-requests.api.test.ts`
-  - [ ] Add `trucking.payroll.api.test.ts` (generate, cleanup, sync-lwop, payslips)
-  - [ ] Add `trucking.expenses.api.test.ts`
-  - [ ] Add `trucking.fleet-vehicles.api.test.ts`
-  - [ ] Add `trucking.invoices.api.test.ts`
-  - [ ] Add `trucking.trips.api.test.ts`
-  - [ ] Add `trucking.vehicle-assignments.api.test.ts`
-  - [ ] Validate: `npm run test:unit`
+- [x] P2-7 Expand trucking API test coverage
+  - [x] Add `trucking.attendance-apply-leave.api.test.ts`
+  - [x] Add `trucking.leave-requests.api.test.ts`
+  - [x] Add trucking payroll subroute tests (`generate`, `cleanup`, `sync-lwop`, `generate-payslips`)
+  - [x] Add `trucking.expenses.api.test.ts`
+  - [x] Add `trucking.fleet-vehicles.api.test.ts`
+  - [x] Add `trucking.invoices.api.test.ts`
+  - [x] Add `trucking.trips.api.test.ts`
+  - [x] Add `trucking.vehicle-assignments.api.test.ts`
+  - [x] Validate: targeted trucking Vitest batch (`11` files / `34` tests), focused lint, `npm run typecheck`
 
 - [x] P2-8 Extract sub-hooks from large shared hooks
   - [x] `useLeaveTracker.ts` (1284 lines) — extracted query/data layer, mutation layer, CSV helpers, and form state into composable sub-hooks
@@ -387,6 +537,17 @@ This matrix is the repo-wide test visibility view for the entire app.
   - [x] Extract keyboard shortcut map into a separate constants/handler file
   - [x] Keep main `HandsontableGrid` as the integration point
 
+- [x] P3-10 Consolidate duplicated user-management UI into a shared panel
+  - [x] Extract shared user-management hook, types, table, permission tree, modals, and panel under `src/modules/shared/user-management/`
+  - [x] Convert `src/app/clothing/users/page.tsx` and `src/components/settings/UserManagementSection.tsx` into thin wrappers over the shared panel
+  - [x] Validate with targeted ESLint on the shared module and wrappers plus `npm run typecheck`
+
+- [x] P3-11 Split `useTripsDashboard.ts` into dedicated data, view-model, and utility layers
+  - [x] Extract shared trips dashboard types and pure helper utilities under `src/modules/trucking/operations/trips/hooks/`
+  - [x] Extract trip loading/reference-data effects into `useTripsDashboardData.ts`
+  - [x] Extract filters, derived stats, collections, and expected-crew resolution into `useTripsDashboardViewModel.ts`
+  - [x] Validate with targeted ESLint on the trips dashboard hooks plus `npm run typecheck`
+
 ## Do Not Merge Blindly
 
 - `inventory-cogs.ts`
@@ -409,6 +570,33 @@ Run this for each completed implementation ticket.
 
 ## Current Slice Notes
 
+- [x] Started the new architecture P1 backlog with `src/app/api/trucking/expenses/route.ts`; the route now uses `withErrorHandler` + `ApiResponse` like the clothing and GM expense route family while preserving trucking-specific service behavior.
+- [x] Trucking expenses route validation passed: `npm run lint -- --file src/app/api/trucking/expenses/route.ts`, `npm run typecheck`
+- [x] `src/modules/shared/ledger/payroll/api/routeAdapter.ts` now syncs payroll-to-expense posting when paid payrolls are created, closing the last trucking-specific gap before moving the trucking payroll route onto the shared family.
+- [x] `src/app/api/trucking/payroll/route.ts` now uses the shared payroll route adapter with trucking-specific expense posting and pending-only deduction sync preserved.
+- [x] Trucking payroll route validation passed: `npm run lint -- --file src/app/api/trucking/payroll/route.ts --file src/modules/shared/ledger/payroll/api/routeAdapter.ts --file tests/unit/api/trucking.payroll.api.test.ts`, `npm run test:unit -- tests/unit/api/payroll.api.test.ts tests/unit/api/general-merchandise.payroll.api.test.ts tests/unit/api/trucking.payroll.api.test.ts`, `npm run typecheck`
+- [x] `src/app/api/invoices/route.ts` now matches the generic/GM invoice route-family response pattern and no longer mixes `NextResponse.json` payload styles across methods.
+- [x] Invoices route validation passed: `npm run lint -- --file src/app/api/invoices/route.ts --file tests/unit/api/invoices.api.test.ts`, `npm run test:unit -- tests/unit/api/invoices.api.test.ts`
+- [x] `src/app/api/inventory/check-stock/route.ts` now delegates the stock availability algorithm to `src/modules/clothing/operations/products/services/stockCheckService.ts`, reducing the route to request validation and response shaping only.
+- [x] Inventory stock-check decomposition validation passed: `npm run lint -- --file src/app/api/inventory/check-stock/route.ts --file src/modules/clothing/operations/products/services/stockCheckService.ts --file src/modules/clothing/operations/products/services/index.ts`, `npm run typecheck`
+- [x] `src/app/api/restore/route.ts` now relies on `restoreModelMap.ts` and `restoreTableService.ts` for table binding and preview/restore orchestration instead of carrying the full restore engine inline.
+- [x] Restore route decomposition validation passed: `npm run lint -- --file src/app/api/restore/route.ts --file src/app/api/restore/restoreModelMap.ts --file src/app/api/restore/restoreTableService.ts`, `npm run typecheck`
+- [x] Partial transaction-service decomposition: reference validation and transaction error types now live in `src/modules/transactions/api/referenceValidation.ts`, reducing inline import-write validation logic in `src/modules/transactions/api/service.ts` while keeping the public error exports stable.
+- [x] Transaction reference-validation extraction validation passed: `npm run lint -- --file src/modules/transactions/api/service.ts --file src/modules/transactions/api/referenceValidation.ts`, `npm run typecheck`
+- [x] `src/modules/transactions/api/service.ts` now delegates paid-status guards, shipment-status guards, and inventory movement orchestration to `transactionInventorySync.ts`, closing the remaining large inline transaction write-path hotspot while preserving the service export surface.
+- [x] Transaction inventory/status extraction validation passed: `npm run lint -- --file src/modules/transactions/api/service.ts --file src/modules/transactions/api/transactionInventorySync.ts`, `npm run typecheck`
+- [x] `src/lib/queryKeys.ts` now defines a centralized `household` namespace, and the P1 personal finance hooks consume it instead of inline cache-key strings.
+- [x] Household query-key migration validation passed: `npm run lint -- --file src/lib/queryKeys.ts --file src/app/personal/hooks/useHouseholdAccountsData.ts --file src/app/personal/hooks/useHouseholdIncomeData.ts`, `npm run typecheck`
+- [x] `src/lib/queryKeys.ts` now also centralizes `household.expenses`, `household.budgets`, and `household.recurringPayments`, with personal budgets, recurring payments, recurring-generation invalidation, and `useSheetData` household-expense wiring aligned to the same household namespace.
+- [x] Household budgets/recurring query-key cleanup validation passed: `npm run lint -- --file src/lib/queryKeys.ts --file src/app/personal/hooks/useHouseholdBudgetsData.ts --file src/app/personal/expenses/components/RecurringPaymentsPanel.tsx --file src/app/personal/hooks/usePersonalExpensesView.ts --file src/hooks/useSheetData.ts`, `npm run typecheck`
+- [x] `src/lib/queryKeys.ts` now also centralizes `messaging`, `dispatch`, `checkoutLinks`, and `changeLog` query-key families, and the current consumers in clothing operations messaging, dispatch, checkout links, change log, global notifications, and header chat windows all use those shared builders.
+- [x] Operations query-key cleanup validation passed: `npm run lint -- --file src/lib/queryKeys.ts --file src/modules/clothing/operations/checkout-links/hooks/useCheckoutLinksPage.ts --file src/modules/clothing/operations/settings/change-log/hooks/useChangeLogQuery.ts --file src/modules/clothing/operations/dispatch/hooks/usePossibleMatches.ts --file src/modules/clothing/operations/dispatch/hooks/useDispatchData.ts --file src/app/clothing/operations/messaging/MessagingClientPage.tsx --file src/components/GlobalMessageNotifications.tsx --file src/components/navigation/HeaderQuickActions.tsx --file src/components/navigation/header-quick-actions/ChatWindows.tsx`, `npm run typecheck`
+- [x] Household expenses now use `src/app/personal/hooks/useHouseholdExpenseData.ts` instead of the legacy generic `useSheetData` layer, trimming the touched household slice back to a module-local hook boundary.
+- [x] Household expense hook extraction validation passed: `npm run lint -- --file src/hooks/useSheetData.ts --file src/app/personal/hooks/useHouseholdExpenseData.ts --file src/app/personal/hooks/useHouseholdExpenses.ts`, `npm run typecheck`
+- [x] `src/app/clothing/accounting/ledger/hooks/useLedger.ts` now composes `useLedgerManualEntries.ts` and `useLedgerOpeningEntries.ts` with shared `ledgerTypes.ts`, removing the last large inline mutation/form clusters from the ledger hook.
+- [x] Ledger hook decomposition validation passed: `npm run lint -- --file src/app/clothing/accounting/ledger/hooks/useLedger.ts --file src/app/clothing/accounting/ledger/hooks/useLedgerManualEntries.ts --file src/app/clothing/accounting/ledger/hooks/useLedgerOpeningEntries.ts --file src/app/clothing/accounting/ledger/hooks/ledgerTypes.ts --file src/app/clothing/accounting/ledger/hooks/ledgerCsvHandlers.ts --file src/app/clothing/accounting/ledger/hooks/ledgerTransitBuildActions.ts`, `npm run typecheck`
+- [x] `src/app/api/trucking/attendance/route.ts` now uses the same structured helper layout as the comparable attendance routes while keeping the existing raw JSON response shapes expected by the shared attendance hook.
+- [x] Trucking attendance route validation passed: `npm run lint -- --file src/app/api/trucking/attendance/route.ts`, `npm run test:unit -- tests/unit/api/trucking.attendance.api.test.ts`
 - [x] Current active slice completed: `P2-6` GM API coverage expansion
 - [x] Added dedicated GM API tests for `employee-automation-settings`, `expenses`, `products` + `[id]`, `customers` + `[id]`, and `shipments` + `[id]`, closing the remaining base-route GM coverage gap from Audit Cycle 2
 - [x] GM API coverage expansion validation passed: targeted GM Vitest batch, `npm run lint`, `npm run typecheck`, `npm run test:unit`
@@ -470,6 +658,12 @@ Run this for each completed implementation ticket.
 - [x] Added general-merchandise payroll API coverage: `tests/unit/api/general-merchandise.payroll.api.test.ts`, `tests/unit/api/general-merchandise.payroll-generate.api.test.ts`, `tests/unit/api/general-merchandise.payroll-cleanup.api.test.ts`, `tests/unit/api/general-merchandise.payroll-generate-payslips.api.test.ts`, `tests/unit/api/general-merchandise.payroll-sync-lwop.api.test.ts`
 - [x] Final validation passed: `npm run typecheck`, `npm run lint`, `tests/unit/api/trucking.attendance.api.test.ts`, `tests/unit/api/trucking.schedules.api.test.ts`, `tests/unit/api/trucking.employees.api.test.ts`, `tests/unit/api/trucking.cash-advances.api.test.ts`, `tests/unit/api/trucking.thirteenth-month-pay.api.test.ts`, `tests/unit/api/general-merchandise.cash-advances.api.test.ts`, `tests/unit/api/general-merchandise.thirteenth-month-pay.api.test.ts`
 - [x] GM API base-route coverage gap is closed; the remaining repo test-expansion backlog is now primarily trucking-focused under P2-7.
+- [x] Trucking API coverage expansion closed the active P2 route-testing queue for apply-leave, leave requests, expenses, fleet vehicles, invoices, trips, vehicle assignments, and payroll subflows.
+- [x] Users page decomposition completed: `src/app/clothing/users/page.tsx` now composes `useUserManagementPage`, `UserManagementTable`, `UserManagementModals`, and `UserPermissionTree`.
+- [x] Transaction payments modal decomposition completed: `TransactionPaymentsModal.tsx` now composes `useTransactionPaymentsState`, `TransactionPaymentsFilters`, and `TransactionPaymentsTable`.
+- [x] Clothing payroll hook decomposition completed: `src/modules/clothing/employees/payroll/hooks/usePayroll.ts` now follows the shared payroll-base pattern while retaining module-local CSV behavior.
+- [x] Final P2 close-out validation passed: focused lint, `npm run typecheck`, and the targeted trucking API Vitest batch (`11` files / `34` tests).
+- [x] Global settings JS artifact cleanup passed: focused lint on the live TS/TSX files and `npm run typecheck`.
 
 ## Notes
 

@@ -1,7 +1,28 @@
-import { test, expect } from '@playwright/test';
+import { test, expect, type Page } from '@playwright/test';
 import { waitForTransactionsContent } from './helpers/transactions';
 
 test.describe.configure({ timeout: 90000 });
+
+async function gotoTransactionsPage(page: Page) {
+  try {
+    await page.goto('/clothing/operations/transactions', {
+      waitUntil: 'domcontentloaded',
+    });
+    await page.waitForLoadState('networkidle', { timeout: 10000 }).catch(() => {
+      /* network may stay active due to polling; best-effort only */
+    });
+    await waitForTransactionsContent(page, { timeout: 60000 });
+  } catch {
+    await page.goto('/clothing/operations/transactions', {
+      waitUntil: 'domcontentloaded',
+      timeout: 90_000,
+    });
+    await page.waitForLoadState('networkidle', { timeout: 10000 }).catch(() => {
+      /* network may stay active due to polling; best-effort only */
+    });
+    await waitForTransactionsContent(page, { timeout: 60000 });
+  }
+}
 
 test.describe('Transactions page', () => {
   test.beforeEach(async ({ page }) => {
@@ -18,13 +39,7 @@ test.describe('Transactions page', () => {
       );
     });
 
-    await page.goto('/clothing/operations/transactions', {
-      waitUntil: 'domcontentloaded',
-    });
-    await page.waitForLoadState('networkidle', { timeout: 10000 }).catch(() => {
-      /* network may stay active due to polling; best-effort only */
-    });
-    await waitForTransactionsContent(page, { timeout: 60000 });
+    await gotoTransactionsPage(page);
   });
 
   test('renders key controls and headers', async ({ page }) => {

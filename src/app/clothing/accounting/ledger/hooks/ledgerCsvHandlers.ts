@@ -8,7 +8,7 @@ import {
   escapeCsvValue,
 } from '@/lib/accounting/csv';
 import { getCurrentDateISO } from '@/utils/date';
-import type { LedgerEntry } from './useLedger';
+import type { LedgerEntry } from './ledgerTypes';
 
 interface ImportLedgerCsvParams {
   file: File;

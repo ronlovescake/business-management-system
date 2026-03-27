@@ -1,7 +1,7 @@
 import { showNotification } from '@mantine/notifications';
 import { getSwal } from '@/lib/alerts';
 import { logger } from '@/lib/logger';
-import type { LedgerEntry } from './useLedger';
+import type { LedgerEntry } from './ledgerTypes';
 
 interface DeleteTransitBuildEntryParams {
   entry: LedgerEntry;

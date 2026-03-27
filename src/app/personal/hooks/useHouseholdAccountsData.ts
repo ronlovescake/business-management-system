@@ -1,6 +1,7 @@
 import { useCallback, useMemo } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { exportToCSV } from '@/components/expenses';
+import { queryKeys } from '@/lib/queryKeys';
 import type { PersonalAccountDraft } from '@/app/personal/accounts/components/AccountFormDialog';
 import type { PersonalAccountRow } from '@/app/personal/accounts/components/AccountsListTable';
 import {
@@ -24,9 +25,10 @@ function mapDtoToRow(dto: HouseholdAccountDTO): PersonalAccountRow {
 
 export function useHouseholdAccountsData() {
   const queryClient = useQueryClient();
+  const accountsQueryKey = queryKeys.household.accounts.list();
 
   const accountsQuery = useQuery({
-    queryKey: ['household-accounts'],
+    queryKey: accountsQueryKey,
     queryFn: () => HouseholdAccountService.getAll(),
   });
 
@@ -52,7 +54,7 @@ export function useHouseholdAccountsData() {
         accountNumberLast4: draft.accountNumberLast4.trim(),
       }),
     onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ['household-accounts'] });
+      await queryClient.invalidateQueries({ queryKey: accountsQueryKey });
     },
   });
 
@@ -74,7 +76,7 @@ export function useHouseholdAccountsData() {
       return HouseholdAccountService.createMany(items);
     },
     onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ['household-accounts'] });
+      await queryClient.invalidateQueries({ queryKey: accountsQueryKey });
     },
   });
 
@@ -87,14 +89,14 @@ export function useHouseholdAccountsData() {
         accountNumberLast4: draft.accountNumberLast4.trim(),
       }),
     onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ['household-accounts'] });
+      await queryClient.invalidateQueries({ queryKey: accountsQueryKey });
     },
   });
 
   const deleteAccount = useMutation({
     mutationFn: (id: string) => HouseholdAccountService.deleteById(id),
     onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ['household-accounts'] });
+      await queryClient.invalidateQueries({ queryKey: accountsQueryKey });
     },
   });
 

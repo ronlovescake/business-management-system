@@ -5,6 +5,7 @@ import { getSwal } from '@/lib/alerts';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api/client';
 import { buildApiPath } from '@/lib/api/paths';
+import { queryKeys } from '@/lib/queryKeys';
 import { useInvoiceCustomerLookup } from './useInvoiceCustomerLookup';
 import {
   calculateInvoiceWeights,
@@ -104,9 +105,14 @@ export const useCheckoutLinksPage = ({
     [checkoutLinksApiBasePath, apiBasePath]
   );
   const queryClient = useQueryClient();
+  const queryScope = apiBasePath ?? 'default';
+  const invoiceSettingsQueryKey =
+    queryKeys.checkoutLinks.invoiceSettings(queryScope);
+  const customerOrdersQueryKey =
+    queryKeys.checkoutLinks.customerOrders(queryScope);
 
   const { data: invoiceSettings } = useQuery<InvoiceSettingsResponse>({
-    queryKey: ['invoice-settings', apiBasePath ?? 'default'],
+    queryKey: invoiceSettingsQueryKey,
     queryFn: async () => {
       return api.get<InvoiceSettingsResponse>('/api/invoice-settings');
     },
@@ -141,7 +147,7 @@ export const useCheckoutLinksPage = ({
 
   const { data: customerOrders = [], isFetching: isCustomerOrdersLoading } =
     useQuery<CustomerOrderData[]>({
-      queryKey: ['customer-orders', apiBasePath ?? 'default'],
+      queryKey: customerOrdersQueryKey,
       queryFn: async () =>
         fetchCustomerOrders(resolveApiPath('/invoices/customer-orders')),
       refetchOnWindowFocus: true,
@@ -176,9 +182,7 @@ export const useCheckoutLinksPage = ({
         color: 'green',
       });
 
-      await queryClient.invalidateQueries({
-        queryKey: ['customer-orders', apiBasePath ?? 'default'],
-      });
+      await queryClient.invalidateQueries({ queryKey: customerOrdersQueryKey });
     } catch (error) {
       showNotification({
         title: 'Calculation Failed',
@@ -189,7 +193,7 @@ export const useCheckoutLinksPage = ({
         color: 'red',
       });
     }
-  }, [queryClient, apiBasePath, resolveApiPath]);
+  }, [customerOrdersQueryKey, queryClient, resolveApiPath]);
 
   const loadCheckoutLinks = useCallback(async () => {
     try {

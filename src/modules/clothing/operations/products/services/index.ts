@@ -3,3 +3,4 @@
  */
 
 export * from './ProductService';
+export * from './stockCheckService';

@@ -18,7 +18,7 @@ vi.mock('next-auth/react', () => ({
   }),
 }));
 
-vi.mock('@/hooks/useSheetData', () => ({
+vi.mock('@/app/personal/hooks/useHouseholdExpenseData', () => ({
   useHouseholdExpenseData: () => ({
     data: [],
     isLoading: false,

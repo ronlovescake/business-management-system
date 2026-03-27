@@ -11,6 +11,7 @@ import { showNotification } from '@mantine/notifications';
 import { apiClient } from '@/lib/api/client';
 import { buildApiPath } from '@/lib/api/paths';
 import { logger } from '@/lib/logger';
+import { queryKeys } from '@/lib/queryKeys';
 import { normalizeOrderStatus } from '@/lib/transactions/order-status';
 import { parseLineTotal } from '@/lib/transactions';
 import { runMicroBenchmark } from '@/lib/performance/benchmarks';
@@ -118,6 +119,12 @@ export function useDispatchData({
   );
 
   const queryClient = useQueryClient();
+  const queryScope = apiBasePath ?? 'default';
+  const dispatchOrdersQueryKey = queryKeys.dispatch.orders.list(queryScope);
+  const dispatchTransactionsQueryKey =
+    queryKeys.dispatch.transactions.list(queryScope);
+  const possibleMatchesQueryKey =
+    queryKeys.dispatch.possibleMatches.list(queryScope);
 
   // Fetch saved dispatch orders from database
   const {
@@ -125,7 +132,7 @@ export function useDispatchData({
     isLoading: loadingSavedOrders,
     error: fetchError,
   } = useQuery({
-    queryKey: ['dispatch-orders', apiBasePath ?? 'default'],
+    queryKey: dispatchOrdersQueryKey,
     queryFn: async () => {
       const response = (await apiClient.get(
         buildApiPath(apiBasePath, '/dispatch/orders')
@@ -140,7 +147,7 @@ export function useDispatchData({
   });
 
   const { data: transactions = [] } = useQuery<TransactionRecord[]>({
-    queryKey: ['transactions', 'dispatch', apiBasePath ?? 'default'],
+    queryKey: dispatchTransactionsQueryKey,
     queryFn: async () =>
       (await apiClient.get(
         buildApiPath(apiBasePath, '/transactions')
@@ -208,9 +215,7 @@ export function useDispatchData({
     },
     onSuccess: (response) => {
       logger.info('Orders saved to database', response.data);
-      queryClient.invalidateQueries({
-        queryKey: ['dispatch-orders', apiBasePath ?? 'default'],
-      });
+      queryClient.invalidateQueries({ queryKey: dispatchOrdersQueryKey });
       showNotification({
         title: 'Success',
         message: `${response.data.created} orders saved to database (replaced ${response.data.deleted} previous orders)`,
@@ -295,12 +300,12 @@ export function useDispatchData({
       logger.info('Customer linked successfully', data);
       // Invalidate queries to refresh data
       queryClient.invalidateQueries({
-        queryKey: ['dispatch-customers-shopee'],
+        queryKey: queryKeys.customers.withShopee(),
       });
+      queryClient.invalidateQueries({ queryKey: possibleMatchesQueryKey });
       queryClient.invalidateQueries({
-        queryKey: ['possible-match-customers-with-addresses'],
+        queryKey: queryKeys.dispatch.orders.all(),
       });
-      queryClient.invalidateQueries({ queryKey: ['dispatch-orders'] });
 
       showNotification({
         title: 'Customer Linked',

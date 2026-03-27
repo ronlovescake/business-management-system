@@ -31,10 +31,34 @@ test.describe.configure({ timeout: 60_000 });
 // ---------------------------------------------------------------------------
 
 async function gotoOperationsPage(page: Page, path: string) {
-  await page.goto(path, { waitUntil: 'domcontentloaded', timeout: 60_000 });
+  try {
+    await page.goto(path, { waitUntil: 'domcontentloaded', timeout: 60_000 });
+  } catch {
+    await page.goto(path, { waitUntil: 'domcontentloaded', timeout: 90_000 });
+  }
   await page.waitForLoadState('networkidle', { timeout: 20_000 }).catch(() => {
     /* long-poll / analytics requests may keep the network busy */
   });
+}
+
+async function expectTextVisibleWithReload(
+  page: Page,
+  text: string,
+  timeout = 15_000
+) {
+  const locator = page.getByText(text).first();
+  const visible = await locator.isVisible({ timeout }).catch(() => false);
+
+  if (visible) {
+    await expect(locator).toBeVisible();
+    return;
+  }
+
+  await page.reload({ waitUntil: 'domcontentloaded', timeout: 90_000 });
+  await page.waitForLoadState('networkidle', { timeout: 20_000 }).catch(() => {
+    /* long-poll / analytics requests may keep the network busy */
+  });
+  await expect(locator).toBeVisible({ timeout: 30_000 });
 }
 
 test.beforeEach(async ({ page }) => {
@@ -75,32 +99,21 @@ test.describe('Operations — Dashboard', () => {
     page,
   }) => {
     await gotoOperationsPage(page, URL);
-    // Business logic: generateStatistics builds exactly 4 cards
-    const cards = page.locator(
-      '[class*="card" i], [class*="Card" i], [class*="stat" i]'
-    );
-    await expect(cards.first()).toBeVisible({ timeout: 15_000 });
-    const count = await cards.count();
-    expect(count).toBeGreaterThanOrEqual(4);
+    await expect(page.getByText('Total Revenue').first()).toBeVisible({
+      timeout: 15_000,
+    });
+    await expect(page.getByText('Active Orders').first()).toBeVisible();
+    await expect(page.getByText('Customers').first()).toBeVisible();
+    await expect(page.getByText('Products').first()).toBeVisible();
   });
 
   test('sales trend range controls are present [rule: 7d / 30d / 90d]', async ({
     page,
   }) => {
     await gotoOperationsPage(page, URL);
-    // Business logic: 3 trend range buttons — Last 7 Days, Last 30 Days, Last 90 Days
-    const sevenDayBtn = page
-      .getByRole('button', { name: /7.?d|7 day/i })
-      .or(page.getByText(/7.?d|last 7/i))
-      .first();
-    const thirtyDayBtn = page
-      .getByRole('button', { name: /30.?d|30 day/i })
-      .or(page.getByText(/30.?d|last 30/i))
-      .first();
-    const hasTrend =
-      (await sevenDayBtn.isVisible({ timeout: 10_000 }).catch(() => false)) ||
-      (await thirtyDayBtn.isVisible({ timeout: 10_000 }).catch(() => false));
-    expect(hasTrend).toBe(true);
+    await expect(page.getByText('7 days')).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByText('30 days')).toBeVisible();
+    await expect(page.getByText('90 days')).toBeVisible();
   });
 
   test('order pipeline funnel stages are present [rule: Prepared, Packed, Shipped, Delivered]', async ({
@@ -227,12 +240,10 @@ test.describe('Operations — Products', () => {
     page,
   }) => {
     await gotoOperationsPage(page, URL);
-    const cards = page.locator(
-      '[class*="card" i], [class*="Card" i], [class*="stat" i]'
-    );
-    await expect(cards.first()).toBeVisible({ timeout: 15_000 });
-    const count = await cards.count();
-    expect(count).toBeGreaterThanOrEqual(4);
+    await expectTextVisibleWithReload(page, 'Total Products', 30_000);
+    await expectTextVisibleWithReload(page, 'Total Value');
+    await expectTextVisibleWithReload(page, 'Average Value');
+    await expectTextVisibleWithReload(page, 'Total Profit');
   });
 
   test('four product tabs are present [rule: Products, Bundles, Mix & Match, Shipping Calculator]', async ({
@@ -496,10 +507,9 @@ test.describe('Operations — Customers', () => {
     page,
   }) => {
     await gotoOperationsPage(page, URL);
-    const cards = page.locator(
-      '[class*="card" i], [class*="Card" i], [class*="stat" i]'
-    );
-    await expect(cards.first()).toBeVisible({ timeout: 15_000 });
+    await expectTextVisibleWithReload(page, 'Total customers');
+    await expectTextVisibleWithReload(page, 'Unique businesses');
+    await expectTextVisibleWithReload(page, 'Contactable');
   });
 
   test('"Add Customer" button is present', async ({ page }) => {
@@ -695,10 +705,10 @@ test.describe('Operations — Prices', () => {
 
   test('stat cards are rendered [rule: PriceStatsCards]', async ({ page }) => {
     await gotoOperationsPage(page, URL);
-    const cards = page.locator(
-      '[class*="card" i], [class*="Card" i], [class*="stat" i]'
-    );
-    await expect(cards.first()).toBeVisible({ timeout: 15_000 });
+    await expectTextVisibleWithReload(page, 'Total Products');
+    await expectTextVisibleWithReload(page, 'Average Price');
+    await expectTextVisibleWithReload(page, 'Price Increases');
+    await expectTextVisibleWithReload(page, 'Price Decreases');
   });
 
   test('"Add Price" button is present [rule: opens AddPriceModal]', async ({

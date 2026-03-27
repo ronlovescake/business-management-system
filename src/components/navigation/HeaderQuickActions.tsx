@@ -5,6 +5,7 @@ import { Group } from '@mantine/core';
 import { usePathname, useRouter } from 'next/navigation';
 import { useSession, signOut } from 'next-auth/react';
 import { useQuery } from '@tanstack/react-query';
+import { queryKeys } from '@/lib/queryKeys';
 import { useBusinessStore } from '@/lib/store';
 import { getMessagingPath } from '@/lib/routes';
 import { messagingService } from '@/services/messaging.service';
@@ -54,13 +55,14 @@ export function HeaderQuickActions({
   );
   const currentUserId = session?.user?.id ?? null;
   const currentUserEmail = session?.user?.email ?? null;
+  const conversationsQueryKey = queryKeys.messaging.conversations.list();
 
   const {
     data: conversations = [],
     isLoading: loadingConversations,
     error: conversationsError,
   } = useQuery({
-    queryKey: ['conversations'],
+    queryKey: conversationsQueryKey,
     queryFn: () => messagingService.getConversations(),
     refetchInterval: 5000,
   });

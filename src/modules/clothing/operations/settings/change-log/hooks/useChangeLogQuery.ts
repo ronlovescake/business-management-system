@@ -3,6 +3,7 @@ import { api } from '@/lib/api/client';
 import { buildApiPath } from '@/lib/api/paths';
 import { unwrapApiData } from '@/lib/api/normalize';
 import { logger } from '@/lib/logger';
+import { queryKeys } from '@/lib/queryKeys';
 import type { ApiResponse } from '@/types/api';
 
 export interface ChangeLogRecord {
@@ -134,7 +135,7 @@ export function useChangeLogQuery(
   apiBasePath?: string
 ) {
   return useQuery({
-    queryKey: ['change-log', apiBasePath ?? 'default', params],
+    queryKey: queryKeys.changeLog.list(apiBasePath ?? 'default', params),
     queryFn: () => fetchChangeLogs(params, apiBasePath),
     placeholderData: keepPreviousData,
     staleTime: 30 * 1000,

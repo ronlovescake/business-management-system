@@ -27,6 +27,7 @@ import { UniversalModal } from '@/components/modals/UniversalModal';
 
 import { usePolishedFieldStyles } from '@/components/modals/usePolishedFieldStyles';
 import { COMMON_DATE_INPUT_PROPS } from '@/lib/dateInputConfig';
+import { queryKeys } from '@/lib/queryKeys';
 
 type SelectOption = { value: string; label: string };
 
@@ -56,6 +57,8 @@ export function RecurringPaymentsPanel(props: {
     lastGenerateResult,
   } = props;
   const queryClient = useQueryClient();
+  const recurringPaymentsQueryKey =
+    queryKeys.household.recurringPayments.list();
 
   const [name, setName] = React.useState('');
   const [amount, setAmount] = React.useState<number | ''>('');
@@ -71,7 +74,7 @@ export function RecurringPaymentsPanel(props: {
   const isEditing = Boolean(editingItem);
 
   const recurringQuery = useQuery({
-    queryKey: ['household-recurring-payments'],
+    queryKey: recurringPaymentsQueryKey,
     queryFn: () => HouseholdRecurringPaymentService.getAll(),
     staleTime: 60 * 1000,
   });
@@ -120,7 +123,7 @@ export function RecurringPaymentsPanel(props: {
     },
     onSuccess: async () => {
       await queryClient.invalidateQueries({
-        queryKey: ['household-recurring-payments'],
+        queryKey: recurringPaymentsQueryKey,
       });
       setOpened(false);
       setEditingItem(null);
@@ -163,7 +166,7 @@ export function RecurringPaymentsPanel(props: {
     },
     onSuccess: async () => {
       await queryClient.invalidateQueries({
-        queryKey: ['household-recurring-payments'],
+        queryKey: recurringPaymentsQueryKey,
       });
       setOpened(false);
       setEditingItem(null);
@@ -176,7 +179,7 @@ export function RecurringPaymentsPanel(props: {
       HouseholdRecurringPaymentService.deleteById(id),
     onSuccess: async () => {
       await queryClient.invalidateQueries({
-        queryKey: ['household-recurring-payments'],
+        queryKey: recurringPaymentsQueryKey,
       });
     },
   });

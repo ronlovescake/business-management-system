@@ -35,6 +35,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { showNotification } from '@mantine/notifications';
 import { useSession } from 'next-auth/react';
 import { PageLayout } from '@/components/layout/PageLayout';
+import { queryKeys } from '@/lib/queryKeys';
 import {
   messagingService,
   type Conversation,
@@ -63,6 +64,10 @@ export function MessagingClientPage() {
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const previousMessagesRef = useRef<Message[]>([]);
   const queryClient = useQueryClient();
+  const conversationsQueryKey = queryKeys.messaging.conversations.list();
+  const usersQueryKey = queryKeys.messaging.users.list();
+  const activeMessagesQueryKey =
+    queryKeys.messaging.messages.detail(activeConversationId);
 
   // Fetch conversations with polling
   const {
@@ -70,14 +75,14 @@ export function MessagingClientPage() {
     isLoading: loadingConversations,
     error: conversationsError,
   } = useQuery({
-    queryKey: ['conversations'],
+    queryKey: conversationsQueryKey,
     queryFn: () => messagingService.getConversations(),
     refetchInterval: 5000, // Poll every 5 seconds
   });
 
   // Fetch available users for new conversations
   const { data: availableUsers = [] } = useQuery({
-    queryKey: ['users-messaging'],
+    queryKey: usersQueryKey,
     queryFn: () => messagingService.getUsers(),
   });
 
@@ -94,7 +99,7 @@ export function MessagingClientPage() {
     isLoading: loadingMessages,
     error: messagesError,
   } = useQuery({
-    queryKey: ['messages', activeConversationId],
+    queryKey: activeMessagesQueryKey,
     queryFn: async () => {
       if (!activeConversationId) {
         return [];
@@ -117,9 +122,8 @@ export function MessagingClientPage() {
     onSuccess: (newMessage) => {
       // Optimistically update the messages cache
       queryClient.setQueryData(
-        ['messages', activeConversationId],
+        activeMessagesQueryKey,
         (oldMessages: Message[] = []) => {
-          // Check if message already exists (avoid duplicates)
           const exists = oldMessages.some((msg) => msg.id === newMessage.id);
           if (exists) {
             return oldMessages;
@@ -128,10 +132,8 @@ export function MessagingClientPage() {
         }
       );
 
-      queryClient.invalidateQueries({
-        queryKey: ['messages', activeConversationId],
-      });
-      queryClient.invalidateQueries({ queryKey: ['conversations'] });
+      queryClient.invalidateQueries({ queryKey: activeMessagesQueryKey });
+      queryClient.invalidateQueries({ queryKey: conversationsQueryKey });
       setMessageInput('');
 
       // Scroll to bottom
@@ -163,7 +165,7 @@ export function MessagingClientPage() {
       isGroup?: boolean;
     }) => messagingService.createConversation(payload),
     onSuccess: (conversation) => {
-      queryClient.invalidateQueries({ queryKey: ['conversations'] });
+      queryClient.invalidateQueries({ queryKey: conversationsQueryKey });
       setActiveConversationId(conversation.id);
       setNewMessageModalOpen(false);
       setSelectedUserIds([]);
@@ -189,10 +191,12 @@ export function MessagingClientPage() {
       messagingService.markAsRead(activeConversationId).catch(() => {
         // Silently fail - not critical
       });
-      queryClient.invalidateQueries({ queryKey: ['conversations'] });
-      queryClient.invalidateQueries({ queryKey: ['unread-messages-global'] });
+      queryClient.invalidateQueries({ queryKey: conversationsQueryKey });
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.messaging.unreadGlobal(),
+      });
     }
-  }, [activeConversationId, queryClient]);
+  }, [activeConversationId, conversationsQueryKey, queryClient]);
 
   // Initialize audio context on mount (enables auto-play notifications)
   useEffect(() => {

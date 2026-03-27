@@ -209,6 +209,96 @@ export const queryKeys = {
     byCategory: (category: string = 'all') =>
       queryKeys.operationsNotifications.list(category),
   },
+
+  // Household / Personal Finance
+  household: {
+    all: ['household'] as const,
+    accounts: {
+      all: () => [...queryKeys.household.all, 'accounts'] as const,
+      list: () => [...queryKeys.household.accounts.all(), 'list'] as const,
+    },
+    expenses: {
+      all: () => [...queryKeys.household.all, 'expenses'] as const,
+      list: () => [...queryKeys.household.expenses.all(), 'list'] as const,
+    },
+    income: {
+      all: () => [...queryKeys.household.all, 'income'] as const,
+      list: () => [...queryKeys.household.income.all(), 'list'] as const,
+    },
+    budgets: {
+      all: () => [...queryKeys.household.all, 'budgets'] as const,
+      list: () => [...queryKeys.household.budgets.all(), 'list'] as const,
+    },
+    recurringPayments: {
+      all: () => [...queryKeys.household.all, 'recurring-payments'] as const,
+      list: () =>
+        [...queryKeys.household.recurringPayments.all(), 'list'] as const,
+    },
+  },
+
+  // Messaging
+  messaging: {
+    all: ['messaging'] as const,
+    conversations: {
+      all: () => [...queryKeys.messaging.all, 'conversations'] as const,
+      list: () => [...queryKeys.messaging.conversations.all(), 'list'] as const,
+    },
+    users: {
+      all: () => [...queryKeys.messaging.all, 'users'] as const,
+      list: () => [...queryKeys.messaging.users.all(), 'list'] as const,
+    },
+    messages: {
+      all: () => [...queryKeys.messaging.all, 'messages'] as const,
+      detail: (conversationId: string | null | undefined) =>
+        [
+          ...queryKeys.messaging.messages.all(),
+          conversationId ?? 'none',
+        ] as const,
+      headerDetail: (conversationId: string | null | undefined) =>
+        [
+          ...queryKeys.messaging.messages.all(),
+          'header',
+          conversationId ?? 'none',
+        ] as const,
+    },
+    unreadGlobal: () => [...queryKeys.messaging.all, 'unread-global'] as const,
+  },
+
+  // Dispatch
+  dispatch: {
+    all: ['dispatch'] as const,
+    orders: {
+      all: () => [...queryKeys.dispatch.all, 'orders'] as const,
+      list: (scope: string = 'default') =>
+        [...queryKeys.dispatch.orders.all(), scope] as const,
+    },
+    transactions: {
+      all: () => [...queryKeys.dispatch.all, 'transactions'] as const,
+      list: (scope: string = 'default') =>
+        [...queryKeys.dispatch.transactions.all(), scope] as const,
+    },
+    possibleMatches: {
+      all: () => [...queryKeys.dispatch.all, 'possible-matches'] as const,
+      list: (scope: string = 'default') =>
+        [...queryKeys.dispatch.possibleMatches.all(), scope] as const,
+    },
+  },
+
+  // Checkout Links
+  checkoutLinks: {
+    all: ['checkout-links'] as const,
+    invoiceSettings: (scope: string = 'default') =>
+      [...queryKeys.checkoutLinks.all, 'invoice-settings', scope] as const,
+    customerOrders: (scope: string = 'default') =>
+      [...queryKeys.checkoutLinks.all, 'customer-orders', scope] as const,
+  },
+
+  // Change Log
+  changeLog: {
+    all: ['change-log'] as const,
+    list: (scope: string = 'default', params?: object) =>
+      [...queryKeys.changeLog.all, scope, params ?? {}] as const,
+  },
 } as const;
 
 /**
