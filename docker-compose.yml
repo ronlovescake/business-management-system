@@ -1,0 +1,65 @@
+services:
+  db:
+    image: postgres:16
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - ${BMS_DATA_ROOT}/postgres:/var/lib/postgresql/data
+      - ${BMS_DATA_ROOT}/backup:/backups
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        BUILD_NEXT_PUBLIC_APP_URL: ${NEXT_PUBLIC_APP_URL}
+        BUILD_NEXTAUTH_URL: ${NEXTAUTH_URL}
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      PORT: 5000
+      BACKUP_DIR: /backups
+      DATABASE_URL: ${DATABASE_URL}
+      NEXT_PUBLIC_APP_URL: ${NEXT_PUBLIC_APP_URL}
+      NEXTAUTH_URL: ${NEXTAUTH_URL}
+      NEXTAUTH_SECRET: ${NEXTAUTH_SECRET}
+      PLAYWRIGHT_BROWSERS_PATH: /ms-playwright
+      LOG_ALL_QUERIES: ${LOG_ALL_QUERIES:-false}
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASS: ${SMTP_PASS:-}
+      EMAIL_FROM: ${EMAIL_FROM:-}
+      NEXT_PUBLIC_SENTRY_DSN: ${NEXT_PUBLIC_SENTRY_DSN:-}
+      SENTRY_ORG: ${SENTRY_ORG:-}
+      SENTRY_PROJECT: ${SENTRY_PROJECT:-}
+      SENTRY_AUTH_TOKEN: ${SENTRY_AUTH_TOKEN:-}
+      GOOGLE_DRIVE_FOLDER_ID: ${GOOGLE_DRIVE_FOLDER_ID:-}
+      GOOGLE_CLIENT_EMAIL: ${GOOGLE_CLIENT_EMAIL:-}
+      GOOGLE_PRIVATE_KEY: ${GOOGLE_PRIVATE_KEY:-}
+      INTERNAL_JOB_TOKEN: ${INTERNAL_JOB_TOKEN:-}
+      BACKUP_STRICT_TABLES: ${BACKUP_STRICT_TABLES:-}
+      BMS_DATA_ROOT: ${BMS_DATA_ROOT}
+    ports:
+      - "${APP_PORT:-5000}:5000"
+    volumes:
+      - ${BMS_DATA_ROOT}/backup:/backups
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "node -e \"fetch('http://127.0.0.1:5000/api/health').then((res) => process.exit(res.ok ? 0 : 1)).catch(() => process.exit(1))\"",
+        ]
+      interval: 30s
+      timeout: 10s
+      retries: 5

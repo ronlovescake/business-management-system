@@ -18,6 +18,40 @@
 import { z } from 'zod';
 import { logger } from '@/lib/logger';
 
+const optionalNonEmptyString = () =>
+  z.preprocess((val) => {
+    if (typeof val !== 'string') {
+      return val;
+    }
+
+    const trimmed = val.trim();
+    return trimmed === '' ? undefined : trimmed;
+  }, z.string().min(1).optional());
+
+const optionalUrlString = (message: string) =>
+  z.preprocess((val) => {
+    if (typeof val !== 'string') {
+      return val;
+    }
+
+    const trimmed = val.trim();
+    return trimmed === '' ? undefined : trimmed;
+  }, z.string().url(message).optional());
+
+const optionalInteger = () =>
+  z.preprocess((val) => {
+    if (val === undefined || val === null) {
+      return undefined;
+    }
+
+    if (typeof val === 'string') {
+      const trimmed = val.trim();
+      return trimmed === '' ? undefined : Number(trimmed);
+    }
+
+    return Number(val);
+  }, z.number().int().optional());
+
 /**
  * Schema for server-side environment variables
  * These are only available in Node.js environment (API routes, server components)
@@ -29,23 +63,27 @@ const serverSchema = z.object({
     .default('development'),
 
   // Database (not required in test environment - tests use mocks)
-  DATABASE_URL: z
-    .string()
-    .url('DATABASE_URL must be a valid PostgreSQL connection URL')
-    .optional(),
+  DATABASE_URL: optionalUrlString(
+    'DATABASE_URL must be a valid PostgreSQL connection URL'
+  ),
 
   // Authentication (optional for now, will be required when implementing auth)
-  NEXTAUTH_URL: z.string().url().optional(),
-  NEXTAUTH_SECRET: z.string().min(32).optional(),
+  NEXTAUTH_URL: optionalUrlString('NEXTAUTH_URL must be a valid URL'),
+  NEXTAUTH_SECRET: z.preprocess((val) => {
+    if (typeof val !== 'string') {
+      return val;
+    }
+
+    const trimmed = val.trim();
+    return trimmed === '' ? undefined : trimmed;
+  }, z.string().min(32).optional()),
 
   // Email / SMTP configuration (optional locally, required for password reset emails)
-  SMTP_HOST: z.string().min(1).optional(),
-  SMTP_PORT: z
-    .preprocess((val) => (val ? Number(val) : undefined), z.number().int())
-    .optional(),
-  SMTP_USER: z.string().min(1).optional(),
-  SMTP_PASS: z.string().min(1).optional(),
-  EMAIL_FROM: z.string().min(1).optional(),
+  SMTP_HOST: optionalNonEmptyString(),
+  SMTP_PORT: optionalInteger(),
+  SMTP_USER: optionalNonEmptyString(),
+  SMTP_PASS: optionalNonEmptyString(),
+  EMAIL_FROM: optionalNonEmptyString(),
 
   // Query logging (optional)
   LOG_ALL_QUERIES: z
@@ -60,7 +98,9 @@ const serverSchema = z.object({
  */
 const clientSchema = z.object({
   // Application base URL (for absolute URLs in emails, API calls, etc.)
-  NEXT_PUBLIC_APP_URL: z.string().url().optional(),
+  NEXT_PUBLIC_APP_URL: optionalUrlString(
+    'NEXT_PUBLIC_APP_URL must be a valid URL'
+  ),
 
   // Sentry DSN for error tracking (empty string allowed for test environments)
   NEXT_PUBLIC_SENTRY_DSN: z
@@ -123,6 +163,11 @@ function validateEnv(): Env {
       const appUrl = parsed.NEXT_PUBLIC_APP_URL as string;
 
       const localhostHosts = new Set(['localhost', '127.0.0.1', '::1']);
+      const localContainerHosts = new Set([
+        'db',
+        'postgres',
+        'host.docker.internal',
+      ]);
 
       const dbHost = new URL(databaseUrl).hostname;
       const nextAuthHost = new URL(nextAuthUrl).hostname;
@@ -130,7 +175,7 @@ function validateEnv(): Env {
       const appHost = new URL(appUrl).hostname;
 
       const isLocalProdRun =
-        localhostHosts.has(dbHost) &&
+        (localhostHosts.has(dbHost) || localContainerHosts.has(dbHost)) &&
         localhostHosts.has(nextAuthHost) &&
         localhostHosts.has(appHost);
 

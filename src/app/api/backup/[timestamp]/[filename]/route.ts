@@ -7,6 +7,7 @@
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 import { requireAdmin } from '@/lib/auth/session';
+import { getBackupDirectory } from '@/lib/backup-storage';
 import fs from 'fs';
 import path from 'path';
 import { parser } from 'stream-json';
@@ -16,7 +17,7 @@ import { logger } from '@/lib/logger';
 import { createHash } from 'crypto';
 import Papa from 'papaparse';
 
-const BACKUP_DIR = path.resolve(process.cwd(), 'backups');
+const BACKUP_DIR = getBackupDirectory();
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 

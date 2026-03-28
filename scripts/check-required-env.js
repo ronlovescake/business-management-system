@@ -20,11 +20,11 @@ const dbUrl = (process.env.DATABASE_URL || '').trim();
 
 if (!dbUrl) {
   errors.push(
-    'DATABASE_URL is missing. Copy .env.example to .env.local and set a PostgreSQL connection string.'
+    'DATABASE_URL is missing. Set a PostgreSQL connection string in your environment or in .env/.env.local before running npm run build.'
   );
 } else if (!/^postgres(?:ql)?:\/\//i.test(dbUrl)) {
   errors.push(
-    'DATABASE_URL must be a valid PostgreSQL connection string (e.g., postgresql://user:pass@host:5432/db).'
+    'DATABASE_URL must be a valid PostgreSQL connection string (e.g., postgresql://user:password@host:5432/db).'
   );
 }
 

@@ -76,6 +76,50 @@ Full quality chain:
 npm run test:full
 ```
 
+## Deployment
+
+This repository is no longer tied to a platform-specific manifest.
+
+Generic production contract:
+
+```bash
+npm install
+npm run build
+npm run start
+```
+
+Host-neutral deployment assets:
+
+- `docs/DEPLOYMENT.md`
+- `Dockerfile`
+- `docker-compose.yml`
+- `.env.docker.example`
+
+Required production environment variables:
+
+- `DATABASE_URL`
+- `NEXT_PUBLIC_APP_URL`
+- `NEXTAUTH_SECRET`
+- `NEXTAUTH_URL`
+
+Bundled local Docker first-run bootstrap:
+
+```bash
+npm run docker:prepare-storage
+docker compose --env-file .env.docker run --rm app npm run docker:bootstrap
+```
+
+Existing native PostgreSQL to Docker migration helpers:
+
+```bash
+npm run docker:backup:native-db -- business_management_db
+npm run docker:restore:docker-db -- <dump-file> --confirm
+```
+
+Optional Playwright browser override:
+
+- Set `PLAYWRIGHT_BROWSERS_PATH` only if your host needs a custom browser cache/install path.
+
 ## Guardrails and CI
 
 Run before PR:

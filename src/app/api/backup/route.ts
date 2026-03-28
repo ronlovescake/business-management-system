@@ -9,6 +9,7 @@ import { NextResponse } from 'next/server';
 import { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/db';
 import { getDatabaseUrl } from '@/lib/env';
+import { getBackupDirectory } from '@/lib/backup-storage';
 import fs from 'fs';
 import path from 'path';
 import { logger } from '@/lib/logger';
@@ -39,7 +40,7 @@ import {
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 
-const BACKUP_DIR = path.resolve(process.cwd(), 'backups');
+const BACKUP_DIR = getBackupDirectory();
 
 type TableAvailabilityCache = Map<string, boolean>;
 
@@ -59,6 +60,16 @@ class MissingRequiredTablesError extends Error {
     super('Backup strict mode failed due to missing required tables');
     this.name = 'MissingRequiredTablesError';
     this.missingTables = missingTables;
+  }
+}
+
+class BackupGenerationError extends Error {
+  details?: string;
+
+  constructor(message: string, details?: string) {
+    super(message);
+    this.name = 'BackupGenerationError';
+    this.details = details;
   }
 }
 
@@ -501,10 +512,43 @@ function ensureBackupDir(timestamp: string) {
   return timestampDir;
 }
 
+function cleanupPartialBackup(backupDir: string | null) {
+  if (!backupDir) {
+    return;
+  }
+
+  const resolvedRoot = path.resolve(BACKUP_DIR);
+  const resolvedBackupDir = path.resolve(backupDir);
+
+  if (
+    resolvedBackupDir === resolvedRoot ||
+    !resolvedBackupDir.startsWith(`${resolvedRoot}${path.sep}`)
+  ) {
+    logger.warn('Refusing to clean up backup directory outside backup root', {
+      backupDir: resolvedBackupDir,
+      backupRoot: resolvedRoot,
+    });
+    return;
+  }
+
+  try {
+    fs.rmSync(resolvedBackupDir, { recursive: true, force: true });
+  } catch (error) {
+    logger.warn('Failed to clean up partial backup directory', {
+      backupDir: resolvedBackupDir,
+      error,
+    });
+  }
+}
+
+type SqlDumpResult =
+  | { ok: true; filePath: string }
+  | { ok: false; error: string };
+
 async function createSqlDump(
   timestamp: string,
   backupDir: string
-): Promise<string | null> {
+): Promise<SqlDumpResult> {
   try {
     const { user, password, host, port, database } = parseDatabaseUrl();
     const sqlFile = path.join(backupDir, `backup-${timestamp}.sql`);
@@ -556,15 +600,20 @@ async function createSqlDump(
 
     if (fs.existsSync(sqlFile)) {
       logger.info(`SQL dump created successfully: ${sqlFile}`);
-      return sqlFile;
+      return { ok: true, filePath: sqlFile };
     }
 
     logger.warn('SQL dump file was not created');
-    return null;
+    return {
+      ok: false,
+      error: 'pg_dump completed without producing a SQL file',
+    };
   } catch (error) {
     logger.error('SQL dump failed:', error);
-    // Return null instead of throwing to allow backup to continue with CSV and JSON
-    return null;
+    return {
+      ok: false,
+      error: error instanceof Error ? error.message : String(error),
+    };
   }
 }
 
@@ -574,6 +623,8 @@ export async function POST(request: NextRequest) {
   if (authError) {
     return authError;
   }
+
+  let backupDirForCleanup: string | null = null;
 
   try {
     const body = (await request.json()) as {
@@ -600,6 +651,7 @@ export async function POST(request: NextRequest) {
       .replace(/[:.]/g, '-')
       .slice(0, -5);
     const backupDir = ensureBackupDir(timestamp);
+    backupDirForCleanup = backupDir;
 
     let backupFile = '';
     const files: string[] = [];
@@ -870,13 +922,16 @@ export async function POST(request: NextRequest) {
       (requestedFormat === 'sql' || requestedFormat === 'all')
     ) {
       logger.info('Starting SQL dump generation...');
-      const sqlFile = await createSqlDump(timestamp, backupDir);
-      if (sqlFile) {
-        files.push(sqlFile);
-        backupFile = sqlFile;
+      const sqlDump = await createSqlDump(timestamp, backupDir);
+      if (sqlDump.ok) {
+        files.push(sqlDump.filePath);
+        backupFile = sqlDump.filePath;
         logger.info('SQL dump completed successfully');
       } else {
-        logger.warn('SQL dump was not created');
+        throw new BackupGenerationError(
+          'Backup failed: SQL dump generation failed',
+          sqlDump.error
+        );
       }
     }
 
@@ -1030,12 +1085,25 @@ export async function POST(request: NextRequest) {
       },
     });
   } catch (error) {
+    cleanupPartialBackup(backupDirForCleanup);
+
     if (error instanceof MissingRequiredTablesError) {
       return NextResponse.json(
         {
           success: false,
           error: 'Backup strict mode failed: missing required tables',
           missingTables: error.missingTables,
+        },
+        { status: 500 }
+      );
+    }
+
+    if (error instanceof BackupGenerationError) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: error.message,
+          details: error.details,
         },
         { status: 500 }
       );

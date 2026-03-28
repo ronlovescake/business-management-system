@@ -7,6 +7,7 @@
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
+import { getBackupDirectory } from '@/lib/backup-storage';
 import fs from 'fs';
 import path from 'path';
 import { logger } from '@/lib/logger';
@@ -26,7 +27,7 @@ import {
   isValidTimestampFolderName,
   requireBackupRestoreAdmin,
 } from '../backup-restore/sharedRouteUtils';
-const BACKUP_DIR = path.resolve(process.cwd(), 'backups');
+const BACKUP_DIR = getBackupDirectory();
 const RESTORE_MUTEX_KEY = '__restore_global__';
 const activeRestoreMutexes = new Set<string>();
 

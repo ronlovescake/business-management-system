@@ -1,4 +1,5 @@
-version: '3.9'
+name: business-management-development-test
+
 services:
   postgres-test:
     image: postgres:16
