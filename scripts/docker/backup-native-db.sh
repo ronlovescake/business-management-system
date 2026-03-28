@@ -3,10 +3,11 @@ set -euo pipefail
 
 ENV_FILE="${ENV_FILE:-.env.docker}"
 
-if [[ -f "$ENV_FILE" ]]; then
-  # shellcheck disable=SC1090
-  set -a && source "$ENV_FILE" && set +a
-fi
+read_env_value() {
+  node scripts/docker/read-env-value.js "$ENV_FILE" "$1"
+}
+
+BMS_DATA_ROOT="${BMS_DATA_ROOT:-$(read_env_value BMS_DATA_ROOT)}"
 
 data_root="${BMS_DATA_ROOT:-${HOME}/business-management-system-data}"
 backup_dir="${data_root}/backup"
