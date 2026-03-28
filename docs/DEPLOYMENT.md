@@ -173,6 +173,71 @@ npm run start
 - Roll back the app version first if the issue is application-only.
 - Restore the database only when the problem is data or migration related and you have confirmed the restore plan.
 
+## Host Recovery Checklist
+
+Use this when reinstalling the machine, moving to a new Linux host, or rebuilding Docker after a disk or OS issue.
+
+1. Preserve the host data root before touching the machine:
+
+```bash
+sudo rsync -a /home/ron/business-management-system-data/ /path/to/external-backup/business-management-system-data/
+```
+
+2. Preserve the local Docker env files from each repo because they are not committed:
+
+```bash
+cp /home/ron/Websites/business-management-development/.env.docker /path/to/external-backup/development.env.docker
+cp '/home/ron/Website Production/business-management-production/.env.docker' /path/to/external-backup/production.env.docker
+```
+
+3. Reinstall Docker on the replacement host and make sure the Docker service starts on boot:
+
+```bash
+sudo systemctl enable --now docker
+```
+
+4. Restore the host data folders exactly as separate environments:
+
+```bash
+/home/ron/business-management-system-data/development
+/home/ron/business-management-system-data/production
+```
+
+5. Clone the repos back into their normal locations, then restore the saved `.env.docker` files into each repo.
+
+6. Start development from the development repo when needed:
+
+```bash
+cd /home/ron/Websites/business-management-development
+docker compose --env-file .env.docker up -d
+```
+
+7. Start production from the production repo:
+
+```bash
+cd '/home/ron/Website Production/business-management-production'
+docker compose --env-file .env.docker up -d
+```
+
+8. Verify the final live services:
+
+```bash
+curl http://localhost:3000/api/health
+curl http://localhost:5000/api/health
+```
+
+9. If the app starts but data is missing, do not copy raw PostgreSQL files from another running server. Restore from a logical dump with:
+
+```bash
+npm run docker:restore:docker-db -- <dump-file.dump> --confirm
+```
+
+10. Keep the host PostgreSQL service disabled on the production machine if Docker owns port `5432`:
+
+```bash
+sudo systemctl disable --now postgresql postgresql@16-main
+```
+
 ## Validation Targets
 
 - App responds on the configured port.

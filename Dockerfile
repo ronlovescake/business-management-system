@@ -8,7 +8,7 @@ ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
 ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
 
-ARG BUILD_DATABASE_URL=postgresql://build:build@127.0.0.1:5432/build_db?schema=public
+ARG BUILD_DATABASE_URL=postgresql://build:build@db:5432/build_db?schema=public
 ARG BUILD_NEXT_PUBLIC_APP_URL=http://127.0.0.1:5000
 ARG BUILD_NEXTAUTH_URL=http://127.0.0.1:5000
 ARG BUILD_NEXTAUTH_SECRET=build-secret-minimum-32-characters-long

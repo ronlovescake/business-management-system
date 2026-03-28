@@ -3,6 +3,19 @@ import { NextRequest } from 'next/server';
 import { GET, POST } from '@/app/api/customers/[id]/orders/route';
 import { getTestApiUrl } from '@/core/testing/test-helpers';
 
+const mockPrisma = vi.hoisted(() => ({
+  customer: {
+    findUnique: vi.fn(),
+  },
+  transaction: {
+    findMany: vi.fn(),
+  },
+}));
+
+vi.mock('@/lib/db', () => ({
+  prisma: mockPrisma,
+}));
+
 vi.mock('@/lib/logger', async () => {
   const { mockLogger } = await import('@/core/testing/test-helpers');
   return { logger: mockLogger };
@@ -11,6 +24,8 @@ vi.mock('@/lib/logger', async () => {
 describe('Customer Orders API Routes', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockPrisma.customer.findUnique.mockResolvedValue(null);
+    mockPrisma.transaction.findMany.mockResolvedValue([]);
   });
 
   describe('GET /api/customers/[id]/orders', () => {
