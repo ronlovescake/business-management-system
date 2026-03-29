@@ -1,90 +1,114 @@
-# Development Compliance & Commit Policy
-
-## 1. Scope & Authorization
-
-- Follow instructions exactly; do not expand scope or make unrequested changes.
-- Modify only the specified module or component.
-- Do not commit, push, or trigger builds without explicit authorization.
-- Never initiate production builds.
-
-### Commit Requirement
-
-- When committing is explicitly authorized, each commit must include a **detailed, descriptive commit message**.
-- Commit messages must clearly state:
-  - What changed
-  - Why the change was made
-  - Which files/modules were affected
-  - Any relevant risks, assumptions, or follow-ups
-- Vague messages (e.g., “fix bug”, “update code”) are **strictly prohibited**.
-- Commit history must be readable and sufficient for future auditing and reference.
-
+---
+applyTo: "**"
+description: "Repository-wide developer instructions for the Business Management System. Use for architecture, workflow, safety, testing, schema, and documentation decisions anywhere in this repo."
 ---
 
-## 2. Code Quality & Standards
+# Business Management System Developer Instructions
 
-- All changes must be permanent, root-cause fixes (no hacks or workarounds).
-- Code must pass TypeScript strict mode, ESLint, and Prettier.
-- Follow existing architecture, naming conventions, and file structure.
-- Add dependencies only when necessary, secure, and version-locked.
+## 1. Scope And Change Discipline
 
----
+- Make only the requested change. Keep diffs tight and avoid unrelated cleanup.
+- Prefer root-cause fixes over surface patches.
+- Do not commit, push, deploy, or run production builds unless explicitly authorized.
+- Treat auth, permissions, Prisma schema, backup/restore, accounting, payroll, and inventory logic as high-risk areas. Validate those changes more aggressively.
 
-## 3. Testing & Validation
+## 2. Repository Shape
 
-- Always run everytime a code was modified:
-  - `npm run lint && npm run typecheck && npm run test:unit && npm run test:integration && npm run test:coverage`
-- All changes must pass required tests before submission.
-- Unit and integration tests are mandatory each time a code is modified.
-- E2E tests must only be run when explicitly instructed.
-- Do not disable, bypass, or weaken test coverage.
-- Perform manual testing where appropriate.
+- Stack: Next.js 14 App Router, TypeScript strict mode, Prisma 5, PostgreSQL, NextAuth v4, React Query, Mantine, Zustand, Vitest, Playwright, Sentry.
+- Main UI routes live in `src/app/**`.
+- API routes live in `src/app/api/**`.
+- Business-domain modules live in `src/modules/**`.
+- Shared and platform code lives in `src/lib/**`, `src/core/**`, `src/components/**`, `src/services/**`, `src/utils/**`, and `src/shared/**`.
+- Database structure is defined in `prisma/schema.prisma`.
 
----
+## 3. Domain Model Expectations
 
-## 4. Database & Schema Changes
+- This repository serves multiple business areas in one application: clothing, general merchandise, trucking, household finance, and platform/admin.
+- Clothing and general merchandise often follow parallel patterns. When changing one side, check whether the other side should also change or whether the difference is intentional and should be documented.
+- Respect schema and domain boundaries. Do not assume all business areas share the same tables, workflows, or employee records.
+- Preserve accounting and inventory invariants. If a change affects ledger movement, sale posting, reservations, payroll, or invoice/payment flows, verify the downstream effects before handoff.
 
-- Prisma schema changes must be **non-destructive**.
-- Migrations must run **non-destructively**:
-  - No table or column drops
-  - No deletes or truncations
-  - No prompts or commands that could remove existing data
-- Use migrations or `npx prisma db push` **only against the test environment** to keep schemas aligned.
+## 4. Auth And Authorization
 
----
+- Authentication is implemented with NextAuth credentials in `src/lib/auth/auth.ts`.
+- Route protection is enforced in `src/middleware.ts`.
+- `BYPASS_AUTH_FOR_TESTS=true` is a test-only escape hatch. Never depend on it for normal development or production behavior.
+- When adding or changing protected routes, update all affected layers together: middleware access rules, server-side permission checks, and any permission-driven UI behavior.
+- Do not weaken access control to make a feature easier to ship.
 
-## 5. AI Responsibilities
+## 5. Module And Routing Conventions
 
-- All AI-generated code must be reviewed by a human.
-- AI must clearly explain:
-  - Why the change is needed
-  - Impact on dependencies
-  - Risks, side effects, or breaking changes
-- AI must refuse instructions that violate security or compliance rules.
+- Follow the existing module/plugin pattern in `src/core/ModuleRegistry.ts` and related module infrastructure.
+- New modules should align route registration, navigation metadata, business/workspace context, and permissions.
+- Prefer the scaffold script for new modules:
 
----
+```bash
+npm run generate:module -- --name=<module-name> --domain=<clothing|general-merchandise|trucking|household|shared>
+```
 
-## 6. Security & Confidentiality
+- Match existing naming conventions: folders in kebab-case, React components in PascalCase, and descriptive service/util names.
 
-- Never expose secrets or sensitive data unless explicitly instructed.
-- Apply least-privilege principles throughout the system.
-- Remove and rotate any detected secrets immediately.
-- Ensure dependencies are free from known vulnerabilities.
+## 6. Database And Data Safety
 
----
+- Prisma uses PostgreSQL with multiple schemas, including `public` and `general_merchandise`.
+- Keep schema changes non-destructive. Avoid drops, truncations, destructive rewrites, or anything that can silently remove business data.
+- Use `prisma db push` or `prisma migrate dev` only in safe local or test environments.
+- Respect soft-delete patterns. Many models use `deletedAt`; do not replace soft deletes with hard deletes unless there is explicit approval and a recovery plan.
+- Backup/restore scripts and database repair utilities are sensitive operations. If you touch them, document the risk and test only in safe environments.
 
-## 7. Review, Traceability & Documentation
+## 7. Validation Standard
 
-- Provide a clear summary of what changed, why, and how it was validated.
-- Link commits or PRs to tasks or tickets.
-- PR approval is required before merging unless explicitly instructed otherwise.
-- Update documentation (README, changelog, internal docs) when behavior or features change.
+- During development, run the smallest relevant checks for fast feedback.
+- Before handoff on meaningful code changes, the default quality gate is:
 
-## 8. Clarity & Plain Language
+```bash
+npm run guardrails:check
+npm run lint
+npm run typecheck
+```
 
-- Use **plain English** whenever possible.
-- Avoid unnecessary technical jargon, buzzwords, or vague accounting, technical terminology.
-- Write commit messages, comments, documentation, and reviews so that:
-  - A new team member can understand them
-  - A non-specialist reviewer can follow the intent
-- If technical terms are required, explain them briefly in simple language.
-- Clarity and understanding take priority over sounding technical.
+- If you touched shared logic, auth, API handlers, Prisma models, accounting, inventory, or cross-domain behavior, also run:
+
+```bash
+npm run test:unit
+npm run test:integration
+```
+
+- If you changed security-sensitive or browser/runtime-sensitive behavior, also run:
+
+```bash
+npm run test:hardening
+```
+
+- Use `npm run test:coverage` when changing critical shared business logic or when you need regression confidence beyond targeted tests.
+- Run Playwright E2E only when explicitly requested or when the changed behavior is primarily an end-to-end browser flow.
+- Never disable tests, bypass guardrails, or lower coverage to force a pass.
+
+## 8. Domain-Specific Validation Triggers
+
+- Inventory or ledger changes: run `npm run inventory:ledger:controls` when relevant.
+- Accounting transaction changes: run `npm run accounting:transactions:sanitycheck` when relevant.
+- Module-system changes: verify registration, navigation visibility, and route access for each affected business/workspace context.
+
+## 9. Documentation Rules
+
+- Keep top-level navigation simple. The main entry points are `README.md` and `docs/README.md`.
+- Business-domain documentation should remain discoverable through `docs/BUSINESS_LOGIC_INDEX.md`.
+- Historical material belongs under the historical/reports structure, not mixed into current operational docs.
+- When behavior, commands, routes, or policies change, update the relevant docs in the same change.
+- Prefer plain English. Write so a new developer can follow the reasoning without guessing.
+
+## 10. Traceability And Reviews
+
+- If a commit is explicitly authorized, write a detailed commit message that explains what changed, why it changed, what areas were affected, and any follow-up risk.
+- In summaries, reviews, or PR notes, call out the validation you ran and any residual risk.
+- If a requirement is unclear, clarify it before making broad architectural changes.
+
+## 11. Quick Starting Points
+
+- Project overview and commands: `README.md`
+- Documentation hub: `docs/README.md`
+- Contributor workflow: `CONTRIBUTING.md`
+- Business-domain index: `docs/BUSINESS_LOGIC_INDEX.md`
+- Verified architecture summary: `docs/REPO_VERIFIED_EXEC_SUMMARY_2026-03-29.md`
+- Full validated repo analysis: `Repo-Wide Analysis — Business Management System.md`

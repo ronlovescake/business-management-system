@@ -1,4 +1,4 @@
-# General Merchandise Business — Business Logic Index
+# General Merchandise Business — Business Logic Overview
 
 This directory documents the extracted business rules and workflow behavior for the **General Merchandise** business unit.
 The intent is for this folder to be the authoritative documentation set for current General Merchandise **Operations**, **Accounting**, and **Employees** workflows, including business rules, buttons, modals, toasts, alerts, redirects, and other operator-facing behavior.

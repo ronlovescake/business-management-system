@@ -1,6 +1,6 @@
-# Clothing - Employees Module: Business Logic Documentation
+# Clothing - Employees Module Overview
 
-This README indexes all business logic documentation files for the **Clothing > Employees** module.
+This overview indexes the business logic documentation files for the **Clothing > Employees** module.
 
 > **Source root:** `src/app/clothing/employees/`
 > **Docs root:** `docs/business-logic/clothing/`

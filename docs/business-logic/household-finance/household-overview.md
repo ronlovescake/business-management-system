@@ -1,6 +1,6 @@
-# Household Finance: Business Logic Documentation
+# Household Finance Overview
 
-This README indexes the business logic documentation for the unified **Household Finance** domain.
+This overview indexes the business logic documentation for the unified **Household Finance** domain.
 
 > **UI source root:** `src/app/personal/`
 >

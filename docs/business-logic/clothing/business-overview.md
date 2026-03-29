@@ -1,4 +1,4 @@
-# Clothing Business — Business Logic Index
+# Clothing Business — Business Logic Overview
 
 This directory documents the extracted business rules and workflow behaviour for the **Clothing** business unit.
 The intent is for this folder to be the authoritative documentation set for current Clothing **Operations**, **Accounting**, and **Employees** workflows, including business rules, buttons, modals, toasts, alerts, redirects, and other operator-facing behaviour.

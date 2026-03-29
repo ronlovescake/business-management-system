@@ -3187,7 +3187,7 @@ Execution mode:
 - `LIV-20` complete: normalized refactor reporting into one compact generated changelog stream:
   - Added generator: `scripts/build-refactor-changelog-stream.js`
   - Added npm task: `npm run refactor:changelog`
-  - Generated stream output: `docs/REFACTOR_CHANGELOG_STREAM.md`
+  - Generated stream output: `docs/reports/REFACTOR_CHANGELOG_STREAM.md`
   - Added docs index links in `docs/README.md`.
 - `LIV-21` complete: executed incremental naming/readability consistency pass on low-churn utility modules:
   - `src/lib/payroll/payrollSummaryUtils.ts`

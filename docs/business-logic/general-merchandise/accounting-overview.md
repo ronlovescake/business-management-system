@@ -1,6 +1,6 @@
-# General Merchandise - Accounting Module: Business Logic Documentation
+# General Merchandise - Accounting Module Overview
 
-This README indexes all business logic documentation files for the **General Merchandise > Accounting** module.
+This overview indexes the business logic documentation files for the **General Merchandise > Accounting** module.
 
 > **Source root:** `src/app/general-merchandise/accounting/`
 > **Docs root:** `docs/business-logic/general-merchandise/`

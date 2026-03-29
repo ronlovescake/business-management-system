@@ -7,10 +7,16 @@ const ROOT = process.cwd();
 const summaryPath = path.join(
   ROOT,
   'docs',
+  'reports',
   'REFACTOR_EXEC_SUMMARY_2026-02-14.md'
 );
 const reportsDir = path.join(ROOT, 'docs', 'reports');
-const outputPath = path.join(ROOT, 'docs', 'REFACTOR_CHANGELOG_STREAM.md');
+const outputPath = path.join(
+  ROOT,
+  'docs',
+  'reports',
+  'REFACTOR_CHANGELOG_STREAM.md'
+);
 
 function readText(filePath) {
   return fs.readFileSync(filePath, 'utf8');
@@ -111,7 +117,7 @@ function buildOutput(summaryText) {
   out.push('');
   out.push('## Source of Truth');
   out.push('');
-  out.push('- docs/REFACTOR_EXEC_SUMMARY_2026-02-14.md');
+  out.push('- docs/reports/REFACTOR_EXEC_SUMMARY_2026-02-14.md');
 
   return out.join('\n');
 }

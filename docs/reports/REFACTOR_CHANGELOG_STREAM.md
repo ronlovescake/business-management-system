@@ -89,11 +89,11 @@ This compact stream summarizes backlog execution addenda and active report artif
 
 ## Active Report Artifacts
 
-- docs/reports/MD_CLEANUP_EXECUTION_PHASE2_2026-02-20.md
-- docs/reports/MD_CLEANUP_EXECUTION_PHASE3_ULTRA_STRICT_2026-02-20.md
+- docs/REPO_VERIFIED_EXEC_SUMMARY_2026-03-29.md
+- docs/reports/REFACTOR_AUDIT_REPORT_2026-02-21.md
 - docs/reports/REFACTOR_ANALYSIS_DATA_2026-02-21.json
 - docs/reports/REFACTOR_AUDIT_DATA_2026-02-20.json
 
 ## Source of Truth
 
-- docs/REFACTOR_EXEC_SUMMARY_2026-02-14.md
+- docs/reports/REFACTOR_EXEC_SUMMARY_2026-02-14.md

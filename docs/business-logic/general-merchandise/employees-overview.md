@@ -1,6 +1,6 @@
-# General Merchandise - Employees Module: Business Logic Documentation
+# General Merchandise - Employees Module Overview
 
-This README indexes all business logic documentation files for the **General Merchandise > Employees** module.
+This overview indexes the business logic documentation files for the **General Merchandise > Employees** module.
 
 > **Source root:** `src/app/general-merchandise/employees/`
 > **Docs root:** `docs/business-logic/general-merchandise/`

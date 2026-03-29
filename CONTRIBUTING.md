@@ -16,7 +16,7 @@ Thank you for contributing! This guide will help you understand our coding stand
 
 ## Getting Started
 
-For the latest contributor quick-start commands (including guardrails and quality gates), check [README.md](README.md) first.
+For the latest contributor quick-start commands, documentation entry points, and quality gates, check [README.md](README.md) first, then use [docs/README.md](docs/README.md) as the documentation hub.
 
 ### Prerequisites
 
@@ -50,9 +50,11 @@ For the latest contributor quick-start commands (including guardrails and qualit
 4. **Set up database**
 
    ```bash
-   npx prisma migrate dev
-   npx prisma generate
+  npm run db:generate
+  npm run db:push
    ```
+
+  Use `npx prisma migrate dev` only when you are intentionally creating or updating a migration in a safe local environment.
 
 5. **Run development server**
 
@@ -64,7 +66,7 @@ For the latest contributor quick-start commands (including guardrails and qualit
 
 - Open http://localhost:5001
 - Check that all pages load
-- Run tests: `npm test`
+- Run a quick baseline: `npm run test:unit`
 
 ---
 
@@ -118,9 +120,8 @@ For the latest contributor quick-start commands (including guardrails and qualit
 1. **Run all checks**
 
    ```bash
-   npm run lint
-   npm run typecheck
-   npm test
+  npm run guardrails:check
+  npm run ci:quality
    ```
 
 2. **Update documentation**
@@ -792,24 +793,21 @@ Types:
 
 ## Common Patterns
 
-### Creating New Module
+Use these current entry points instead of older guide links:
 
-See [New Module Checklist](./docs/guides/new-module-checklist.md)
-
-### Creating API Endpoint
-
-See [API Route Guide](./docs/guides/api-route-guide.md)
-
-### Database Migration
-
-See [Database Migration Guide](./docs/guides/database-migration-guide.md)
+- [docs/README.md](docs/README.md) for the maintained documentation hub
+- [docs/BUSINESS_LOGIC_INDEX.md](docs/BUSINESS_LOGIC_INDEX.md) for domain/workspace business logic docs
+- [README.md](README.md) for current commands, scripts, and environment expectations
+- [docs/DEBUGGING.md](docs/DEBUGGING.md) for debugger and regression workflows
+- [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) for host-neutral deployment guidance
 
 ---
 
 ## Questions?
 
-- Check [Architecture Decision Records](./docs/architecture/)
-- Read [Developer Guides](./docs/guides/)
+- Check [docs/README.md](docs/README.md)
+- Read [Repo-Wide Analysis — Business Management System.md](Repo-Wide%20Analysis%20%E2%80%94%20Business%20Management%20System.md)
+- Read [docs/BUSINESS_LOGIC_INDEX.md](docs/BUSINESS_LOGIC_INDEX.md)
 - Ask in team chat
 - Create a discussion issue
 
@@ -822,6 +820,12 @@ See [Database Migration Guide](./docs/guides/database-migration-guide.md)
 - [TypeScript Handbook](https://www.typescriptlang.org/docs)
 - [Mantine UI](https://mantine.dev/)
 - [Conventional Commits](https://www.conventionalcommits.org/)
+
+Additional repo-specific references:
+
+- [README.md](README.md)
+- [docs/README.md](docs/README.md)
+- [docs/REPO_VERIFIED_EXEC_SUMMARY_2026-03-29.md](docs/REPO_VERIFIED_EXEC_SUMMARY_2026-03-29.md)
 
 ---
 

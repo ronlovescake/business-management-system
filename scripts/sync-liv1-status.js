@@ -7,6 +7,7 @@ const ROOT = process.cwd();
 const SUMMARY_PATH = path.join(
   ROOT,
   'docs',
+  'reports',
   'REFACTOR_EXEC_SUMMARY_2026-02-14.md'
 );
 const TARGET_PATH = path.join(

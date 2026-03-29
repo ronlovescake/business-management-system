@@ -206,7 +206,7 @@ function printViolations() {
   );
   console.log();
   console.log(
-    `${colors.yellow}💡 See docs/guides/IMPORT_CONVENTIONS.md for details${colors.reset}`
+    `${colors.yellow}💡 See docs/README.md for current documentation and import-convention references${colors.reset}`
   );
 
   return false;
