@@ -5,13 +5,13 @@
  * DATABASE BACKUP SCRIPT
  *
  * Creates a complete backup of all database tables in multiple formats:
- * 1. PostgreSQL dump file (.sql) - Full restore capability
+ * 1. PostgreSQL custom dump file (.dump) - Full restore capability
  * 2. JSON export - Human-readable format
  * 3. CSV exports - Individual table exports
  *
  * Usage:
  *   node scripts/backup-database.js
- *   node scripts/backup-database.js --format=sql
+ *   node scripts/backup-database.js --format=dump
  *   node scripts/backup-database.js --format=json
  *   node scripts/backup-database.js --format=csv
  *   node scripts/backup-database.js --format=all
@@ -36,7 +36,8 @@ const prisma = new PrismaClient();
 // Parse command line arguments
 const args = process.argv.slice(2);
 const formatArg = args.find((arg) => arg.startsWith('--format='));
-const format = formatArg ? formatArg.split('=')[1] : 'all';
+const requestedFormat = formatArg ? formatArg.split('=')[1] : 'all';
+const format = requestedFormat === 'sql' ? 'dump' : requestedFormat;
 
 // Backup directory
 const BACKUP_DIR = path.resolve(process.cwd(), 'backups');
@@ -110,27 +111,27 @@ function parseDatabaseUrl() {
 }
 
 /**
- * Backup 1: PostgreSQL dump (Full backup with structure + data)
+ * Backup 1: PostgreSQL custom dump (Full backup with structure + data)
  */
-async function backupSQL(backupDir) {
-  console.log('\n📦 Creating PostgreSQL dump...');
+async function backupDump(backupDir) {
+  console.log('\n📦 Creating PostgreSQL custom dump...');
 
   try {
     const { user, password, host, port, database } = parseDatabaseUrl();
-    const sqlFile = path.join(backupDir, `backup-${timestamp}.sql`);
+    const dumpFile = path.join(backupDir, `backup-${timestamp}.dump`);
 
-    // Use pg_dump to create a complete backup
-    const command = `PGPASSWORD="${password}" pg_dump -h ${host} -p ${port} -U ${user} -d ${database} -F p -f "${sqlFile}"`;
+    // Use pg_dump custom format for a compact, pg_restore-friendly backup.
+    const command = `PGPASSWORD="${password}" pg_dump -h ${host} -p ${port} -U ${user} -d ${database} -F c -f "${dumpFile}"`;
 
     await execAsync(command);
 
-    const stats = fs.statSync(sqlFile);
-    console.log(`   ✅ SQL backup created: ${sqlFile}`);
+    const stats = fs.statSync(dumpFile);
+    console.log(`   ✅ Database dump created: ${dumpFile}`);
     console.log(`   📊 File size: ${(stats.size / 1024 / 1024).toFixed(2)} MB`);
 
-    return sqlFile;
+    return dumpFile;
   } catch (error) {
-    console.error('   ❌ SQL backup failed:', error.message);
+    console.error('   ❌ Database dump failed:', error.message);
     if (error.message.includes('pg_dump')) {
       console.log(
         '   💡 Make sure PostgreSQL client tools (pg_dump) are installed'
@@ -301,6 +302,9 @@ async function createBackup() {
   console.log(`📅 Timestamp: ${timestamp}`);
   console.log(`🗄️  Database: ${parseDatabaseUrl().database}`);
   console.log(`📝 Format: ${format}`);
+  if (requestedFormat === 'sql') {
+    console.log('⚠️  Format alias "sql" is deprecated. Using "dump" instead.');
+  }
   console.log('');
 
   try {
@@ -308,12 +312,12 @@ async function createBackup() {
     const files = [];
 
     // Create backups based on format
-    if (format === 'sql' || format === 'all') {
+    if (format === 'dump' || format === 'all') {
       try {
-        const sqlFile = await backupSQL(backupDir);
-        files.push(sqlFile);
+        const dumpFile = await backupDump(backupDir);
+        files.push(dumpFile);
       } catch (error) {
-        console.log('   ⚠️  SQL backup skipped (pg_dump not available)');
+        console.log('   ⚠️  Database dump skipped (pg_dump not available)');
       }
     }
 

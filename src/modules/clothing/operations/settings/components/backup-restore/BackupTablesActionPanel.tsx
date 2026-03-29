@@ -21,7 +21,7 @@ interface BackupTablesActionPanelProps {
   onDownloadCSV: (tableName: string) => Promise<void>;
   onDownloadXLSX: (tableName: string) => Promise<void>;
   onDownloadJSON: (backup: Backup) => Promise<void>;
-  onDownloadSQL: (backup: Backup) => Promise<void>;
+  onDownloadDump: (backup: Backup) => Promise<void>;
   onDownloadAllCSV: () => Promise<void>;
   onDownloadAllXLSX: () => Promise<void>;
 }
@@ -38,7 +38,7 @@ export function BackupTablesActionPanel({
   onDownloadCSV,
   onDownloadXLSX,
   onDownloadJSON,
-  onDownloadSQL,
+  onDownloadDump,
   onDownloadAllCSV,
   onDownloadAllXLSX,
 }: BackupTablesActionPanelProps) {
@@ -101,11 +101,11 @@ export function BackupTablesActionPanel({
         <Button
           leftSection={<IconFileText size={16} />}
           onClick={() =>
-            selectedBackup ? void onDownloadSQL(selectedBackup) : undefined
+            selectedBackup ? void onDownloadDump(selectedBackup) : undefined
           }
           disabled={!selectedBackup}
         >
-          Download SQL
+          Download Dump
         </Button>
         <Button
           leftSection={<IconDownload size={16} />}
@@ -117,7 +117,7 @@ export function BackupTablesActionPanel({
             void onDownloadAllCSV();
             void onDownloadAllXLSX();
             void onDownloadJSON(selectedBackup);
-            void onDownloadSQL(selectedBackup);
+            void onDownloadDump(selectedBackup);
           }}
           disabled={!selectedBackup || !previewData}
         >

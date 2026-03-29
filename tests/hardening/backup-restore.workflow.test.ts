@@ -2,16 +2,19 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { NextRequest } from 'next/server';
 import path from 'path';
 import { Readable } from 'stream';
+import { EventEmitter } from 'events';
 
 const {
   mockRequireAdmin,
   mockGetDatabaseUrl,
   mockLogger,
   mockPrisma,
+  mockSpawn,
   fsState,
 } = vi.hoisted(() => {
   const files = new Map<string, Buffer>();
   const dirs = new Set<string>();
+  const mockSpawn = vi.fn();
 
   return {
     mockRequireAdmin: vi.fn().mockResolvedValue(undefined),
@@ -29,6 +32,7 @@ const {
       $disconnect: vi.fn().mockResolvedValue(undefined),
       $transaction: vi.fn(),
     },
+    mockSpawn,
     fsState: {
       files,
       dirs,
@@ -50,6 +54,10 @@ vi.mock('@/lib/logger', () => ({
 
 vi.mock('@/lib/db', () => ({
   prisma: mockPrisma,
+}));
+
+vi.mock('child_process', () => ({
+  spawn: mockSpawn,
 }));
 
 vi.mock('fs', () => {
@@ -292,6 +300,29 @@ describe('Backup/Restore workflow hardening', () => {
     fsState.dirs.clear();
     fsState.dirs.add(path.resolve(process.cwd()));
 
+    mockSpawn.mockImplementation((_command: string, args: string[]) => {
+      const processEmitter = new EventEmitter();
+      const stderrEmitter = new EventEmitter();
+      const fileFlagIndex = args.indexOf('-f');
+
+      if (fileFlagIndex >= 0) {
+        const dumpPath = path.resolve(args[fileFlagIndex + 1]);
+        fsState.dirs.add(path.resolve(path.dirname(dumpPath)));
+        fsState.files.set(dumpPath, Buffer.from('PGDMP'));
+      }
+
+      process.nextTick(() => {
+        processEmitter.emit('close', 0);
+      });
+
+      return {
+        stderr: {
+          on: stderrEmitter.on.bind(stderrEmitter),
+        },
+        on: processEmitter.on.bind(processEmitter),
+      };
+    });
+
     const rows = [{ id: 1, name: 'Alice' }];
 
     const customerDelegate = {
@@ -388,5 +419,46 @@ describe('Backup/Restore workflow hardening', () => {
     const manifest = JSON.parse(String(manifestRaw));
     expect(manifest.integrity.verified).toBe(true);
     expect(manifest.integrity.algorithm).toBe('sha256');
+  });
+
+  it('creates a PostgreSQL custom dump artifact when requested', async () => {
+    const backupResponse = await createBackup(
+      new NextRequest('http://localhost/api/backup', {
+        method: 'POST',
+        body: JSON.stringify({
+          format: 'dump',
+          strategy: 'full',
+        }),
+      })
+    );
+
+    const backupPayload = await backupResponse.json();
+
+    expect(backupResponse.status).toBe(200);
+    expect(backupPayload.success).toBe(true);
+    expect(backupPayload.backup.files).toEqual([
+      expect.stringMatching(/\.dump$/),
+    ]);
+    expect(mockSpawn).toHaveBeenCalled();
+
+    const timestamp = backupPayload.backup.timestamp as string;
+    const manifestPath = path.resolve(
+      process.cwd(),
+      'backups',
+      timestamp,
+      'MANIFEST.json'
+    );
+    const manifestRaw = fsState.files.get(manifestPath);
+    expect(manifestRaw).toBeTruthy();
+
+    const manifest = JSON.parse(String(manifestRaw));
+    expect(manifest.format).toBe('dump');
+    expect(manifest.files).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          name: expect.stringMatching(/\.dump$/),
+        }),
+      ])
+    );
   });
 });

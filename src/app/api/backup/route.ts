@@ -42,6 +42,8 @@ export const runtime = 'nodejs';
 
 const BACKUP_DIR = getBackupDirectory();
 
+type BackupFormat = 'json' | 'csv' | 'xlsx' | 'dump' | 'all';
+
 type TableAvailabilityCache = Map<string, boolean>;
 
 type BackupRowRecord = Record<string, unknown>;
@@ -541,17 +543,35 @@ function cleanupPartialBackup(backupDir: string | null) {
   }
 }
 
-type SqlDumpResult =
+type DatabaseDumpResult =
   | { ok: true; filePath: string }
   | { ok: false; error: string };
 
-async function createSqlDump(
+function normalizeBackupFormat(value: unknown): BackupFormat {
+  if (
+    value === 'json' ||
+    value === 'csv' ||
+    value === 'xlsx' ||
+    value === 'dump' ||
+    value === 'all'
+  ) {
+    return value;
+  }
+
+  if (value === 'sql') {
+    return 'dump';
+  }
+
+  return 'all';
+}
+
+async function createDatabaseDump(
   timestamp: string,
   backupDir: string
-): Promise<SqlDumpResult> {
+): Promise<DatabaseDumpResult> {
   try {
     const { user, password, host, port, database } = parseDatabaseUrl();
-    const sqlFile = path.join(backupDir, `backup-${timestamp}.sql`);
+    const dumpFile = path.join(backupDir, `backup-${timestamp}.dump`);
 
     const env = {
       ...process.env,
@@ -568,13 +588,13 @@ async function createSqlDump(
       '-d',
       database,
       '-F',
-      'p',
+      'c',
       '-f',
-      sqlFile,
+      dumpFile,
     ];
 
     logger.info(
-      `Executing SQL dump: pg_dump -h ${host} -p ${port} -U ${user} -d ${database}`
+      `Executing PostgreSQL custom dump: pg_dump -h ${host} -p ${port} -U ${user} -d ${database}`
     );
 
     await new Promise<void>((resolve, reject) => {
@@ -598,18 +618,18 @@ async function createSqlDump(
       });
     });
 
-    if (fs.existsSync(sqlFile)) {
-      logger.info(`SQL dump created successfully: ${sqlFile}`);
-      return { ok: true, filePath: sqlFile };
+    if (fs.existsSync(dumpFile)) {
+      logger.info(`Database dump created successfully: ${dumpFile}`);
+      return { ok: true, filePath: dumpFile };
     }
 
-    logger.warn('SQL dump file was not created');
+    logger.warn('Database dump file was not created');
     return {
       ok: false,
-      error: 'pg_dump completed without producing a SQL file',
+      error: 'pg_dump completed without producing a dump file',
     };
   } catch (error) {
-    logger.error('SQL dump failed:', error);
+    logger.error('Database dump failed:', error);
     return {
       ok: false,
       error: error instanceof Error ? error.message : String(error),
@@ -641,7 +661,8 @@ export async function POST(request: NextRequest) {
     let strategy: BackupStrategy = isValidStrategy(body.strategy)
       ? body.strategy
       : 'full';
-    const requestedFormat = strategy === 'log' ? 'json' : format;
+    const requestedFormat: BackupFormat =
+      strategy === 'log' ? 'json' : normalizeBackupFormat(format);
 
     // Generate timestamp in Manila timezone (UTC+8)
     const now = new Date();
@@ -655,6 +676,7 @@ export async function POST(request: NextRequest) {
 
     let backupFile = '';
     const files: string[] = [];
+    const warnings: string[] = [];
     const recordCounts: Record<string, number> = {};
     const differentialFallbackTables: string[] = [];
     const tableAvailabilityCache: TableAvailabilityCache = new Map();
@@ -919,18 +941,22 @@ export async function POST(request: NextRequest) {
 
     if (
       strategy !== 'log' &&
-      (requestedFormat === 'sql' || requestedFormat === 'all')
+      (requestedFormat === 'dump' || requestedFormat === 'all')
     ) {
-      logger.info('Starting SQL dump generation...');
-      const sqlDump = await createSqlDump(timestamp, backupDir);
-      if (sqlDump.ok) {
-        files.push(sqlDump.filePath);
-        backupFile = sqlDump.filePath;
-        logger.info('SQL dump completed successfully');
+      logger.info('Starting PostgreSQL custom dump generation...');
+      const databaseDump = await createDatabaseDump(timestamp, backupDir);
+      if (databaseDump.ok) {
+        files.push(databaseDump.filePath);
+        backupFile = databaseDump.filePath;
+        logger.info('Database dump completed successfully');
+      } else if (requestedFormat === 'all') {
+        const warning = `PostgreSQL dump skipped: ${databaseDump.error}`;
+        warnings.push(warning);
+        logger.warn(warning);
       } else {
         throw new BackupGenerationError(
-          'Backup failed: SQL dump generation failed',
-          sqlDump.error
+          'Backup failed: database dump generation failed',
+          databaseDump.error
         );
       }
     }
@@ -1075,7 +1101,10 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      message: 'Backup created successfully',
+      message: warnings.length
+        ? 'Backup created with warnings'
+        : 'Backup created successfully',
+      warnings: warnings.length ? warnings : undefined,
       backup: {
         timestamp,
         files: files.map((f) => path.basename(f)),

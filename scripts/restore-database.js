@@ -9,7 +9,7 @@
  * ⚠️ WARNING: This will overwrite existing data!
  *
  * Usage:
- *   node scripts/restore-database.js backups/2025-10-24T12-30-00/backup-2025-10-24T12-30-00.sql
+ *   node scripts/restore-database.js backups/2025-10-24T12-30-00/backup-2025-10-24T12-30-00.dump
  *   node scripts/restore-database.js backups/2025-10-24T12-30-00/backup-2025-10-24T12-30-00.json
  *   node scripts/restore-database.js backups/2025-10-24T12-30-00/csv
  */
@@ -69,23 +69,43 @@ function askConfirmation(question) {
 }
 
 /**
- * Restore from SQL dump
+ * Restore from PostgreSQL custom dump
  */
-async function restoreFromSQL(filePath) {
-  console.log('\n📦 Restoring from PostgreSQL dump...');
+async function restoreFromDump(filePath) {
+  console.log('\n📦 Restoring from PostgreSQL custom dump...');
 
   try {
     const { user, password, host, port, database } = parseDatabaseUrl();
 
-    // Use psql to restore
+    const command = `PGPASSWORD="${password}" pg_restore --clean --if-exists --no-owner --no-privileges -h ${host} -p ${port} -U ${user} -d ${database} "${filePath}"`;
+
+    console.log('   ⏳ This may take a while...');
+    await execAsync(command);
+
+    console.log('   ✅ Database dump restore completed');
+  } catch (error) {
+    console.error('   ❌ Database dump restore failed:', error.message);
+    throw error;
+  }
+}
+
+/**
+ * Restore from legacy SQL dump
+ */
+async function restoreFromSQL(filePath) {
+  console.log('\n📦 Restoring from legacy SQL dump...');
+
+  try {
+    const { user, password, host, port, database } = parseDatabaseUrl();
+
     const command = `PGPASSWORD="${password}" psql -h ${host} -p ${port} -U ${user} -d ${database} -f "${filePath}"`;
 
     console.log('   ⏳ This may take a while...');
     await execAsync(command);
 
-    console.log('   ✅ SQL restore completed');
+    console.log('   ✅ Legacy SQL restore completed');
   } catch (error) {
-    console.error('   ❌ SQL restore failed:', error.message);
+    console.error('   ❌ Legacy SQL restore failed:', error.message);
     throw error;
   }
 }
@@ -123,7 +143,7 @@ async function restoreFromJSON(filePath) {
         customers: 'customer',
         products: 'product',
         prices: 'price',
-  shipments: 'shipment',
+        shipments: 'shipment',
         employees: 'employee',
         schedules: 'schedule',
         attendance: 'attendance',
@@ -175,7 +195,7 @@ async function restoreDatabase() {
     console.log('');
     console.log('Examples:');
     console.log(
-      '  node scripts/restore-database.js backups/2025-10-24T12-30-00/backup-2025-10-24T12-30-00.sql'
+      '  node scripts/restore-database.js backups/2025-10-24T12-30-00/backup-2025-10-24T12-30-00.dump'
     );
     console.log(
       '  node scripts/restore-database.js backups/2025-10-24T12-30-00/backup-2025-10-24T12-30-00.json'
@@ -210,7 +230,9 @@ async function restoreDatabase() {
   try {
     const ext = path.extname(filePath);
 
-    if (ext === '.sql') {
+    if (ext === '.dump') {
+      await restoreFromDump(filePath);
+    } else if (ext === '.sql') {
       await restoreFromSQL(filePath);
     } else if (ext === '.json') {
       await restoreFromJSON(filePath);

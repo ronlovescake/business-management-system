@@ -10,7 +10,7 @@ interface RestoreSectionProps {
   onRefresh: () => void;
   onPreview: (backup: Backup) => void;
   onDownloadJSON: (backup: Backup) => void;
-  onDownloadSQL: (backup: Backup) => void;
+  onDownloadDump: (backup: Backup) => void;
   onDelete: (backup: Backup) => void;
 }
 
@@ -20,7 +20,7 @@ export function RestoreSection({
   onRefresh,
   onPreview,
   onDownloadJSON,
-  onDownloadSQL,
+  onDownloadDump,
   onDelete,
 }: RestoreSectionProps) {
   return (
@@ -33,7 +33,7 @@ export function RestoreSection({
         onRefresh={onRefresh}
         onPreview={onPreview}
         onDownloadJSON={onDownloadJSON}
-        onDownloadSQL={onDownloadSQL}
+        onDownloadDump={onDownloadDump}
         onDelete={onDelete}
       />
     </Stack>

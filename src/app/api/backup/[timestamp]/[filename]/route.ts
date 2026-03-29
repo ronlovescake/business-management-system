@@ -436,10 +436,13 @@ export async function GET(
 
     // Determine content type based on file extension
     let contentType = 'application/octet-stream';
+    let contentDisposition = 'inline';
     if (filename.endsWith('.json')) {
       contentType = 'application/json';
     } else if (filename.endsWith('.csv')) {
       contentType = 'text/csv';
+    } else if (filename.endsWith('.dump')) {
+      contentDisposition = 'attachment';
     } else if (filename.endsWith('.sql')) {
       contentType = 'text/plain';
     }
@@ -448,7 +451,7 @@ export async function GET(
     return new NextResponse(fileContent, {
       headers: {
         'Content-Type': contentType,
-        'Content-Disposition': `inline; filename="${filename}"`,
+        'Content-Disposition': `${contentDisposition}; filename="${filename}"`,
       },
     });
   } catch (error) {

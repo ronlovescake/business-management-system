@@ -52,7 +52,7 @@ interface BackupSectionProps {
   onRefresh: () => void;
   onPreview: (backup: Backup) => void;
   onDownloadJSON: (backup: Backup) => void;
-  onDownloadSQL: (backup: Backup) => void;
+  onDownloadDump: (backup: Backup) => void;
   onDelete: (backup: Backup) => void;
 }
 
@@ -78,7 +78,7 @@ export function BackupSection({
   onRefresh,
   onPreview,
   onDownloadJSON,
-  onDownloadSQL,
+  onDownloadDump,
   onDelete,
 }: BackupSectionProps) {
   return (
@@ -105,10 +105,10 @@ export function BackupSection({
               { value: 'json', label: 'JSON only' },
               { value: 'csv', label: 'CSV only' },
               { value: 'xlsx', label: 'XLSX only' },
-              { value: 'sql', label: 'SQL dump only' },
+              { value: 'dump', label: 'PostgreSQL dump only' },
               {
                 value: 'all',
-                label: 'JSON + CSV + XLSX + SQL (recommended)',
+                label: 'JSON + CSV + XLSX + PostgreSQL dump (recommended)',
               },
             ]}
             value={isLogStrategy ? 'json' : backupFormat}
@@ -256,7 +256,7 @@ export function BackupSection({
         onRefresh={onRefresh}
         onPreview={onPreview}
         onDownloadJSON={onDownloadJSON}
-        onDownloadSQL={onDownloadSQL}
+        onDownloadDump={onDownloadDump}
         onDelete={onDelete}
       />
     </Stack>

@@ -26,7 +26,7 @@ interface BackupListCardProps {
   onRefresh: () => void;
   onPreview: (backup: Backup) => void;
   onDownloadJSON: (backup: Backup) => void;
-  onDownloadSQL: (backup: Backup) => void;
+  onDownloadDump: (backup: Backup) => void;
   onDelete: (backup: Backup) => void;
   title?: string;
   subtitle?: string;
@@ -39,7 +39,7 @@ export const BackupListCard = memo(
     onRefresh,
     onPreview,
     onDownloadJSON,
-    onDownloadSQL,
+    onDownloadDump,
     onDelete,
     title = `Backups (${backups.length})`,
     subtitle,
@@ -126,9 +126,9 @@ export const BackupListCard = memo(
                       <ActionIcon
                         color="teal"
                         variant="subtle"
-                        onClick={() => onDownloadSQL(backup)}
-                        title="Download SQL"
-                        aria-label="Download SQL"
+                        onClick={() => onDownloadDump(backup)}
+                        title="Download PostgreSQL dump"
+                        aria-label="Download PostgreSQL dump"
                       >
                         <IconDatabase size={16} />
                       </ActionIcon>

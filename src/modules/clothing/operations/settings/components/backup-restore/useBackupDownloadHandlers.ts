@@ -79,23 +79,28 @@ export const useBackupDownloadHandlers = ({
     }
   }, []);
 
-  const handleDownloadSQL = useCallback(async (backup: Backup) => {
+  const handleDownloadDump = useCallback(async (backup: Backup) => {
     try {
-      const sqlFile =
+      const dumpFile =
+        backup.files.find(
+          (f) => f.startsWith('backup-') && f.endsWith('.dump')
+        ) ||
+        backup.files.find((f) => f.endsWith('.dump')) ||
         backup.files.find(
           (f) => f.startsWith('backup-') && f.endsWith('.sql')
-        ) || backup.files.find((f) => f.endsWith('.sql'));
-      if (!sqlFile) {
+        ) ||
+        backup.files.find((f) => f.endsWith('.sql'));
+      if (!dumpFile) {
         showNotification({
-          title: 'No SQL File',
-          message: 'This backup does not contain an SQL dump file',
+          title: 'No Database Dump',
+          message: 'This backup does not contain a PostgreSQL dump file',
           color: 'orange',
         });
         return;
       }
 
       const response = await fetch(
-        `/api/backup/${backup.timestamp}/${sqlFile}`
+        `/api/backup/${backup.timestamp}/${dumpFile}`
       );
       if (!response.ok) {
         throw new Error(`Failed to download: ${response.statusText}`);
@@ -104,13 +109,13 @@ export const useBackupDownloadHandlers = ({
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = sqlFile;
+      a.download = dumpFile;
       a.click();
       URL.revokeObjectURL(url);
 
       showNotification({
         title: 'Downloaded',
-        message: sqlFile,
+        message: dumpFile,
         color: 'green',
       });
     } catch (error) {
@@ -142,7 +147,7 @@ export const useBackupDownloadHandlers = ({
         if (resolved.tooLarge) {
           showNotification({
             title: 'Too large for browser export',
-            message: `Table has ${previewData.tables[tableName]?.count ?? 0} rows. Use Download JSON or SQL for large exports.`,
+            message: `Table has ${previewData.tables[tableName]?.count ?? 0} rows. Use Download JSON or a database dump for large exports.`,
             color: 'yellow',
           });
           return;
@@ -256,7 +261,7 @@ export const useBackupDownloadHandlers = ({
         if (resolved.tooLarge) {
           showNotification({
             title: 'Too large for browser export',
-            message: `Table has ${previewData.tables[tableName]?.count ?? 0} rows. Use Download JSON or SQL for large exports.`,
+            message: `Table has ${previewData.tables[tableName]?.count ?? 0} rows. Use Download JSON or a database dump for large exports.`,
             color: 'yellow',
           });
           return;
@@ -344,7 +349,7 @@ export const useBackupDownloadHandlers = ({
 
   return {
     handleDownloadJSON,
-    handleDownloadSQL,
+    handleDownloadDump,
     handleDownloadXLSX,
     handleDownloadAllXLSX,
     handleDownloadCSV,

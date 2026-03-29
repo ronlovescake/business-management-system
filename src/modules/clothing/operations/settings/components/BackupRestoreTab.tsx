@@ -228,6 +228,8 @@ export function BackupRestoreTab() {
       try {
         const data = await api.post<{
           success: boolean;
+          message?: string;
+          warnings?: string[];
           backup?: {
             totalSize: number;
             timestamp: string;
@@ -244,11 +246,17 @@ export function BackupRestoreTab() {
         if (data.success && data.backup) {
           const strategyMeta = STRATEGY_META[strategyToUse];
           showNotification({
-            title: isAuto
-              ? `✅ ${strategyMeta.label} Auto-Backup Complete`
-              : `✅ ${strategyMeta.label} Backup Created`,
-            message: `${strategyMeta.label} backup saved (${(data.backup.totalSize / 1024 / 1024).toFixed(2)} MB)`,
-            color: 'green',
+            title: data.warnings?.length
+              ? isAuto
+                ? `⚠️ ${strategyMeta.label} Auto-Backup Completed With Warnings`
+                : `⚠️ ${strategyMeta.label} Backup Created With Warnings`
+              : isAuto
+                ? `✅ ${strategyMeta.label} Auto-Backup Complete`
+                : `✅ ${strategyMeta.label} Backup Created`,
+            message: data.warnings?.length
+              ? `${strategyMeta.label} backup saved (${(data.backup.totalSize / 1024 / 1024).toFixed(2)} MB). ${data.warnings[0]}`
+              : `${strategyMeta.label} backup saved (${(data.backup.totalSize / 1024 / 1024).toFixed(2)} MB)`,
+            color: data.warnings?.length ? 'yellow' : 'green',
           });
           await fetchBackups();
         } else {
@@ -579,7 +587,7 @@ export function BackupRestoreTab() {
 
   const {
     handleDownloadJSON,
-    handleDownloadSQL,
+    handleDownloadDump,
     handleDownloadXLSX,
     handleDownloadAllXLSX,
     handleDownloadCSV,
@@ -1011,7 +1019,7 @@ export function BackupRestoreTab() {
           onDownloadCSV={handleDownloadCSV}
           onDownloadXLSX={handleDownloadXLSX}
           onDownloadJSON={handleDownloadJSON}
-          onDownloadSQL={handleDownloadSQL}
+          onDownloadDump={handleDownloadDump}
           onDownloadAllCSV={handleDownloadAllCSV}
           onDownloadAllXLSX={handleDownloadAllXLSX}
         />
@@ -1055,7 +1063,7 @@ export function BackupRestoreTab() {
           onRefresh={() => void fetchBackups()}
           onPreview={handlePreviewBackup}
           onDownloadJSON={handleDownloadJSON}
-          onDownloadSQL={handleDownloadSQL}
+          onDownloadDump={handleDownloadDump}
           onDelete={(backup) => void handleDeleteBackup(backup.timestamp)}
         />
       ) : null}
@@ -1067,7 +1075,7 @@ export function BackupRestoreTab() {
           onRefresh={() => void fetchBackups()}
           onPreview={handlePreviewBackup}
           onDownloadJSON={handleDownloadJSON}
-          onDownloadSQL={handleDownloadSQL}
+          onDownloadDump={handleDownloadDump}
           onDelete={(backup) => void handleDeleteBackup(backup.timestamp)}
         />
       ) : null}
@@ -1106,8 +1114,8 @@ export function BackupRestoreTab() {
         onDownloadJSON={() =>
           selectedBackup ? void handleDownloadJSON(selectedBackup) : undefined
         }
-        onDownloadSQL={() =>
-          selectedBackup ? void handleDownloadSQL(selectedBackup) : undefined
+        onDownloadDump={() =>
+          selectedBackup ? void handleDownloadDump(selectedBackup) : undefined
         }
         onDownloadAllCSV={() => void handleDownloadAllCSV()}
         onDownloadAllXLSX={() => void handleDownloadAllXLSX()}

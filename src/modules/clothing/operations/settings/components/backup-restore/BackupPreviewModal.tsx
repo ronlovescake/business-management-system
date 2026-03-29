@@ -55,7 +55,7 @@ interface BackupPreviewModalProps {
   onToggleTable: (table: string, checked: boolean) => void;
   onSetForceOverwrite: (value: boolean) => void;
   onDownloadJSON: () => void;
-  onDownloadSQL: () => void;
+  onDownloadDump: () => void;
   onDownloadAllCSV: () => void;
   onDownloadAllXLSX: () => void;
   onDownloadCSV: (table: string) => void;
@@ -83,7 +83,7 @@ export const BackupPreviewModal = ({
   onToggleTable,
   onSetForceOverwrite,
   onDownloadJSON,
-  onDownloadSQL,
+  onDownloadDump,
   onDownloadAllCSV,
   onDownloadAllXLSX,
   onDownloadCSV,
@@ -164,10 +164,10 @@ export const BackupPreviewModal = ({
             <Button
               color="teal"
               leftSection={<IconDatabase size={16} />}
-              onClick={onDownloadSQL}
+              onClick={onDownloadDump}
               disabled={!canDownloadBackup}
             >
-              Download SQL Dump
+              Download PostgreSQL Dump
             </Button>
             <Button
               color="green"

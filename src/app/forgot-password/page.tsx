@@ -79,7 +79,7 @@ export default function ForgotPasswordPage() {
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        backgroundImage: 'url(/backgrounds/minimalist-clock.jpg)',
+        backgroundImage: 'url(/backgrounds/orange-waves.jpg)',
         backgroundSize: 'cover',
         backgroundPosition: 'center',
         backgroundRepeat: 'no-repeat',

@@ -4,6 +4,16 @@ set -euo pipefail
 ENV_FILE="${ENV_FILE:-.env.docker}"
 HOST_DEV_PORT="${HOST_DEV_PORT:-5001}"
 
+if [[ ! -d node_modules ]]; then
+  echo "Project dependencies are not installed. Run 'npm install' in the repo root first."
+  exit 1
+fi
+
+if [[ ! -f node_modules/dotenv/package.json ]]; then
+  echo "The 'dotenv' package is missing from node_modules. Run 'npm install' in the repo root first."
+  exit 1
+fi
+
 read_env_value() {
   node - "$ENV_FILE" "$1" <<'NODE'
 const fs = require('fs');
@@ -19,6 +29,29 @@ const parsed = dotenv.parse(fs.readFileSync(envFile));
 process.stdout.write(parsed[key] ?? '');
 NODE
 }
+
+load_env_file() {
+  eval "$(node - "$ENV_FILE" <<'NODE'
+const fs = require('fs');
+const dotenv = require('dotenv');
+
+const [, , envFile] = process.argv;
+
+if (!fs.existsSync(envFile)) {
+  process.exit(0);
+}
+
+const parsed = dotenv.parse(fs.readFileSync(envFile));
+
+for (const [key, value] of Object.entries(parsed)) {
+  const escaped = JSON.stringify(String(value));
+  process.stdout.write(`export ${key}=${escaped}\n`);
+}
+NODE
+)"
+}
+
+load_env_file
 
 DATABASE_URL="${DATABASE_URL:-$(read_env_value DATABASE_URL)}"
 POSTGRES_PORT="${POSTGRES_PORT:-$(read_env_value POSTGRES_PORT)}"
