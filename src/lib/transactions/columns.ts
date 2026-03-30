@@ -38,6 +38,7 @@ export const buildTransactionColumns = ({
     id: 'productCode',
     type: 'dropdown',
     dropdownValues: productCodes,
+    dropdownSearchMode: 'contains',
   },
   {
     title: 'QUANTITY',
@@ -87,6 +88,7 @@ export const buildTransactionColumns = ({
     id: 'orderStatus',
     type: 'dropdown',
     dropdownValues: statusDropdownOptions,
+    dropdownSearchMode: 'contains',
     align: 'center',
   },
   {
