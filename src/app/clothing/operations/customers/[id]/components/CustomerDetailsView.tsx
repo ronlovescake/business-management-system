@@ -12,8 +12,14 @@ import {
   SimpleGrid,
   LoadingOverlay,
   Alert,
+  Tooltip,
 } from '@mantine/core';
-import { IconArrowLeft, IconEdit, IconAlertCircle } from '@tabler/icons-react';
+import {
+  IconArrowLeft,
+  IconEdit,
+  IconAlertCircle,
+  IconMessageCircle,
+} from '@tabler/icons-react';
 import { useRouter } from 'next/navigation';
 import { useCustomerDetails } from '../hooks/useCustomerDetails';
 import { CustomerStatsCards } from './CustomerStatsCards';
@@ -53,6 +59,12 @@ export const CustomerDetailsView = memo(function CustomerDetailsView({
     setEditForm,
     handleUpdateCustomer,
   } = useCustomerDetails(customerId, apiBasePath);
+
+  const normalizedFacebookLink = customer?.Facebook?.trim()
+    ? customer.Facebook.startsWith('http')
+      ? customer.Facebook
+      : `https://${customer.Facebook}`
+    : '';
 
   // ============================================================================
   // LOADING STATE
@@ -113,6 +125,22 @@ export const CustomerDetailsView = memo(function CustomerDetailsView({
                 >
                   {customer['Customer Status']}
                 </Badge>
+              )}
+              {normalizedFacebookLink && (
+                <Tooltip label="Open buyer Facebook">
+                  <ActionIcon
+                    component="a"
+                    href={normalizedFacebookLink}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    variant="light"
+                    color="blue"
+                    size="lg"
+                    aria-label={`Open ${customer['Customer Name']}'s Facebook`}
+                  >
+                    <IconMessageCircle size={18} />
+                  </ActionIcon>
+                </Tooltip>
               )}
             </Group>
             <Text size="sm" c="dimmed">
