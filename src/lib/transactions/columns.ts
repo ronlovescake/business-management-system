@@ -30,6 +30,7 @@ export const buildTransactionColumns = ({
     id: 'customers',
     type: 'dropdown',
     dropdownValues: customerNames,
+    dropdownSearchMode: 'contains',
   },
   {
     title: 'PRODUCT CODE',

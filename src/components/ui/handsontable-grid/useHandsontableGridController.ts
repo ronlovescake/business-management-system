@@ -606,10 +606,32 @@ export function useHandsontableGridController<T extends object>({
         .join(' ');
 
       if (col.type === 'dropdown') {
+        const dropdownValues = col.dropdownValues ?? [];
+        const source =
+          col.dropdownSearchMode === 'contains'
+            ? (
+                query: string,
+                process: (matches: string[]) => void
+              ): void => {
+                const normalizedQuery = query.trim().toLowerCase();
+
+                if (!normalizedQuery) {
+                  process(dropdownValues);
+                  return;
+                }
+
+                process(
+                  dropdownValues.filter((value) =>
+                    value.toLowerCase().includes(normalizedQuery)
+                  )
+                );
+              }
+            : dropdownValues;
+
         return {
           data: colIndex,
           type: 'dropdown',
-          source: col.dropdownValues ?? [],
+          source,
           strict: true,
           allowInvalid: false,
           allowEmpty: true,

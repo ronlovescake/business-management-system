@@ -5,6 +5,7 @@ import type { StatCard } from '../StatsCardGrid';
 
 export type TableColumnAlignment = 'left' | 'center' | 'right';
 export type HandsontableColumnType = 'text' | 'numeric' | 'dropdown';
+export type HandsontableDropdownSearchMode = 'contains';
 
 export interface HandsontableColumn {
   id: string;
@@ -13,6 +14,7 @@ export interface HandsontableColumn {
   align?: TableColumnAlignment;
   type?: HandsontableColumnType;
   dropdownValues?: string[];
+  dropdownSearchMode?: HandsontableDropdownSearchMode;
   readOnly?: boolean;
   numericFormat?: string;
   className?: string;
