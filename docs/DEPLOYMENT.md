@@ -54,6 +54,17 @@ docker compose --env-file .env.docker build
 docker compose --env-file .env.docker up -d
 ```
 
+Repo wrapper scripts for the same flow:
+
+```bash
+npm run docker:db:up
+npm run docker:build
+npm run docker:up
+```
+
+Use `npm run docker:prod` only when you want all three steps together.
+If you already built the image and only need to restart or recreate the app container, use `npm run docker:up`.
+
 5. Wait for PostgreSQL to report healthy, then run the first-run bootstrap step:
 
 ```bash
@@ -105,6 +116,7 @@ The restore command:
 - The Docker image installs Chromium because the app uses Playwright for server-side document generation.
 - The image uses non-sensitive local placeholder values at build time for server-only env validation. Real runtime values are still required when the container starts.
 - `NEXT_PUBLIC_APP_URL` is a public build-time value. If your public domain changes, rebuild the image.
+- `.dockerignore` excludes docs, tests, and other non-runtime files so doc-only changes do not invalidate the expensive app build layers.
 
 ## VPS Checklist
 

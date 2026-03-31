@@ -2,6 +2,8 @@
 .github
 .next
 node_modules
+docs
+tests
 coverage
 playwright-report
 test-results
@@ -19,8 +21,13 @@ scripts/tmp
 
 docker-compose*.yml
 *.log
+*.md
 *.tmp
 *.swp
 
 business-management.code-workspace
 business-management-development.code-workspace
+coverage-report.txt
+unit-test-report.txt
+CONVERSATION.md
+console
