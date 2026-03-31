@@ -47,6 +47,7 @@ import { useTransactionsDerivedData } from '../hooks/useTransactionsDerivedData'
 import { useDueDateFilters } from '../hooks/useDueDateFilters';
 import {
   DEFAULT_READ_ONLY_COLUMNS,
+  type DueDateGridRow,
   type ReadOnlyColumnFlags,
 } from '@/lib/transactions';
 import {
@@ -636,6 +637,55 @@ export function TransactionsPage({ apiBasePath }: TransactionsPageProps) {
     [lookupFacebookLink]
   );
 
+  const handleDueDatesCustomerClick = useCallback(
+    async (event: CellClickEvent<DueDateGridRow>) => {
+      if (event.column.id !== 'customer') {
+        return;
+      }
+
+      const customerName = event.rowData.customer;
+      if (!customerName) {
+        return;
+      }
+
+      try {
+        if (
+          typeof navigator !== 'undefined' &&
+          navigator.clipboard?.writeText
+        ) {
+          await navigator.clipboard.writeText(customerName);
+        }
+      } catch (error) {
+        logger.warn('Failed to copy customer name to clipboard', error);
+      }
+
+      const facebookLink = lookupFacebookLink(customerName);
+      if (!facebookLink) {
+        showNotification({
+          title: 'No Facebook Link',
+          message: `No Facebook profile found for ${customerName}.`,
+          color: 'yellow',
+        });
+        return;
+      }
+
+      const normalizedLink = facebookLink.startsWith('http')
+        ? facebookLink
+        : `https://${facebookLink}`;
+
+      showNotification({
+        title: 'Opening Messenger',
+        message: `Copied ${customerName}. Launching Messenger...`,
+        color: 'blue',
+      });
+
+      if (typeof window !== 'undefined') {
+        window.open(normalizedLink, '_blank', 'noopener,noreferrer');
+      }
+    },
+    [lookupFacebookLink]
+  );
+
   const paymentsActionButton = useMemo(
     () => (
       <Button
@@ -892,6 +942,7 @@ export function TransactionsPage({ apiBasePath }: TransactionsPageProps) {
           dueDatesData={dueDatesData}
           filteredDueDatesData={filteredDueDatesData}
           getDueDateCellData={getDueDateCellData}
+          onDueDatesCustomerClick={handleDueDatesCustomerClick}
           dueDateFilters={dueDateFilters}
           onDueDateFilter={handleDueDateFilter}
           meaningfulTransactions={meaningfulTransactions}

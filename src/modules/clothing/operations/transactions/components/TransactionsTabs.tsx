@@ -164,6 +164,7 @@ interface DueDatesTabProps extends BaseTabProps {
   filteredData: DueDateGridRow[];
   columns: HandsontableColumn[];
   getCellData: GetCellData<DueDateGridRow>;
+  onCellClick?: (event: CellClickEvent<DueDateGridRow>) => void;
   dueDateFilters: Set<string>;
   onDueDateFilter: (filter: string) => void;
   statusOptions: string[];
@@ -174,6 +175,7 @@ const DueDatesTab = memo(function DueDatesTab({
   filteredData,
   columns,
   getCellData,
+  onCellClick,
   dueDateFilters,
   onDueDateFilter,
   statusOptions,
@@ -197,6 +199,7 @@ const DueDatesTab = memo(function DueDatesTab({
       onStatusFilter={onDueDateFilter}
       showActionButtons={false}
       stretchColumnId={stretchColumnId}
+      onCellClick={onCellClick}
     />
   );
 });
@@ -285,6 +288,7 @@ interface TransactionsTabsProps {
   dueDatesData: DueDateGridRow[];
   filteredDueDatesData: DueDateGridRow[];
   getDueDateCellData: GetCellData<DueDateGridRow>;
+  onDueDatesCustomerClick?: (event: CellClickEvent<DueDateGridRow>) => void;
   dueDateFilters: Set<string>;
   onDueDateFilter: (filter: string) => void;
   meaningfulTransactions: TransactionData[];
@@ -324,6 +328,7 @@ export const TransactionsTabs = memo(function TransactionsTabs({
   dueDatesData,
   filteredDueDatesData,
   getDueDateCellData,
+  onDueDatesCustomerClick,
   dueDateFilters,
   onDueDateFilter,
   meaningfulTransactions,
@@ -462,6 +467,7 @@ export const TransactionsTabs = memo(function TransactionsTabs({
           filteredData={filteredDueDatesData}
           columns={dueDateColumns}
           getCellData={getDueDateCellData}
+          onCellClick={onDueDatesCustomerClick}
           dueDateFilters={dueDateFilters}
           onDueDateFilter={onDueDateFilter}
           statusOptions={Array.from(DUE_DATE_FILTER_OPTIONS)}
