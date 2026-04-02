@@ -10,6 +10,12 @@ description: "Repository-wide developer instructions for the Business Management
 - Make only the requested change. Keep diffs tight and avoid unrelated cleanup.
 - Prefer root-cause fixes over surface patches.
 - Do not commit, push, deploy, or run production builds unless explicitly authorized.
+- Requested terminal and operational commands are allowed when they are needed to complete the task, but that permission never includes `git commit`, `git push`, or any other git history-changing action.
+- Git write actions are always opt-in per occurrence. Never run `git commit`, `git push`, tag creation, branch creation, merge, rebase, reset, revert, stash, or other history-changing commands unless the user explicitly asks for that exact action in the current conversation.
+- Commit or push approval is single-use and non-persistent. A prior approval to commit or push one set of pending changes does not authorize any later commit or push after additional edits, even within the same session.
+- If the diff changes after approval was given, stop and ask again before committing or pushing. Treat each new batch of edits as requiring fresh authorization.
+- Never infer that “commit the pending changes” grants standing permission for future commits. After completing one authorized commit or push, return to a no-commit, no-push default until the user explicitly requests it again.
+- Before any authorized commit or push, summarize the exact files or change set being sent and the validation status. If validation has not been run, say so clearly and wait for confirmation if the request was ambiguous.
 - Treat auth, permissions, Prisma schema, backup/restore, accounting, payroll, and inventory logic as high-risk areas. Validate those changes more aggressively.
 
 ## 2. Repository Shape
@@ -101,6 +107,9 @@ npm run test:hardening
 ## 10. Traceability And Reviews
 
 - If a commit is explicitly authorized, write a detailed commit message that explains what changed, why it changed, what areas were affected, and any follow-up risk.
+- After code changes are complete, the default behavior is to stop at handoff. Do not perform commit, push, deploy, or other state-changing follow-up actions unless the user explicitly requests them again.
+- If the user asks for a commit or push, apply that authorization only to the exact current state under discussion. Do not treat it as pre-approval for later changes, later fixes, or later sessions.
+- Approval to run terminal commands, builds, tests, migrations, Docker commands, or deployments does not imply approval to commit or push. Commits and pushes always require their own explicit request and approval.
 - In summaries, reviews, or PR notes, call out the validation you ran and any residual risk.
 - If a requirement is unclear, clarify it before making broad architectural changes.
 

@@ -192,9 +192,20 @@ Before handoff:
 3. State what validation you ran.
 4. Call out residual risk if any exists.
 
+## 12. Git Confirmation Hooks
+
+This repository uses interactive Husky hooks for `git commit` and `git push`.
+
+- Every commit asks for confirmation before the existing pre-commit checks run.
+- Every push asks for confirmation before Git sends anything to the remote.
+- If you answer no, the action stops.
+- This is intended to prevent accidental commits or pushes by both humans and AI tools.
+
+These hooks are a local safety layer, not an absolute security boundary. They can still be bypassed with Git options such as `--no-verify`, so use remote branch protection as an additional safeguard when needed.
+
 If you are authorized to commit, write commit messages that explain what changed, why, affected areas, and follow-up risk. Avoid vague commit messages.
 
-## 12. Where To Look Next
+## 13. Where To Look Next
 
 - `README.md`: commands, scripts, environment, deployment basics
 - `CONTRIBUTING.md`: contributor workflow and coding standards

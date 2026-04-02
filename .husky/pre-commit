@@ -1,5 +1,7 @@
 #!/usr/bin/env sh
 . "$(dirname -- "$0")/_/husky.sh"
 
+"$(dirname -- "$0")/_/confirm-action.sh" commit
+
 npm run guard:no-legacy-browser-engine
 npx lint-staged

@@ -207,6 +207,7 @@ npm run accounting:transactions:sanitycheck
 - Business logic index: `docs/BUSINESS_LOGIC_INDEX.md`
 - Debugging guide: `docs/DEBUGGING.md`
 - Deployment guide: `docs/DEPLOYMENT.md`
+- Docker cheat sheet: `docs/DOCKER_CHEAT_SHEET.md`
 - Operational workflow and accounting policy: `docs/OPERATIONAL_WORKFLOW_AND_ACCOUNTING_POLICY.md`
 - Inventory ledger controls: `docs/inventory-ledger-controls.md`
 - Historical docs index: `docs/HISTORICAL_INDEX.md`
