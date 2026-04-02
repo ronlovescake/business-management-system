@@ -18,6 +18,7 @@ import {
   IconBoxSeam,
 } from '@tabler/icons-react';
 import { useBusinessStore } from '../../lib/store';
+import { useBreadcrumbStore } from '../../lib/useBreadcrumbStore';
 import { usePathname } from 'next/navigation';
 import { useEffect } from 'react';
 import { getIconButtonLabel } from '@/lib/accessibility';
@@ -37,6 +38,7 @@ export function BreadcrumbNavigation() {
     initializeFromPath,
   } = useBusinessStore();
   const pathname = usePathname();
+  const pageLabel = useBreadcrumbStore((s) => s.pageLabel);
 
   // Initialize from current path on component mount
   useEffect(() => {
@@ -52,22 +54,31 @@ export function BreadcrumbNavigation() {
     (b) => b.value !== selectedBusiness
   );
 
-  const getCurrentPageName = () => {
-    if (!pathname || pathname === '/') {
-      return 'Home';
-    }
-
-    const segments = pathname.split('/').filter(Boolean);
-    if (segments.length === 0) {
-      return 'Home';
-    }
-
-    // Get the last segment and format it
-    const lastSegment = segments[segments.length - 1];
-    return lastSegment
+  const formatSegment = (segment: string) =>
+    segment
       .split('-')
       .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
       .join(' ');
+
+  const getPageSegments = (): string[] => {
+    if (!pathname || pathname === '/') {
+      return [];
+    }
+
+    const segments = pathname.split('/').filter(Boolean);
+    // First two segments are business/workspace (handled by menus)
+    const pageSegments = segments.slice(2);
+    if (pageSegments.length === 0) {
+      return [];
+    }
+
+    // Format intermediate segments, override the last one if store has a label
+    return pageSegments.map((seg, i) => {
+      if (i === pageSegments.length - 1 && pageLabel) {
+        return pageLabel;
+      }
+      return formatSegment(seg);
+    });
   };
 
   const workspaces = isBusiness(selectedBusiness)
@@ -248,15 +259,15 @@ export function BreadcrumbNavigation() {
     );
   }
 
-  // Current Page (only show if not home page)
-  const currentPage = getCurrentPageName();
-  if (currentPage !== 'Home' && pathname !== '/') {
+  // Page segments (intermediate + current page)
+  const pageSegments = getPageSegments();
+  pageSegments.forEach((label, index) => {
     breadcrumbItems.push(
-      <Text key="current-page" size="sm" c="dimmed">
-        {currentPage}
+      <Text key={`page-${index}`} size="sm" c="dimmed">
+        {label}
       </Text>
     );
-  }
+  });
 
   return (
     <Group gap="sm">

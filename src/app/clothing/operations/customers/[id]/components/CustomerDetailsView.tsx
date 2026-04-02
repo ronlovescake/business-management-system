@@ -1,6 +1,6 @@
 'use client';
 
-import { memo } from 'react';
+import { memo, useEffect } from 'react';
 import {
   Stack,
   Group,
@@ -29,6 +29,7 @@ import { AdditionalCustomerInfoCard } from './AdditionalCustomerInfoCard';
 import { OrdersAndTransactions } from './OrdersAndTransactions';
 import { EditCustomerModal } from './EditCustomerModal';
 import { getIconButtonLabel } from '@/lib/accessibility';
+import { useBreadcrumbStore } from '@/lib/useBreadcrumbStore';
 
 // ============================================================================
 // CUSTOMER DETAILS VIEW
@@ -59,6 +60,14 @@ export const CustomerDetailsView = memo(function CustomerDetailsView({
     setEditForm,
     handleUpdateCustomer,
   } = useCustomerDetails(customerId, apiBasePath);
+
+  const setPageLabel = useBreadcrumbStore((s) => s.setPageLabel);
+  useEffect(() => {
+    if (customer?.['Customer Name']) {
+      setPageLabel(customer['Customer Name']);
+    }
+    return () => setPageLabel(null);
+  }, [customer, setPageLabel]);
 
   const normalizedFacebookLink = customer?.Facebook?.trim()
     ? customer.Facebook.startsWith('http')
