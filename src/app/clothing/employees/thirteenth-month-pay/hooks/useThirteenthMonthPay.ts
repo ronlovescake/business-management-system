@@ -134,11 +134,9 @@ export function useThirteenthMonthPay(apiBasePath?: string) {
   const { data: records = [], isLoading } = useQuery({
     queryKey: thirteenthQueryKey.list(filters),
     queryFn: async () => {
-      const [activeEmployees, payrollRecords, persistedRecords] =
+      const [allEmployees, payrollRecords, persistedRecords] =
         await Promise.all([
-          api.get<Array<Record<string, unknown>>>(
-            `${resolveApiPath('/employees')}?status=active`
-          ),
+          api.get<Array<Record<string, unknown>>>(resolveApiPath('/employees')),
           api.get<Array<Record<string, unknown>>>(resolveApiPath('/payroll')),
           (async () => {
             try {
@@ -155,7 +153,7 @@ export function useThirteenthMonthPay(apiBasePath?: string) {
       const employeeById = new Map<string, Record<string, unknown>>();
       const employeeByName = new Map<string, Record<string, unknown>>();
 
-      activeEmployees.forEach((employee) => {
+      allEmployees.forEach((employee) => {
         const id = normalizeValue(employee.employeeId as string | undefined);
         const name = normalizeValue(
           (employee.name as string | undefined) ||
@@ -308,14 +306,35 @@ export function useThirteenthMonthPay(apiBasePath?: string) {
             ? String(r.year)
             : new Date().getFullYear().toString();
 
+          // Look up the employee record to get hire date for persisted records
+          const persistedEmpId = normalizeValue(
+            (r.employeeId as string | undefined) ?? null
+          );
+          const persistedEmpName = normalizeValue(safeEmployeeName);
+          const empRecord =
+            (persistedEmpId ? employeeById.get(persistedEmpId) : undefined) ??
+            (persistedEmpName
+              ? employeeByName.get(persistedEmpName)
+              : undefined);
+          const persistedHireDate =
+            (empRecord?.hireDate as string | undefined) ??
+            (empRecord?.dateHired as string | undefined) ??
+            null;
+          const persistedYear = Number.isFinite(Number(r.year))
+            ? Number(r.year)
+            : new Date().getFullYear();
+
           return [
             r.recordId || r.id,
             {
               id: (r.recordId || r.id) as string,
               employee: safeEmployeeName,
               year: safeYear,
-              hireDate: null,
-              tenureship: 'N/A',
+              hireDate: persistedHireDate,
+              tenureship: calculateTenureshipLabel(
+                persistedHireDate,
+                persistedYear
+              ),
               totalBasicSalary: toNumber(r.totalBasicSalary),
               totalLwop: toNumber(r.totalLwop),
               totalAbsencesLates: toNumber(r.totalAbsencesLates),
