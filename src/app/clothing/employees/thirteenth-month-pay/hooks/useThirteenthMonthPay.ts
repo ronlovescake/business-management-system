@@ -284,7 +284,8 @@ export function useThirteenthMonthPay(apiBasePath?: string) {
         );
         const hireDate = aggregate.hireDate;
         const tenureship = calculateTenureshipLabel(hireDate, aggregate.year);
-        const thirteenthMonthPay = netBasicSalary / monthsWorkedCount;
+        // Philippine DOLE formula: always divide by 12 regardless of months worked
+        const thirteenthMonthPay = netBasicSalary / 12;
 
         return {
           id: aggregate.id,

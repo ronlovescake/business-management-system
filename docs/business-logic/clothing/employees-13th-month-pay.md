@@ -31,12 +31,12 @@
 
 ## C - Computation Formula
 
-| #   | Logic                                                                                                           | Explanation                                                                           |
-| --- | --------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------- |
-| 9   | `netBasicSalary = max(0, totalBasicSalary - totalLwop - totalAbsencesLates)`                                    | Floor at 0; cannot be negative.                                                       |
-| 10  | `thirteenthMonthPay = netBasicSalary / monthsWorked.size`                                                       | Divides net basic salary by the number of distinct months the employee worked.        |
-| 11  | `monthsWorked.size` is clamped to the range 1–12                                                                | Prevents division-by-zero (minimum 1) and values above a full year (maximum 12).      |
-| 12  | This follows Philippine DOLE guidelines: 13th month pay = (total basic salary earned in the calendar year) / 12 | The formula approximates the DOLE standard using actual months worked as the divisor. |
+| #   | Logic                                                                                                           | Explanation                                                                            |
+| --- | --------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------- |
+| 9   | `netBasicSalary = max(0, totalBasicSalary - totalLwop - totalAbsencesLates)`                                    | Floor at 0; cannot be negative.                                                        |
+| 10  | `thirteenthMonthPay = netBasicSalary / 12`                                                                      | Always divides by 12 per Philippine DOLE guidelines, regardless of months worked.      |
+| 11  | `monthsWorked.size` is clamped to the range 1–12 and stored for reference                                       | Tracks how many distinct months had payroll; used for display only, not as divisor.    |
+| 12  | This follows Philippine DOLE guidelines: 13th month pay = (total basic salary earned in the calendar year) / 12 | The divisor is always 12. Employees who worked fewer months receive a prorated amount. |
 
 ---
 
