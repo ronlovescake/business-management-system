@@ -24,6 +24,8 @@ import type {
 } from '@/components/shared/PageTemplates/DataTable';
 import { LoanFormDialog } from './components/LoanFormDialog';
 import type { EmployeeLoan } from './types';
+import { useEmployeeStatusMap } from '@/hooks/useEmployeeStatusMap';
+import { EmploymentStatusBadge } from '@/components/ui/EmploymentStatusBadge';
 
 export default function EmployeeLoans() {
   const {
@@ -65,6 +67,7 @@ export default function EmployeeLoans() {
     handleImportCSV,
     handleExportCSV,
   } = useEmployeeLoans();
+  const { getStatus } = useEmployeeStatusMap();
 
   // Stats Configuration
   const stats: StatCard[] = [
@@ -103,7 +106,12 @@ export default function EmployeeLoans() {
     {
       key: 'employee',
       label: 'EMPLOYEE',
-      render: (item) => <Text fw={500}>{item.employee}</Text>,
+      render: (item) => (
+        <Group gap="xs">
+          <Text fw={500}>{item.employee}</Text>
+          <EmploymentStatusBadge status={getStatus(item.employee)} />
+        </Group>
+      ),
     },
     {
       key: 'amount',

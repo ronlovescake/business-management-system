@@ -24,6 +24,8 @@ import type {
 import { RequestFormDialog } from './components/RequestFormDialog';
 import type { CashAdvance as CashAdvanceType } from './types';
 import { CashAdvanceErrorBoundary } from './components/CashAdvanceErrorBoundary';
+import { useEmployeeStatusMap } from '@/hooks/useEmployeeStatusMap';
+import { EmploymentStatusBadge } from '@/components/ui/EmploymentStatusBadge';
 
 export function EmployeesCashAdvancePage({
   apiBasePath,
@@ -66,6 +68,7 @@ export function EmployeesCashAdvancePage({
     handleImportCSV,
     handleExportCSV,
   } = useCashAdvance(apiBasePath);
+  const { getStatus } = useEmployeeStatusMap(apiBasePath);
 
   const getResolvedSettledAmount = (item: CashAdvanceType) => {
     if (typeof item.settledAmount === 'number') {
@@ -127,9 +130,14 @@ export function EmployeesCashAdvancePage({
       key: 'employee',
       label: 'EMPLOYEE NAME',
       render: (item) => (
-        <Text fw={500} ta="left">
-          {item.employee}
-        </Text>
+        <Group gap="xs">
+          <Text fw={500} ta="left">
+            {item.employee}
+          </Text>
+          <EmploymentStatusBadge
+            status={getStatus(item.employee, item.employeeId)}
+          />
+        </Group>
       ),
     },
     {

@@ -6,6 +6,7 @@ import type {
 } from '@/components/shared/PageTemplates';
 import { Text, Badge, Group, Avatar } from '@mantine/core';
 import { IconCheck, IconX, IconEdit, IconTrash } from '@tabler/icons-react';
+import { EmploymentStatusBadge } from '@/components/ui/EmploymentStatusBadge';
 import type {
   LeaveRequest,
   LeaveStatus,
@@ -24,6 +25,10 @@ interface LeaveListTableProps {
   onReject: (id: string) => void;
   onEdit: (request: LeaveRequest) => void;
   onDelete: (id: string) => void;
+  getEmployeeStatus?: (
+    employeeName?: string,
+    employeeId?: string
+  ) => string | undefined;
 }
 
 export const LeaveListTable = React.memo(function LeaveListTable({
@@ -37,6 +42,7 @@ export const LeaveListTable = React.memo(function LeaveListTable({
   onReject,
   onEdit,
   onDelete,
+  getEmployeeStatus,
 }: LeaveListTableProps) {
   const getInitials = useCallback((name: string) => {
     const [first = '', second = ''] = name.split(' ');
@@ -56,7 +62,15 @@ export const LeaveListTable = React.memo(function LeaveListTable({
               {getInitials(item.employeeName)}
             </Avatar>
             <div>
-              <Text fw={600}>{item.employeeName}</Text>
+              <Group gap="xs">
+                <Text fw={600}>{item.employeeName}</Text>
+                <EmploymentStatusBadge
+                  status={getEmployeeStatus?.(
+                    item.employeeName,
+                    item.employeeId
+                  )}
+                />
+              </Group>
               <Text size="xs" c="dimmed">
                 {item.employeeId}
               </Text>

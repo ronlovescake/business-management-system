@@ -13,6 +13,8 @@ import {
   IconUserMinus,
   IconTrash,
 } from '@tabler/icons-react';
+import { useEmployeeStatusMap } from '@/hooks/useEmployeeStatusMap';
+import { EmploymentStatusBadge } from '@/components/ui/EmploymentStatusBadge';
 // Direct imports for faster compilation (bypasses barrel export)
 import { StatsCardGrid, type StatCard } from '@/components/ui';
 import { AttendanceControls } from './components/AttendanceControls';
@@ -56,6 +58,7 @@ function AttendanceContent({ apiBasePath }: { apiBasePath?: string }) {
     handleExportCSV,
     yearOptions,
   } = useAttendance(apiBasePath);
+  const { getStatus } = useEmployeeStatusMap(apiBasePath);
 
   const getInitials = (record: AttendanceRecord) => {
     const [first = '', second = ''] = record.employeeName.split(' ');
@@ -105,7 +108,12 @@ function AttendanceContent({ apiBasePath }: { apiBasePath?: string }) {
             {getInitials(item)}
           </Avatar>
           <div>
-            <Text fw={600}>{item.employeeName}</Text>
+            <Group gap="xs">
+              <Text fw={600}>{item.employeeName}</Text>
+              <EmploymentStatusBadge
+                status={getStatus(item.employeeName, item.employeeId)}
+              />
+            </Group>
             <Text size="xs" c="dimmed">
               {item.employeeId} • {item.position}
             </Text>

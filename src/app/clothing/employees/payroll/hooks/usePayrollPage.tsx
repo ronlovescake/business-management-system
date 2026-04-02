@@ -17,6 +17,8 @@ import type {
 } from '@/components/shared/PageTemplates/DataTable';
 import { usePayroll } from './usePayroll';
 import type { Payroll, PayrollColumnTotals } from '../types';
+import { useEmployeeStatusMap } from '@/hooks/useEmployeeStatusMap';
+import { EmploymentStatusBadge } from '@/components/ui/EmploymentStatusBadge';
 
 const INITIAL_TOTALS: PayrollColumnTotals = {
   basicSalary: 0,
@@ -69,6 +71,7 @@ const formatPayPeriodDisplay = (period: string) => {
 
 export function usePayrollPage(apiBasePath?: string) {
   const payrollStore = usePayroll(apiBasePath);
+  const { getStatus } = useEmployeeStatusMap(apiBasePath);
   const {
     payrolls,
     totalPayrolls,
@@ -181,7 +184,14 @@ export function usePayrollPage(apiBasePath?: string) {
         key: 'employee',
         label: 'EMPLOYEE NAME',
         align: 'left',
-        render: (item) => <Text fw={500}>{item.employee}</Text>,
+        render: (item) => (
+          <Group gap="xs">
+            <Text fw={500}>{item.employee}</Text>
+            <EmploymentStatusBadge
+              status={getStatus(item.employee, item.employeeId ?? undefined)}
+            />
+          </Group>
+        ),
       },
       {
         key: 'payPeriod',

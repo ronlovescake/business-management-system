@@ -9,6 +9,7 @@ import { ScheduleControls } from './components/ScheduleControls';
 import { ScheduleListTable } from './components/ScheduleListTable';
 import { CalendarView } from './components/CalendarView';
 import { CalendarBulkActions } from './components/CalendarBulkActions';
+import { useEmployeeStatusMap } from '@/hooks/useEmployeeStatusMap';
 
 /**
  * Schedules Page Component
@@ -80,6 +81,7 @@ export function EmployeesSchedulesPage({
     shiftConfig,
     dayLabels,
   } = useSchedules(apiBasePath);
+  const { getStatus } = useEmployeeStatusMap(apiBasePath);
 
   const bulkActionProps = {
     recurringRules,
@@ -141,6 +143,7 @@ export function EmployeesSchedulesPage({
             getShiftTypeColor={getShiftTypeColor}
             calculateDuration={calculateDuration}
             getEmployeeLeaveForDate={getEmployeeLeaveForDate}
+            getEmployeeStatus={getStatus}
             onEdit={handleEditSchedule}
             onDelete={handleDeleteSchedule}
             onMarkCompleted={handleMarkCompleted}

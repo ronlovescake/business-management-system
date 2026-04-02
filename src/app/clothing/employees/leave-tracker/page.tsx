@@ -10,6 +10,7 @@ import { AnalyticsTable } from './components/AnalyticsTable';
 import { CalendarView } from './components/CalendarView';
 import { LeaveFormDialog } from './components/LeaveFormDialog';
 import useLeaveTracker from './hooks/useLeaveTracker';
+import { useEmployeeStatusMap } from '@/hooks/useEmployeeStatusMap';
 
 /**
  * Leave Tracker Page Component
@@ -101,6 +102,7 @@ export function EmployeesLeaveTrackerPage({
     // Form helpers
     isClearDisabled,
   } = useLeaveTracker(apiBasePath);
+  const { getStatus } = useEmployeeStatusMap(apiBasePath);
 
   return (
     <PageLayout fluid withPadding>
@@ -143,6 +145,7 @@ export function EmployeesLeaveTrackerPage({
             onReject={handleReject}
             onEdit={handleEditRequest}
             onDelete={handleDeleteRequest}
+            getEmployeeStatus={getStatus}
           />
         ) : activeTab === 'analytics' ? (
           <AnalyticsTable

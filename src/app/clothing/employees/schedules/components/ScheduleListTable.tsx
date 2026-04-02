@@ -18,6 +18,7 @@ import {
   IconX,
 } from '@tabler/icons-react';
 import { getIconButtonLabel } from '@/lib/accessibility';
+import { EmploymentStatusBadge } from '@/components/ui/EmploymentStatusBadge';
 import type { Schedule, ScheduleStatus, ShiftType } from '../types';
 
 interface ScheduleListTableProps {
@@ -35,6 +36,10 @@ interface ScheduleListTableProps {
     employeeId: string,
     date: string
   ) => { leaveType: string; status: string; employeeName: string } | null;
+  getEmployeeStatus?: (
+    employeeName?: string,
+    employeeId?: string
+  ) => string | undefined;
   onEdit: (schedule: Schedule) => void;
   onDelete: (id: string) => void;
   onMarkCompleted: (id: string) => void;
@@ -57,6 +62,7 @@ export const ScheduleListTable = memo(function ScheduleListTable({
   getShiftTypeColor,
   calculateDuration,
   getEmployeeLeaveForDate,
+  getEmployeeStatus,
   onEdit,
   onDelete,
   onMarkCompleted,
@@ -238,9 +244,17 @@ export const ScheduleListTable = memo(function ScheduleListTable({
                       </Table.Td>
                       <Table.Td>
                         <div>
-                          <Text size="sm" fw={500}>
-                            {schedule.employeeName}
-                          </Text>
+                          <Group gap="xs">
+                            <Text size="sm" fw={500}>
+                              {schedule.employeeName}
+                            </Text>
+                            <EmploymentStatusBadge
+                              status={getEmployeeStatus?.(
+                                schedule.employeeName,
+                                schedule.employeeId
+                              )}
+                            />
+                          </Group>
                           <Text size="xs" c="dimmed">
                             {schedule.employeeId}
                           </Text>
