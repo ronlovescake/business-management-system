@@ -1,7 +1,7 @@
 'use client';
 
 import { useMemo, useState } from 'react';
-import { Stack, Badge } from '@mantine/core';
+import { Stack, Badge, Group } from '@mantine/core';
 // Direct imports for faster compilation (bypasses barrel export)
 import { StatsCardGrid, type StatCard } from '@/components/ui';
 import { DataTable } from '@/components/shared/PageTemplates/DataTable';
@@ -111,9 +111,28 @@ export function EmployeesThirteenthMonthPayPage({
     {
       key: 'employee',
       label: 'EMPLOYEE NAME',
-      render: (record) => (
-        <span style={{ fontWeight: 500 }}>{record.employee}</span>
-      ),
+      render: (record) => {
+        const empStatus = record.employmentStatus?.toLowerCase();
+        const badgeColor =
+          empStatus === 'active'
+            ? 'green'
+            : empStatus === 'terminated'
+              ? 'gray'
+              : empStatus === 'resigned'
+                ? 'orange'
+                : 'gray';
+        return (
+          <Group gap="xs">
+            <span style={{ fontWeight: 500 }}>{record.employee}</span>
+            {record.employmentStatus &&
+              record.employmentStatus !== 'Unknown' && (
+                <Badge size="sm" variant="light" color={badgeColor}>
+                  {record.employmentStatus}
+                </Badge>
+              )}
+          </Group>
+        );
+      },
     },
     {
       key: 'year',

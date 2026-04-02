@@ -92,6 +92,7 @@ const buildPersistencePayload = (
 interface AggregatedThirteenthData {
   id: string;
   employeeName: string;
+  employmentStatus: string;
   year: number;
   totalBasicSalary: number;
   totalLwop: number;
@@ -225,10 +226,16 @@ export function useThirteenthMonthPay(apiBasePath?: string) {
           (payroll.hiredDate as string | undefined) ??
           null;
 
+        const employmentStatusValue =
+          (employeeRecord?.status as string | undefined) ??
+          (employeeRecord?.employmentStatus as string | undefined) ??
+          'Unknown';
+
         if (!aggregated.has(aggregationKey)) {
           aggregated.set(aggregationKey, {
             id: aggregationKey,
             employeeName,
+            employmentStatus: employmentStatusValue,
             year,
             totalBasicSalary: 0,
             totalLwop: 0,
@@ -282,6 +289,7 @@ export function useThirteenthMonthPay(apiBasePath?: string) {
         return {
           id: aggregate.id,
           employee: aggregate.employeeName,
+          employmentStatus: aggregate.employmentStatus,
           year: aggregate.year.toString(),
           hireDate,
           tenureship,
@@ -320,6 +328,10 @@ export function useThirteenthMonthPay(apiBasePath?: string) {
             (empRecord?.hireDate as string | undefined) ??
             (empRecord?.dateHired as string | undefined) ??
             null;
+          const persistedEmploymentStatus =
+            (empRecord?.status as string | undefined) ??
+            (empRecord?.employmentStatus as string | undefined) ??
+            'Unknown';
           const persistedYear = Number.isFinite(Number(r.year))
             ? Number(r.year)
             : new Date().getFullYear();
@@ -329,6 +341,7 @@ export function useThirteenthMonthPay(apiBasePath?: string) {
             {
               id: (r.recordId || r.id) as string,
               employee: safeEmployeeName,
+              employmentStatus: persistedEmploymentStatus,
               year: safeYear,
               hireDate: persistedHireDate,
               tenureship: calculateTenureshipLabel(

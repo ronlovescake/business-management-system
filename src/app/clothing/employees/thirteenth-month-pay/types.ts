@@ -1,6 +1,7 @@
 export interface ThirteenthMonthPay {
   id: string;
   employee: string;
+  employmentStatus?: string;
   year: string;
   hireDate?: string | null;
   tenureship?: string;
