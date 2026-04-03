@@ -62,6 +62,114 @@ export interface BackupData {
   >;
 }
 
+export type RestorePlanStatus = 'ready' | 'advisory' | 'invalid';
+
+export type RestorePlanStepAction =
+  | 'restore-full-dump'
+  | 'apply-differential-json'
+  | 'apply-log-json';
+
+export interface RestorePlanStep {
+  folder: string;
+  timestamp: string;
+  strategy: BackupStrategy;
+  format: string;
+  action: RestorePlanStepAction;
+  supported: boolean;
+  artifactName?: string;
+  artifactPath?: string;
+  reason?: string;
+}
+
+export interface RestorePlan {
+  status: RestorePlanStatus;
+  targetFolder: string;
+  targetTimestamp: string;
+  targetStrategy: BackupStrategy;
+  chainFolders: string[];
+  steps: RestorePlanStep[];
+  warnings: string[];
+  errors: string[];
+  requiresReplayEngine: boolean;
+  disasterRecoveryReady: boolean;
+}
+
+export type RestoreJobPhase = 'pending' | 'running' | 'succeeded' | 'failed';
+
+export type BackupChangeStatus =
+  | 'increased'
+  | 'decreased'
+  | 'unchanged'
+  | 'missing';
+
+export type BackupCoverageClass = 'selective-json' | 'log-only' | 'dump-only';
+
+export interface BackupChangeEntry {
+  key: string;
+  modelName: string;
+  coverage: BackupCoverageClass;
+  backupCount: number;
+  currentCount: number;
+  delta: number;
+  status: BackupChangeStatus;
+  reason?: 'table-missing';
+}
+
+export interface BackupChangesComparison {
+  backupTimestamp: string;
+  backupCreatedAt: string | null;
+  backupStrategy: BackupStrategy;
+  currentGeneratedAt: string;
+  totalTables: number;
+  changedTables: number;
+  increasedTables: number;
+  decreasedTables: number;
+  missingTables: number;
+  unchangedTables: number;
+  backupTotalRecords: number;
+  currentTotalRecords: number;
+  deltaRecords: number;
+  entries: BackupChangeEntry[];
+}
+
+export type BackupChangePreviewType = 'added' | 'updated' | 'removed';
+
+export interface BackupChangePreview {
+  table: string;
+  backupCount: number;
+  currentCount: number;
+  addedCount: number;
+  added: Array<Record<string, unknown>>;
+  truncatedAdded?: boolean;
+  updatedCount: number;
+  updates: Array<{
+    id: number | string | null;
+    changes: Record<string, { before: unknown; after: unknown }>;
+    backup: Record<string, unknown>;
+    current: Record<string, unknown>;
+  }>;
+  truncatedUpdates?: boolean;
+  removedCount: number;
+  removed: Array<Record<string, unknown>>;
+  truncatedRemoved?: boolean;
+}
+
+export interface RestoreJobStatus {
+  id: string;
+  scope: 'full-dump';
+  phase: RestoreJobPhase;
+  backupFolder: string;
+  dumpArtifactPath: string;
+  dumpFileName: string;
+  manifestTimestamp: string;
+  requestedAt: string;
+  updatedAt: string;
+  startedAt?: string;
+  finishedAt?: string;
+  message?: string;
+  error?: string;
+}
+
 export type RestoreResults = Record<
   string,
   {

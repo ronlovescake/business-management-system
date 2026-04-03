@@ -35,6 +35,15 @@ import {
   type BackupManifestFile,
   type BackupStrategy,
 } from './backupRouteUtils';
+import {
+  LOG_BACKUP_TABLES as LOG_TABLES,
+  SELECTIVE_BACKUP_TABLES as TABLES,
+} from '@/lib/backup/backupModelRegistry';
+import {
+  buildRecordCountsFromSnapshot,
+  collectRestoreVerificationSnapshot,
+  type RestoreVerificationSnapshot,
+} from '@/lib/backup/restoreVerification';
 
 // Force dynamic rendering for this route due to fs operations
 export const dynamic = 'force-dynamic';
@@ -75,155 +84,9 @@ class BackupGenerationError extends Error {
   }
 }
 
-const LOG_TABLES = [
-  { name: 'change_log', model: 'changeLog', dateField: 'createdAt' },
-  { name: 'audit_logs', model: 'auditLog', dateField: 'timestamp' },
-] as const;
-
 function isValidStrategy(value: unknown): value is BackupStrategy {
   return value === 'full' || value === 'differential' || value === 'log';
 }
-
-// Tables to backup
-const TABLES = [
-  { name: 'transactions', model: 'transaction' },
-  { name: 'transaction_payments', model: 'transactionPayment' },
-  { name: 'transaction_refunds', model: 'transactionRefund' },
-  { name: 'transaction_status_changes', model: 'transactionStatusChange' },
-  { name: 'customers', model: 'customer' },
-  { name: 'products', model: 'product' },
-  { name: 'prices', model: 'price' },
-  { name: 'shipments', model: 'shipment' },
-  { name: 'employees', model: 'employee' },
-  { name: 'employee_automation_settings', model: 'employeeAutomationSetting' },
-  { name: 'schedules', model: 'schedule' },
-  { name: 'attendance', model: 'attendance' },
-  { name: 'payrolls', model: 'payroll' },
-  { name: 'thirteenth_month_pay_records', model: 'thirteenthMonthPayRecord' },
-  { name: 'salary_history', model: 'salaryHistory' },
-  { name: 'leave_requests', model: 'leaveRequest' },
-  { name: 'expenses', model: 'expense' },
-  { name: 'cash_advances', model: 'cashAdvanceRecord' },
-  { name: 'cash_advance_deductions', model: 'cashAdvanceDeduction' },
-  {
-    name: 'clothing_accounting_opening_balances',
-    model: 'clothingAccountingOpeningBalance',
-  },
-  {
-    name: 'clothing_accounting_journal_lines',
-    model: 'clothingAccountingJournalLine',
-  },
-  {
-    name: 'clothing_recurring_payment_templates',
-    model: 'clothingRecurringPaymentTemplate',
-  },
-  {
-    name: 'clothing_recurring_payment_drafts',
-    model: 'clothingRecurringPaymentDraft',
-  },
-  {
-    name: 'clothing_inventory_reclass_entries',
-    model: 'clothingInventoryReclassEntry',
-  },
-  {
-    name: 'clothing_inventory_transit_build_entries',
-    model: 'clothingInventoryTransitBuildEntry',
-  },
-  { name: 'invoices', model: 'invoice' },
-  { name: 'checkout_links', model: 'checkoutLink' },
-  { name: 'item_weights', model: 'itemWeight' },
-
-  // General Merchandise (separate schema)
-  {
-    name: 'general_merchandise_transactions',
-    model: 'generalMerchandiseTransaction',
-  },
-  {
-    name: 'general_merchandise_transaction_payments',
-    model: 'generalMerchandiseTransactionPayment',
-  },
-  {
-    name: 'general_merchandise_transaction_refunds',
-    model: 'generalMerchandiseTransactionRefund',
-  },
-  {
-    name: 'general_merchandise_transaction_status_changes',
-    model: 'generalMerchandiseTransactionStatusChange',
-  },
-  {
-    name: 'general_merchandise_customers',
-    model: 'generalMerchandiseCustomer',
-  },
-  { name: 'general_merchandise_products', model: 'generalMerchandiseProduct' },
-  { name: 'general_merchandise_prices', model: 'generalMerchandisePrice' },
-  {
-    name: 'general_merchandise_shipments',
-    model: 'generalMerchandiseShipment',
-  },
-  {
-    name: 'general_merchandise_employees',
-    model: 'generalMerchandiseEmployee',
-  },
-  {
-    name: 'general_merchandise_employee_automation_settings',
-    model: 'generalMerchandiseEmployeeAutomationSetting',
-  },
-  {
-    name: 'general_merchandise_schedules',
-    model: 'generalMerchandiseSchedule',
-  },
-  {
-    name: 'general_merchandise_attendance',
-    model: 'generalMerchandiseAttendance',
-  },
-  { name: 'general_merchandise_payrolls', model: 'generalMerchandisePayroll' },
-  {
-    name: 'general_merchandise_thirteenth_month_pay_records',
-    model: 'generalMerchandiseThirteenthMonthPayRecord',
-  },
-  {
-    name: 'general_merchandise_salary_history',
-    model: 'generalMerchandiseSalaryHistory',
-  },
-  {
-    name: 'general_merchandise_leave_requests',
-    model: 'generalMerchandiseLeaveRequest',
-  },
-  { name: 'general_merchandise_expenses', model: 'generalMerchandiseExpense' },
-  {
-    name: 'general_merchandise_cash_advances',
-    model: 'generalMerchandiseCashAdvanceRecord',
-  },
-  {
-    name: 'general_merchandise_cash_advance_deductions',
-    model: 'generalMerchandiseCashAdvanceDeduction',
-  },
-  {
-    name: 'general_merchandise_accounting_opening_balances',
-    model: 'generalMerchandiseAccountingOpeningBalance',
-  },
-  {
-    name: 'general_merchandise_accounting_journal_lines',
-    model: 'generalMerchandiseAccountingJournalLine',
-  },
-  {
-    name: 'general_merchandise_recurring_payment_templates',
-    model: 'generalMerchandiseRecurringPaymentTemplate',
-  },
-  {
-    name: 'general_merchandise_recurring_payment_drafts',
-    model: 'generalMerchandiseRecurringPaymentDraft',
-  },
-  { name: 'general_merchandise_invoices', model: 'generalMerchandiseInvoice' },
-  {
-    name: 'general_merchandise_checkout_links',
-    model: 'generalMerchandiseCheckoutLink',
-  },
-  {
-    name: 'general_merchandise_item_weights',
-    model: 'generalMerchandiseItemWeight',
-  },
-] as const;
 
 type GenericRecord = Record<string, unknown>;
 
@@ -547,6 +410,153 @@ type DatabaseDumpResult =
   | { ok: true; filePath: string }
   | { ok: false; error: string };
 
+type DatabaseConnectionConfig = {
+  user: string;
+  password: string;
+  host: string;
+  port: string;
+  database: string;
+};
+
+function isCommandNotFoundError(error: unknown) {
+  if (!error || typeof error !== 'object') {
+    return false;
+  }
+
+  const maybeError = error as NodeJS.ErrnoException;
+  return (
+    maybeError.code === 'ENOENT' ||
+    maybeError.message?.includes('ENOENT') ||
+    maybeError.message?.includes('command not found')
+  );
+}
+
+function runLocalPgDump(
+  config: DatabaseConnectionConfig,
+  dumpFile: string
+): Promise<void> {
+  const env = {
+    ...process.env,
+    ...(config.password ? { PGPASSWORD: config.password } : {}),
+  };
+
+  const args = [
+    '-h',
+    config.host,
+    '-p',
+    config.port,
+    '-U',
+    config.user,
+    '-d',
+    config.database,
+    '-F',
+    'c',
+    '-f',
+    dumpFile,
+  ];
+
+  logger.info(
+    `Executing PostgreSQL custom dump: pg_dump -h ${config.host} -p ${config.port} -U ${config.user} -d ${config.database}`
+  );
+
+  return new Promise<void>((resolve, reject) => {
+    const child = spawn('pg_dump', args, { env });
+    let stderr = '';
+
+    child.stderr.on('data', (chunk) => {
+      stderr += chunk.toString();
+    });
+
+    child.on('error', (error) => {
+      reject(error);
+    });
+
+    child.on('close', (code) => {
+      if (code === 0) {
+        resolve();
+        return;
+      }
+      reject(new Error(stderr || `pg_dump failed with code ${code}`));
+    });
+  });
+}
+
+function runDockerPgDump(
+  config: DatabaseConnectionConfig,
+  dumpFile: string
+): Promise<void> {
+  const composeArgs = ['compose'];
+  const envFilePath = path.resolve(process.cwd(), '.env.docker');
+  if (fs.existsSync(envFilePath)) {
+    composeArgs.push('--env-file', envFilePath);
+  }
+
+  composeArgs.push(
+    'exec',
+    '-T',
+    '-e',
+    `PGUSER=${config.user}`,
+    '-e',
+    `PGDATABASE=${config.database}`,
+    '-e',
+    'PGPORT=5432'
+  );
+
+  if (config.password) {
+    composeArgs.push('-e', `PGPASSWORD=${config.password}`);
+  }
+
+  composeArgs.push(
+    'db',
+    'sh',
+    '-lc',
+    'exec pg_dump -h 127.0.0.1 -p "$PGPORT" -U "$PGUSER" -d "$PGDATABASE" -F c'
+  );
+
+  logger.info(
+    `Local pg_dump unavailable; falling back to docker compose exec db pg_dump for ${config.database}`
+  );
+
+  return new Promise<void>((resolve, reject) => {
+    const child = spawn('docker', composeArgs, {
+      cwd: process.cwd(),
+      env: process.env,
+    });
+    const fileStream = fs.createWriteStream(dumpFile);
+    let stderr = '';
+
+    child.stdout.pipe(fileStream);
+    child.stderr.on('data', (chunk) => {
+      stderr += chunk.toString();
+    });
+
+    child.on('error', (error) => {
+      fileStream.destroy();
+      reject(error);
+    });
+
+    fileStream.on('error', (error) => {
+      child.kill('SIGTERM');
+      reject(error);
+    });
+
+    child.on('close', (code) => {
+      fileStream.end(() => {
+        if (code === 0) {
+          resolve();
+          return;
+        }
+
+        reject(
+          new Error(
+            stderr || `docker compose exec db pg_dump failed with code ${code}`
+          )
+        );
+      });
+    });
+  });
+}
+
 function normalizeBackupFormat(value: unknown): BackupFormat {
   if (
     value === 'json' ||
@@ -571,52 +581,28 @@ async function createDatabaseDump(
 ): Promise<DatabaseDumpResult> {
   try {
     const { user, password, host, port, database } = parseDatabaseUrl();
+    const config = {
+      user,
+      password,
+      host,
+      port,
+      database,
+    } satisfies DatabaseConnectionConfig;
     const dumpFile = path.join(backupDir, `backup-${timestamp}.dump`);
 
-    const env = {
-      ...process.env,
-      ...(password ? { PGPASSWORD: password } : {}),
-    };
+    try {
+      await runLocalPgDump(config, dumpFile);
+    } catch (error) {
+      if (!isCommandNotFoundError(error)) {
+        throw error;
+      }
 
-    const args = [
-      '-h',
-      host,
-      '-p',
-      port,
-      '-U',
-      user,
-      '-d',
-      database,
-      '-F',
-      'c',
-      '-f',
-      dumpFile,
-    ];
+      if (fs.existsSync(dumpFile)) {
+        fs.rmSync(dumpFile, { force: true });
+      }
 
-    logger.info(
-      `Executing PostgreSQL custom dump: pg_dump -h ${host} -p ${port} -U ${user} -d ${database}`
-    );
-
-    await new Promise<void>((resolve, reject) => {
-      const child = spawn('pg_dump', args, { env });
-      let stderr = '';
-
-      child.stderr.on('data', (chunk) => {
-        stderr += chunk.toString();
-      });
-
-      child.on('error', (error) => {
-        reject(error);
-      });
-
-      child.on('close', (code) => {
-        if (code === 0) {
-          resolve();
-          return;
-        }
-        reject(new Error(stderr || `pg_dump failed with code ${code}`));
-      });
-    });
+      await runDockerPgDump(config, dumpFile);
+    }
 
     if (fs.existsSync(dumpFile)) {
       logger.info(`Database dump created successfully: ${dumpFile}`);
@@ -678,6 +664,7 @@ export async function POST(request: NextRequest) {
     const files: string[] = [];
     const warnings: string[] = [];
     const recordCounts: Record<string, number> = {};
+    let restoreVerification: RestoreVerificationSnapshot | undefined;
     const differentialFallbackTables: string[] = [];
     const tableAvailabilityCache: TableAvailabilityCache = new Map();
     const missingTables = new Set<string>();
@@ -959,6 +946,14 @@ export async function POST(request: NextRequest) {
           databaseDump.error
         );
       }
+
+      if (strategy === 'full') {
+        restoreVerification = await collectRestoreVerificationSnapshot();
+        Object.assign(
+          recordCounts,
+          buildRecordCountsFromSnapshot(restoreVerification)
+        );
+      }
     }
 
     if (
@@ -1051,6 +1046,10 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    if (!restoreVerification) {
+      restoreVerification = await collectRestoreVerificationSnapshot();
+    }
+
     const fileChecksums = await buildFileChecksums(files);
     const integrityVerified = await verifyFileChecksums(files, fileChecksums);
 
@@ -1080,6 +1079,7 @@ export async function POST(request: NextRequest) {
         generatedAt: new Date().toISOString(),
         fileChecksums,
       },
+      restoreVerification,
     };
 
     const manifestFile = path.join(backupDir, 'MANIFEST.json');

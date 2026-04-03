@@ -2,6 +2,7 @@ import fs from 'fs';
 import fsPromises from 'fs/promises';
 import path from 'path';
 import { logger } from '@/lib/logger';
+import type { RestoreVerificationSnapshot } from '@/lib/backup/restoreVerification';
 
 export type BackupStrategy = 'full' | 'differential' | 'log';
 
@@ -32,6 +33,7 @@ export interface BackupManifestFile {
     generatedAt: string;
     fileChecksums: Record<string, string>;
   };
+  restoreVerification?: RestoreVerificationSnapshot;
 }
 
 export interface BackupLookup {

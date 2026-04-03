@@ -7,14 +7,13 @@ import {
   Card,
   Divider,
   Group,
-  NumberInput,
   Select,
   Stack,
   Switch,
   Text,
   Title,
 } from '@mantine/core';
-import { IconClock, IconDatabase, IconHistory } from '@tabler/icons-react';
+import { IconDatabase, IconHistory } from '@tabler/icons-react';
 import type { Backup, BackupStrategy } from '../../backup/types';
 import { formatBackupTimestamp, formatRelativeTime } from '../../backup/types';
 import { BackupListCard } from './BackupListCard';
@@ -39,14 +38,10 @@ interface BackupSectionProps {
   backupFormat: string;
   isLogStrategy: boolean;
   includeSoftDeleted: boolean;
-  autoBackupEnabled: boolean;
-  autoBackupInterval: number;
   strategySchedule: StrategyScheduleEntry[];
   onBackupStrategyChange: (value: BackupStrategy) => void;
   onBackupFormatChange: (value: string) => void;
   onIncludeSoftDeletedChange: (checked: boolean) => void;
-  onAutoBackupEnabledChange: (checked: boolean) => void;
-  onAutoBackupIntervalChange: (value: number) => void;
   onCreateBackup: () => void;
   onRunStrategyBackup: (strategy: BackupStrategy) => void;
   onRefresh: () => void;
@@ -65,14 +60,10 @@ export function BackupSection({
   backupFormat,
   isLogStrategy,
   includeSoftDeleted,
-  autoBackupEnabled,
-  autoBackupInterval,
   strategySchedule,
   onBackupStrategyChange,
   onBackupFormatChange,
   onIncludeSoftDeletedChange,
-  onAutoBackupEnabledChange,
-  onAutoBackupIntervalChange,
   onCreateBackup,
   onRunStrategyBackup,
   onRefresh,
@@ -105,10 +96,13 @@ export function BackupSection({
               { value: 'json', label: 'JSON only' },
               { value: 'csv', label: 'CSV only' },
               { value: 'xlsx', label: 'XLSX only' },
-              { value: 'dump', label: 'PostgreSQL dump only' },
+              {
+                value: 'dump',
+                label: 'PostgreSQL dump only (DR-capable)',
+              },
               {
                 value: 'all',
-                label: 'JSON + CSV + XLSX + PostgreSQL dump (recommended)',
+                label: 'JSON + CSV + XLSX + PostgreSQL dump',
               },
             ]}
             value={isLogStrategy ? 'json' : backupFormat}
@@ -116,6 +110,7 @@ export function BackupSection({
               !isLogStrategy && onBackupFormatChange(value || 'all')
             }
             disabled={isLogStrategy}
+            description="Only PostgreSQL dump artifacts are supported for disaster-recovery restore in Phase 2A."
           />
           {isLogStrategy ? (
             <Alert icon={<IconHistory size={16} />} color="blue">
@@ -213,39 +208,16 @@ export function BackupSection({
 
       <Card shadow="sm" padding="lg" radius="md" withBorder>
         <Group justify="space-between" mb="md">
-          <Title order={3}>Auto-Backup</Title>
-          <Badge color={autoBackupEnabled ? 'green' : 'gray'}>
-            {autoBackupEnabled ? 'ON' : 'OFF'}
-          </Badge>
+          <Title order={3}>Scheduled Backups</Title>
+          <Badge color="teal">Server Managed</Badge>
         </Group>
 
-        <Stack gap="md">
-          <Switch
-            label="Enable automatic backups"
-            checked={autoBackupEnabled}
-            onChange={(event) =>
-              onAutoBackupEnabledChange(event.currentTarget.checked)
-            }
-          />
-
-          {autoBackupEnabled ? (
-            <>
-              <NumberInput
-                label="Interval (minutes)"
-                value={autoBackupInterval}
-                onChange={(value) =>
-                  onAutoBackupIntervalChange(Number(value) || 30)
-                }
-                min={5}
-                max={1440}
-              />
-
-              <Alert icon={<IconClock size={16} />} color="green">
-                Backups every {autoBackupInterval} minutes while page is open
-              </Alert>
-            </>
-          ) : null}
-        </Stack>
+        <Alert color="teal">
+          Automatic disaster-recovery backups now run from the server-side
+          scheduler, not from this page. Configure `BACKUP_AUTO_ENABLED`,
+          `BACKUP_AUTO_TIME`, `BACKUP_AUTO_TIMEZONE`, and
+          `BACKUP_RETENTION_DAYS` in your Docker environment.
+        </Alert>
       </Card>
 
       <Divider />

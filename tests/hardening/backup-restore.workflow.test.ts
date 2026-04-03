@@ -57,6 +57,10 @@ vi.mock('@/lib/db', () => ({
 }));
 
 vi.mock('child_process', () => ({
+  __esModule: true,
+  default: {
+    spawn: mockSpawn,
+  },
   spawn: mockSpawn,
 }));
 
@@ -291,10 +295,13 @@ vi.mock('fs/promises', () => {
 
 import { POST as createBackup } from '@/app/api/backup/route';
 import { POST as restoreBackup } from '@/app/api/restore/route';
+import { POST as runInternalBackup } from '@/app/api/internal/backup/run/route';
 
 describe('Backup/Restore workflow hardening', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    process.env.INTERNAL_JOB_TOKEN = 'test-internal-token';
+    process.env.BACKUP_RETENTION_DAYS = '30';
 
     fsState.files.clear();
     fsState.dirs.clear();
@@ -350,6 +357,19 @@ describe('Backup/Restore workflow hardening', () => {
     };
 
     (mockPrisma as Record<string, unknown>).customer = customerDelegate;
+    (mockPrisma as Record<string, unknown>).$queryRawUnsafe = vi.fn(
+      async (query: string, value?: string) => {
+        if (query.includes('to_regclass')) {
+          return [{ exists: value === 'public.Customer' }];
+        }
+
+        if (query.includes('FROM "public"."Customer"')) {
+          return [{ count: BigInt(customerDelegate._rows.length) }];
+        }
+
+        return [{ count: BigInt(0) }];
+      }
+    );
     mockPrisma.$transaction.mockImplementation(
       async (callback: (tx: unknown) => unknown) => {
         return await callback({
@@ -359,7 +379,7 @@ describe('Backup/Restore workflow hardening', () => {
     );
   });
 
-  it('restores original customer snapshot after mutation', async () => {
+  it('rejects browser restore requests and leaves in-memory rows unchanged', async () => {
     const backupResponse = await createBackup(
       new NextRequest('http://localhost/api/backup', {
         method: 'POST',
@@ -403,10 +423,10 @@ describe('Backup/Restore workflow hardening', () => {
 
     const restorePayload = await restoreResponse.json();
 
-    expect(restoreResponse.status).toBe(200);
-    expect(restorePayload.success).toBe(true);
-    expect(restorePayload.results.customers.count).toBe(1);
-    expect(customerDelegate._rows).toEqual([{ id: 1, name: 'Alice' }]);
+    expect(restoreResponse.status).toBe(410);
+    expect(restorePayload.success).toBe(false);
+    expect(restorePayload.code).toBe('RESTORE_RETIRED');
+    expect(customerDelegate._rows).toEqual([{ id: 1, name: 'Mutated Name' }]);
 
     const manifestPath = path.resolve(
       process.cwd(),
@@ -460,5 +480,67 @@ describe('Backup/Restore workflow hardening', () => {
         }),
       ])
     );
+    expect(manifest.recordCounts).toMatchObject({
+      customers: 1,
+    });
+    expect(manifest.restoreVerification.entries).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          key: 'customers',
+          schema: 'public',
+          table: 'Customer',
+          count: 1,
+        }),
+      ])
+    );
+  });
+
+  it('runs the internal scheduled full-dump route and prunes expired backups', async () => {
+    const expiredFolder = path.resolve(
+      process.cwd(),
+      'backups',
+      '2026-01-01T01-00-00'
+    );
+    fsState.dirs.add(expiredFolder);
+    fsState.files.set(
+      path.join(expiredFolder, 'MANIFEST.json'),
+      Buffer.from(
+        JSON.stringify({
+          timestamp: '2026-01-01T01:00:00.000Z',
+          strategy: 'full',
+          format: 'dump',
+          files: [
+            {
+              name: 'backup-2026-01-01T01-00-00.dump',
+              size: 5,
+              path: '2026-01-01T01-00-00/backup-2026-01-01T01-00-00.dump',
+            },
+          ],
+        })
+      )
+    );
+    fsState.files.set(
+      path.join(expiredFolder, 'backup-2026-01-01T01-00-00.dump'),
+      Buffer.from('OLDPG')
+    );
+
+    const response = await runInternalBackup(
+      new NextRequest('http://localhost/api/internal/backup/run', {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json',
+          'x-internal-token': 'test-internal-token',
+        },
+        body: JSON.stringify({ retentionDays: 30, timeZone: 'Asia/Manila' }),
+      })
+    );
+
+    const payload = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(payload.success).toBe(true);
+    expect(payload.backup.format).toBe('dump');
+    expect(payload.backup.strategy).toBe('full');
+    expect(payload.prune.prunedFolders).toContain('2026-01-01T01-00-00');
   });
 });

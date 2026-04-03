@@ -1,0 +1,10 @@
+FROM docker:27-cli
+
+WORKDIR /app
+
+RUN apk add --no-cache bash nodejs
+
+COPY scripts ./scripts
+
+ENTRYPOINT ["node"]
+CMD ["scripts/run-restore-runner.js"]

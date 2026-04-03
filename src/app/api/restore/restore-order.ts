@@ -1,4 +1,8 @@
 export const DEFAULT_RESTORE_TABLE_ORDER = [
+  // Backup metadata logs
+  'change_log',
+  'audit_logs',
+
   // Core reference data
   'customers',
   'products',

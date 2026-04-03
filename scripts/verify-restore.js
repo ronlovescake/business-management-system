@@ -1,38 +1,26 @@
-require('dotenv').config({ path: '.env.local' });
-const { PrismaClient } = require('@prisma/client');
-const prisma = new PrismaClient();
+#!/usr/bin/env node
+/* eslint-disable no-console */
 
-async function verifyCounts() {
-  const results = {
-    attendance: await prisma.attendance.count(),
-    cashAdvances: await prisma.cashAdvanceRecord.count(),
-    customers: await prisma.customer.count(),
-    employees: await prisma.employee.count(),
-    leaveRequests: await prisma.leaveRequest.count(),
-    payrolls: await prisma.payroll.count(),
-    prices: await prisma.price.count(),
-    products: await prisma.product.count(),
-    schedules: await prisma.schedule.count(),
-    shipments: await prisma.shipment.count(),
-    transactions: await prisma.transaction.count(),
-  };
+const { spawnSync } = require('child_process');
 
-  console.log('\n✅ DATABASE RECORD COUNTS:');
-  console.log('═'.repeat(50));
-  Object.entries(results).forEach(([table, count]) => {
-    console.log(
-      `${table.padEnd(20)} : ${count.toString().padStart(5)} records`
-    );
-  });
-  console.log('═'.repeat(50));
+const command = process.platform === 'win32' ? 'npx.cmd' : 'npx';
+const result = spawnSync(
+  command,
+  [
+    '--no-install',
+    'tsx',
+    'scripts/verify-restore.ts',
+    ...process.argv.slice(2),
+  ],
+  {
+    stdio: 'inherit',
+    env: process.env,
+  }
+);
 
-  const total = Object.values(results).reduce((sum, count) => sum + count, 0);
-  console.log(
-    `${'TOTAL'.padEnd(20)} : ${total.toString().padStart(5)} records`
-  );
-  console.log();
-
-  await prisma.$disconnect();
+if (result.error) {
+  console.error(result.error.message);
+  process.exit(1);
 }
 
-verifyCounts().catch(console.error);
+process.exit(result.status ?? 1);

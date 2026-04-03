@@ -1,36 +1,8 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { NextRequest } from 'next/server';
-import { mockLogger } from '@/core/testing/test-helpers';
 
-const { mockPrisma, mockExistsSync, mockReadFileSync, mockRequireAdmin } =
-  vi.hoisted(() => {
-    return {
-      mockPrisma: {
-        $disconnect: vi.fn().mockResolvedValue(undefined),
-        $transaction: vi.fn(),
-      },
-      mockExistsSync: vi.fn(),
-      mockReadFileSync: vi.fn(),
-      mockRequireAdmin: vi.fn().mockResolvedValue(undefined),
-    };
-  });
-
-vi.mock('@/lib/db', () => ({
-  prisma: mockPrisma,
-}));
-
-vi.mock('fs', () => ({
-  __esModule: true,
-  default: {
-    existsSync: mockExistsSync,
-    readFileSync: mockReadFileSync,
-  },
-  existsSync: mockExistsSync,
-  readFileSync: mockReadFileSync,
-}));
-
-vi.mock('@/lib/logger', () => ({
-  logger: mockLogger,
+const { mockRequireAdmin } = vi.hoisted(() => ({
+  mockRequireAdmin: vi.fn().mockResolvedValue(undefined),
 }));
 
 vi.mock('@/lib/auth/session', () => ({
@@ -51,74 +23,37 @@ const buildRequest = (body: unknown, init?: NextRequestInit) =>
 describe('Restore API hardening', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mockExistsSync.mockReturnValue(true);
   });
 
-  it('rejects invalid timestamps', async () => {
+  it('returns 410 because browser restore is retired', async () => {
     const response = await POST(
       buildRequest({
-        timestamp: '../2026-02-11',
+        timestamp: '2026-02-11T10-10-10',
         file: 'backup.json',
         tables: ['transactions'],
       })
     );
     const payload = await response.json();
 
-    expect(response.status).toBe(400);
-    expect(payload.error).toBe('Invalid timestamp format');
+    expect(response.status).toBe(410);
+    expect(payload.success).toBe(false);
+    expect(payload.code).toBe('RESTORE_RETIRED');
+    expect(payload.error).toContain('docker:restore:docker-db');
   });
 
-  it('rejects invalid backup filenames', async () => {
-    const response = await POST(
-      buildRequest({
-        timestamp: '2026-02-11T10-10-10',
-        file: '../backup.json',
-        tables: ['transactions'],
-      })
-    );
-    const payload = await response.json();
-
-    expect(response.status).toBe(400);
-    expect(payload.error).toBe('Invalid backup filename');
-  });
-
-  it('wraps table restore in a transaction', async () => {
-    const backupData = {
-      tables: {
-        transactions: {
-          data: [{ id: 1, Customers: 'Alice' }],
-        },
-      },
-    };
-
-    mockReadFileSync.mockReturnValue(JSON.stringify(backupData));
-
-    const txDelegate = {
-      count: vi.fn().mockResolvedValue(0),
-      deleteMany: vi.fn().mockResolvedValue({ count: 0 }),
-      createMany: vi.fn().mockResolvedValue({ count: 1 }),
-      update: vi.fn(),
-    };
-
-    mockPrisma.$transaction.mockImplementation(async (callback) => {
-      const tx = { transaction: txDelegate };
-      return callback(tx as never);
-    });
+  it('returns 401 when restore is requested without authentication', async () => {
+    mockRequireAdmin.mockRejectedValueOnce(new Error('Unauthorized'));
 
     const response = await POST(
       buildRequest({
         timestamp: '2026-02-11T10-10-10',
         file: 'backup.json',
         tables: ['transactions'],
-        forceOverwrite: true,
       })
     );
     const payload = await response.json();
 
-    expect(response.status).toBe(200);
-    expect(payload.success).toBe(true);
-    expect(mockPrisma.$transaction).toHaveBeenCalled();
-    expect(txDelegate.deleteMany).toHaveBeenCalled();
-    expect(txDelegate.createMany).toHaveBeenCalled();
+    expect(response.status).toBe(401);
+    expect(payload.error).toContain('Authentication required');
   });
 });

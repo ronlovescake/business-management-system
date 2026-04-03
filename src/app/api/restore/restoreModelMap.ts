@@ -1,4 +1,6 @@
 export const RESTORE_MODEL_MAP: Record<string, string> = {
+  change_log: 'changeLog',
+  audit_logs: 'auditLog',
   transactions: 'transaction',
   transaction_payments: 'transactionPayment',
   transaction_refunds: 'transactionRefund',

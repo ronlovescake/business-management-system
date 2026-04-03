@@ -12,7 +12,7 @@ POSTGRES_DB="${POSTGRES_DB:-$(read_env_value POSTGRES_DB)}"
 POSTGRES_USER="${POSTGRES_USER:-$(read_env_value POSTGRES_USER)}"
 
 data_root="${BMS_DATA_ROOT:-${HOME}/business-management-system-data}"
-backup_dir="${data_root}/backup"
+backup_dir="${BACKUP_DIR:-${data_root}/backup}"
 target_db="${POSTGRES_DB:-business_management}"
 target_user="${POSTGRES_USER:-postgres}"
 
@@ -31,8 +31,19 @@ fi
 
 if [[ "$dump_arg" = /* ]]; then
   dump_file="$dump_arg"
-else
+elif [[ -f "${backup_dir}/${dump_arg}" ]]; then
   dump_file="${backup_dir}/${dump_arg}"
+else
+  mapfile -t dump_matches < <(find "$backup_dir" -type f -name "$dump_arg" 2>/dev/null)
+  if [[ ${#dump_matches[@]} -eq 1 ]]; then
+    dump_file="${dump_matches[0]}"
+  elif [[ ${#dump_matches[@]} -gt 1 ]]; then
+    echo "Multiple dump files matched '$dump_arg'. Please pass a more specific path inside ${backup_dir}."
+    printf ' - %s\n' "${dump_matches[@]}"
+    exit 1
+  else
+    dump_file="${backup_dir}/${dump_arg}"
+  fi
 fi
 
 if [[ ! -f "$dump_file" ]]; then
@@ -41,13 +52,20 @@ if [[ ! -f "$dump_file" ]]; then
 fi
 
 dump_basename="$(basename "$dump_file")"
+container_dump_path="/backups/${dump_basename}"
+
+echo "Validating full dump manifest and checksum..."
+node scripts/docker/validate-dump-backup.js "$dump_file"
 
 if [[ "$dump_file" != "${backup_dir}/${dump_basename}" ]]; then
   mkdir -p "$backup_dir"
   cp "$dump_file" "${backup_dir}/${dump_basename}"
+else
+  dump_relative_path="${dump_file#${backup_dir}/}"
+  container_dump_path="/backups/${dump_relative_path}"
 fi
 
-echo "Preparing Docker database restore from: ${backup_dir}/${dump_basename}"
+echo "Preparing Docker database restore from: ${dump_file}"
 docker compose --env-file "$ENV_FILE" up -d db
 docker compose --env-file "$ENV_FILE" stop app || true
 
@@ -80,7 +98,7 @@ docker compose --env-file "$ENV_FILE" exec -T db pg_restore \
   -d "$target_db" \
   --no-owner \
   --no-privileges \
-  "/backups/${dump_basename}"
+  "$container_dump_path"
 
 docker compose --env-file "$ENV_FILE" up -d app
 echo "Restore completed into Docker database '${target_db}'."

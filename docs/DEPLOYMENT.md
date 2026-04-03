@@ -30,6 +30,8 @@ Host data root convention:
 - Set `BMS_DATA_ROOT` in `.env.docker`
 - Postgres live data is stored in `${BMS_DATA_ROOT}/postgres`
 - Logical backups are stored in `${BMS_DATA_ROOT}/backup`
+- Run `npm run backup:audit` after Prisma model changes so new persistent
+  models are explicitly classified for backup coverage.
 
 ### Quick Start
 
@@ -83,6 +85,158 @@ The bootstrap command is idempotent for the bundled local stack. It:
 curl http://localhost:5000/api/health
 ```
 
+### Scheduled Full Dumps
+
+Phase 1 automated backups use a dedicated Docker sidecar that triggers the
+internal backup endpoint for daily full PostgreSQL dumps.
+
+Required `.env.docker` settings:
+
+- `INTERNAL_JOB_TOKEN` must be set on both `app` and `backup-scheduler`
+- `BACKUP_AUTO_ENABLED=true`
+- `BACKUP_AUTO_TIME=02:00`
+- `BACKUP_AUTO_TIMEZONE=Asia/Manila`
+- `BACKUP_RETENTION_DAYS=30`
+
+Notes:
+
+- The scheduler calls `POST /api/internal/backup/run` with the internal token.
+- The route skips creating a second full dump if one already exists for the
+  current scheduled day.
+- Old backup folders are pruned after each successful scheduled run, while the
+  latest full backup and any referenced chain bases are preserved.
+
+### Supported Disaster-Recovery Restore Path
+
+Phase 2A standardizes DR restore on one operator path only:
+
+```bash
+npm run docker:restore:docker-db -- <dump-file> --confirm
+```
+
+Rules:
+
+- Only full PostgreSQL `.dump` backups are supported DR restore inputs.
+- The restore script validates `MANIFEST.json` and the dump checksum before it
+  stops the app or recreates the database.
+- Full dump manifests now also carry restore-verification row counts so a drill
+  can confirm the restored database matches the backup snapshot, not just the
+  dump checksum.
+- Browser/API restore is retired for DR. `POST /api/restore` now rejects
+  restore attempts and points operators to the Docker restore command.
+- JSON, CSV, and XLSX backup artifacts remain useful for inspection/export, but
+  they are not supported DR restore inputs.
+- Legacy scripts such as `scripts/restore-database.js` and
+  `scripts/restore-from-backup.js` are retired and should not be used.
+
+### Restore Verification And Drills
+
+Phase 3 adds a chain-aware planner so operators can inspect how a differential or
+log backup relates to its required base backups even though Phase 2A still only
+executes full dump restores.
+
+Plan a restore chain for a target backup:
+
+```bash
+npm run restore:plan -- --folder <backup-folder>
+```
+
+Planner outcomes:
+
+- `ready`: the target is a full dump backup and can be restored under the
+  current DR contract.
+- `advisory`: the chain is structurally valid, but one or more differential or
+  log replay steps would still require the future replay engine.
+- `invalid`: the chain is broken, such as a missing base backup or a log-window
+  discontinuity.
+
+The same planner output is surfaced in the admin backup preview Restore tab, so
+operators can inspect chain health even for dump-only scheduled backups.
+
+Run a safe restore rehearsal without replacing the live Docker database:
+
+```bash
+npm run docker:restore:drill -- <dump-file>
+```
+
+What the drill does:
+
+- validates the selected dump against its adjacent `MANIFEST.json`
+- restores the dump into a temporary Docker database named
+  `${POSTGRES_DB}_restore_drill` by default
+- runs `npm run restore:verify -- --dump <dump-file>` against that temporary
+  database using the manifest's restore-verification snapshot
+- drops the temporary drill database after the verification finishes
+
+Run a safe chain rehearsal for a differential or log target:
+
+```bash
+npm run docker:restore:chain-drill -- <backup-folder>
+```
+
+What the chain drill does:
+
+- runs `npm run restore:plan -- --folder <backup-folder>` and requires a valid
+  chain with a full dump baseline
+- restores the baseline dump into a temporary Docker database
+- applies the planned differential/log JSON steps with
+  `npm run restore:replay -- --folder <backup-folder>` against that temporary
+  database
+- verifies the final state against the target manifest's
+  `restoreVerification` snapshot when one is present
+- drops the temporary drill database after the rehearsal finishes
+
+This remains a drill-only workflow. The supported production DR path is still a
+direct full-dump restore.
+
+### UI-Triggered Full Restore
+
+If you want the admin Restore tab to submit the validated full-dump restore for
+you, start the dedicated restore runner:
+
+```bash
+npm run docker:restore:runner:up
+```
+
+How the UI restore works:
+
+- the admin modal still shows the exact dump, restore plan, and latest runner
+  status before you confirm anything
+- the same modal now includes a Changes tab that compares the selected full
+  backup's saved row counts against the live database so you can see table-level
+  count drift before restoring
+- the browser submits a restore job only after a typed confirmation
+- the `restore-runner` sidecar performs the same
+  `docker:restore:docker-db` workflow under the hood
+- the app becomes temporarily unavailable while the restore is running because
+  the database is being replaced
+
+This UI path is intentionally limited to full PostgreSQL dump restores. It does
+not enable browser-driven differential or log replay into production.
+
+Use direct verification when you have already restored a dump into a safe target
+and want to compare the database state against the manifest:
+
+```bash
+npm run restore:verify -- --dump <dump-file>
+```
+
+Use direct replay when you have already prepared a safe database target and want
+to apply the planned differential/log chain without the Docker wrapper:
+
+```bash
+npm run restore:replay -- --folder <backup-folder>
+```
+
+Optional flags:
+
+- `--database-url <url>` to point verification at a specific restored database
+- `--manifest <path/to/MANIFEST.json>` when you want to verify from a manifest
+  directly instead of a dump path
+- `RESTORE_DRILL_DB_NAME=<name>` to override the temporary drill database name
+- `RESTORE_RUNNER_POLL_MS=<ms>` to control how often the UI restore-runner
+  scans for pending restore jobs
+
 ### Migrating Existing Native PostgreSQL Data Into Docker
 
 Safest approach: logical dump and restore. Do not copy raw PostgreSQL data files from a running native server into the Docker data directory.
@@ -101,6 +255,8 @@ npm run docker:restore:docker-db -- business_management_db-YYYYMMDD-HHMMSS.dump 
 
 The restore command:
 
+- validates that the selected backup is a full PostgreSQL dump with a matching
+  manifest and checksum
 - starts the Docker `db` service if needed
 - stops the app container temporarily
 - recreates the Docker target database

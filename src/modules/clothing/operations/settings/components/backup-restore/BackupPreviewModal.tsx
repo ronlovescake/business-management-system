@@ -1,29 +1,37 @@
 import {
   Alert,
   Badge,
-  Box,
   Button,
   Card,
-  Checkbox,
   Divider,
   Group,
   Progress,
-  ScrollArea,
+  SimpleGrid,
   Stack,
-  Table as MantineTable,
+  Table,
   Tabs,
   Text,
   Title,
 } from '@mantine/core';
 import {
   IconAlertCircle,
+  IconArrowsDiff,
   IconDatabase,
   IconFile,
+  IconFileDescription,
   IconFileSpreadsheet,
   IconFileTypeCsv,
   IconHistory,
+  IconPlayerPlay,
+  IconRoute,
 } from '@tabler/icons-react';
-import type { BackupData, RestoreResults } from '../../backup/types';
+import type {
+  BackupData,
+  BackupChangesComparison,
+  BackupChangeEntry,
+  RestoreJobStatus,
+  RestorePlan,
+} from '../../backup/types';
 import { formatBackupTimestamp } from '../../backup/types';
 import { BackupTablesBrowser } from './BackupTablesBrowser';
 import { UniversalModal } from '@/components/modals/UniversalModal';
@@ -39,55 +47,94 @@ interface BackupPreviewModalProps {
   opened: boolean;
   loading: boolean;
   previewData: BackupData | null;
+  backupChanges: BackupChangesComparison | null;
+  backupChangesLoading: boolean;
+  backupChangesError: string | null;
+  restorePlan: RestorePlan | null;
+  restorePlanLoading: boolean;
+  restorePlanError: string | null;
+  restoreRunnerAvailable: boolean;
+  restoreRunnerHeartbeatAt: string | null;
+  restoreJobStatus: RestoreJobStatus | null;
+  restoreJobLoading: boolean;
+  restoreSubmitting: boolean;
+  selectedBackupTimestamp: string | null;
+  selectedDumpFileName: string | null;
+  restoreDisabledReason: string | null;
   selectedTableName: string | null;
   selectedTableDetails: SelectedTableDetails;
-  availableTables: string[];
-  restoreSelection: string[];
-  restoreSummaryEntries: Array<[string, RestoreResults[string]]>;
-  forceOverwrite: boolean;
-  restoreLoading: boolean;
-  restoreDisabled: boolean;
-  canDownloadBackup: boolean;
+  canDownloadJson: boolean;
+  canDownloadDump: boolean;
   onClose: () => void;
   onSelectTable: (table: string) => void | Promise<void>;
-  onSelectAllTables: () => void;
-  onClearSelectedTables: () => void;
-  onToggleTable: (table: string, checked: boolean) => void;
-  onSetForceOverwrite: (value: boolean) => void;
   onDownloadJSON: () => void;
   onDownloadDump: () => void;
   onDownloadAllCSV: () => void;
   onDownloadAllXLSX: () => void;
   onDownloadCSV: (table: string) => void;
   onDownloadXLSX: (table: string) => void;
+  onPreviewChangeTable: (table: string) => void;
   onRestore: () => void;
 }
+
+const CHANGE_STATUS_COLOR: Record<
+  BackupChangeEntry['status'],
+  'green' | 'red' | 'yellow' | 'gray'
+> = {
+  increased: 'green',
+  decreased: 'red',
+  missing: 'yellow',
+  unchanged: 'gray',
+};
+
+const CHANGE_COVERAGE_COLOR: Record<
+  BackupChangeEntry['coverage'],
+  'blue' | 'grape' | 'dark'
+> = {
+  'selective-json': 'blue',
+  'log-only': 'grape',
+  'dump-only': 'dark',
+};
+
+const formatDelta = (value: number) => {
+  if (value === 0) {
+    return '0';
+  }
+
+  return `${value > 0 ? '+' : ''}${value.toLocaleString()}`;
+};
 
 export const BackupPreviewModal = ({
   opened,
   loading,
   previewData,
+  backupChanges,
+  backupChangesLoading,
+  backupChangesError,
+  restorePlan,
+  restorePlanLoading,
+  restorePlanError,
+  restoreRunnerAvailable,
+  restoreRunnerHeartbeatAt,
+  restoreJobStatus,
+  restoreJobLoading,
+  restoreSubmitting,
+  selectedBackupTimestamp,
+  selectedDumpFileName,
+  restoreDisabledReason,
   selectedTableName,
   selectedTableDetails,
-  availableTables,
-  restoreSelection,
-  restoreSummaryEntries,
-  forceOverwrite,
-  restoreLoading,
-  restoreDisabled,
-  canDownloadBackup,
+  canDownloadJson,
+  canDownloadDump,
   onClose,
   onSelectTable,
-  onSelectAllTables,
-  onClearSelectedTables,
-  onToggleTable,
-  onSetForceOverwrite,
   onDownloadJSON,
   onDownloadDump,
   onDownloadAllCSV,
   onDownloadAllXLSX,
   onDownloadCSV,
   onDownloadXLSX,
+  onPreviewChangeTable,
   onRestore,
 }: BackupPreviewModalProps) => (
   <UniversalModal
@@ -104,52 +151,378 @@ export const BackupPreviewModal = ({
       },
     }}
   >
-    {loading && !previewData ? (
+    {loading && !previewData && !restorePlan ? (
       <Progress value={100} animated />
-    ) : previewData?.metadata && previewData?.tables ? (
+    ) : previewData?.metadata || restorePlan ? (
       <Tabs defaultValue="summary">
         <Tabs.List>
           <Tabs.Tab value="summary">Summary</Tabs.Tab>
-          <Tabs.Tab value="tables">Tables</Tabs.Tab>
+          <Tabs.Tab value="changes">Changes</Tabs.Tab>
+          <Tabs.Tab value="tables" disabled={!previewData?.tables}>
+            Tables
+          </Tabs.Tab>
           <Tabs.Tab value="download">Download</Tabs.Tab>
           <Tabs.Tab value="restore">Restore</Tabs.Tab>
         </Tabs.List>
 
         <Tabs.Panel value="summary" pt="md">
           <Stack gap="md">
-            <Alert icon={<IconHistory size={16} />} color="blue">
-              <Stack gap="xs">
-                <Text size="sm">
-                  Created:{' '}
-                  {formatBackupTimestamp(previewData.metadata.createdAt)}
+            {previewData?.metadata ? (
+              <Alert icon={<IconHistory size={16} />} color="blue">
+                <Stack gap="xs">
+                  <Text size="sm">
+                    Created:{' '}
+                    {formatBackupTimestamp(previewData.metadata.createdAt)}
+                  </Text>
+                  <Text size="sm">
+                    Database: {previewData.metadata.database}
+                  </Text>
+                </Stack>
+              </Alert>
+            ) : (
+              <Alert icon={<IconFileDescription size={16} />} color="gray">
+                This backup does not include a JSON inspection artifact. Table
+                browsing is unavailable, but restore planning and dump download
+                remain available.
+              </Alert>
+            )}
+
+            {previewData?.tables ? (
+              <Card withBorder>
+                <Title order={5} mb="sm">
+                  Tables
+                </Title>
+                <Stack gap="xs">
+                  {Object.entries(previewData.tables).map(([name, data]) => (
+                    <Group key={name} justify="space-between">
+                      <Text size="sm">{name}</Text>
+                      <Badge>{data.count} records</Badge>
+                    </Group>
+                  ))}
+                </Stack>
+              </Card>
+            ) : null}
+
+            {restorePlan ? (
+              <Card withBorder>
+                <Group justify="space-between" mb="sm">
+                  <Title order={5}>Restore Chain</Title>
+                  <Badge
+                    color={
+                      restorePlan.status === 'ready'
+                        ? 'green'
+                        : restorePlan.status === 'advisory'
+                          ? 'yellow'
+                          : 'red'
+                    }
+                  >
+                    {restorePlan.status}
+                  </Badge>
+                </Group>
+                <Text size="sm" c="dimmed" mb="sm">
+                  {restorePlan.chainFolders.join(' -> ')}
                 </Text>
-                <Text size="sm">Database: {previewData.metadata.database}</Text>
-              </Stack>
+                <Text size="sm">
+                  {restorePlan.status === 'ready'
+                    ? 'This target is immediately restorable under the current dump-only DR contract.'
+                    : restorePlan.status === 'advisory'
+                      ? 'This target has a structurally valid chain, but replay steps still depend on the future differential/log executor.'
+                      : 'This target has a broken restore chain and should not be relied on until the underlying backup gap is fixed.'}
+                </Text>
+              </Card>
+            ) : null}
+          </Stack>
+        </Tabs.Panel>
+
+        <Tabs.Panel value="changes" pt="md">
+          <Stack gap="md">
+            <Alert icon={<IconArrowsDiff size={16} />} color="blue">
+              This compares the selected backup&apos;s saved row counts with the
+              live database right now. It is a table-count change summary, not a
+              row-by-row audit trail.
             </Alert>
 
-            <Card withBorder>
-              <Title order={5} mb="sm">
-                Tables
-              </Title>
-              <Stack gap="xs">
-                {Object.entries(previewData.tables).map(([name, data]) => (
-                  <Group key={name} justify="space-between">
-                    <Text size="sm">{name}</Text>
-                    <Badge>{data.count} records</Badge>
-                  </Group>
-                ))}
-              </Stack>
-            </Card>
+            {backupChangesLoading ? <Progress value={100} animated /> : null}
+
+            {backupChangesError ? (
+              <Alert icon={<IconAlertCircle size={16} />} color="yellow">
+                {backupChangesError}
+              </Alert>
+            ) : null}
+
+            {backupChanges ? (
+              <>
+                <SimpleGrid cols={{ base: 1, md: 3 }} spacing="md">
+                  <Card withBorder>
+                    <Stack gap={4}>
+                      <Text size="sm" c="dimmed">
+                        Compared against live database
+                      </Text>
+                      <Text fw={600}>
+                        {formatBackupTimestamp(
+                          backupChanges.currentGeneratedAt
+                        )}
+                      </Text>
+                      <Text size="sm" c="dimmed">
+                        Backup:{' '}
+                        {formatBackupTimestamp(
+                          backupChanges.backupCreatedAt ??
+                            backupChanges.backupTimestamp
+                        )}
+                      </Text>
+                    </Stack>
+                  </Card>
+                  <Card withBorder>
+                    <Stack gap={4}>
+                      <Text size="sm" c="dimmed">
+                        Changed tables
+                      </Text>
+                      <Text fw={700} size="lg">
+                        {backupChanges.changedTables} /{' '}
+                        {backupChanges.totalTables}
+                      </Text>
+                      <Group gap="xs">
+                        <Badge color="green">
+                          +{backupChanges.increasedTables} increased
+                        </Badge>
+                        <Badge color="red">
+                          {backupChanges.decreasedTables} decreased
+                        </Badge>
+                        {backupChanges.missingTables ? (
+                          <Badge color="yellow">
+                            {backupChanges.missingTables} missing
+                          </Badge>
+                        ) : null}
+                      </Group>
+                    </Stack>
+                  </Card>
+                  <Card withBorder>
+                    <Stack gap={4}>
+                      <Text size="sm" c="dimmed">
+                        Net row delta
+                      </Text>
+                      <Text fw={700} size="lg">
+                        {formatDelta(backupChanges.deltaRecords)}
+                      </Text>
+                      <Text size="sm" c="dimmed">
+                        {backupChanges.backupTotalRecords.toLocaleString()}{' '}
+                        backup rows
+                        {' to '}
+                        {backupChanges.currentTotalRecords.toLocaleString()}{' '}
+                        current rows
+                      </Text>
+                    </Stack>
+                  </Card>
+                </SimpleGrid>
+
+                {backupChanges.changedTables === 0 ? (
+                  <Alert color="green" icon={<IconHistory size={16} />}>
+                    No row-count changes were detected since this backup.
+                  </Alert>
+                ) : (
+                  <>
+                    {backupChanges.entries.some(
+                      (entry) =>
+                        entry.status === 'increased' ||
+                        entry.status === 'decreased'
+                    ) ? (
+                      <Card withBorder>
+                        <Stack gap="xs">
+                          <Group justify="space-between">
+                            <Title order={5}>Count Drift</Title>
+                            <Badge color="blue">
+                              {
+                                backupChanges.entries.filter(
+                                  (entry) =>
+                                    entry.status === 'increased' ||
+                                    entry.status === 'decreased'
+                                ).length
+                              }{' '}
+                              changed
+                            </Badge>
+                          </Group>
+                          <Table.ScrollContainer minWidth={720}>
+                            <Table
+                              striped
+                              highlightOnHover
+                              withTableBorder
+                              withColumnBorders
+                              verticalSpacing="xs"
+                            >
+                              <Table.Thead>
+                                <Table.Tr>
+                                  <Table.Th>Table</Table.Th>
+                                  <Table.Th>Coverage</Table.Th>
+                                  <Table.Th ta="right">Backup</Table.Th>
+                                  <Table.Th ta="right">Current</Table.Th>
+                                  <Table.Th ta="right">Delta</Table.Th>
+                                  <Table.Th>Status</Table.Th>
+                                  <Table.Th>Details</Table.Th>
+                                </Table.Tr>
+                              </Table.Thead>
+                              <Table.Tbody>
+                                {backupChanges.entries
+                                  .filter(
+                                    (entry) =>
+                                      entry.status === 'increased' ||
+                                      entry.status === 'decreased'
+                                  )
+                                  .map((entry) => (
+                                    <Table.Tr key={entry.key}>
+                                      <Table.Td>
+                                        <Stack gap={0}>
+                                          <Text size="sm" fw={600}>
+                                            {entry.key}
+                                          </Text>
+                                          <Text size="xs" c="dimmed">
+                                            {entry.modelName}
+                                          </Text>
+                                        </Stack>
+                                      </Table.Td>
+                                      <Table.Td>
+                                        <Badge
+                                          color={
+                                            CHANGE_COVERAGE_COLOR[
+                                              entry.coverage
+                                            ]
+                                          }
+                                          variant="light"
+                                        >
+                                          {entry.coverage}
+                                        </Badge>
+                                      </Table.Td>
+                                      <Table.Td ta="right">
+                                        {entry.backupCount.toLocaleString()}
+                                      </Table.Td>
+                                      <Table.Td ta="right">
+                                        {entry.currentCount.toLocaleString()}
+                                      </Table.Td>
+                                      <Table.Td
+                                        ta="right"
+                                        c={entry.delta > 0 ? 'green' : 'red'}
+                                        fw={600}
+                                      >
+                                        {formatDelta(entry.delta)}
+                                      </Table.Td>
+                                      <Table.Td>
+                                        <Badge
+                                          color={
+                                            CHANGE_STATUS_COLOR[entry.status]
+                                          }
+                                          variant="light"
+                                        >
+                                          {entry.status}
+                                        </Badge>
+                                      </Table.Td>
+                                      <Table.Td>
+                                        <Button
+                                          size="xs"
+                                          variant="subtle"
+                                          onClick={() =>
+                                            onPreviewChangeTable(entry.key)
+                                          }
+                                          disabled={
+                                            entry.coverage === 'dump-only' ||
+                                            entry.backupCount > 2000 ||
+                                            entry.currentCount > 2000
+                                          }
+                                        >
+                                          Preview
+                                        </Button>
+                                      </Table.Td>
+                                    </Table.Tr>
+                                  ))}
+                              </Table.Tbody>
+                            </Table>
+                          </Table.ScrollContainer>
+                          <Text size="xs" c="dimmed">
+                            Detailed row preview is available for smaller
+                            JSON-backed tables. Dump-only tables and very large
+                            tables stay count-only.
+                          </Text>
+                        </Stack>
+                      </Card>
+                    ) : null}
+
+                    {backupChanges.missingTables ? (
+                      <Card withBorder>
+                        <Stack gap="xs">
+                          <Group justify="space-between">
+                            <Title order={5}>
+                              Missing Or Unavailable Tables
+                            </Title>
+                            <Badge color="yellow" variant="light">
+                              {backupChanges.missingTables} missing
+                            </Badge>
+                          </Group>
+                          <Stack
+                            gap={6}
+                            style={{ maxHeight: 220, overflowY: 'auto' }}
+                          >
+                            {backupChanges.entries
+                              .filter((entry) => entry.status === 'missing')
+                              .map((entry) => (
+                                <Group
+                                  key={entry.key}
+                                  justify="space-between"
+                                  align="flex-start"
+                                >
+                                  <Stack gap={0}>
+                                    <Text size="sm" fw={600}>
+                                      {entry.key}
+                                    </Text>
+                                    <Text size="xs" c="dimmed">
+                                      {entry.modelName}
+                                    </Text>
+                                  </Stack>
+                                  <Group gap="xs">
+                                    <Badge
+                                      color={
+                                        CHANGE_COVERAGE_COLOR[entry.coverage]
+                                      }
+                                      variant="light"
+                                    >
+                                      {entry.coverage}
+                                    </Badge>
+                                    <Badge color="yellow" variant="light">
+                                      {entry.reason ?? 'missing'}
+                                    </Badge>
+                                  </Group>
+                                </Group>
+                              ))}
+                          </Stack>
+                        </Stack>
+                      </Card>
+                    ) : null}
+                  </>
+                )}
+
+                {backupChanges.unchangedTables ? (
+                  <Text size="sm" c="dimmed">
+                    {backupChanges.unchangedTables} table
+                    {backupChanges.unchangedTables === 1 ? '' : 's'} unchanged
+                    and omitted from the list above.
+                  </Text>
+                ) : null}
+              </>
+            ) : null}
           </Stack>
         </Tabs.Panel>
 
         <Tabs.Panel value="tables" pt="md">
-          <BackupTablesBrowser
-            previewData={previewData}
-            selectedTableName={selectedTableName}
-            selectedTableDetails={selectedTableDetails}
-            onSelectTable={onSelectTable}
-          />
+          {previewData ? (
+            <BackupTablesBrowser
+              previewData={previewData}
+              selectedTableName={selectedTableName}
+              selectedTableDetails={selectedTableDetails}
+              onSelectTable={onSelectTable}
+            />
+          ) : (
+            <Alert icon={<IconFileDescription size={16} />} color="gray">
+              This backup cannot be browsed by table because only the PostgreSQL
+              dump artifact is available.
+            </Alert>
+          )}
         </Tabs.Panel>
 
         <Tabs.Panel value="download" pt="md">
@@ -157,7 +530,7 @@ export const BackupPreviewModal = ({
             <Button
               leftSection={<IconFile size={16} />}
               onClick={onDownloadJSON}
-              disabled={!canDownloadBackup}
+              disabled={!canDownloadJson}
             >
               Download JSON
             </Button>
@@ -165,7 +538,7 @@ export const BackupPreviewModal = ({
               color="teal"
               leftSection={<IconDatabase size={16} />}
               onClick={onDownloadDump}
-              disabled={!canDownloadBackup}
+              disabled={!canDownloadDump}
             >
               Download PostgreSQL Dump
             </Button>
@@ -186,33 +559,40 @@ export const BackupPreviewModal = ({
               Download All XLSX
             </Button>
             <Divider />
-            <Stack gap="xs">
-              {Object.entries(previewData.tables).map(([name, data]) => (
-                <Group key={name} justify="space-between">
-                  <Text size="sm">{name}</Text>
-                  <Group gap="xs">
-                    <Button
-                      size="xs"
-                      variant="subtle"
-                      color="green"
-                      disabled={!data.count}
-                      onClick={() => onDownloadCSV(name)}
-                    >
-                      CSV
-                    </Button>
-                    <Button
-                      size="xs"
-                      variant="subtle"
-                      color="cyan"
-                      disabled={!data.count}
-                      onClick={() => onDownloadXLSX(name)}
-                    >
-                      XLSX
-                    </Button>
+            {previewData?.tables ? (
+              <Stack gap="xs">
+                {Object.entries(previewData.tables).map(([name, data]) => (
+                  <Group key={name} justify="space-between">
+                    <Text size="sm">{name}</Text>
+                    <Group gap="xs">
+                      <Button
+                        size="xs"
+                        variant="subtle"
+                        color="green"
+                        disabled={!data.count}
+                        onClick={() => onDownloadCSV(name)}
+                      >
+                        CSV
+                      </Button>
+                      <Button
+                        size="xs"
+                        variant="subtle"
+                        color="cyan"
+                        disabled={!data.count}
+                        onClick={() => onDownloadXLSX(name)}
+                      >
+                        XLSX
+                      </Button>
+                    </Group>
                   </Group>
-                </Group>
-              ))}
-            </Stack>
+                ))}
+              </Stack>
+            ) : (
+              <Alert icon={<IconFileDescription size={16} />} color="gray">
+                JSON, CSV, and XLSX inspection exports are unavailable for this
+                backup because no JSON inspection artifact was generated.
+              </Alert>
+            )}
           </Stack>
         </Tabs.Panel>
 
@@ -228,179 +608,235 @@ export const BackupPreviewModal = ({
           <Stack gap="md" style={{ flex: 1, minHeight: 0 }}>
             <Alert
               icon={<IconAlertCircle size={16} />}
-              color="yellow"
-              title="Caution"
+              color="red"
+              title="Disaster-Recovery Restore Is Operator Managed"
             >
-              Restoring data will insert records from this backup. Select the
-              specific tables you want to bring back—anything unchecked stays
-              as-is.
+              UI restore is available only through the dedicated restore-runner.
+              It still performs the same validated full-dump Docker restore and
+              will temporarily take the app offline while the database is
+              replaced.
             </Alert>
+            <Card withBorder padding="md" radius="md">
+              <Stack gap="sm">
+                <Text fw={600}>Supported Phase 2A workflow</Text>
+                <Text size="sm">
+                  1. Review the selected dump and restore chain below.
+                </Text>
+                <Text size="sm">
+                  2. Submit the restore job from this modal.
+                </Text>
+                <Text size="sm">
+                  3. The restore-runner validates the manifest and checksum,
+                  stops the app, replaces the Docker database, and starts the
+                  app again.
+                </Text>
+                <Text size="sm" c="dimmed">
+                  Selected dump:{' '}
+                  <strong>{selectedDumpFileName || 'No dump available'}</strong>
+                </Text>
+                <Text size="sm" c="dimmed">
+                  JSON, CSV, and XLSX artifacts remain inspection/export only.
+                </Text>
+              </Stack>
+            </Card>
 
-            <Box style={{ flex: 1, minHeight: 0 }}>
-              <ScrollArea style={{ height: '100%' }} offsetScrollbars>
-                <Stack gap="md">
-                  <Stack gap="sm">
-                    <Group justify="space-between">
-                      <Text size="sm" fw={600}>
-                        Tables in backup ({availableTables.length})
-                      </Text>
-                      <Group gap="xs">
-                        <Button
-                          size="xs"
-                          variant="light"
-                          onClick={onSelectAllTables}
+            <Card withBorder padding="md" radius="md">
+              <Stack gap="sm">
+                <Group justify="space-between">
+                  <Text fw={600}>Restore runner</Text>
+                  <Badge color={restoreRunnerAvailable ? 'green' : 'red'}>
+                    {restoreRunnerAvailable ? 'online' : 'offline'}
+                  </Badge>
+                </Group>
+                {restoreJobLoading ? <Progress value={100} animated /> : null}
+                <Text size="sm" c="dimmed">
+                  Last heartbeat:{' '}
+                  {restoreRunnerHeartbeatAt
+                    ? formatBackupTimestamp(restoreRunnerHeartbeatAt)
+                    : 'Unavailable'}
+                </Text>
+
+                {restoreJobStatus ? (
+                  <Card withBorder padding="sm" radius="md">
+                    <Stack gap={4}>
+                      <Group justify="space-between">
+                        <Text size="sm" fw={600}>
+                          Latest restore job
+                        </Text>
+                        <Badge
+                          color={
+                            restoreJobStatus.phase === 'succeeded'
+                              ? 'green'
+                              : restoreJobStatus.phase === 'failed'
+                                ? 'red'
+                                : 'yellow'
+                          }
                         >
-                          Select all
-                        </Button>
-                        <Button
-                          size="xs"
-                          variant="light"
-                          color="gray"
-                          onClick={onClearSelectedTables}
-                        >
-                          Clear
-                        </Button>
+                          {restoreJobStatus.phase}
+                        </Badge>
                       </Group>
-                    </Group>
-
-                    <Stack gap="sm">
-                      {availableTables.map((table) => {
-                        const count = previewData.tables[table]?.count ?? 0;
-                        const checked = restoreSelection.includes(table);
-                        return (
-                          <Box
-                            key={table}
-                            p="sm"
-                            style={{
-                              borderRadius: 12,
-                              border: `1px solid ${
-                                checked
-                                  ? 'var(--mantine-color-blue-5)'
-                                  : 'var(--mantine-color-gray-3)'
-                              }`,
-                              backgroundColor: checked
-                                ? 'var(--mantine-color-blue-0)'
-                                : 'var(--mantine-color-white)',
-                              transition:
-                                'border-color 120ms ease, background-color 120ms ease',
-                            }}
-                          >
-                            <Checkbox
-                              size="lg"
-                              checked={checked}
-                              onChange={(event) =>
-                                onToggleTable(
-                                  table,
-                                  event.currentTarget.checked
-                                )
-                              }
-                              styles={{
-                                body: { alignItems: 'flex-start' },
-                                label: { width: '100%' },
-                                inner: { marginTop: 4, marginRight: 14 },
-                              }}
-                              label={
-                                <Group justify="space-between" gap="sm">
-                                  <Text fw={600} size="lg" tt="capitalize">
-                                    {table}
-                                  </Text>
-                                  <Text size="sm" c="dimmed">
-                                    {count} {count === 1 ? 'row' : 'rows'}
-                                  </Text>
-                                </Group>
-                              }
-                            />
-                          </Box>
-                        );
-                      })}
+                      <Text size="sm">
+                        Backup folder: {restoreJobStatus.backupFolder}
+                      </Text>
+                      <Text size="xs" c="dimmed">
+                        Dump: {restoreJobStatus.dumpFileName}
+                      </Text>
+                      {restoreJobStatus.message ? (
+                        <Text size="xs" c="dimmed">
+                          {restoreJobStatus.message}
+                        </Text>
+                      ) : null}
+                      {restoreJobStatus.error ? (
+                        <Alert color="red" icon={<IconAlertCircle size={14} />}>
+                          <Text size="xs">{restoreJobStatus.error}</Text>
+                        </Alert>
+                      ) : null}
                     </Stack>
-                  </Stack>
+                  </Card>
+                ) : (
+                  <Text size="sm" c="dimmed">
+                    No restore jobs have been submitted yet.
+                  </Text>
+                )}
+              </Stack>
+            </Card>
 
-                  {restoreSummaryEntries.length > 0 && (
-                    <Card withBorder padding="md" radius="md">
-                      <Stack gap="sm">
-                        <Group justify="space-between">
-                          <Text fw={600}>Last restore summary</Text>
-                          <Badge color="green">Completed</Badge>
-                        </Group>
-                        <ScrollArea h={220} offsetScrollbars>
-                          <MantineTable striped highlightOnHover>
-                            <MantineTable.Thead>
-                              <MantineTable.Tr>
-                                <MantineTable.Th>Table</MantineTable.Th>
-                                <MantineTable.Th>Inserted</MantineTable.Th>
-                                <MantineTable.Th>Updated</MantineTable.Th>
-                                <MantineTable.Th>Attempted</MantineTable.Th>
-                                <MantineTable.Th>Skipped</MantineTable.Th>
-                                <MantineTable.Th>
-                                  Before → After
-                                </MantineTable.Th>
-                                <MantineTable.Th>Notes</MantineTable.Th>
-                              </MantineTable.Tr>
-                            </MantineTable.Thead>
-                            <MantineTable.Tbody>
-                              {restoreSummaryEntries.map(([table, result]) => (
-                                <MantineTable.Tr key={table}>
-                                  <MantineTable.Td>{table}</MantineTable.Td>
-                                  <MantineTable.Td>
-                                    {result.count}
-                                  </MantineTable.Td>
-                                  <MantineTable.Td>
-                                    {result.updated ?? '—'}
-                                  </MantineTable.Td>
-                                  <MantineTable.Td>
-                                    {result.attempted ?? '—'}
-                                  </MantineTable.Td>
-                                  <MantineTable.Td>
-                                    {result.skipped ?? '—'}
-                                  </MantineTable.Td>
-                                  <MantineTable.Td>
-                                    {result.beforeCount ?? '—'} →{' '}
-                                    {result.afterCount ?? '—'}
-                                  </MantineTable.Td>
-                                  <MantineTable.Td>
-                                    {result.error ? (
-                                      <Text c="red" size="sm">
-                                        {result.error}
-                                      </Text>
-                                    ) : (
-                                      <Text c="green" size="sm">
-                                        OK
-                                      </Text>
-                                    )}
-                                  </MantineTable.Td>
-                                </MantineTable.Tr>
-                              ))}
-                            </MantineTable.Tbody>
-                          </MantineTable>
-                        </ScrollArea>
-                      </Stack>
-                    </Card>
-                  )}
-                </Stack>
-              </ScrollArea>
-            </Box>
+            <Card withBorder padding="md" radius="md">
+              <Stack gap="sm">
+                <Group justify="space-between">
+                  <Group gap="xs">
+                    <IconRoute size={16} />
+                    <Text fw={600}>Phase 3 restore planner</Text>
+                  </Group>
+                  {restorePlan ? (
+                    <Badge
+                      color={
+                        restorePlan.status === 'ready'
+                          ? 'green'
+                          : restorePlan.status === 'advisory'
+                            ? 'yellow'
+                            : 'red'
+                      }
+                    >
+                      {restorePlan.status}
+                    </Badge>
+                  ) : null}
+                </Group>
 
-            <Checkbox
-              label="Force overwrite existing data"
-              description="Deletes existing records in the selected tables before restoring."
-              checked={forceOverwrite}
-              onChange={(event) =>
-                onSetForceOverwrite(event.currentTarget.checked)
-              }
-            />
+                {restorePlanLoading ? <Progress value={100} animated /> : null}
+
+                {restorePlanError ? (
+                  <Alert color="red" icon={<IconAlertCircle size={16} />}>
+                    {restorePlanError}
+                  </Alert>
+                ) : null}
+
+                {restorePlan ? (
+                  <>
+                    <Text size="sm">
+                      Target strategy:{' '}
+                      <strong>{restorePlan.targetStrategy}</strong>
+                    </Text>
+                    <Text size="sm" c="dimmed">
+                      Chain: {restorePlan.chainFolders.join(' -> ')}
+                    </Text>
+                    <Stack gap="xs">
+                      {restorePlan.steps.map((step, index) => (
+                        <Card
+                          key={`${step.folder}-${step.action}`}
+                          withBorder
+                          padding="sm"
+                          radius="md"
+                        >
+                          <Stack gap={4}>
+                            <Group justify="space-between">
+                              <Text size="sm" fw={600}>
+                                {index + 1}. {step.action}
+                              </Text>
+                              <Badge color={step.supported ? 'green' : 'gray'}>
+                                {step.supported ? 'supported' : 'planned only'}
+                              </Badge>
+                            </Group>
+                            <Text size="sm">{step.folder}</Text>
+                            {step.artifactName ? (
+                              <Text size="xs" c="dimmed">
+                                Artifact: {step.artifactName}
+                              </Text>
+                            ) : null}
+                            {step.reason ? (
+                              <Text size="xs" c="dimmed">
+                                {step.reason}
+                              </Text>
+                            ) : null}
+                          </Stack>
+                        </Card>
+                      ))}
+                    </Stack>
+
+                    {restorePlan.warnings.length ? (
+                      <Alert
+                        color="yellow"
+                        icon={<IconAlertCircle size={16} />}
+                      >
+                        <Stack gap={4}>
+                          {restorePlan.warnings.map((warning) => (
+                            <Text key={warning} size="sm">
+                              {warning}
+                            </Text>
+                          ))}
+                        </Stack>
+                      </Alert>
+                    ) : null}
+
+                    {restorePlan.errors.length ? (
+                      <Alert color="red" icon={<IconAlertCircle size={16} />}>
+                        <Stack gap={4}>
+                          {restorePlan.errors.map((error) => (
+                            <Text key={error} size="sm">
+                              {error}
+                            </Text>
+                          ))}
+                        </Stack>
+                      </Alert>
+                    ) : null}
+                  </>
+                ) : null}
+              </Stack>
+            </Card>
+
+            <Group justify="space-between" align="center">
+              <Stack gap={4} style={{ flex: 1 }}>
+                <Text size="sm" c="dimmed">
+                  {selectedBackupTimestamp
+                    ? `Selected backup: ${selectedBackupTimestamp}`
+                    : 'No backup selected.'}
+                </Text>
+                <Text size="sm" c="dimmed">
+                  {restoreDisabledReason ||
+                    'This backup is eligible for a validated full-dump restore.'}
+                </Text>
+              </Stack>
+              <Group>
+                <Button
+                  leftSection={<IconDatabase size={16} />}
+                  onClick={onDownloadDump}
+                  disabled={!canDownloadDump}
+                  variant="default"
+                >
+                  Download Dump
+                </Button>
+                <Button
+                  color="red"
+                  leftSection={<IconPlayerPlay size={16} />}
+                  onClick={onRestore}
+                  loading={restoreSubmitting}
+                  disabled={Boolean(restoreDisabledReason)}
+                >
+                  Restore This Backup
+                </Button>
+              </Group>
+            </Group>
           </Stack>
-
-          <Group justify="flex-end" mt="md">
-            <Button
-              leftSection={<IconHistory size={16} />}
-              loading={restoreLoading}
-              disabled={restoreDisabled}
-              onClick={onRestore}
-            >
-              {restoreLoading ? 'Restoring…' : 'Restore Backup'}
-            </Button>
-          </Group>
         </Tabs.Panel>
       </Tabs>
     ) : (

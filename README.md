@@ -70,6 +70,12 @@ npm run test:hardening
 npm run test:coverage
 ```
 
+Test environment notes:
+
+- Vitest loads `.env.test` for unit, integration, hardening, and coverage runs.
+- The tracked template is `.env.test.example`.
+- The local Dockerized test database starts with `npm run docker:start:test` and listens on `localhost:5433` by default.
+
 Full quality chain:
 
 ```bash
@@ -126,6 +132,47 @@ Existing native PostgreSQL to Docker migration helpers:
 npm run docker:backup:native-db -- business_management_db
 npm run docker:restore:docker-db -- <dump-file> --confirm
 ```
+
+Disaster-recovery restore policy:
+
+- The only supported DR restore input is a full PostgreSQL `.dump` backup.
+- The Docker restore command validates `MANIFEST.json` and the dump checksum before it stops the app or replaces the database.
+- JSON, CSV, and XLSX backup artifacts are inspection/export formats only and are not supported DR restore inputs.
+- Legacy restore scripts such as `scripts/restore-database.js` and `scripts/restore-from-backup.js` are retired.
+
+Backup quality and scheduler helpers:
+
+```bash
+npm run backup:audit
+npm run restore:plan -- --folder <backup-folder>
+npm run docker:backup:scheduler
+npm run docker:restore:runner:up
+npm run restore:verify -- --dump <dump-file>
+npm run restore:replay -- --folder <backup-folder>
+npm run docker:restore:drill -- <dump-file>
+npm run docker:restore:chain-drill -- <backup-folder>
+```
+
+Restore drill policy:
+
+- Use `npm run restore:plan -- --folder <backup-folder>` to inspect the full, differential, and log chain required for a target backup before attempting any restore or future replay workflow.
+- The planner reports whether the target is immediately restorable under the current dump-only DR contract (`ready`), structurally valid but dependent on future replay support (`advisory`), or broken (`invalid`).
+- The backup preview modal now shows the same planner output in the Restore tab, including dump-only scheduled backups that do not have JSON inspection artifacts.
+- Start `npm run docker:restore:runner:up` if you want the Restore tab to submit the validated full-dump restore from the UI instead of running the shell command yourself.
+- Use `npm run docker:restore:drill -- <dump-file>` to rehearse a restore into a scratch Docker database without stopping the app or replacing the live database.
+- The drill runs the same manifest/checksum validation as the real restore path, restores into a temporary database, runs post-restore row-count verification from the manifest, and drops the drill database afterward.
+- Use `npm run docker:restore:chain-drill -- <backup-folder>` to rehearse a full baseline restore plus planned differential/log replay inside the same scratch Docker database.
+- `npm run restore:replay -- --folder <backup-folder>` is the lower-level replay command for safe targets you prepare yourself; it is intended for drills and validation, not the supported production DR path.
+- The UI restore button still performs the same validated Docker full-dump restore under the hood. It requires the `restore-runner` sidecar and will temporarily make the app unavailable while the database is replaced.
+- `npm run restore:verify -- --dump <dump-file>` is available when you need to verify a restore against a specific database target manually.
+
+Docker scheduler env knobs:
+
+- `BACKUP_AUTO_ENABLED=true` to enable scheduled full dumps
+- `BACKUP_AUTO_TIME=02:00` for the daily full-dump time
+- `BACKUP_AUTO_TIMEZONE=Asia/Manila` for scheduler timezone
+- `BACKUP_RETENTION_DAYS=30` for automatic pruning
+- `RESTORE_RUNNER_POLL_MS=5000` for the UI restore-runner poll interval
 
 Optional Playwright browser override:
 

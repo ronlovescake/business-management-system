@@ -1,4 +1,8 @@
-import type { BackupData, RestorePreviewResults } from '../../backup/types';
+import type {
+  BackupChangePreview,
+  BackupData,
+  RestorePreviewResults,
+} from '../../backup/types';
 import { guessRowLabel } from '../../backup/types';
 
 type SidebarTableSummary = { name: string; count: number };
@@ -13,8 +17,10 @@ type SelectedTableDetails = {
 };
 
 type RestorePreviewChangeType = 'insert' | 'update';
+type BackupChangePreviewType = 'added' | 'updated' | 'removed';
 
 type RestorePreviewEntry = RestorePreviewResults[string];
+type BackupChangePreviewEntry = BackupChangePreview;
 
 export const areBackupSidebarTablesEqual = (
   nextTables: SidebarTableSummary[],
@@ -238,6 +244,106 @@ export const getRestorePreviewSelectedRowData = (
   return {
     type: 'update' as const,
     row: restorePreviewEntry.updates[index] ?? null,
+  };
+};
+
+export const getBackupChangePreviewTypeOptions = (
+  preview: BackupChangePreviewEntry | null
+) => {
+  if (!preview) {
+    return [];
+  }
+
+  const options: Array<{ value: BackupChangePreviewType; label: string }> = [];
+
+  if (preview.addedCount > 0) {
+    options.push({
+      value: 'added',
+      label: `Added rows (${preview.addedCount})`,
+    });
+  }
+  if (preview.updatedCount > 0) {
+    options.push({
+      value: 'updated',
+      label: `Updated rows (${preview.updatedCount})`,
+    });
+  }
+  if (preview.removedCount > 0) {
+    options.push({
+      value: 'removed',
+      label: `Removed rows (${preview.removedCount})`,
+    });
+  }
+
+  if (!options.length) {
+    options.push({ value: 'added', label: 'No row changes detected' });
+  }
+
+  return options;
+};
+
+export const getBackupChangePreviewRowOptions = (
+  preview: BackupChangePreviewEntry | null,
+  changeType: BackupChangePreviewType
+) => {
+  if (!preview) {
+    return [];
+  }
+
+  if (changeType === 'added') {
+    return preview.added.map((row, index) => ({
+      value: String(index),
+      label: guessRowLabel(row, `Added row ${index + 1}`),
+    }));
+  }
+
+  if (changeType === 'removed') {
+    return preview.removed.map((row, index) => ({
+      value: String(index),
+      label: guessRowLabel(row, `Removed row ${index + 1}`),
+    }));
+  }
+
+  return preview.updates.map((row, index) => ({
+    value: String(index),
+    label: guessRowLabel(
+      row.current ?? row.backup ?? {},
+      `Updated row ${index + 1}`
+    ),
+  }));
+};
+
+export const getBackupChangePreviewSelectedRowData = (
+  preview: BackupChangePreviewEntry | null,
+  selectedRow: string | null,
+  changeType: BackupChangePreviewType
+) => {
+  if (!preview || selectedRow === null) {
+    return null;
+  }
+
+  const index = Number(selectedRow);
+  if (Number.isNaN(index)) {
+    return null;
+  }
+
+  if (changeType === 'added') {
+    return {
+      type: 'added' as const,
+      row: preview.added[index] ?? null,
+    };
+  }
+
+  if (changeType === 'removed') {
+    return {
+      type: 'removed' as const,
+      row: preview.removed[index] ?? null,
+    };
+  }
+
+  return {
+    type: 'updated' as const,
+    row: preview.updates[index] ?? null,
   };
 };
 

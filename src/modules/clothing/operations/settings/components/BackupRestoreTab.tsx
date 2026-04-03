@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback, useEffect, useRef, useMemo } from 'react';
+import { useState, useCallback, useEffect, useMemo } from 'react';
 import { Stack } from '@mantine/core';
 import { showNotification } from '@mantine/notifications';
 import { getSwal } from '@/lib/alerts';
@@ -10,19 +10,16 @@ import { IconDatabase, IconHistory, IconTable } from '@tabler/icons-react';
 import type {
   Backup,
   BackupData,
+  BackupChangesComparison,
+  BackupChangePreview,
+  RestoreJobStatus,
+  RestorePlan,
   BackupStrategy,
-  RestorePreviewResults,
-  RestoreResults,
 } from '../backup/types';
-import {
-  STRATEGY_META,
-  formatBackupTimestamp,
-  hasTableChanges,
-  previewHasChanges,
-} from '../backup/types';
+import { STRATEGY_META, formatBackupTimestamp } from '../backup/types';
 import { useBackupSchedule } from '../backup/hooks/useBackupSchedule';
 import { BackupPreviewModal } from './backup-restore/BackupPreviewModal';
-import { RestorePreviewModal } from './backup-restore/RestorePreviewModal';
+import { BackupChangeDetailModal } from './backup-restore/BackupChangeDetailModal';
 import { useBackupRestoreSidebarStore } from './backup-restore/backupRestoreSidebarStore';
 import { useBackupDownloadHandlers } from './backup-restore/useBackupDownloadHandlers';
 import { BackupTablesActionPanel } from './backup-restore/BackupTablesActionPanel';
@@ -37,13 +34,10 @@ import {
   areBackupSidebarTablesEqual,
   buildBackupTableSampleUrl,
   fetchWithTimeout,
-  getAllRestoreTables,
-  getRestorePreviewChangeTypeOptions,
-  getRestorePreviewRowOptions,
-  getRestorePreviewSelectedRowData,
-  getRestorePreviewTableOptions,
+  getBackupChangePreviewRowOptions,
+  getBackupChangePreviewSelectedRowData,
+  getBackupChangePreviewTypeOptions,
   getSelectedTableDetails,
-  toggleRestoreTableSelection,
 } from './backup-restore/backupRestoreTabUtils';
 
 export function BackupRestoreTab() {
@@ -66,39 +60,48 @@ export function BackupRestoreTab() {
   const [backupFormat, setBackupFormat] = useState<string>('all');
   const [backupStrategy, setBackupStrategy] = useState<BackupStrategy>('full');
   const [includeSoftDeleted, setIncludeSoftDeleted] = useState(false);
-  const [autoBackupEnabled, setAutoBackupEnabled] = useState(false);
-  const [autoBackupInterval, setAutoBackupInterval] = useState(30);
   const [previewModalOpen, setPreviewModalOpen] = useState(false);
   const [previewData, setPreviewData] = useState<BackupData | null>(null);
   const [previewLoading, setPreviewLoading] = useState(false);
+  const [restorePlan, setRestorePlan] = useState<RestorePlan | null>(null);
+  const [restorePlanLoading, setRestorePlanLoading] = useState(false);
+  const [restorePlanError, setRestorePlanError] = useState<string | null>(null);
+  const [backupChanges, setBackupChanges] =
+    useState<BackupChangesComparison | null>(null);
+  const [backupChangesLoading, setBackupChangesLoading] = useState(false);
+  const [backupChangesError, setBackupChangesError] = useState<string | null>(
+    null
+  );
+  const [backupChangePreviewOpen, setBackupChangePreviewOpen] = useState(false);
+  const [backupChangePreviewLoading, setBackupChangePreviewLoading] =
+    useState(false);
+  const [backupChangePreview, setBackupChangePreview] =
+    useState<BackupChangePreview | null>(null);
+  const [backupChangePreviewError, setBackupChangePreviewError] = useState<
+    string | null
+  >(null);
+  const [backupChangePreviewTable, setBackupChangePreviewTable] = useState<
+    string | null
+  >(null);
+  const [backupChangePreviewType, setBackupChangePreviewType] = useState<
+    'added' | 'updated' | 'removed'
+  >('added');
+  const [backupChangePreviewSelectedRow, setBackupChangePreviewSelectedRow] =
+    useState<string | null>(null);
+  const [restoreRunnerAvailable, setRestoreRunnerAvailable] = useState(false);
+  const [restoreRunnerHeartbeatAt, setRestoreRunnerHeartbeatAt] = useState<
+    string | null
+  >(null);
+  const [restoreJobStatus, setRestoreJobStatus] =
+    useState<RestoreJobStatus | null>(null);
+  const [restoreJobLoading, setRestoreJobLoading] = useState(false);
+  const [restoreSubmitting, setRestoreSubmitting] = useState(false);
   const [selectedBackup, setSelectedBackup] = useState<Backup | null>(null);
   const [selectedTableName, setSelectedTableName] = useState<string | null>(
     null
   );
   const [tableSearchQuery, setTableSearchQuery] = useState('');
   const [previewJsonFile, setPreviewJsonFile] = useState<string | null>(null);
-  const [restoreSelection, setRestoreSelection] = useState<string[]>([]);
-  const [forceOverwrite, setForceOverwrite] = useState(false);
-  const [restoreLoading, setRestoreLoading] = useState(false);
-  const [restoreResults, setRestoreResults] = useState<RestoreResults | null>(
-    null
-  );
-  const [restorePreviewData, setRestorePreviewData] =
-    useState<RestorePreviewResults | null>(null);
-  const [restorePreviewModalOpen, setRestorePreviewModalOpen] = useState(false);
-  const [restorePreviewTables, setRestorePreviewTables] = useState<string[]>(
-    []
-  );
-  const [restorePreviewForceOverwrite, setRestorePreviewForceOverwrite] =
-    useState(false);
-  const [restorePreviewSelectedTable, setRestorePreviewSelectedTable] =
-    useState<string | null>(null);
-  const [restorePreviewChangeType, setRestorePreviewChangeType] = useState<
-    'insert' | 'update'
-  >('insert');
-  const [restorePreviewSelectedRow, setRestorePreviewSelectedRow] = useState<
-    string | null
-  >(null);
   const [pageTab, setPageTab] = useState<'backup' | 'restore' | 'tables'>(
     'backup'
   );
@@ -147,7 +150,6 @@ export function BackupRestoreTab() {
     },
     [PREVIEW_TABLE_TIMEOUT_MS, TABLE_SAMPLE_LIMIT]
   );
-  const autoBackupIntervalRef = useRef<NodeJS.Timeout>();
   const strategyOptions = useMemo(
     () =>
       (Object.keys(STRATEGY_META) as BackupStrategy[]).map((key) => ({
@@ -188,9 +190,104 @@ export function BackupRestoreTab() {
     }
   }, []);
 
+  const fetchRestorePlan = useCallback(
+    async (timestamp: string) => {
+      const response = await fetchWithTimeout(
+        `/api/backup/${encodeURIComponent(timestamp)}/plan`,
+        undefined,
+        PREVIEW_SUMMARY_TIMEOUT_MS
+      );
+
+      if (!response.ok) {
+        throw new Error(`Failed to fetch restore plan: ${response.statusText}`);
+      }
+
+      const payload = (await response.json()) as {
+        success: boolean;
+        plan?: RestorePlan;
+        error?: string;
+      };
+
+      if (!payload.success || !payload.plan) {
+        throw new Error(payload.error || 'Failed to fetch restore plan');
+      }
+
+      return payload.plan;
+    },
+    [PREVIEW_SUMMARY_TIMEOUT_MS]
+  );
+
+  const fetchBackupChanges = useCallback(
+    async (timestamp: string) => {
+      const response = await fetchWithTimeout(
+        `/api/backup/${encodeURIComponent(timestamp)}/changes`,
+        undefined,
+        PREVIEW_SUMMARY_TIMEOUT_MS
+      );
+
+      const payload = (await response.json()) as {
+        success: boolean;
+        comparison?: BackupChangesComparison;
+        error?: string;
+      };
+
+      if (!response.ok || !payload.success || !payload.comparison) {
+        throw new Error(payload.error || 'Failed to fetch backup changes');
+      }
+
+      return payload.comparison;
+    },
+    [PREVIEW_SUMMARY_TIMEOUT_MS]
+  );
+
+  const fetchRestoreRunnerStatus = useCallback(async () => {
+    setRestoreJobLoading(true);
+
+    try {
+      const response = await fetchWithTimeout(
+        '/api/restore/run',
+        undefined,
+        15000
+      );
+
+      if (!response.ok) {
+        throw new Error(
+          `Failed to fetch restore status: ${response.statusText}`
+        );
+      }
+
+      const payload = (await response.json()) as {
+        success: boolean;
+        runnerAvailable?: boolean;
+        runnerHeartbeatAt?: string | null;
+        status?: RestoreJobStatus | null;
+        error?: string;
+      };
+
+      if (!payload.success) {
+        throw new Error(payload.error || 'Failed to fetch restore status');
+      }
+
+      setRestoreRunnerAvailable(Boolean(payload.runnerAvailable));
+      setRestoreRunnerHeartbeatAt(payload.runnerHeartbeatAt ?? null);
+      setRestoreJobStatus(payload.status ?? null);
+    } catch {
+      if (!restoreJobStatus) {
+        setRestoreRunnerAvailable(false);
+        setRestoreRunnerHeartbeatAt(null);
+      }
+    } finally {
+      setRestoreJobLoading(false);
+    }
+  }, [restoreJobStatus]);
+
   useEffect(() => {
     void fetchBackups();
   }, [fetchBackups]);
+
+  useEffect(() => {
+    void fetchRestoreRunnerStatus();
+  }, [fetchRestoreRunnerStatus]);
 
   useEffect(() => {
     if (!previewData?.tables) {
@@ -277,32 +374,6 @@ export function BackupRestoreTab() {
     [backupFormat, backupStrategy, includeSoftDeleted, fetchBackups]
   );
 
-  useEffect(() => {
-    if (autoBackupEnabled) {
-      const performAutoBackup = async () => {
-        showNotification({
-          title: 'Auto-Backup',
-          message: 'Starting automatic backup...',
-          color: 'blue',
-          autoClose: 3000,
-        });
-        await handleCreateBackup({ isAuto: true });
-      };
-
-      void performAutoBackup();
-      autoBackupIntervalRef.current = setInterval(
-        () => void performAutoBackup(),
-        autoBackupInterval * 60 * 1000
-      );
-
-      return () => {
-        if (autoBackupIntervalRef.current) {
-          clearInterval(autoBackupIntervalRef.current);
-        }
-      };
-    }
-  }, [autoBackupEnabled, autoBackupInterval, handleCreateBackup]);
-
   const handleDeleteBackup = async (timestamp: string) => {
     const Swal = await getSwal();
     const firstStep = await Swal.fire({
@@ -367,50 +438,87 @@ export function BackupRestoreTab() {
       const shouldOpenModal = pageTab !== 'tables';
       setPreviewModalOpen(shouldOpenModal);
       setPreviewLoading(true);
-      setRestoreResults(null);
+      setRestorePlanLoading(true);
+      setRestorePlanError(null);
+      setRestorePlan(null);
+      setBackupChangesLoading(true);
+      setBackupChangesError(null);
+      setBackupChanges(null);
+      setPreviewData(null);
+      setSelectedTableName(null);
+      setPreviewJsonFile(null);
 
       try {
         const jsonFile =
           backup.files.find(
             (f) => f.startsWith('backup-') && f.endsWith('.json')
           ) || backup.files.find((f) => f.endsWith('.json'));
-        if (!jsonFile) {
-          throw new Error('No JSON file found');
+        const planPromise = fetchRestorePlan(backup.timestamp)
+          .then((plan) => {
+            setRestorePlan(plan);
+            setRestorePlanError(null);
+          })
+          .catch((planError) => {
+            setRestorePlanError(
+              planError instanceof Error
+                ? planError.message
+                : 'Failed to load restore plan'
+            );
+          })
+          .finally(() => {
+            setRestorePlanLoading(false);
+          });
+        const changesPromise = fetchBackupChanges(backup.timestamp)
+          .then((comparison) => {
+            setBackupChanges(comparison);
+            setBackupChangesError(null);
+          })
+          .catch((changesError) => {
+            setBackupChangesError(
+              changesError instanceof Error
+                ? changesError.message
+                : 'Failed to load backup changes'
+            );
+          })
+          .finally(() => {
+            setBackupChangesLoading(false);
+          });
+
+        if (jsonFile) {
+          const response = await fetchWithTimeout(
+            `/api/backup/${encodeURIComponent(backup.timestamp)}/${encodeURIComponent(jsonFile)}?mode=summary`,
+            undefined,
+            PREVIEW_SUMMARY_TIMEOUT_MS
+          );
+          if (!response.ok) {
+            throw new Error(
+              `Failed to fetch backup summary: ${response.statusText}`
+            );
+          }
+
+          const summary: BackupData = await response.json();
+          setPreviewData(summary);
+          const [firstTable] = Object.keys(summary.tables);
+          setSelectedTableName(firstTable ?? null);
+          setPreviewJsonFile(jsonFile);
+
+          if (firstTable) {
+            void fetchTableSample(backup.timestamp, jsonFile, firstTable).catch(
+              (sampleError) => {
+                showNotification({
+                  title: 'Preview Table Load Delayed',
+                  message:
+                    sampleError instanceof Error
+                      ? sampleError.message
+                      : 'Could not pre-load the first table sample.',
+                  color: 'yellow',
+                });
+              }
+            );
+          }
         }
 
-        // Fetch lightweight summary (counts only), then load a small sample for the first table.
-        const response = await fetchWithTimeout(
-          `/api/backup/${encodeURIComponent(backup.timestamp)}/${encodeURIComponent(jsonFile)}?mode=summary`,
-          undefined,
-          PREVIEW_SUMMARY_TIMEOUT_MS
-        );
-        if (!response.ok) {
-          throw new Error(
-            `Failed to fetch backup summary: ${response.statusText}`
-          );
-        }
-        const summary: BackupData = await response.json();
-        setPreviewData(summary);
-        const [firstTable] = Object.keys(summary.tables);
-        setSelectedTableName(firstTable ?? null);
-        setRestoreSelection([]);
-        setForceOverwrite(false);
-        setPreviewJsonFile(jsonFile);
-
-        if (firstTable) {
-          void fetchTableSample(backup.timestamp, jsonFile, firstTable).catch(
-            (sampleError) => {
-              showNotification({
-                title: 'Preview Table Load Delayed',
-                message:
-                  sampleError instanceof Error
-                    ? sampleError.message
-                    : 'Could not pre-load the first table sample.',
-                color: 'yellow',
-              });
-            }
-          );
-        }
+        await Promise.all([planPromise, changesPromise]);
       } catch (error) {
         const isTimeoutError =
           error instanceof DOMException &&
@@ -427,11 +535,23 @@ export function BackupRestoreTab() {
         setPreviewModalOpen(false);
         setSelectedTableName(null);
         setPreviewJsonFile(null);
+        setRestorePlan(null);
+        setRestorePlanError(null);
+        setBackupChanges(null);
+        setBackupChangesError(null);
       } finally {
         setPreviewLoading(false);
+        setRestorePlanLoading(false);
+        setBackupChangesLoading(false);
       }
     },
-    [PREVIEW_SUMMARY_TIMEOUT_MS, fetchTableSample, pageTab]
+    [
+      PREVIEW_SUMMARY_TIMEOUT_MS,
+      fetchBackupChanges,
+      fetchRestorePlan,
+      fetchTableSample,
+      pageTab,
+    ]
   );
 
   const handleBackupDateFilterChange = useCallback(
@@ -496,6 +616,199 @@ export function BackupRestoreTab() {
     ]
   );
 
+  const handleRunRestore = useCallback(async () => {
+    if (!selectedBackup) {
+      return;
+    }
+
+    const expectedConfirmation = `RESTORE ${selectedBackup.timestamp}`;
+    const dumpFileName =
+      selectedBackup.files.find((file) => file.endsWith('.dump')) ?? null;
+
+    if (!dumpFileName) {
+      showNotification({
+        title: 'Restore unavailable',
+        message: 'This backup does not include a PostgreSQL dump artifact.',
+        color: 'red',
+      });
+      return;
+    }
+
+    const Swal = await getSwal();
+    const confirmation = await Swal.fire({
+      title: 'Queue destructive restore?',
+      width: 560,
+      html: `
+        <div style="text-align: left; font-size: 15px; line-height: 1.5;">
+          <p><strong>Backup:</strong> ${formatBackupTimestamp(selectedBackup.timestamp)}</p>
+          <p><strong>Dump file:</strong> ${dumpFileName}</p>
+          <p style="margin-top: 12px; color: #c92a2a;"><strong>This will stop the app and replace the current Docker database.</strong></p>
+          <p>The browser may become temporarily unavailable until the restore completes.</p>
+          <p style="margin-top: 12px;">Type <strong>${expectedConfirmation}</strong> to continue.</p>
+        </div>
+      `,
+      input: 'text',
+      inputPlaceholder: expectedConfirmation,
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonText: 'Queue restore',
+      cancelButtonText: 'Cancel',
+      confirmButtonColor: '#c92a2a',
+      cancelButtonColor: '#868e96',
+      allowOutsideClick: false,
+      preConfirm: (value) => {
+        if (value?.trim() !== expectedConfirmation) {
+          Swal.showValidationMessage(
+            `Please type ${expectedConfirmation} to continue.`
+          );
+          return false;
+        }
+
+        return value.trim();
+      },
+    });
+
+    if (!confirmation.isConfirmed) {
+      return;
+    }
+
+    setRestoreSubmitting(true);
+
+    try {
+      const response = await fetchWithTimeout(
+        '/api/restore/run',
+        {
+          method: 'POST',
+          headers: {
+            'content-type': 'application/json',
+          },
+          body: JSON.stringify({
+            timestamp: selectedBackup.timestamp,
+            confirmationText: expectedConfirmation,
+          }),
+        },
+        15000
+      );
+
+      const payload = (await response.json()) as {
+        success: boolean;
+        message?: string;
+        error?: string;
+        runnerAvailable?: boolean;
+        runnerHeartbeatAt?: string | null;
+        status?: RestoreJobStatus | null;
+      };
+
+      if (!response.ok || !payload.success) {
+        throw new Error(payload.error || 'Failed to submit restore request');
+      }
+
+      setRestoreRunnerAvailable(Boolean(payload.runnerAvailable));
+      setRestoreRunnerHeartbeatAt(payload.runnerHeartbeatAt ?? null);
+      setRestoreJobStatus(payload.status ?? null);
+
+      showNotification({
+        title: 'Restore queued',
+        message:
+          payload.message ||
+          'The restore runner accepted the request. The app may become temporarily unavailable while the database is replaced.',
+        color: 'yellow',
+        autoClose: 8000,
+      });
+    } catch (error) {
+      showNotification({
+        title: 'Restore request failed',
+        message: error instanceof Error ? error.message : 'Unknown error',
+        color: 'red',
+      });
+    } finally {
+      setRestoreSubmitting(false);
+      void fetchRestoreRunnerStatus();
+    }
+  }, [fetchRestoreRunnerStatus, selectedBackup]);
+
+  const handleOpenBackupChangePreview = useCallback(
+    async (table: string) => {
+      if (!selectedBackup) {
+        return;
+      }
+
+      setBackupChangePreviewOpen(true);
+      setBackupChangePreviewLoading(true);
+      setBackupChangePreviewError(null);
+      setBackupChangePreview(null);
+      setBackupChangePreviewTable(table);
+      setBackupChangePreviewSelectedRow(null);
+
+      try {
+        const response = await fetchWithTimeout(
+          `/api/backup/${encodeURIComponent(selectedBackup.timestamp)}/changes/${encodeURIComponent(table)}`,
+          undefined,
+          30000
+        );
+
+        const payload = (await response.json()) as {
+          success: boolean;
+          preview?: BackupChangePreview;
+          error?: string;
+        };
+
+        if (!response.ok || !payload.success || !payload.preview) {
+          throw new Error(
+            payload.error || 'Failed to load detailed change preview'
+          );
+        }
+
+        setBackupChangePreview(payload.preview);
+      } catch (error) {
+        setBackupChangePreviewError(
+          error instanceof Error
+            ? error.message
+            : 'Failed to load detailed change preview'
+        );
+      } finally {
+        setBackupChangePreviewLoading(false);
+      }
+    },
+    [selectedBackup]
+  );
+
+  useEffect(() => {
+    if (!backupChangePreview) {
+      setBackupChangePreviewSelectedRow(null);
+      return;
+    }
+
+    const typeOptions = getBackupChangePreviewTypeOptions(backupChangePreview);
+    const currentTypeIsValid = typeOptions.some(
+      (option) => option.value === backupChangePreviewType
+    );
+    const nextType = currentTypeIsValid
+      ? backupChangePreviewType
+      : (typeOptions[0]?.value ?? 'added');
+
+    if (nextType !== backupChangePreviewType) {
+      setBackupChangePreviewType(nextType);
+      return;
+    }
+
+    const rowOptions = getBackupChangePreviewRowOptions(
+      backupChangePreview,
+      nextType
+    );
+    const hasCurrentRow = rowOptions.some(
+      (option) => option.value === backupChangePreviewSelectedRow
+    );
+
+    if (!hasCurrentRow) {
+      setBackupChangePreviewSelectedRow(rowOptions[0]?.value ?? null);
+    }
+  }, [
+    backupChangePreview,
+    backupChangePreviewSelectedRow,
+    backupChangePreviewType,
+  ]);
+
   useEffect(() => {
     if (!isAdminBackupRestore) {
       return;
@@ -519,7 +832,7 @@ export function BackupRestoreTab() {
       setSidebarTables(summaries);
     }
 
-    const validTableNames = summaries.map((t) => t.name);
+    const validTableNames = summaries.map((table) => table.name);
     if (validTableNames.length === 0) {
       if (sidebarSelectedTable !== null) {
         setSidebarSelectedTable(null);
@@ -580,10 +893,27 @@ export function BackupRestoreTab() {
     if (!isAdminBackupRestore) {
       return;
     }
+
     return () => {
       clearSidebar();
     };
   }, [isAdminBackupRestore, clearSidebar]);
+
+  useEffect(() => {
+    if (!previewModalOpen) {
+      return;
+    }
+
+    void fetchRestoreRunnerStatus();
+
+    const intervalId = window.setInterval(() => {
+      void fetchRestoreRunnerStatus();
+    }, 5000);
+
+    return () => {
+      window.clearInterval(intervalId);
+    };
+  }, [fetchRestoreRunnerStatus, previewModalOpen]);
 
   const {
     handleDownloadJSON,
@@ -599,329 +929,6 @@ export function BackupRestoreTab() {
     fetchTableSample,
   });
 
-  const handleSelectAllTables = () => {
-    setRestoreSelection(getAllRestoreTables(previewData));
-  };
-
-  const handleClearSelectedTables = () => {
-    setRestoreSelection([]);
-  };
-
-  const toggleTableSelection = (table: string, checked: boolean) => {
-    setRestoreSelection((prev) =>
-      toggleRestoreTableSelection(prev, table, checked)
-    );
-  };
-
-  const handleRestore = useCallback(async () => {
-    if (!selectedBackup || !previewJsonFile || !previewData) {
-      showNotification({
-        title: 'Restore unavailable',
-        message: 'Open a backup preview before restoring.',
-        color: 'red',
-      });
-      return;
-    }
-
-    const tablesForConfirm = restoreSelection;
-
-    if (!tablesForConfirm.length) {
-      showNotification({
-        title: 'Select tables',
-        message: 'Choose at least one table to restore.',
-        color: 'red',
-      });
-      return;
-    }
-
-    setRestorePreviewData(null);
-    setRestorePreviewTables([]);
-    setRestorePreviewSelectedTable(null);
-    setRestorePreviewSelectedRow(null);
-
-    setRestoreLoading(true);
-
-    try {
-      const previewResponse = await api.post<{
-        success: boolean;
-        preview?: RestorePreviewResults;
-        error?: string;
-      }>('/api/restore', {
-        timestamp: selectedBackup.timestamp,
-        file: previewJsonFile,
-        tables: tablesForConfirm,
-        forceOverwrite,
-        previewOnly: true,
-      });
-
-      if (!previewResponse.success || !previewResponse.preview) {
-        throw new Error(previewResponse.error || 'Failed to build preview.');
-      }
-
-      if (
-        !previewHasChanges(
-          previewResponse.preview,
-          tablesForConfirm,
-          forceOverwrite
-        )
-      ) {
-        showNotification({
-          title: 'Up to date',
-          message: 'Selected tables already match this backup.',
-          color: 'blue',
-        });
-        return;
-      }
-
-      setRestorePreviewData(previewResponse.preview);
-      setRestorePreviewTables(tablesForConfirm);
-      setRestorePreviewForceOverwrite(forceOverwrite);
-
-      const initialTable =
-        tablesForConfirm.find((table) =>
-          hasTableChanges(
-            previewResponse.preview ?? null,
-            table,
-            forceOverwrite
-          )
-        ) ??
-        tablesForConfirm[0] ??
-        null;
-
-      setRestorePreviewSelectedTable(initialTable ?? null);
-
-      if (initialTable && previewResponse.preview[initialTable]) {
-        const entry = previewResponse.preview[initialTable];
-        const insertCount = entry.insertCount ?? entry.inserts.length;
-        const updateCount = entry.updateCount ?? entry.updates.length;
-        const defaultChangeType =
-          insertCount > 0
-            ? 'insert'
-            : !forceOverwrite && updateCount > 0
-              ? 'update'
-              : 'insert';
-        setRestorePreviewChangeType(defaultChangeType);
-        const rows =
-          defaultChangeType === 'insert' ? entry.inserts : entry.updates;
-        setRestorePreviewSelectedRow(rows.length ? '0' : null);
-      } else {
-        setRestorePreviewChangeType('insert');
-        setRestorePreviewSelectedRow(null);
-      }
-
-      setRestorePreviewModalOpen(true);
-    } catch (error) {
-      showNotification({
-        title: 'Preview unavailable',
-        message: error instanceof Error ? error.message : 'Unknown error',
-        color: 'red',
-      });
-    } finally {
-      setRestoreLoading(false);
-    }
-  }, [
-    selectedBackup,
-    previewJsonFile,
-    previewData,
-    restoreSelection,
-    forceOverwrite,
-  ]);
-
-  const handleConfirmRestore = useCallback(async () => {
-    const Swal = await getSwal();
-    if (
-      !selectedBackup ||
-      !previewJsonFile ||
-      !previewData ||
-      restorePreviewTables.length === 0
-    ) {
-      showNotification({
-        title: 'Restore unavailable',
-        message: 'Preview data is missing. Try running the restore again.',
-        color: 'red',
-      });
-      return;
-    }
-
-    const tablesForConfirm = restorePreviewTables;
-    const formattedDate = formatBackupTimestamp(selectedBackup.timestamp);
-    const listHtml = tablesForConfirm
-      .map(
-        (table) =>
-          `<li><strong>${table}</strong> (${previewData.tables[table]?.count ?? 0} rows)</li>`
-      )
-      .join('');
-
-    const confirmation = await Swal.fire({
-      title: 'Restore backup?',
-      width: 520,
-      html: `
-        <div style="text-align: left; font-size: 15px; line-height: 1.5;">
-          <p style="font-weight: 600; color: #c92a2a;">You are about to restore these datasets:</p>
-          <ul style="margin: 8px 0 18px 20px;">${listHtml}</ul>
-          <p>This data comes from backup <strong>${formattedDate}</strong>.</p>
-          <p style="margin-top: 10px; color: ${
-            restorePreviewForceOverwrite ? '#c92a2a' : '#495057'
-          };">
-            ${
-              restorePreviewForceOverwrite
-                ? 'Existing data will be overwritten.'
-                : 'Existing data will be preserved when duplicates exist.'
-            }
-          </p>
-        </div>
-      `,
-      icon: 'warning',
-      showCancelButton: true,
-      confirmButtonText: 'Restore now',
-      cancelButtonText: 'Cancel',
-      confirmButtonColor: '#228be6',
-      cancelButtonColor: '#868e96',
-      allowOutsideClick: false,
-    });
-
-    if (!confirmation.isConfirmed) {
-      return;
-    }
-
-    const secondary = await Swal.fire({
-      title: 'Type "RESTORE" to confirm',
-      input: 'text',
-      inputAttributes: {
-        autocapitalize: 'off',
-      },
-      inputPlaceholder: 'RESTORE',
-      confirmButtonText: 'Yes, restore',
-      confirmButtonColor: '#c92a2a',
-      showCancelButton: true,
-      cancelButtonColor: '#868e96',
-      allowOutsideClick: false,
-      preConfirm: (value) => {
-        if (value?.trim().toUpperCase() !== 'RESTORE') {
-          Swal.showValidationMessage('Please type RESTORE to continue.');
-          return false;
-        }
-        return true;
-      },
-    });
-
-    if (!secondary.isConfirmed) {
-      return;
-    }
-
-    setRestorePreviewModalOpen(false);
-    setRestoreLoading(true);
-
-    try {
-      const response = await api.post<{
-        success: boolean;
-        results?: RestoreResults;
-        error?: string;
-        message?: string;
-      }>('/api/restore', {
-        timestamp: selectedBackup.timestamp,
-        file: previewJsonFile,
-        tables: tablesForConfirm,
-        forceOverwrite: restorePreviewForceOverwrite,
-      });
-
-      if (!response.success || !response.results) {
-        throw new Error(response.error || 'Restore failed');
-      }
-
-      setRestoreResults(response.results);
-      showNotification({
-        title: 'Restore complete',
-        message: `Restored ${tablesForConfirm.length} table${
-          tablesForConfirm.length === 1 ? '' : 's'
-        }.`,
-        color: 'green',
-      });
-      setRestorePreviewData(null);
-      setRestorePreviewTables([]);
-      setRestorePreviewSelectedTable(null);
-      setRestorePreviewSelectedRow(null);
-    } catch (error) {
-      showNotification({
-        title: 'Restore failed',
-        message: error instanceof Error ? error.message : 'Unknown error',
-        color: 'red',
-      });
-    } finally {
-      setRestoreLoading(false);
-    }
-  }, [
-    selectedBackup,
-    previewJsonFile,
-    previewData,
-    restorePreviewTables,
-    restorePreviewForceOverwrite,
-  ]);
-
-  const handleCloseRestorePreviewModal = useCallback(() => {
-    if (restoreLoading) {
-      return;
-    }
-    setRestorePreviewModalOpen(false);
-    setRestorePreviewData(null);
-    setRestorePreviewTables([]);
-    setRestorePreviewSelectedTable(null);
-    setRestorePreviewSelectedRow(null);
-    setRestorePreviewChangeType('insert');
-  }, [restoreLoading]);
-
-  useEffect(() => {
-    if (
-      !restorePreviewModalOpen ||
-      !restorePreviewData ||
-      !restorePreviewSelectedTable
-    ) {
-      return;
-    }
-
-    const entry = restorePreviewData[restorePreviewSelectedTable];
-    if (!entry) {
-      setRestorePreviewSelectedRow(null);
-      return;
-    }
-
-    const hasInserts = (entry.insertCount ?? entry.inserts.length) > 0;
-    const hasUpdates =
-      !restorePreviewForceOverwrite &&
-      (entry.updateCount ?? entry.updates.length) > 0;
-
-    if (restorePreviewChangeType === 'insert' && !hasInserts && hasUpdates) {
-      setRestorePreviewChangeType('update');
-      return;
-    }
-
-    if (restorePreviewChangeType === 'update' && !hasUpdates && hasInserts) {
-      setRestorePreviewChangeType('insert');
-      return;
-    }
-
-    if (!hasInserts && !hasUpdates) {
-      setRestorePreviewSelectedRow(null);
-      return;
-    }
-
-    const rows =
-      restorePreviewChangeType === 'insert' ? entry.inserts : entry.updates;
-
-    setRestorePreviewSelectedRow((current) => {
-      if (current === null || Number(current) >= rows.length) {
-        return '0';
-      }
-      return current;
-    });
-  }, [
-    restorePreviewModalOpen,
-    restorePreviewData,
-    restorePreviewSelectedTable,
-    restorePreviewChangeType,
-    restorePreviewForceOverwrite,
-  ]);
-
   const activeTableName =
     isAdminBackupRestore && sidebarSelectedTable
       ? sidebarSelectedTable
@@ -931,63 +938,46 @@ export function BackupRestoreTab() {
     return getSelectedTableDetails(previewData, activeTableName);
   }, [previewData, activeTableName]);
 
-  const restorePreviewEntry = useMemo(() => {
-    if (!restorePreviewSelectedTable || !restorePreviewData) {
-      return null;
+  const selectedDumpFileName = useMemo(
+    () => selectedBackup?.files.find((file) => file.endsWith('.dump')) ?? null,
+    [selectedBackup]
+  );
+
+  const restoreDisabledReason = useMemo(() => {
+    if (!selectedDumpFileName) {
+      return 'This backup does not include a PostgreSQL dump artifact.';
     }
-    return restorePreviewData[restorePreviewSelectedTable] ?? null;
-  }, [restorePreviewSelectedTable, restorePreviewData]);
 
-  const restorePreviewTableOptions = useMemo(() => {
-    return getRestorePreviewTableOptions(
-      restorePreviewData,
-      restorePreviewTables,
-      restorePreviewForceOverwrite
-    );
-  }, [restorePreviewData, restorePreviewTables, restorePreviewForceOverwrite]);
+    if (restorePlanLoading) {
+      return 'Restore planning is still loading.';
+    }
 
-  const restorePreviewChangeTypeOptions = useMemo(() => {
-    return getRestorePreviewChangeTypeOptions(
-      restorePreviewEntry,
-      restorePreviewForceOverwrite
-    );
-  }, [restorePreviewEntry, restorePreviewForceOverwrite]);
+    if (!restorePlan?.disasterRecoveryReady) {
+      return 'Only full PostgreSQL dump backups are currently restorable from the UI.';
+    }
 
-  const restorePreviewRowOptions = useMemo(() => {
-    return getRestorePreviewRowOptions(
-      restorePreviewEntry,
-      restorePreviewChangeType,
-      restorePreviewForceOverwrite
-    );
+    if (!restoreRunnerAvailable) {
+      return 'The restore-runner service is offline.';
+    }
+
+    if (
+      restoreJobStatus?.phase === 'pending' ||
+      restoreJobStatus?.phase === 'running'
+    ) {
+      return restoreJobStatus.backupFolder === selectedBackup?.timestamp
+        ? 'A restore for this backup is already pending or running.'
+        : `Another restore job (${restoreJobStatus.backupFolder}) is already pending or running.`;
+    }
+
+    return null;
   }, [
-    restorePreviewEntry,
-    restorePreviewChangeType,
-    restorePreviewForceOverwrite,
+    restoreJobStatus,
+    restorePlan,
+    restorePlanLoading,
+    restoreRunnerAvailable,
+    selectedBackup?.timestamp,
+    selectedDumpFileName,
   ]);
-
-  const restorePreviewSelectedRowData = useMemo(() => {
-    return getRestorePreviewSelectedRowData(
-      restorePreviewEntry,
-      restorePreviewSelectedRow,
-      restorePreviewChangeType,
-      restorePreviewForceOverwrite
-    );
-  }, [
-    restorePreviewEntry,
-    restorePreviewSelectedRow,
-    restorePreviewChangeType,
-    restorePreviewForceOverwrite,
-  ]);
-
-  const availableTables = previewData ? Object.keys(previewData.tables) : [];
-  const restoreDisabled =
-    restoreLoading ||
-    !selectedBackup ||
-    !previewJsonFile ||
-    restoreSelection.length === 0;
-  const restoreSummaryEntries = restoreResults
-    ? Object.entries(restoreResults)
-    : [];
 
   const { strategySchedule } = useBackupSchedule(backups);
 
@@ -1048,14 +1038,10 @@ export function BackupRestoreTab() {
           backupFormat={backupFormat}
           isLogStrategy={isLogStrategy}
           includeSoftDeleted={includeSoftDeleted}
-          autoBackupEnabled={autoBackupEnabled}
-          autoBackupInterval={autoBackupInterval}
           strategySchedule={strategySchedule}
           onBackupStrategyChange={setBackupStrategy}
           onBackupFormatChange={setBackupFormat}
           onIncludeSoftDeletedChange={setIncludeSoftDeleted}
-          onAutoBackupEnabledChange={setAutoBackupEnabled}
-          onAutoBackupIntervalChange={setAutoBackupInterval}
           onCreateBackup={() => void handleCreateBackup()}
           onRunStrategyBackup={(strategy) =>
             void handleCreateBackup({ strategy })
@@ -1096,21 +1082,28 @@ export function BackupRestoreTab() {
         opened={previewModalOpen}
         loading={previewLoading}
         previewData={previewData}
+        backupChanges={backupChanges}
+        backupChangesLoading={backupChangesLoading}
+        backupChangesError={backupChangesError}
+        restorePlan={restorePlan}
+        restorePlanLoading={restorePlanLoading}
+        restorePlanError={restorePlanError}
+        restoreRunnerAvailable={restoreRunnerAvailable}
+        restoreRunnerHeartbeatAt={restoreRunnerHeartbeatAt}
+        restoreJobStatus={restoreJobStatus}
+        restoreJobLoading={restoreJobLoading}
+        restoreSubmitting={restoreSubmitting}
+        selectedBackupTimestamp={selectedBackup?.timestamp ?? null}
+        selectedDumpFileName={selectedDumpFileName}
+        restoreDisabledReason={restoreDisabledReason}
         selectedTableName={selectedTableName}
         selectedTableDetails={selectedTableDetails}
-        availableTables={availableTables}
-        restoreSelection={restoreSelection}
-        restoreSummaryEntries={restoreSummaryEntries}
-        forceOverwrite={forceOverwrite}
-        restoreLoading={restoreLoading}
-        restoreDisabled={restoreDisabled}
-        canDownloadBackup={Boolean(selectedBackup)}
+        canDownloadJson={Boolean(previewJsonFile && selectedBackup)}
+        canDownloadDump={Boolean(
+          selectedBackup?.files.some((file) => file.endsWith('.dump'))
+        )}
         onClose={() => setPreviewModalOpen(false)}
         onSelectTable={(table) => void handleSelectPreviewTable(table)}
-        onSelectAllTables={handleSelectAllTables}
-        onClearSelectedTables={handleClearSelectedTables}
-        onToggleTable={toggleTableSelection}
-        onSetForceOverwrite={setForceOverwrite}
         onDownloadJSON={() =>
           selectedBackup ? void handleDownloadJSON(selectedBackup) : undefined
         }
@@ -1121,26 +1114,35 @@ export function BackupRestoreTab() {
         onDownloadAllXLSX={() => void handleDownloadAllXLSX()}
         onDownloadCSV={(table) => void handleDownloadCSV(table)}
         onDownloadXLSX={(table) => void handleDownloadXLSX(table)}
-        onRestore={() => void handleRestore()}
+        onPreviewChangeTable={(table) =>
+          void handleOpenBackupChangePreview(table)
+        }
+        onRestore={() => void handleRunRestore()}
       />
 
-      <RestorePreviewModal
-        opened={restorePreviewModalOpen}
-        loading={restoreLoading}
-        forceOverwrite={restorePreviewForceOverwrite}
-        tableOptions={restorePreviewTableOptions}
-        selectedTable={restorePreviewSelectedTable}
-        onSelectTable={setRestorePreviewSelectedTable}
-        changeTypeOptions={restorePreviewChangeTypeOptions}
-        changeType={restorePreviewChangeType}
-        onChangeType={(value) => setRestorePreviewChangeType(value ?? 'insert')}
-        rowOptions={restorePreviewRowOptions}
-        selectedRow={restorePreviewSelectedRow}
-        onSelectRow={setRestorePreviewSelectedRow}
-        entry={restorePreviewEntry}
-        rowData={restorePreviewSelectedRowData}
-        onClose={handleCloseRestorePreviewModal}
-        onConfirm={() => void handleConfirmRestore()}
+      <BackupChangeDetailModal
+        opened={backupChangePreviewOpen}
+        loading={backupChangePreviewLoading}
+        tableName={backupChangePreviewTable}
+        preview={backupChangePreview}
+        error={backupChangePreviewError}
+        changeTypeOptions={getBackupChangePreviewTypeOptions(
+          backupChangePreview
+        )}
+        selectedChangeType={backupChangePreviewType}
+        onChangeType={setBackupChangePreviewType}
+        rowOptions={getBackupChangePreviewRowOptions(
+          backupChangePreview,
+          backupChangePreviewType
+        )}
+        selectedRow={backupChangePreviewSelectedRow}
+        onSelectRow={setBackupChangePreviewSelectedRow}
+        rowData={getBackupChangePreviewSelectedRowData(
+          backupChangePreview,
+          backupChangePreviewSelectedRow,
+          backupChangePreviewType
+        )}
+        onClose={() => setBackupChangePreviewOpen(false)}
       />
     </Stack>
   );

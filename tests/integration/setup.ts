@@ -39,7 +39,7 @@ vi.mock('sweetalert2', () => {
 });
 
 const envFile = process.env.INTEGRATION_ENV_FILE || '.env.test';
-loadEnv({ path: path.resolve(process.cwd(), envFile) });
+loadEnv({ path: path.resolve(process.cwd(), envFile), override: true });
 
 const requiredTables = [
   'HealthCheck',
