@@ -579,6 +579,37 @@ function runPgBaseBackup(
   });
 }
 
+export function listPitrBaseBackups() {
+  return listBaseBackups();
+}
+
+export function getPitrWalFiles() {
+  const walRoot = getPitrWalArchiveDirectory();
+  if (!fs.existsSync(walRoot)) {
+    return {
+      files: [] as Array<{ name: string; size: number }>,
+      totalSize: 0,
+      totalCount: 0,
+    };
+  }
+
+  const files = fs
+    .readdirSync(walRoot, { withFileTypes: true })
+    .filter((entry) => entry.isFile())
+    .map((entry) => {
+      const filePath = path.join(walRoot, entry.name);
+      const stats = fs.statSync(filePath);
+      return { name: entry.name, size: stats.size };
+    })
+    .sort((left, right) => right.name.localeCompare(left.name));
+
+  return {
+    files,
+    totalSize: files.reduce((sum, f) => sum + f.size, 0),
+    totalCount: files.length,
+  };
+}
+
 export async function getPitrStatus() {
   const baseBackups = listBaseBackups();
   const latestBaseBackup = baseBackups[0] ?? null;

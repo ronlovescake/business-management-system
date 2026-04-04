@@ -1,5 +1,6 @@
 'use client';
 
+import { useState } from 'react';
 import {
   Alert,
   Badge,
@@ -18,6 +19,7 @@ import {
   IconDatabase,
   IconLifebuoy,
   IconRefresh,
+  IconSearch,
 } from '@tabler/icons-react';
 import type { PitrStatus } from '../../backup/types';
 import {
@@ -26,6 +28,7 @@ import {
   formatRelativeTime,
   parseTimestamp,
 } from '../../backup/types';
+import { PitrPreviewModal } from './PitrPreviewModal';
 
 interface PitrStatusCardProps {
   status: PitrStatus | null;
@@ -42,6 +45,8 @@ export function PitrStatusCard({
   onRefresh,
   onCreateBaseBackup,
 }: PitrStatusCardProps) {
+  const [previewOpen, setPreviewOpen] = useState(false);
+
   const archiveModeActive =
     status?.runtime.archiveMode === 'on' ||
     status?.runtime.archiveMode === 'always';
@@ -246,14 +251,24 @@ export function PitrStatusCard({
                 End: {status.recoveryWindow.end ? formatBackupTimestamp(status.recoveryWindow.end) : 'No archived WAL yet'}
               </Text>
             </Stack>
-            <Button
-              leftSection={<IconDatabase size={16} />}
-              onClick={onCreateBaseBackup}
-              loading={creating}
-              disabled={!status.enabled || !status.runtime.databaseConnected}
-            >
-              {creating ? 'Creating...' : 'Create Base Backup'}
-            </Button>
+            <Group gap="xs">
+              <Button
+                variant="light"
+                leftSection={<IconSearch size={16} />}
+                onClick={() => setPreviewOpen(true)}
+                disabled={!status.enabled}
+              >
+                Recovery Planner
+              </Button>
+              <Button
+                leftSection={<IconDatabase size={16} />}
+                onClick={onCreateBaseBackup}
+                loading={creating}
+                disabled={!status.enabled || !status.runtime.databaseConnected}
+              >
+                {creating ? 'Creating...' : 'Create Base Backup'}
+              </Button>
+            </Group>
           </Group>
 
           {status.restoreCommandPreview ? (
@@ -266,6 +281,12 @@ export function PitrStatusCard({
           ) : null}
         </Stack>
       )}
+
+      <PitrPreviewModal
+        opened={previewOpen}
+        onClose={() => setPreviewOpen(false)}
+        status={status}
+      />
     </Card>
   );
 }

@@ -185,6 +185,11 @@ export interface PitrBaseBackupFile {
   size: number;
 }
 
+export interface PitrWalFile {
+  name: string;
+  size: number;
+}
+
 export interface PitrBaseBackup {
   folder: string;
   timestamp: string;
