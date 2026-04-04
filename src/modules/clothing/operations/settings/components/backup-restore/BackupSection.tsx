@@ -161,35 +161,34 @@ export function BackupSection({
         </Group>
 
         <Stack gap="sm">
-          {strategySchedule.map(({ key, meta, last, next }) => (
-            <Card key={key} withBorder padding="sm" radius="md">
-              <Group
-                justify="space-between"
-                align="center"
-                gap="md"
-                wrap="wrap"
-              >
-                <Group gap="sm" align="center">
-                  <Badge color={meta.color}>{meta.label}</Badge>
-                  <Text size="sm" c="dimmed">
-                    {meta.cadence}
-                  </Text>
-                </Group>
-                <Stack gap={0} align="flex-end">
-                  <Text size="sm">
-                    {last ? `Last: ${formatRelativeTime(last)}` : 'Last: Never'}
-                  </Text>
-                  <Text size="xs" c="dimmed">
-                    {key === 'log'
-                      ? 'Next: Continuous stream'
-                      : next
-                        ? `Next: ${formatBackupTimestamp(next.toISOString())}`
-                        : 'Next: Ready now'}
-                  </Text>
+          <SimpleGrid cols={{ base: 1, md: 3 }} spacing="md">
+            {strategySchedule.map(({ key, meta, last, next }) => (
+              <Card key={key} withBorder padding="sm" radius="md" h="100%">
+                <Stack gap="sm" h="100%" justify="space-between">
+                  <Group gap="sm" align="center" wrap="nowrap">
+                    <Badge color={meta.color}>{meta.label}</Badge>
+                    <Text size="sm" c="dimmed">
+                      {meta.cadence}
+                    </Text>
+                  </Group>
+                  <Stack gap={2}>
+                    <Text size="sm">
+                      {last
+                        ? `Last: ${formatRelativeTime(last)}`
+                        : 'Last: Never'}
+                    </Text>
+                    <Text size="xs" c="dimmed">
+                      {key === 'log'
+                        ? 'Next: Continuous stream'
+                        : next
+                          ? `Next: ${formatBackupTimestamp(next.toISOString())}`
+                          : 'Next: Ready now'}
+                    </Text>
+                  </Stack>
                 </Stack>
-              </Group>
-            </Card>
-          ))}
+              </Card>
+            ))}
+          </SimpleGrid>
 
           <Alert color="teal">
             Automatic disaster-recovery backups now run from the server-side
