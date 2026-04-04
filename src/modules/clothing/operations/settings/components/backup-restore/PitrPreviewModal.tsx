@@ -60,7 +60,9 @@ export function PitrPreviewModal({ opened, onClose, status }: PitrPreviewModalPr
 
   // Fetch base backups whenever the modal opens
   useEffect(() => {
-    if (!opened) return;
+    if (!opened) {
+      return;
+    }
 
     setBasesLoading(true);
     setBasesError(null);
@@ -97,7 +99,9 @@ export function PitrPreviewModal({ opened, onClose, status }: PitrPreviewModalPr
   }, [opened]);
 
   const loadWalFiles = useCallback(() => {
-    if (walLoaded || walLoading) return;
+    if (walLoaded || walLoading) {
+      return;
+    }
 
     setWalLoading(true);
     setWalError(null);
