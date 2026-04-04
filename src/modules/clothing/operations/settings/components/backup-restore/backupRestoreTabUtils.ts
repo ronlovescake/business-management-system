@@ -347,6 +347,28 @@ export const getBackupChangePreviewSelectedRowData = (
   };
 };
 
+export const getBackupChangePreviewSelectedRowsData = (
+  preview: BackupChangePreviewEntry | null,
+  selectedRows: string[],
+  changeType: BackupChangePreviewType
+) => {
+  if (!preview || !selectedRows.length) {
+    return [];
+  }
+
+  return Array.from(new Set(selectedRows))
+    .map((selectedRow) =>
+      getBackupChangePreviewSelectedRowData(preview, selectedRow, changeType)
+    )
+    .filter(
+      (
+        rowData
+      ): rowData is NonNullable<
+        ReturnType<typeof getBackupChangePreviewSelectedRowData>
+      > => Boolean(rowData?.row)
+    );
+};
+
 export const getAllRestoreTables = (previewData: BackupData | null) => {
   if (!previewData) {
     return [];

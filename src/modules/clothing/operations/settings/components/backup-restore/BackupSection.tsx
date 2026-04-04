@@ -8,6 +8,7 @@ import {
   Divider,
   Group,
   Select,
+  SimpleGrid,
   Stack,
   Switch,
   Text,
@@ -43,11 +44,8 @@ interface BackupSectionProps {
   onBackupFormatChange: (value: string) => void;
   onIncludeSoftDeletedChange: (checked: boolean) => void;
   onCreateBackup: () => void;
-  onRunStrategyBackup: (strategy: BackupStrategy) => void;
   onRefresh: () => void;
   onPreview: (backup: Backup) => void;
-  onDownloadJSON: (backup: Backup) => void;
-  onDownloadDump: (backup: Backup) => void;
   onDelete: (backup: Backup) => void;
 }
 
@@ -65,58 +63,63 @@ export function BackupSection({
   onBackupFormatChange,
   onIncludeSoftDeletedChange,
   onCreateBackup,
-  onRunStrategyBackup,
   onRefresh,
   onPreview,
-  onDownloadJSON,
-  onDownloadDump,
   onDelete,
 }: BackupSectionProps) {
   return (
     <Stack gap="lg">
       <Card shadow="sm" padding="lg" radius="md" withBorder>
         <Group justify="space-between" mb="md">
-          <Title order={3}>Create Backup</Title>
+          <div>
+            <Title order={3}>Create Backup</Title>
+            <Text size="sm" c="dimmed">
+              Use this page for one-off snapshots. Full backups with a
+              PostgreSQL dump are the restore-ready option.
+            </Text>
+          </div>
           <Badge color="blue">Manual</Badge>
         </Group>
 
         <Stack gap="md">
-          <Select
-            label="Backup strategy"
-            data={strategyOptions}
-            value={backupStrategy}
-            onChange={(value) =>
-              onBackupStrategyChange((value as BackupStrategy) ?? 'full')
-            }
-            description="Full weekly baseline, daily differential, or log stream"
-          />
-          <Select
-            label="Format"
-            data={[
-              { value: 'json', label: 'JSON only' },
-              { value: 'csv', label: 'CSV only' },
-              { value: 'xlsx', label: 'XLSX only' },
-              {
-                value: 'dump',
-                label: 'PostgreSQL dump only (DR-capable)',
-              },
-              {
-                value: 'all',
-                label: 'JSON + CSV + XLSX + PostgreSQL dump',
-              },
-            ]}
-            value={isLogStrategy ? 'json' : backupFormat}
-            onChange={(value) =>
-              !isLogStrategy && onBackupFormatChange(value || 'all')
-            }
-            disabled={isLogStrategy}
-            description="Only PostgreSQL dump artifacts are supported for disaster-recovery restore in Phase 2A."
-          />
+          <SimpleGrid cols={{ base: 1, md: 2 }} spacing="md">
+            <Select
+              label="Backup strategy"
+              data={strategyOptions}
+              value={backupStrategy}
+              onChange={(value) =>
+                onBackupStrategyChange((value as BackupStrategy) ?? 'full')
+              }
+              description="Full baseline, differential snapshot, or log capture"
+            />
+            <Select
+              label="Format"
+              data={[
+                { value: 'json', label: 'JSON only' },
+                { value: 'csv', label: 'CSV only' },
+                { value: 'xlsx', label: 'XLSX only' },
+                {
+                  value: 'dump',
+                  label: 'PostgreSQL dump only (restore-ready)',
+                },
+                {
+                  value: 'all',
+                  label: 'JSON + CSV + XLSX + PostgreSQL dump',
+                },
+              ]}
+              value={isLogStrategy ? 'json' : backupFormat}
+              onChange={(value) =>
+                !isLogStrategy && onBackupFormatChange(value || 'all')
+              }
+              disabled={isLogStrategy}
+              description="Keep the PostgreSQL dump if you may need restore later"
+            />
+          </SimpleGrid>
+
           {isLogStrategy ? (
             <Alert icon={<IconHistory size={16} />} color="blue">
               <Text size="sm">
-                Log captures always export JSON change events so you can replay
-                them during restore.
+                Log backups always export JSON change events.
               </Text>
             </Alert>
           ) : null}
@@ -137,19 +140,24 @@ export function BackupSection({
           >
             {creating ? 'Creating...' : 'Create Backup Now'}
           </Button>
+
+          <Text size="xs" c="dimmed">
+            Tip: if you want the safest restore path, choose a full backup and
+            keep the PostgreSQL dump in the output.
+          </Text>
         </Stack>
       </Card>
 
       <Card shadow="sm" padding="lg" radius="md" withBorder>
         <Group justify="space-between" mb="md" align="flex-start">
           <div>
-            <Title order={3}>Strategy Schedule</Title>
+            <Title order={3}>Backup Plan</Title>
             <Text size="sm" c="dimmed">
-              Weekly full baseline, daily differential snapshots, and continuous
-              log capture.
+              The system uses a simple rhythm: full baseline, lighter change
+              captures, and server-managed automation.
             </Text>
           </div>
-          <Badge color="teal">Planner</Badge>
+          <Badge color="teal">Overview</Badge>
         </Group>
 
         <Stack gap="sm">
@@ -167,57 +175,29 @@ export function BackupSection({
                     {meta.cadence}
                   </Text>
                 </Group>
-                <Group gap="lg" align="center" wrap="wrap">
-                  <div>
-                    <Text size="xs" fw={600} c="dimmed">
-                      Last run
-                    </Text>
-                    <Text size="sm">
-                      {last
-                        ? `${formatBackupTimestamp(last.toISOString())} (${formatRelativeTime(last)})`
-                        : 'Never'}
-                    </Text>
-                  </div>
-                  <div>
-                    <Text size="xs" fw={600} c="dimmed">
-                      Next due
-                    </Text>
-                    <Text size="sm">
-                      {key === 'log'
-                        ? 'Streaming'
-                        : next
-                          ? formatBackupTimestamp(next.toISOString())
-                          : 'Ready now'}
-                    </Text>
-                  </div>
-                  <Button
-                    size="xs"
-                    variant="light"
-                    leftSection={<IconHistory size={14} />}
-                    onClick={() => onRunStrategyBackup(key)}
-                    loading={creating}
-                  >
-                    Run {meta.label}
-                  </Button>
-                </Group>
+                <Stack gap={0} align="flex-end">
+                  <Text size="sm">
+                    {last ? `Last: ${formatRelativeTime(last)}` : 'Last: Never'}
+                  </Text>
+                  <Text size="xs" c="dimmed">
+                    {key === 'log'
+                      ? 'Next: Continuous stream'
+                      : next
+                        ? `Next: ${formatBackupTimestamp(next.toISOString())}`
+                        : 'Next: Ready now'}
+                  </Text>
+                </Stack>
               </Group>
             </Card>
           ))}
+
+          <Alert color="teal">
+            Automatic disaster-recovery backups now run from the server-side
+            scheduler. Use this page for manual runs and review, and configure
+            `BACKUP_AUTO_ENABLED`, `BACKUP_AUTO_TIME`, `BACKUP_AUTO_TIMEZONE`,
+            and `BACKUP_RETENTION_DAYS` in your Docker environment.
+          </Alert>
         </Stack>
-      </Card>
-
-      <Card shadow="sm" padding="lg" radius="md" withBorder>
-        <Group justify="space-between" mb="md">
-          <Title order={3}>Scheduled Backups</Title>
-          <Badge color="teal">Server Managed</Badge>
-        </Group>
-
-        <Alert color="teal">
-          Automatic disaster-recovery backups now run from the server-side
-          scheduler, not from this page. Configure `BACKUP_AUTO_ENABLED`,
-          `BACKUP_AUTO_TIME`, `BACKUP_AUTO_TIMEZONE`, and
-          `BACKUP_RETENTION_DAYS` in your Docker environment.
-        </Alert>
       </Card>
 
       <Divider />
@@ -227,9 +207,9 @@ export function BackupSection({
         loading={loading}
         onRefresh={onRefresh}
         onPreview={onPreview}
-        onDownloadJSON={onDownloadJSON}
-        onDownloadDump={onDownloadDump}
         onDelete={onDelete}
+        title={`Recent Backups (${backups.length})`}
+        subtitle="Open a backup to inspect it, download artifacts, compare changes, or restore it."
       />
     </Stack>
   );

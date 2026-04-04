@@ -35,6 +35,7 @@ import {
   buildBackupTableSampleUrl,
   fetchWithTimeout,
   getBackupChangePreviewRowOptions,
+  getBackupChangePreviewSelectedRowsData,
   getBackupChangePreviewSelectedRowData,
   getBackupChangePreviewTypeOptions,
   getSelectedTableDetails,
@@ -72,6 +73,21 @@ export function BackupRestoreTab() {
   const [backupChangesError, setBackupChangesError] = useState<string | null>(
     null
   );
+  const [summaryComparisonTable, setSummaryComparisonTable] = useState<
+    string | null
+  >(null);
+  const [summaryComparisonLoading, setSummaryComparisonLoading] =
+    useState(false);
+  const [summaryComparison, setSummaryComparison] =
+    useState<BackupChangePreview | null>(null);
+  const [summaryComparisonError, setSummaryComparisonError] = useState<
+    string | null
+  >(null);
+  const [summaryComparisonType, setSummaryComparisonType] = useState<
+    'added' | 'updated' | 'removed'
+  >('updated');
+  const [summaryComparisonSelectedRows, setSummaryComparisonSelectedRows] =
+    useState<string[]>([]);
   const [backupChangePreviewOpen, setBackupChangePreviewOpen] = useState(false);
   const [backupChangePreviewLoading, setBackupChangePreviewLoading] =
     useState(false);
@@ -238,6 +254,31 @@ export function BackupRestoreTab() {
       return payload.comparison;
     },
     [PREVIEW_SUMMARY_TIMEOUT_MS]
+  );
+
+  const fetchBackupChangePreview = useCallback(
+    async (timestamp: string, table: string) => {
+      const response = await fetchWithTimeout(
+        `/api/backup/${encodeURIComponent(timestamp)}/changes/${encodeURIComponent(table)}`,
+        undefined,
+        30000
+      );
+
+      const payload = (await response.json()) as {
+        success: boolean;
+        preview?: BackupChangePreview;
+        error?: string;
+      };
+
+      if (!response.ok || !payload.success || !payload.preview) {
+        throw new Error(
+          payload.error || 'Failed to load detailed change preview'
+        );
+      }
+
+      return payload.preview;
+    },
+    []
   );
 
   const fetchRestoreRunnerStatus = useCallback(async () => {
@@ -444,6 +485,10 @@ export function BackupRestoreTab() {
       setBackupChangesLoading(true);
       setBackupChangesError(null);
       setBackupChanges(null);
+      setSummaryComparisonTable(null);
+      setSummaryComparison(null);
+      setSummaryComparisonError(null);
+      setSummaryComparisonSelectedRows([]);
       setPreviewData(null);
       setSelectedTableName(null);
       setPreviewJsonFile(null);
@@ -472,6 +517,52 @@ export function BackupRestoreTab() {
           .then((comparison) => {
             setBackupChanges(comparison);
             setBackupChangesError(null);
+
+            const preferredTable =
+              comparison.entries.find(
+                (entry) =>
+                  entry.coverage !== 'dump-only' &&
+                  entry.status !== 'missing' &&
+                  entry.backupCount <= 2000 &&
+                  entry.currentCount <= 2000 &&
+                  entry.status !== 'unchanged'
+              )?.key ??
+              comparison.entries.find(
+                (entry) =>
+                  entry.coverage !== 'dump-only' &&
+                  entry.status !== 'missing' &&
+                  entry.backupCount <= 2000 &&
+                  entry.currentCount <= 2000
+              )?.key ??
+              null;
+
+            if (!preferredTable) {
+              setSummaryComparison(null);
+              setSummaryComparisonTable(null);
+              setSummaryComparisonError(
+                'Detailed before/after comparison is available only for smaller JSON-backed tables.'
+              );
+              return;
+            }
+
+            setSummaryComparisonTable(preferredTable);
+            setSummaryComparisonLoading(true);
+            setSummaryComparisonError(null);
+            void fetchBackupChangePreview(backup.timestamp, preferredTable)
+              .then((preview) => {
+                setSummaryComparison(preview);
+              })
+              .catch((error) => {
+                setSummaryComparison(null);
+                setSummaryComparisonError(
+                  error instanceof Error
+                    ? error.message
+                    : 'Failed to load before/after comparison'
+                );
+              })
+              .finally(() => {
+                setSummaryComparisonLoading(false);
+              });
           })
           .catch((changesError) => {
             setBackupChangesError(
@@ -539,6 +630,10 @@ export function BackupRestoreTab() {
         setRestorePlanError(null);
         setBackupChanges(null);
         setBackupChangesError(null);
+        setSummaryComparisonTable(null);
+        setSummaryComparison(null);
+        setSummaryComparisonError(null);
+        setSummaryComparisonSelectedRows([]);
       } finally {
         setPreviewLoading(false);
         setRestorePlanLoading(false);
@@ -548,6 +643,7 @@ export function BackupRestoreTab() {
     [
       PREVIEW_SUMMARY_TIMEOUT_MS,
       fetchBackupChanges,
+      fetchBackupChangePreview,
       fetchRestorePlan,
       fetchTableSample,
       pageTab,
@@ -741,25 +837,9 @@ export function BackupRestoreTab() {
       setBackupChangePreviewSelectedRow(null);
 
       try {
-        const response = await fetchWithTimeout(
-          `/api/backup/${encodeURIComponent(selectedBackup.timestamp)}/changes/${encodeURIComponent(table)}`,
-          undefined,
-          30000
+        setBackupChangePreview(
+          await fetchBackupChangePreview(selectedBackup.timestamp, table)
         );
-
-        const payload = (await response.json()) as {
-          success: boolean;
-          preview?: BackupChangePreview;
-          error?: string;
-        };
-
-        if (!response.ok || !payload.success || !payload.preview) {
-          throw new Error(
-            payload.error || 'Failed to load detailed change preview'
-          );
-        }
-
-        setBackupChangePreview(payload.preview);
       } catch (error) {
         setBackupChangePreviewError(
           error instanceof Error
@@ -770,7 +850,39 @@ export function BackupRestoreTab() {
         setBackupChangePreviewLoading(false);
       }
     },
-    [selectedBackup]
+    [fetchBackupChangePreview, selectedBackup]
+  );
+
+  const handleSelectSummaryComparisonTable = useCallback(
+    async (table: string | null) => {
+      if (!selectedBackup || !table) {
+        setSummaryComparisonTable(table);
+        setSummaryComparison(null);
+        setSummaryComparisonSelectedRows([]);
+        return;
+      }
+
+      setSummaryComparisonTable(table);
+      setSummaryComparisonLoading(true);
+      setSummaryComparisonError(null);
+      setSummaryComparison(null);
+      setSummaryComparisonSelectedRows([]);
+
+      try {
+        setSummaryComparison(
+          await fetchBackupChangePreview(selectedBackup.timestamp, table)
+        );
+      } catch (error) {
+        setSummaryComparisonError(
+          error instanceof Error
+            ? error.message
+            : 'Failed to load before/after comparison'
+        );
+      } finally {
+        setSummaryComparisonLoading(false);
+      }
+    },
+    [fetchBackupChangePreview, selectedBackup]
   );
 
   useEffect(() => {
@@ -808,6 +920,51 @@ export function BackupRestoreTab() {
     backupChangePreviewSelectedRow,
     backupChangePreviewType,
   ]);
+
+  useEffect(() => {
+    if (!summaryComparison) {
+      if (summaryComparisonSelectedRows.length > 0) {
+        setSummaryComparisonSelectedRows([]);
+      }
+      return;
+    }
+
+    const typeOptions = getBackupChangePreviewTypeOptions(summaryComparison);
+    const currentTypeIsValid = typeOptions.some(
+      (option) => option.value === summaryComparisonType
+    );
+    const nextType = currentTypeIsValid
+      ? summaryComparisonType
+      : (typeOptions[0]?.value ?? 'added');
+
+    if (nextType !== summaryComparisonType) {
+      setSummaryComparisonType(nextType);
+      return;
+    }
+
+    const rowOptions = getBackupChangePreviewRowOptions(
+      summaryComparison,
+      nextType
+    );
+    const rowOptionValues = new Set(rowOptions.map((option) => option.value));
+    const nextSelectedRows = summaryComparisonSelectedRows.filter((value) =>
+      rowOptionValues.has(value)
+    );
+    const fallbackSelectedRows = rowOptions
+      .slice(0, 3)
+      .map((option) => option.value);
+    const resolvedSelectedRows =
+      nextSelectedRows.length > 0 ? nextSelectedRows : fallbackSelectedRows;
+    const selectionChanged =
+      resolvedSelectedRows.length !== summaryComparisonSelectedRows.length ||
+      resolvedSelectedRows.some(
+        (value, index) => value !== summaryComparisonSelectedRows[index]
+      );
+
+    if (selectionChanged) {
+      setSummaryComparisonSelectedRows(resolvedSelectedRows);
+    }
+  }, [summaryComparison, summaryComparisonSelectedRows, summaryComparisonType]);
 
   useEffect(() => {
     if (!isAdminBackupRestore) {
@@ -943,6 +1100,45 @@ export function BackupRestoreTab() {
     [selectedBackup]
   );
 
+  const summaryComparisonTableOptions = useMemo(() => {
+    if (!backupChanges) {
+      return [];
+    }
+
+    return backupChanges.entries
+      .filter(
+        (entry) =>
+          entry.coverage !== 'dump-only' &&
+          entry.status !== 'missing' &&
+          entry.backupCount <= 2000 &&
+          entry.currentCount <= 2000
+      )
+      .sort((left, right) => {
+        if (left.status === 'unchanged' && right.status !== 'unchanged') {
+          return 1;
+        }
+        if (left.status !== 'unchanged' && right.status === 'unchanged') {
+          return -1;
+        }
+        return left.key.localeCompare(right.key);
+      })
+      .map((entry) => ({
+        value: entry.key,
+        label:
+          entry.status === 'unchanged'
+            ? `${entry.key} — no count drift`
+            : `${entry.key} — ${entry.delta > 0 ? '+' : ''}${entry.delta} rows`,
+      }));
+  }, [backupChanges]);
+
+  const summaryComparisonSelectedRowsData = useMemo(() => {
+    return getBackupChangePreviewSelectedRowsData(
+      summaryComparison,
+      summaryComparisonSelectedRows,
+      summaryComparisonType
+    );
+  }, [summaryComparison, summaryComparisonSelectedRows, summaryComparisonType]);
+
   const restoreDisabledReason = useMemo(() => {
     if (!selectedDumpFileName) {
       return 'This backup does not include a PostgreSQL dump artifact.';
@@ -984,7 +1180,7 @@ export function BackupRestoreTab() {
   const controlTabs: ControlPanelTabConfig[] = [
     {
       value: 'backup',
-      label: 'Backup',
+      label: 'Create',
       leftSection: <IconDatabase size={16} />,
     },
     {
@@ -994,7 +1190,7 @@ export function BackupRestoreTab() {
     },
     {
       value: 'tables',
-      label: 'Tables',
+      label: 'Browse Data',
       leftSection: <IconTable size={16} />,
       panel: (
         <BackupTablesActionPanel
@@ -1020,7 +1216,7 @@ export function BackupRestoreTab() {
   return (
     <Stack gap="lg">
       <ControlPanelCard
-        title="Backup Records"
+        title="Backups"
         tabs={controlTabs}
         activeTab={pageTab}
         onTabChange={(value) =>
@@ -1043,13 +1239,8 @@ export function BackupRestoreTab() {
           onBackupFormatChange={setBackupFormat}
           onIncludeSoftDeletedChange={setIncludeSoftDeleted}
           onCreateBackup={() => void handleCreateBackup()}
-          onRunStrategyBackup={(strategy) =>
-            void handleCreateBackup({ strategy })
-          }
           onRefresh={() => void fetchBackups()}
           onPreview={handlePreviewBackup}
-          onDownloadJSON={handleDownloadJSON}
-          onDownloadDump={handleDownloadDump}
           onDelete={(backup) => void handleDeleteBackup(backup.timestamp)}
         />
       ) : null}
@@ -1060,8 +1251,6 @@ export function BackupRestoreTab() {
           loading={loading}
           onRefresh={() => void fetchBackups()}
           onPreview={handlePreviewBackup}
-          onDownloadJSON={handleDownloadJSON}
-          onDownloadDump={handleDownloadDump}
           onDelete={(backup) => void handleDeleteBackup(backup.timestamp)}
         />
       ) : null}
@@ -1085,6 +1274,21 @@ export function BackupRestoreTab() {
         backupChanges={backupChanges}
         backupChangesLoading={backupChangesLoading}
         backupChangesError={backupChangesError}
+        summaryComparisonTableOptions={summaryComparisonTableOptions}
+        summaryComparisonTable={summaryComparisonTable}
+        summaryComparisonLoading={summaryComparisonLoading}
+        summaryComparison={summaryComparison}
+        summaryComparisonError={summaryComparisonError}
+        summaryComparisonTypeOptions={getBackupChangePreviewTypeOptions(
+          summaryComparison
+        )}
+        summaryComparisonType={summaryComparisonType}
+        summaryComparisonRowOptions={getBackupChangePreviewRowOptions(
+          summaryComparison,
+          summaryComparisonType
+        )}
+        summaryComparisonSelectedRows={summaryComparisonSelectedRows}
+        summaryComparisonSelectedRowsData={summaryComparisonSelectedRowsData}
         restorePlan={restorePlan}
         restorePlanLoading={restorePlanLoading}
         restorePlanError={restorePlanError}
@@ -1103,6 +1307,11 @@ export function BackupRestoreTab() {
           selectedBackup?.files.some((file) => file.endsWith('.dump'))
         )}
         onClose={() => setPreviewModalOpen(false)}
+        onSelectSummaryComparisonTable={(table) =>
+          void handleSelectSummaryComparisonTable(table)
+        }
+        onSelectSummaryComparisonType={setSummaryComparisonType}
+        onSelectSummaryComparisonRows={setSummaryComparisonSelectedRows}
         onSelectTable={(table) => void handleSelectPreviewTable(table)}
         onDownloadJSON={() =>
           selectedBackup ? void handleDownloadJSON(selectedBackup) : undefined

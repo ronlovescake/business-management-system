@@ -2,35 +2,44 @@ import { memo } from 'react';
 import {
   ActionIcon,
   Badge,
+  Button,
   Card,
   Group,
   Progress,
   ScrollArea,
+  Stack,
   Table as MantineTable,
   Text,
   Title,
 } from '@mantine/core';
-import {
-  IconDatabase,
-  IconDownload,
-  IconEye,
-  IconRefresh,
-  IconTrash,
-} from '@tabler/icons-react';
+import { IconEye, IconRefresh, IconTrash } from '@tabler/icons-react';
 import type { Backup } from '../../backup/types';
-import { formatBackupTimestamp, formatFileSize } from '../../backup/types';
+import {
+  STRATEGY_META,
+  formatBackupTimestamp,
+  formatFileSize,
+} from '../../backup/types';
 
 interface BackupListCardProps {
   backups: Backup[];
   loading: boolean;
   onRefresh: () => void;
   onPreview: (backup: Backup) => void;
-  onDownloadJSON: (backup: Backup) => void;
-  onDownloadDump: (backup: Backup) => void;
   onDelete: (backup: Backup) => void;
   title?: string;
   subtitle?: string;
 }
+
+const getArtifactSummary = (backup: Backup) => {
+  const hasDump = backup.files.some((file) => file.endsWith('.dump'));
+  const hasJson = backup.files.some((file) => file.endsWith('.json'));
+
+  return {
+    artifactCount: backup.files.length,
+    hasDump,
+    hasJson,
+  };
+};
 
 export const BackupListCard = memo(
   ({
@@ -38,10 +47,8 @@ export const BackupListCard = memo(
     loading,
     onRefresh,
     onPreview,
-    onDownloadJSON,
-    onDownloadDump,
     onDelete,
-    title = `Backups (${backups.length})`,
+    title = `Recent Backups (${backups.length})`,
     subtitle,
   }: BackupListCardProps) => (
     <Card shadow="sm" padding="lg" radius="md" withBorder>
@@ -82,69 +89,90 @@ export const BackupListCard = memo(
             >
               <MantineTable.Tr>
                 <MantineTable.Th>Date</MantineTable.Th>
-                <MantineTable.Th>Files</MantineTable.Th>
+                <MantineTable.Th>Strategy</MantineTable.Th>
+                <MantineTable.Th>Artifacts</MantineTable.Th>
                 <MantineTable.Th>Size</MantineTable.Th>
                 <MantineTable.Th>Actions</MantineTable.Th>
               </MantineTable.Tr>
             </MantineTable.Thead>
             <MantineTable.Tbody>
-              {backups.map((backup) => (
-                <MantineTable.Tr key={backup.timestamp}>
-                  <MantineTable.Td>
-                    <Text size="sm">
-                      {formatBackupTimestamp(backup.timestamp)}
-                    </Text>
-                  </MantineTable.Td>
-                  <MantineTable.Td>
-                    <Badge color="gray" variant="light">
-                      {backup.files.length}
-                    </Badge>
-                  </MantineTable.Td>
-                  <MantineTable.Td>
-                    {formatFileSize(backup.totalSize)}
-                  </MantineTable.Td>
-                  <MantineTable.Td>
-                    <Group gap="xs">
-                      <ActionIcon
-                        color="blue"
-                        variant="subtle"
-                        onClick={() => onPreview(backup)}
-                        title="Preview backup"
-                        aria-label="Preview backup"
-                      >
-                        <IconEye size={16} />
-                      </ActionIcon>
-                      <ActionIcon
-                        color="green"
-                        variant="subtle"
-                        onClick={() => onDownloadJSON(backup)}
-                        title="Download JSON"
-                        aria-label="Download JSON"
-                      >
-                        <IconDownload size={16} />
-                      </ActionIcon>
-                      <ActionIcon
-                        color="teal"
-                        variant="subtle"
-                        onClick={() => onDownloadDump(backup)}
-                        title="Download PostgreSQL dump"
-                        aria-label="Download PostgreSQL dump"
-                      >
-                        <IconDatabase size={16} />
-                      </ActionIcon>
-                      <ActionIcon
-                        color="red"
-                        variant="subtle"
-                        onClick={() => onDelete(backup)}
-                        title="Delete backup"
-                        aria-label="Delete backup"
-                      >
-                        <IconTrash size={16} />
-                      </ActionIcon>
-                    </Group>
-                  </MantineTable.Td>
-                </MantineTable.Tr>
-              ))}
+              {backups.map((backup) => {
+                const strategyMeta = backup.strategy
+                  ? STRATEGY_META[backup.strategy]
+                  : null;
+                const { artifactCount, hasDump, hasJson } =
+                  getArtifactSummary(backup);
+
+                return (
+                  <MantineTable.Tr key={backup.timestamp}>
+                    <MantineTable.Td>
+                      <Stack gap={0}>
+                        <Text size="sm">
+                          {formatBackupTimestamp(backup.timestamp)}
+                        </Text>
+                        <Text size="xs" c="dimmed">
+                          {artifactCount} artifact
+                          {artifactCount === 1 ? '' : 's'}
+                        </Text>
+                      </Stack>
+                    </MantineTable.Td>
+                    <MantineTable.Td>
+                      {strategyMeta ? (
+                        <Badge color={strategyMeta.color} variant="light">
+                          {strategyMeta.label}
+                        </Badge>
+                      ) : (
+                        <Badge color="gray" variant="light">
+                          Unknown
+                        </Badge>
+                      )}
+                    </MantineTable.Td>
+                    <MantineTable.Td>
+                      <Group gap="xs">
+                        {hasDump ? (
+                          <Badge color="teal" variant="light">
+                            Dump
+                          </Badge>
+                        ) : null}
+                        {hasJson ? (
+                          <Badge color="blue" variant="light">
+                            JSON
+                          </Badge>
+                        ) : null}
+                        {!hasDump && !hasJson ? (
+                          <Text size="xs" c="dimmed">
+                            Other exports only
+                          </Text>
+                        ) : null}
+                      </Group>
+                    </MantineTable.Td>
+                    <MantineTable.Td>
+                      {formatFileSize(backup.totalSize)}
+                    </MantineTable.Td>
+                    <MantineTable.Td>
+                      <Group gap="xs">
+                        <Button
+                          size="xs"
+                          variant="light"
+                          leftSection={<IconEye size={14} />}
+                          onClick={() => onPreview(backup)}
+                        >
+                          Open
+                        </Button>
+                        <ActionIcon
+                          color="red"
+                          variant="subtle"
+                          onClick={() => onDelete(backup)}
+                          title="Delete backup"
+                          aria-label="Delete backup"
+                        >
+                          <IconTrash size={16} />
+                        </ActionIcon>
+                      </Group>
+                    </MantineTable.Td>
+                  </MantineTable.Tr>
+                );
+              })}
             </MantineTable.Tbody>
           </MantineTable>
         </ScrollArea>
