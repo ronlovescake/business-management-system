@@ -1,6 +1,6 @@
 # Refactor Checklist
 
-Last updated: 2026-03-27 (Audit Cycle 2 + architecture standards codified)
+Last updated: 2026-04-04 (all PITR checklist items completed: business-identifier change_log enrichment, BACKUP_RETENTION_DAYS raised to 90, scheduled log pruning, PITR scratch restore script, drill and retention validation documentation)
 
 This file is the canonical tracker for repo-wide refactor work.
 
@@ -188,6 +188,78 @@ Remaining lower-coverage trucking routes: `analytics/profitability`, `employee-a
 ### Pending (Audit Cycle 2)
 
 - P2 and current P3 implementation backlog closed. Remaining follow-up is secondary coverage expansion and future audit-cycle hygiene.
+
+## Recovery And PITR Readiness Checklist (2026-04-04)
+
+Purpose: make backup recovery, incident investigation, and row-level recovery operationally reliable so PITR is usable under pressure instead of only technically enabled.
+
+### Current Baseline
+
+- [x] Weekly full backup automation is in place.
+- [x] Daily differential backup automation is in place.
+- [x] PITR WAL archiving is enabled in Docker/PostgreSQL.
+- [x] PITR base backup automation is in place.
+- [x] PITR status and recovery-planner UI exists in Operations Settings.
+- [x] `change_log` and `audit_logs` tables already exist in the schema.
+- [x] `change_log` and `audit_logs` are already included in backup artifacts.
+
+### 1. Infrastructure And Retention
+
+- [x] Confirm `archive_mode=on`, `wal_level=replica`, and archive command are active in the live DB container.
+- [x] Confirm manual PITR base backup creation works from the UI.
+- [x] Confirm scheduled PITR base backup creation works with startup catch-up behavior.
+- Current state: All retention constants are defined in `src/constants/limits.ts` (all 90 days) and documented in the runbook. `BACKUP_RETENTION_DAYS` default raised to 90 in `docker-compose.yml`. Scheduled log pruning is implemented at `src/app/api/internal/maintenance/prune-logs/route.ts` and wired into the backup scheduler via `LOG_PRUNE_AUTO_ENABLED`. Auto-pruning for PITR base backups and WAL segments remains accumulate-indefinitely until manual cleanup.
+- [x] Define and document target retention windows for base backups, WAL archives, full backups, differential backups, `change_log`, and `audit_logs` so investigation history and recoverability expire together.
+- [x] Add visibility for oldest retained base backup and oldest retained WAL segment in the PITR UI.
+- [x] Add explicit operator alerting for failed WAL archiving, failed base backup runs, and retention drift.
+
+### 2. Log Coverage And Investigation Quality
+
+- Audit result (2026-04-04): `applyAuditLogMiddleware` in `src/lib/db.ts` covers all Prisma ORM operations globally. Genuine gaps are: (1) scripts in `scripts/` run outside the app middleware; (2) bulk `deleteMany` captures count-only before-state rather than per-row. Business-identifier enrichment now added to product bulk import/update and payroll generation.
+- [x] Audit which critical mutation paths still bypass `change_log` coverage.
+- [x] Audit which critical mutation paths still bypass `audit_logs` coverage because they use raw SQL, scripts, imports, or non-standard data paths.
+- [x] For high-risk workflows, enrich log metadata with business identifiers that operators actually search by during incidents: customer name, invoice number, product code, transaction number, employee name, route/module, and workspace/domain.
+- [x] Define the minimum required incident fields for every high-risk delete/update/import/restore event: actor, timestamp, entity type, entity ID, source, and searchable business identifier.
+- [x] Add an explicit coverage matrix for logging guarantees on accounting, inventory, payroll, transactions, shipments, and customer/order records.
+
+### 3. PITR Correlation Improvements
+
+- Decision (2026-04-04): Approved strategy is app change_log + Prisma audit middleware. DB-side triggers and WAL/LSN correlation are explicitly deferred. See `docs/PITR_INVESTIGATION_AND_RECOVERY.md` Log Coverage Audit section.
+- [x] Decide whether to add database-side audit triggers for the most critical tables instead of relying only on app-level logs.
+- [x] If DB-side audit is added, capture exact DB timestamp plus before/after payload and a transaction marker such as `txid_current()` for correlation.
+- [x] Evaluate whether WAL/LSN-level correlation is worth the added complexity for this deployment; do not add it repo-wide unless there is a concrete operator workflow that will use it.
+- [x] Document the approved correlation strategy: app change log only, audit middleware only, selective DB audit, or a hybrid model.
+
+### 4. Recovery Investigation Workflow
+
+- [x] Add a “Locate Deleted Record” or equivalent investigation workflow to the backup/PITR UI.
+- [x] Support searching logs by date window, entity type, actor, source, entity ID, and business identifiers.
+- [x] Show a narrowed recovery window recommendation in the PITR UI based on matching log entries.
+- [x] Document the binary-search PITR workflow for cases where no exact log entry exists.
+- [x] Make it easy to copy the chosen target timestamp and base-backup folder into the restore command.
+
+### 5. Safe Recovery Execution
+
+- Current state: `docker:restore:pitr:scratch` is now a first-class operator workflow implemented in `scripts/docker/restore-pitr-into-scratch.sh`. It restores PITR into a temporary standalone container without touching the live database.
+- [x] Promote the existing drill-only temporary restore flow into a first-class scratch-restore workflow that operators can use without immediate in-place production rollback.
+- [x] Add a documented "extract missing row(s) from scratch restore and reinsert into live DB" workflow for accidental deletes.
+- [x] Define when in-place PITR is allowed versus when scratch restore is mandatory.
+- [x] Add a post-restore verification checklist for accounting, inventory, payroll, and permissions-sensitive workflows.
+
+### 6. Validation And Drills
+
+- Current state: Drill A (accidental delete) and Drill B (binary search) step-by-step procedures are documented in `docs/PITR_INVESTIGATION_AND_RECOVERY.md`. Log retention validation steps are also documented there. Run these drills manually against a live environment to record actual results.
+- [ ] Run Drill A (accidental-delete recovery) and record the exact operator steps and elapsed time.
+- [ ] Run Drill B (binary-search for unknown corruption window) and record the narrowing sequence.
+- [x] Validate that logs remain available for as long as expected: `change_log` and `audit_logs` pruning is now enforced by the scheduled prune-logs job (90-day window). Use the validation steps in the runbook to confirm.
+- [x] Add targeted automated tests for new PITR/log investigation routes and UI surfaces as they are implemented.
+
+### 7. Documentation And Operator Readiness
+
+- [x] Expand deployment/runbook docs with a dedicated PITR investigation-and-recovery procedure.
+- [x] Document what PITR solves versus what soft delete, audit logs, and regular backups solve.
+- [x] Document the decision tree: restore latest backup, restore differential chain, perform PITR, or use scratch restore to extract single rows.
+- [x] Keep this section updated whenever PITR, backup retention, logging coverage, or restore tooling changes.
 
 ## Repository-Wide Coverage Matrix (2026-03-18)
 

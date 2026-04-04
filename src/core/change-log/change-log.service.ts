@@ -152,6 +152,7 @@ export interface ChangeLogQuery {
   entityType?: string;
   entityId?: string;
   userId?: string;
+  actor?: string;
   action?: string;
   source?: string;
   search?: string;
@@ -166,12 +167,93 @@ export interface ChangeLogQueryResult {
   limit: number;
 }
 
+const CHANGE_LOG_IDENTIFIER_PATHS = [
+  'description',
+  'customerName',
+  'customer',
+  'customerDisplayName',
+  'customer_name',
+  'invoiceNumber',
+  'invoiceNo',
+  'invoice',
+  'transactionNumber',
+  'transactionNo',
+  'productCode',
+  'product_code',
+  'sku',
+  'itemCode',
+  'item_code',
+  'employeeName',
+  'employee',
+  'routeName',
+  'workspace',
+  'module',
+  'name',
+] as const;
+
+function buildJsonPathContainsCondition(
+  field: 'metadata' | 'oldValue' | 'newValue',
+  path: string,
+  searchTerm: string
+): Prisma.ChangeLogWhereInput {
+  const filter = {
+    path: [path],
+    string_contains: searchTerm,
+  } as Prisma.JsonFilter<'ChangeLog'>;
+
+  if (field === 'metadata') {
+    return { metadata: filter };
+  }
+
+  if (field === 'oldValue') {
+    return { oldValue: filter };
+  }
+
+  return { newValue: filter };
+}
+
+function buildActorWhere(actor: string): Prisma.ChangeLogWhereInput {
+  const normalizedActor = actor.trim();
+
+  return {
+    OR: [
+      { userId: normalizedActor },
+      { userName: { contains: normalizedActor, mode: 'insensitive' } },
+    ],
+  };
+}
+
+function buildSearchWhere(searchTerm: string): Prisma.ChangeLogWhereInput {
+  return {
+    OR: [
+      { userId: { contains: searchTerm, mode: 'insensitive' } },
+      { userName: { contains: searchTerm, mode: 'insensitive' } },
+      { entityType: { contains: searchTerm, mode: 'insensitive' } },
+      { entityId: { contains: searchTerm, mode: 'insensitive' } },
+      { action: { contains: searchTerm, mode: 'insensitive' } },
+      { field: { contains: searchTerm, mode: 'insensitive' } },
+      { source: { contains: searchTerm, mode: 'insensitive' } },
+      ...CHANGE_LOG_IDENTIFIER_PATHS.flatMap((path) => [
+        buildJsonPathContainsCondition('metadata', path, searchTerm),
+        buildJsonPathContainsCondition('oldValue', path, searchTerm),
+        buildJsonPathContainsCondition('newValue', path, searchTerm),
+      ]),
+    ],
+  };
+}
+
 export async function queryChangeLogs(
   params: ChangeLogQuery
 ): Promise<ChangeLogQueryResult> {
   const page = Math.max(1, params.page ?? 1);
   const limit = Math.min(Math.max(1, params.limit ?? 25), 200);
   const skip = (page - 1) * limit;
+
+  const andClauses: Prisma.ChangeLogWhereInput[] = [];
+
+  if (params.actor?.trim()) {
+    andClauses.push(buildActorWhere(params.actor));
+  }
 
   const where: Prisma.ChangeLogWhereInput = {
     ...(params.entityType && { entityType: params.entityType }),
@@ -182,29 +264,23 @@ export async function queryChangeLogs(
   };
 
   if (params.startDate || params.endDate) {
-    where.createdAt = {
-      ...(params.startDate && { gte: params.startDate }),
-      ...(params.endDate && { lte: params.endDate }),
-    };
+    andClauses.push({
+      createdAt: {
+        ...(params.startDate && { gte: params.startDate }),
+        ...(params.endDate && { lte: params.endDate }),
+      },
+    });
   }
 
   if (params.search) {
     const searchTerm = params.search.trim();
     if (searchTerm.length > 0) {
-      where.OR = [
-        { userName: { contains: searchTerm, mode: 'insensitive' } },
-        { entityType: { contains: searchTerm, mode: 'insensitive' } },
-        { entityId: { contains: searchTerm, mode: 'insensitive' } },
-        { field: { contains: searchTerm, mode: 'insensitive' } },
-        {
-          metadata: {
-            path: ['description'],
-            string_contains: searchTerm,
-            // Postgres-specific operator via Prisma JSON filters
-          },
-        },
-      ];
+      andClauses.push(buildSearchWhere(searchTerm));
     }
+  }
+
+  if (andClauses.length > 0) {
+    where.AND = andClauses;
   }
 
   const [data, total] = await Promise.all([

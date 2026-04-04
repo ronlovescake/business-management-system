@@ -21,10 +21,12 @@ import {
 import { DateTimePicker } from '@mantine/dates';
 import {
   IconAlertCircle,
+  IconAlertTriangle,
   IconCalendarTime,
   IconCheck,
   IconCopy,
   IconHistory,
+  IconSearch,
 } from '@tabler/icons-react';
 import type { PitrBaseBackup, PitrStatus, PitrWalFile } from '../../backup/types';
 import {
@@ -34,6 +36,7 @@ import {
   parseTimestamp,
 } from '../../backup/types';
 import { UniversalModal } from '@/components/modals/UniversalModal';
+import { PitrInvestigationTab } from './PitrInvestigationTab';
 
 interface PitrPreviewModalProps {
   opened: boolean;
@@ -42,28 +45,23 @@ interface PitrPreviewModalProps {
 }
 
 export function PitrPreviewModal({ opened, onClose, status }: PitrPreviewModalProps) {
-  // Base backups
+  const [activeTab, setActiveTab] = useState<string | null>('bases');
+
   const [bases, setBases] = useState<PitrBaseBackup[]>([]);
   const [basesLoading, setBasesLoading] = useState(false);
   const [basesError, setBasesError] = useState<string | null>(null);
 
-  // WAL files
   const [walFiles, setWalFiles] = useState<PitrWalFile[]>([]);
   const [walTotalSize, setWalTotalSize] = useState(0);
   const [walLoading, setWalLoading] = useState(false);
   const [walLoaded, setWalLoaded] = useState(false);
   const [walError, setWalError] = useState<string | null>(null);
 
-  // Restore planner
   const [selectedFolder, setSelectedFolder] = useState<string | null>(null);
   const [targetTime, setTargetTime] = useState<Date | null>(null);
+  const [plannerMessage, setPlannerMessage] = useState<string | null>(null);
 
-  // Fetch base backups whenever the modal opens
-  useEffect(() => {
-    if (!opened) {
-      return;
-    }
-
+  const loadBaseBackups = useCallback(() => {
     setBasesLoading(true);
     setBasesError(null);
 
@@ -78,23 +76,31 @@ export function PitrPreviewModal({ opened, onClose, status }: PitrPreviewModalPr
       })
       .catch(() => setBasesError('Failed to load base backups.'))
       .finally(() => setBasesLoading(false));
-  }, [opened]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [selectedFolder]);
 
-  // Set initial target time to recovery window end on open
+  useEffect(() => {
+    if (!opened) {
+      return;
+    }
+
+    loadBaseBackups();
+  }, [opened, loadBaseBackups]);
+
   useEffect(() => {
     if (opened && status?.recoveryWindow.end && !targetTime) {
       setTargetTime(new Date(status.recoveryWindow.end));
     }
-  }, [opened, status]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [opened, status, targetTime]);
 
-  // Reset WAL + planner state when closed
   useEffect(() => {
     if (!opened) {
+      setActiveTab('bases');
       setWalLoaded(false);
       setWalFiles([]);
       setWalTotalSize(0);
       setWalError(null);
       setTargetTime(null);
+      setPlannerMessage(null);
     }
   }, [opened]);
 
@@ -117,18 +123,29 @@ export function PitrPreviewModal({ opened, onClose, status }: PitrPreviewModalPr
       .finally(() => setWalLoading(false));
   }, [walLoaded, walLoading]);
 
-  const selectedBackup = bases.find((b) => b.folder === selectedFolder) ?? null;
+  useEffect(() => {
+    if (opened && activeTab === 'wal') {
+      loadWalFiles();
+    }
+  }, [activeTab, loadWalFiles, opened]);
+
+  const selectedBackup = bases.find((baseBackup) => baseBackup.folder === selectedFolder) ?? null;
   const windowStart = selectedBackup
     ? new Date(selectedBackup.createdAt)
     : status?.recoveryWindow.start
       ? new Date(status.recoveryWindow.start)
       : null;
-  const windowEnd = status?.recoveryWindow.end ? new Date(status.recoveryWindow.end) : null;
+  const windowEnd = status?.recoveryWindow.end
+    ? new Date(status.recoveryWindow.end)
+    : null;
 
   const restoreCommand =
     selectedFolder && targetTime
       ? `npm run docker:restore:pitr -- --base-backup ${selectedFolder} --target-time ${targetTime.toISOString()} --confirm`
       : null;
+
+  const oldestWalMtime = walFiles.length > 0 ? walFiles[walFiles.length - 1].mtime : undefined;
+  const newestWalMtime = walFiles.length > 0 ? walFiles[0].mtime : undefined;
 
   return (
     <UniversalModal
@@ -145,18 +162,46 @@ export function PitrPreviewModal({ opened, onClose, status }: PitrPreviewModalPr
         },
       }}
     >
-      <Tabs defaultValue="bases">
+      <Tabs value={activeTab} onChange={setActiveTab}>
         <Tabs.List>
           <Tabs.Tab value="bases">
             Base Backups{bases.length > 0 ? ` (${bases.length})` : ''}
           </Tabs.Tab>
-          <Tabs.Tab value="wal" onClick={loadWalFiles}>
+          <Tabs.Tab value="wal">
             WAL Archive{status ? ` (${status.walArchiveFileCount})` : ''}
           </Tabs.Tab>
+          <Tabs.Tab value="investigate">Find Event</Tabs.Tab>
           <Tabs.Tab value="planner">Restore Planner</Tabs.Tab>
         </Tabs.List>
 
-        {/* ── Base Backups ───────────────────────────────── */}
+        {status?.runtime.failedCount !== undefined && status.runtime.failedCount > 0 ? (
+          <Alert
+            icon={<IconAlertTriangle size={16} />}
+            color="red"
+            title="WAL archiving failures detected"
+            mt="sm"
+          >
+            {status.runtime.failedCount} segment{status.runtime.failedCount !== 1 ? 's' : ''} failed
+            to archive.{status.runtime.lastFailedWal
+              ? ` Last failed: ${status.runtime.lastFailedWal}`
+              : ''}{status.runtime.lastFailedAt
+              ? ` at ${new Date(status.runtime.lastFailedAt).toLocaleString()}.`
+              : '.'} PITR replay may have gaps. Investigate the archive command and disk space before relying on WAL recovery.
+          </Alert>
+        ) : null}
+
+        {!status?.runtime.databaseConnected && status !== null ? (
+          <Alert
+            icon={<IconAlertTriangle size={16} />}
+            color="orange"
+            title="Cannot reach database runtime"
+            mt="sm"
+          >
+            WAL archive status is unavailable. PostgreSQL runtime stats could not be read. PITR
+            recovery window information may be stale.
+          </Alert>
+        ) : null}
+
         <Tabs.Panel value="bases" pt="md">
           <Stack gap="md">
             {basesLoading ? (
@@ -177,6 +222,47 @@ export function PitrPreviewModal({ opened, onClose, status }: PitrPreviewModalPr
                     <Title order={5}>Physical Base Backups</Title>
                     <Badge color="blue">{bases.length} total</Badge>
                   </Group>
+                  <SimpleGrid cols={{ base: 1, sm: 3 }} spacing="xs">
+                    <Card withBorder padding="sm" radius="sm">
+                      <Stack gap={2}>
+                        <Text size="xs" c="dimmed">Oldest retained base backup</Text>
+                        <Text size="sm" fw={600}>
+                          {formatBackupTimestamp(bases[bases.length - 1].createdAt)}
+                        </Text>
+                        <Text size="xs" c="dimmed">
+                          {formatRelativeTime(parseTimestamp(bases[bases.length - 1].createdAt))}
+                        </Text>
+                      </Stack>
+                    </Card>
+                    <Card withBorder padding="sm" radius="sm">
+                      <Stack gap={2}>
+                        <Text size="xs" c="dimmed">Newest base backup</Text>
+                        <Text size="sm" fw={600}>
+                          {formatBackupTimestamp(bases[0].createdAt)}
+                        </Text>
+                        <Text size="xs" c="dimmed">
+                          {formatRelativeTime(parseTimestamp(bases[0].createdAt))}
+                        </Text>
+                      </Stack>
+                    </Card>
+                    <Card withBorder padding="sm" radius="sm">
+                      <Stack gap={2}>
+                        <Text size="xs" c="dimmed">WAL coverage end</Text>
+                        {status?.recoveryWindow.end ? (
+                          <>
+                            <Text size="sm" fw={600}>
+                              {formatBackupTimestamp(status.recoveryWindow.end)}
+                            </Text>
+                            <Text size="xs" c="dimmed">
+                              {formatRelativeTime(new Date(status.recoveryWindow.end))}
+                            </Text>
+                          </>
+                        ) : (
+                          <Text size="sm" c="dimmed">Not yet available</Text>
+                        )}
+                      </Stack>
+                    </Card>
+                  </SimpleGrid>
                   <Table.ScrollContainer minWidth={640}>
                     <Table withTableBorder withColumnBorders striped highlightOnHover>
                       <Table.Thead>
@@ -189,28 +275,28 @@ export function PitrPreviewModal({ opened, onClose, status }: PitrPreviewModalPr
                         </Table.Tr>
                       </Table.Thead>
                       <Table.Tbody>
-                        {bases.map((base) => {
-                          const trigger = base.scheduler?.trigger;
-                          const catchUp = base.scheduler?.catchUp;
+                        {bases.map((baseBackup) => {
+                          const trigger = baseBackup.scheduler?.trigger;
+                          const catchUp = baseBackup.scheduler?.catchUp;
                           return (
-                            <Table.Tr key={base.folder}>
+                            <Table.Tr key={baseBackup.folder}>
                               <Table.Td>
                                 <Text size="xs" ff="monospace">
-                                  {base.folder}
+                                  {baseBackup.folder}
                                 </Text>
                               </Table.Td>
                               <Table.Td>
                                 <Stack gap={2}>
                                   <Text size="sm">
-                                    {formatBackupTimestamp(base.createdAt)}
+                                    {formatBackupTimestamp(baseBackup.createdAt)}
                                   </Text>
                                   <Text size="xs" c="dimmed">
-                                    {formatRelativeTime(parseTimestamp(base.createdAt))}
+                                    {formatRelativeTime(parseTimestamp(baseBackup.createdAt))}
                                   </Text>
                                 </Stack>
                               </Table.Td>
                               <Table.Td>
-                                <Text size="sm">{formatFileSize(base.totalSize)}</Text>
+                                <Text size="sm">{formatFileSize(baseBackup.totalSize)}</Text>
                               </Table.Td>
                               <Table.Td>
                                 <Badge
@@ -233,7 +319,7 @@ export function PitrPreviewModal({ opened, onClose, status }: PitrPreviewModalPr
                               </Table.Td>
                               <Table.Td>
                                 <Text size="xs" c="dimmed">
-                                  {base.files.length}
+                                  {baseBackup.files.length}
                                 </Text>
                               </Table.Td>
                             </Table.Tr>
@@ -248,7 +334,6 @@ export function PitrPreviewModal({ opened, onClose, status }: PitrPreviewModalPr
           </Stack>
         </Tabs.Panel>
 
-        {/* ── WAL Archive ────────────────────────────────── */}
         <Tabs.Panel value="wal" pt="md">
           <Stack gap="md">
             {walLoading ? (
@@ -273,13 +358,39 @@ export function PitrPreviewModal({ opened, onClose, status }: PitrPreviewModalPr
                     <Title order={5}>WAL Segments</Title>
                     <Group gap="xs">
                       <Badge color="blue">{walFiles.length} files</Badge>
-                      <Badge color="gray" variant="light">{formatFileSize(walTotalSize)}</Badge>
+                      <Badge color="gray" variant="light">
+                        {formatFileSize(walTotalSize)}
+                      </Badge>
                     </Group>
                   </Group>
                   <Text size="sm" c="dimmed">
                     Sorted newest first. These segments cover the time range between base backups and
                     the most recent archived checkpoint.
                   </Text>
+                  {oldestWalMtime ? (
+                    <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="xs">
+                      <Card withBorder padding="sm" radius="sm">
+                        <Stack gap={2}>
+                          <Text size="xs" c="dimmed">Oldest WAL segment</Text>
+                          <Text size="xs" ff="monospace">
+                            {walFiles[walFiles.length - 1].name}
+                          </Text>
+                          <Text size="xs" c="dimmed">
+                            {formatRelativeTime(new Date(oldestWalMtime))}
+                          </Text>
+                        </Stack>
+                      </Card>
+                      <Card withBorder padding="sm" radius="sm">
+                        <Stack gap={2}>
+                          <Text size="xs" c="dimmed">Newest WAL segment</Text>
+                          <Text size="xs" ff="monospace">{walFiles[0].name}</Text>
+                          <Text size="xs" c="dimmed">
+                            {formatRelativeTime(new Date(newestWalMtime ?? oldestWalMtime))}
+                          </Text>
+                        </Stack>
+                      </Card>
+                    </SimpleGrid>
+                  ) : null}
                   <Table.ScrollContainer minWidth={400}>
                     <Table withTableBorder withColumnBorders striped>
                       <Table.Thead>
@@ -310,7 +421,19 @@ export function PitrPreviewModal({ opened, onClose, status }: PitrPreviewModalPr
           </Stack>
         </Tabs.Panel>
 
-        {/* ── Restore Planner ────────────────────────────── */}
+        <Tabs.Panel value="investigate" pt="md">
+          <PitrInvestigationTab
+            opened={opened}
+            baseBackups={bases}
+            onApplyRestoreAnchor={({ folder, targetTime: nextTargetTime, message }) => {
+              setSelectedFolder(folder);
+              setTargetTime(nextTargetTime);
+              setPlannerMessage(message);
+              setActiveTab('planner');
+            }}
+          />
+        </Tabs.Panel>
+
         <Tabs.Panel value="planner" pt="md">
           <Stack gap="md">
             <Alert icon={<IconAlertCircle size={16} />} color="red" title="Operator-Managed Restore">
@@ -319,6 +442,12 @@ export function PitrPreviewModal({ opened, onClose, status }: PitrPreviewModalPr
               state is preserved as a <Code>.pre-pitr-*</Code> fallback folder before any change is
               made.
             </Alert>
+
+            {plannerMessage ? (
+              <Alert icon={<IconSearch size={16} />} color="blue">
+                {plannerMessage}
+              </Alert>
+            ) : null}
 
             {basesLoading ? (
               <Progress value={100} animated />
@@ -341,9 +470,9 @@ export function PitrPreviewModal({ opened, onClose, status }: PitrPreviewModalPr
                   <Select
                     label="Base backup"
                     description="The physical snapshot to restore from. All changes after this point are replayed from WAL."
-                    data={bases.map((b) => ({
-                      value: b.folder,
-                      label: `${b.folder} — ${formatFileSize(b.totalSize)} (${b.scheduler?.trigger ?? 'manual'})`,
+                    data={bases.map((baseBackup) => ({
+                      value: baseBackup.folder,
+                      label: `${baseBackup.folder} — ${formatFileSize(baseBackup.totalSize)} (${baseBackup.scheduler?.trigger ?? 'manual'})`,
                     }))}
                     value={selectedFolder}
                     onChange={setSelectedFolder}
@@ -375,7 +504,9 @@ export function PitrPreviewModal({ opened, onClose, status }: PitrPreviewModalPr
                               : 'Unknown — no WAL archived yet'}
                           </Text>
                           <Text size="xs" c="dimmed">
-                            {windowEnd ? `Latest archived WAL ${formatRelativeTime(windowEnd)}` : 'WAL archiving in progress'}
+                            {windowEnd
+                              ? `Latest archived WAL ${formatRelativeTime(windowEnd)}`
+                              : 'WAL archiving in progress'}
                           </Text>
                         </Stack>
                       </Card>

@@ -73,6 +73,29 @@ export const SOFT_DELETE_RETENTION_DAYS = 30;
 export const AUDIT_LOG_RETENTION_DAYS = 90;
 
 /**
+ * Days to retain change_log entries for incident investigation
+ * Reasoning: Must match AUDIT_LOG_RETENTION_DAYS so the investigation window
+ * and recoverability window expire together.
+ */
+export const CHANGE_LOG_RETENTION_DAYS = 90;
+
+/**
+ * Days to retain PITR base backups before cleanup
+ * Reasoning: Must meet or exceed AUDIT_LOG_RETENTION_DAYS so operators can
+ * perform PITR within the same window they can investigate via logs.
+ * Note: auto-pruning enforcement is not yet implemented; this is the policy target.
+ */
+export const PITR_BASE_BACKUP_RETENTION_DAYS = 90;
+
+/**
+ * Days to retain WAL archive segments before cleanup
+ * Reasoning: Must match PITR_BASE_BACKUP_RETENTION_DAYS so WAL replay is
+ * available for as long as base backups are retained.
+ * Note: auto-pruning enforcement is not yet implemented; this is the policy target.
+ */
+export const WAL_ARCHIVE_RETENTION_DAYS = 90;
+
+/**
  * Days to keep session tokens
  * Reasoning: 7-day session validity
  */

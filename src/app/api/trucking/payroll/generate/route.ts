@@ -5,6 +5,39 @@ import { logger } from '@/lib/logger';
 const normalizeKey = (value?: string | null): string =>
   (value ?? '').trim().toLowerCase();
 
+async function logPayrollGenerated(
+  period: { start: string; end: string; label: string },
+  count: number,
+  source: string
+): Promise<void> {
+  try {
+    const { getCurrentUser } = await import('@/lib/auth/session');
+    const { recordChange } = await import('@/core/change-log');
+    const user = await getCurrentUser().catch(() => null);
+    await recordChange(
+      {
+        entityType: 'payroll',
+        action: 'generate',
+        field: 'generate',
+        newValue: {
+          count,
+          periodStart: period.start,
+          periodEnd: period.end,
+          period: period.label,
+        },
+        metadata: { source },
+      },
+      {
+        userId: user?.id ?? null,
+        userName: user?.name ?? null,
+        source,
+      }
+    );
+  } catch (error) {
+    logger.warn('Failed to record change log for payroll generation', { error, source });
+  }
+}
+
 type AttendanceSummary = {
   employeeId: string;
   employeeName: string;
@@ -374,6 +407,8 @@ export async function POST(request: Request) {
     const created = await prisma.truckingPayroll.createMany({
       data: payrollRecords,
     });
+
+    void logPayrollGenerated(targetPeriod, created.count, 'payroll:generate:trucking');
 
     return NextResponse.json({
       success: true,

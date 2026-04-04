@@ -97,6 +97,7 @@ npm run start
 Host-neutral deployment assets:
 
 - `docs/DEPLOYMENT.md`
+- `docs/PITR_INVESTIGATION_AND_RECOVERY.md`
 - `Dockerfile`
 - `docker-compose.yml`
 - `.env.docker.example`

@@ -599,7 +599,7 @@ export function getPitrWalFiles() {
     .map((entry) => {
       const filePath = path.join(walRoot, entry.name);
       const stats = fs.statSync(filePath);
-      return { name: entry.name, size: stats.size };
+      return { name: entry.name, size: stats.size, mtime: stats.mtime.toISOString() };
     })
     .sort((left, right) => right.name.localeCompare(left.name));
 

@@ -205,6 +205,10 @@ Rules:
 
 ### Restore Verification And Drills
 
+For the operator-facing investigation flow, restore decision tree, and
+binary-search procedure, see
+[PITR_INVESTIGATION_AND_RECOVERY.md](./PITR_INVESTIGATION_AND_RECOVERY.md).
+
 Phase 3 adds a chain-aware planner so operators can inspect how a differential or
 log backup relates to its required base backups even though Phase 2A still only
 executes full dump restores.

@@ -188,6 +188,8 @@ export interface PitrBaseBackupFile {
 export interface PitrWalFile {
   name: string;
   size: number;
+  /** ISO-8601 modification time from the filesystem */
+  mtime?: string;
 }
 
 export interface PitrBaseBackup {

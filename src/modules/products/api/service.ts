@@ -395,6 +395,43 @@ export async function postExpenseForProduct(
   }
 }
 
+async function logProductBulkChange(
+  action: string,
+  payload: ProductDTO[],
+  created: number,
+  updated: number,
+  restored: number
+): Promise<void> {
+  try {
+    const { getCurrentUser } = await import('@/lib/auth/session');
+    const { recordChange } = await import('@/core/change-log');
+    const user = await getCurrentUser().catch(() => null);
+    const productCodes = payload
+      .map((dto) => dto['Product Code'])
+      .filter((code): code is string => !!code)
+      .slice(0, 50);
+    await recordChange(
+      {
+        entityType: 'product',
+        action,
+        field: action,
+        newValue: { count: payload.length, created, updated, restored },
+        metadata: { productCodes, totalCount: payload.length },
+      },
+      {
+        userId: user?.id ?? null,
+        userName: user?.name ?? null,
+        source: `products:${action}`,
+      }
+    );
+  } catch (error) {
+    logger.warn('Failed to record change log for product bulk operation', {
+      error,
+      action,
+    });
+  }
+}
+
 export const productService: ProductService = {
   async findActive() {
     const products = await prisma.product.findMany({
@@ -502,6 +539,7 @@ export const productService: ProductService = {
       )
     );
 
+    void logProductBulkChange('bulk_import', payload, result.created, result.updated, result.restored);
     return result;
   },
 
@@ -717,6 +755,7 @@ export const productService: ProductService = {
       notifications = result.changeTracking.length;
     }
 
+    void logProductBulkChange('bulk_update', payload, result.created, result.updated, result.restored);
     return {
       created: result.created,
       updated: result.updated,

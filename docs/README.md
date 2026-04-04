@@ -21,6 +21,7 @@ Nested `*-overview.md` files under `docs/business-logic/**` are domain and works
 
 - [DEBUGGING.md](./DEBUGGING.md) — VS Code debugging and regression workflows
 - [DEPLOYMENT.md](./DEPLOYMENT.md) — host-neutral deployment guide
+- [PITR_INVESTIGATION_AND_RECOVERY.md](./PITR_INVESTIGATION_AND_RECOVERY.md) — operator runbook for PITR investigation, binary-search narrowing, and recovery decisions
 - [DOCKER_CHEAT_SHEET.md](./DOCKER_CHEAT_SHEET.md) — short command-only reference for development and production Docker flows
 - [OPERATIONAL_WORKFLOW_AND_ACCOUNTING_POLICY.md](./OPERATIONAL_WORKFLOW_AND_ACCOUNTING_POLICY.md) — accounting and workflow policy
 - [inventory-ledger-controls.md](./inventory-ledger-controls.md) — inventory ledger checks and recovery notes

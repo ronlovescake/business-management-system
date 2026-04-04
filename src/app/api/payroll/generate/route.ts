@@ -9,6 +9,39 @@ import { sanitizers } from '@/lib/security/sanitize';
 const normalizeKey = (value?: string | null): string =>
   (value ?? '').trim().toLowerCase();
 
+async function logPayrollGenerated(
+  period: { start: string; end: string; label: string },
+  count: number,
+  source: string
+): Promise<void> {
+  try {
+    const { getCurrentUser } = await import('@/lib/auth/session');
+    const { recordChange } = await import('@/core/change-log');
+    const user = await getCurrentUser().catch(() => null);
+    await recordChange(
+      {
+        entityType: 'payroll',
+        action: 'generate',
+        field: 'generate',
+        newValue: {
+          count,
+          periodStart: period.start,
+          periodEnd: period.end,
+          period: period.label,
+        },
+        metadata: { source },
+      },
+      {
+        userId: user?.id ?? null,
+        userName: user?.name ?? null,
+        source,
+      }
+    );
+  } catch (error) {
+    logger.warn('Failed to record change log for payroll generation', { error, source });
+  }
+}
+
 type AttendanceSummary = {
   employeeId: string;
   employeeName: string;
@@ -428,6 +461,8 @@ export const POST = withErrorHandler(async (request: NextRequest) => {
     );
 
     const created = await prisma.payroll.createMany({ data: payrollRecords });
+
+    void logPayrollGenerated(currentPeriod, created.count, 'payroll:generate:clothing');
 
     return ApiResponse.success(
       {

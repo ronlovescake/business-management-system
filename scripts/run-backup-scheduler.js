@@ -3,11 +3,13 @@
 
 const DEFAULT_URL = 'http://app:5000/api/internal/backup/run';
 const DEFAULT_PITR_BASE_URL = 'http://app:5000/api/internal/backup/pitr/run';
+const DEFAULT_LOG_PRUNE_URL = 'http://app:5000/api/internal/maintenance/prune-logs';
 const DEFAULT_PITR_BASE_TIME = '01:00';
 const DEFAULT_FULL_TIME = '22:00';
 const DEFAULT_FULL_CADENCE = 'weekly';
 const DEFAULT_FULL_DAY_OF_WEEK = 'sunday';
 const DEFAULT_DIFF_TIME = '12:00';
+const DEFAULT_LOG_PRUNE_TIME = '03:00';
 const DEFAULT_TIMEZONE = 'Asia/Manila';
 const DEFAULT_RETENTION_DAYS = 30;
 const CHECK_INTERVAL_MS = 60 * 1000;
@@ -31,6 +33,10 @@ const differentialEnabled =
     .toLowerCase() === 'true';
 const pitrBaseEnabled =
   String(process.env.PITR_BASE_AUTO_ENABLED || 'false')
+    .trim()
+    .toLowerCase() === 'true';
+const logPruneEnabled =
+  String(process.env.LOG_PRUNE_AUTO_ENABLED || 'false')
     .trim()
     .toLowerCase() === 'true';
 const runUrl = process.env.BACKUP_AUTO_URL || DEFAULT_URL;
@@ -78,12 +84,20 @@ const scheduleConfigs = [
       retentionDays,
     },
   },
+  {
+    key: 'log-prune',
+    label: 'log pruning',
+    enabled: logPruneEnabled,
+    url: process.env.LOG_PRUNE_AUTO_URL || DEFAULT_LOG_PRUNE_URL,
+    scheduleTime: process.env.LOG_PRUNE_AUTO_TIME || DEFAULT_LOG_PRUNE_TIME,
+    payload: {},
+  },
 ].filter((config) => config.enabled);
 const internalJobToken = process.env.INTERNAL_JOB_TOKEN || '';
 
 if (scheduleConfigs.length === 0) {
   console.log(
-    '[backup-scheduler] Disabled by BACKUP_AUTO_ENABLED=false, BACKUP_DIFF_AUTO_ENABLED=false, and PITR_BASE_AUTO_ENABLED=false'
+    '[backup-scheduler] Disabled by BACKUP_AUTO_ENABLED=false, BACKUP_DIFF_AUTO_ENABLED=false, PITR_BASE_AUTO_ENABLED=false, and LOG_PRUNE_AUTO_ENABLED=false'
   );
   setInterval(() => {}, CHECK_INTERVAL_MS);
 } else {
