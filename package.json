@@ -48,6 +48,7 @@
     "docker:bootstrap": "npm run db:deploy && npm run db:seed:auth",
     "docker:prepare-storage": "bash scripts/docker/prepare-host-storage.sh",
     "docker:backup:native-db": "bash scripts/docker/backup-native-db.sh",
+    "docker:restore:pitr": "bash scripts/docker/restore-pitr-into-docker.sh",
     "docker:restore:docker-db": "bash scripts/docker/restore-dump-into-docker.sh",
     "docker:restore:chain-drill": "bash scripts/docker/restore-chain-drill-into-docker.sh",
     "docker:restore:drill": "bash scripts/docker/restore-drill-into-docker.sh",

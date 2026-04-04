@@ -22,6 +22,15 @@ export interface BackupManifest {
   }>;
   recordCounts?: Record<string, number>;
   differentialFallbackTables?: string[];
+  scheduler?: {
+    trigger: 'manual' | 'scheduled';
+    triggeredAt: string;
+    scheduleTime?: string;
+    timeZone?: string;
+    scheduledDateKey?: string;
+    catchUp?: boolean;
+    missedDateKeys?: string[];
+  };
 }
 
 export interface Backup {
@@ -170,6 +179,72 @@ export interface RestoreJobStatus {
   error?: string;
 }
 
+export interface PitrBaseBackupFile {
+  name: string;
+  path: string;
+  size: number;
+}
+
+export interface PitrBaseBackup {
+  folder: string;
+  timestamp: string;
+  createdAt: string;
+  database: string;
+  host: string;
+  port: string;
+  label: string;
+  scheduler?: {
+    trigger: 'manual' | 'scheduled';
+    triggeredAt: string;
+    scheduleTime?: string;
+    timeZone?: string;
+    scheduledDateKey?: string;
+    catchUp?: boolean;
+    missedDateKeys?: string[];
+  };
+  files: PitrBaseBackupFile[];
+  totalSize: number;
+}
+
+export interface PitrRuntimeStatus {
+  archiveMode: string | null;
+  archiveCommand: string | null;
+  archiveTimeout: string | null;
+  walLevel: string | null;
+  archivedCount: number;
+  failedCount: number;
+  lastArchivedWal: string | null;
+  lastArchivedAt: string | null;
+  lastFailedWal: string | null;
+  lastFailedAt: string | null;
+  statsResetAt: string | null;
+  databaseConnected: boolean;
+  error?: string;
+}
+
+export interface PitrStatus {
+  enabled: boolean;
+  baseBackupDirectory: string;
+  walArchiveDirectory: string;
+  schedule: {
+    enabled: boolean;
+    time: string | null;
+    timeZone: string | null;
+  };
+  baseBackupCount: number;
+  latestBaseBackup: PitrBaseBackup | null;
+  walArchiveFileCount: number;
+  walArchiveTotalSize: number;
+  latestArchivedWalFile: string | null;
+  latestArchivedWalMtime: string | null;
+  runtime: PitrRuntimeStatus;
+  recoveryWindow: {
+    start: string | null;
+    end: string | null;
+  };
+  restoreCommandPreview: string | null;
+}
+
 export type RestoreResults = Record<
   string,
   {
@@ -208,16 +283,16 @@ export const STRATEGY_META: Record<
   BackupStrategy,
   { label: string; color: string; cadence: string }
 > = {
-  full: { label: 'Full', color: 'indigo', cadence: 'Weekly baseline' },
+  full: { label: 'Full', color: 'indigo', cadence: 'Weekly restore-ready dump' },
   differential: {
     label: 'Differential',
     color: 'grape',
-    cadence: 'Daily changes since last full',
+    cadence: 'Daily changes since last full baseline',
   },
   log: {
     label: 'Log',
     color: 'cyan',
-    cadence: 'Continuous change stream',
+    cadence: 'Manual JSON change capture',
   },
 };
 

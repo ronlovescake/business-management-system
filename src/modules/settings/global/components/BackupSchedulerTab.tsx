@@ -20,14 +20,16 @@ export function BackupSchedulerTab() {
 
           <Text size="sm">
             Configure `.env.docker` with `BACKUP_AUTO_ENABLED`,
-            `BACKUP_AUTO_TIME`, `BACKUP_AUTO_TIMEZONE`, and
+            `BACKUP_AUTO_TIME`, `BACKUP_DIFF_AUTO_ENABLED`,
+            `BACKUP_DIFF_AUTO_TIME`, `BACKUP_AUTO_TIMEZONE`, and
             `BACKUP_RETENTION_DAYS`, then run the `backup-scheduler` service
             alongside the app.
           </Text>
 
           <Text size="sm" c="dimmed">
             This phase intentionally keeps scheduling out of browser state so
-            backups continue even when no admin page is open.
+            backups continue even when no admin page is open, including one
+            startup catch-up run after downtime.
           </Text>
         </Stack>
       </Paper>

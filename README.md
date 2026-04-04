@@ -151,6 +151,7 @@ npm run restore:verify -- --dump <dump-file>
 npm run restore:replay -- --folder <backup-folder>
 npm run docker:restore:drill -- <dump-file>
 npm run docker:restore:chain-drill -- <backup-folder>
+npm run docker:restore:pitr -- --base-backup <folder> --target-time <ISO-8601> --confirm
 ```
 
 Restore drill policy:
@@ -165,13 +166,23 @@ Restore drill policy:
 - `npm run restore:replay -- --folder <backup-folder>` is the lower-level replay command for safe targets you prepare yourself; it is intended for drills and validation, not the supported production DR path.
 - The UI restore button still performs the same validated Docker full-dump restore under the hood. It requires the `restore-runner` sidecar and will temporarily make the app unavailable while the database is replaced.
 - `npm run restore:verify -- --dump <dump-file>` is available when you need to verify a restore against a specific database target manually.
+- The Backup page now includes a True PITR / WAL card that shows PostgreSQL archiver health, the latest physical base backup, and a manual base-backup action for point-in-time recovery readiness.
 
 Docker scheduler env knobs:
 
 - `BACKUP_AUTO_ENABLED=true` to enable scheduled full dumps
-- `BACKUP_AUTO_TIME=02:00` for the daily full-dump time
+- `BACKUP_AUTO_TIME=22:00` for the weekly full-dump time
+- `BACKUP_AUTO_CADENCE=weekly` to keep full dumps on a weekly cadence
+- `BACKUP_AUTO_DAY_OF_WEEK=sunday` to run the weekly full dump every Sunday
+- `BACKUP_DIFF_AUTO_ENABLED=true` to enable scheduled differentials
+- `BACKUP_DIFF_AUTO_TIME=12:00` for the daily differential snapshot time
+- `BACKUP_DIFF_AUTO_FORMAT=json` for scheduled differential artifacts
 - `BACKUP_AUTO_TIMEZONE=Asia/Manila` for scheduler timezone
 - `BACKUP_RETENTION_DAYS=30` for automatic pruning
+- `PITR_ENABLED=true` to enable PostgreSQL WAL archiving and the admin PITR status card
+- `PITR_ARCHIVE_TIMEOUT_SECONDS=300` to force periodic WAL segment archival during lower write volume
+- `PITR_BASE_AUTO_ENABLED=true` to let the scheduler create daily physical base backups automatically
+- `PITR_BASE_AUTO_TIME=01:00` for the daily PITR base-backup time
 - `RESTORE_RUNNER_POLL_MS=5000` for the UI restore-runner poll interval
 
 Optional Playwright browser override:

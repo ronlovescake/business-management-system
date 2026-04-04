@@ -26,6 +26,7 @@ type StrategyScheduleEntry = {
     color: string;
     cadence: string;
   };
+  lastBackup: Backup | null;
   last: Date | null;
   next: Date | null;
 };
@@ -67,6 +68,73 @@ export function BackupSection({
   onPreview,
   onDelete,
 }: BackupSectionProps) {
+  const getPlanCadenceLabel = (key: BackupStrategy) => {
+    if (key === 'full') {
+      return 'Scheduled weekly full dump + manual';
+    }
+
+    if (key === 'differential') {
+      return 'Scheduled daily differential snapshot + manual';
+    }
+
+    return 'Manual JSON change capture';
+  };
+
+  const getPlanNextLabel = (
+    key: BackupStrategy,
+    next: Date | null
+  ) => {
+    if (key === 'full') {
+      return next
+        ? `Next: ${formatBackupTimestamp(next.toISOString())}`
+        : 'Next: At the configured scheduler time';
+    }
+
+    if (key === 'differential') {
+      return next
+        ? `Next: ${formatBackupTimestamp(next.toISOString())}`
+        : 'Next: At the configured scheduler time';
+    }
+
+    return 'Next: Manual only';
+  };
+
+  const getLastRunStatus = (backup: Backup | null) => {
+    const scheduler = backup?.manifest?.scheduler;
+    if (!scheduler) {
+      return null;
+    }
+
+    if (scheduler.trigger === 'manual') {
+      return {
+        tone: 'gray' as const,
+        label: 'Manual',
+        detail: null,
+        recoveredDateKeys: null,
+      };
+    }
+
+    if (scheduler.catchUp) {
+      const missedDays = scheduler.missedDateKeys?.length ?? 0;
+      return {
+        tone: 'orange' as const,
+        label: 'Recovery run',
+        detail:
+          missedDays > 0
+            ? `Recovered after ${missedDays} missed scheduled day${missedDays === 1 ? '' : 's'}`
+            : 'Recovered after downtime',
+        recoveredDateKeys: scheduler.missedDateKeys?.join(', ') ?? null,
+      };
+    }
+
+    return {
+      tone: 'teal' as const,
+      label: 'Scheduled',
+      detail: 'Completed on the normal scheduler window',
+      recoveredDateKeys: null,
+    };
+  };
+
   return (
     <Stack gap="lg">
       <Card shadow="sm" padding="lg" radius="md" withBorder>
@@ -153,8 +221,8 @@ export function BackupSection({
           <div>
             <Title order={3}>Backup Plan</Title>
             <Text size="sm" c="dimmed">
-              The system uses a simple rhythm: full baseline, lighter change
-              captures, and server-managed automation.
+              Full dumps and differential snapshots can both run from the
+              server-side scheduler. Log strategy remains manual-only.
             </Text>
           </div>
           <Badge color="teal">Overview</Badge>
@@ -162,13 +230,16 @@ export function BackupSection({
 
         <Stack gap="sm">
           <SimpleGrid cols={{ base: 1, md: 3 }} spacing="md">
-            {strategySchedule.map(({ key, meta, last, next }) => (
+            {strategySchedule.map(({ key, meta, lastBackup, last, next }) => {
+              const lastRunStatus = getLastRunStatus(lastBackup);
+
+              return (
               <Card key={key} withBorder padding="sm" radius="md" h="100%">
                 <Stack gap="sm" h="100%" justify="space-between">
                   <Group gap="sm" align="center" wrap="nowrap">
                     <Badge color={meta.color}>{meta.label}</Badge>
                     <Text size="sm" c="dimmed">
-                      {meta.cadence}
+                      {getPlanCadenceLabel(key)}
                     </Text>
                   </Group>
                   <Stack gap={2}>
@@ -177,24 +248,42 @@ export function BackupSection({
                         ? `Last: ${formatRelativeTime(last)}`
                         : 'Last: Never'}
                     </Text>
+                    {lastRunStatus ? (
+                      <Stack gap={2}>
+                        <Group gap="xs">
+                        <Badge color={lastRunStatus.tone} variant="light">
+                          {lastRunStatus.label}
+                        </Badge>
+                        {lastRunStatus.detail ? (
+                          <Text size="xs" c="dimmed">
+                            {lastRunStatus.detail}
+                          </Text>
+                        ) : null}
+                        </Group>
+                        {lastRunStatus.recoveredDateKeys ? (
+                          <Text size="xs" c="dimmed">
+                            Recovered dates: {lastRunStatus.recoveredDateKeys}
+                          </Text>
+                        ) : null}
+                      </Stack>
+                    ) : null}
                     <Text size="xs" c="dimmed">
-                      {key === 'log'
-                        ? 'Next: Continuous stream'
-                        : next
-                          ? `Next: ${formatBackupTimestamp(next.toISOString())}`
-                          : 'Next: Ready now'}
+                      {getPlanNextLabel(key, next)}
                     </Text>
                   </Stack>
                 </Stack>
               </Card>
-            ))}
+              );
+            })}
           </SimpleGrid>
 
           <Alert color="teal">
-            Automatic disaster-recovery backups now run from the server-side
-            scheduler. Use this page for manual runs and review, and configure
-            `BACKUP_AUTO_ENABLED`, `BACKUP_AUTO_TIME`, `BACKUP_AUTO_TIMEZONE`,
-            and `BACKUP_RETENTION_DAYS` in your Docker environment.
+            Scheduled automation supports full dumps and differential snapshots,
+            with one startup catch-up run after downtime when a scheduled day
+            was missed. Configure `BACKUP_AUTO_ENABLED`, `BACKUP_AUTO_TIME`,
+            `BACKUP_DIFF_AUTO_ENABLED`, `BACKUP_DIFF_AUTO_TIME`,
+            `BACKUP_AUTO_TIMEZONE`, and `BACKUP_RETENTION_DAYS` in your Docker
+            environment.
           </Alert>
         </Stack>
       </Card>

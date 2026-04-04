@@ -67,8 +67,19 @@ const shouldBypassAuth =
 
 export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
+  const internalJobToken = (process.env.INTERNAL_JOB_TOKEN || '').trim();
+  const providedInternalToken =
+    (req.headers.get('x-internal-token') || '').trim();
 
   if (shouldBypassAuth) {
+    return NextResponse.next();
+  }
+
+  if (
+    pathname.startsWith('/api/internal/') &&
+    internalJobToken &&
+    providedInternalToken === internalJobToken
+  ) {
     return NextResponse.next();
   }
 

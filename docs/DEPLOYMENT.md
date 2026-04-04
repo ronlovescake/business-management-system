@@ -85,26 +85,100 @@ The bootstrap command is idempotent for the bundled local stack. It:
 curl http://localhost:5000/api/health
 ```
 
-### Scheduled Full Dumps
+### Scheduled Backups
 
 Phase 1 automated backups use a dedicated Docker sidecar that triggers the
-internal backup endpoint for daily full PostgreSQL dumps.
+internal backup endpoint for weekly full PostgreSQL dumps and optional daily
+differential snapshots.
 
 Required `.env.docker` settings:
 
 - `INTERNAL_JOB_TOKEN` must be set on both `app` and `backup-scheduler`
 - `BACKUP_AUTO_ENABLED=true`
-- `BACKUP_AUTO_TIME=02:00`
+- `BACKUP_AUTO_TIME=22:00`
+- `BACKUP_AUTO_CADENCE=weekly`
+- `BACKUP_AUTO_DAY_OF_WEEK=sunday`
+- `BACKUP_DIFF_AUTO_ENABLED=false`
+- `BACKUP_DIFF_AUTO_TIME=12:00`
+- `BACKUP_DIFF_AUTO_FORMAT=json`
 - `BACKUP_AUTO_TIMEZONE=Asia/Manila`
 - `BACKUP_RETENTION_DAYS=30`
+- `PITR_ENABLED=false`
+- `PITR_ARCHIVE_TIMEOUT_SECONDS=300`
+- `PITR_BASE_AUTO_ENABLED=false`
+- `PITR_BASE_AUTO_TIME=01:00`
 
 Notes:
 
 - The scheduler calls `POST /api/internal/backup/run` with the internal token.
-- The route skips creating a second full dump if one already exists for the
-  current scheduled day.
+- Full scheduled runs always create restore-ready PostgreSQL dump backups.
+- Weekly full scheduled runs default to Sunday at `22:00` in the configured timezone.
+- Differential scheduled runs use the manual differential pipeline and default
+  to JSON artifacts unless you override `BACKUP_DIFF_AUTO_FORMAT`.
+- On startup, the scheduler performs one immediate catch-up check. If the app
+  missed one or more prior scheduled periods while it was down, it creates the
+  scheduled full or differential backup right away instead of waiting for the
+  next scheduled clock time.
+- The route skips creating a second scheduled backup if one already exists for
+  the current scheduled period.
+- Scheduled differentials require an existing full backup baseline. If none
+  exists yet, the scheduler skips the run instead of silently promoting it.
 - Old backup folders are pruned after each successful scheduled run, while the
   latest full backup and any referenced chain bases are preserved.
+
+### True PostgreSQL PITR And WAL Visibility
+
+The Docker stack can now enable PostgreSQL-native point-in-time recovery by
+turning on WAL archiving in the `db` container and exposing status in the admin
+backup page.
+
+Enable it in `.env.docker`:
+
+- `PITR_ENABLED=true`
+- `PITR_ARCHIVE_TIMEOUT_SECONDS=300`
+
+What this enables:
+
+- PostgreSQL starts with `wal_level=replica`
+- PostgreSQL writes archived WAL segments into
+  `${BMS_DATA_ROOT}/backup/pitr/wal`
+- The admin backup page shows live `pg_stat_archiver` data plus the latest
+  physical base backup
+- Admins can create a new physical base backup from the UI, stored under
+  `${BMS_DATA_ROOT}/backup/pitr/base/<timestamp>`
+- Optional scheduler automation can create one PITR base backup per day through
+  the same internal scheduler sidecar used by full and differential backups
+
+Operational notes:
+
+- Run `npm run docker:prepare-storage` before the first PITR-enabled startup so
+  the base-backup and WAL archive directories already exist.
+- After changing `PITR_ENABLED`, recreate the `db` container so PostgreSQL picks
+  up the new runtime settings.
+- If you enable `PITR_BASE_AUTO_ENABLED=true`, recreate the `app` and
+  `backup-scheduler` containers so the scheduler can see the new base-backup
+  schedule.
+- The PITR status card is only considered healthy once PostgreSQL reports
+  `archive_mode=on` and `wal_level=replica`.
+- Scheduled PITR base backups run daily at `PITR_BASE_AUTO_TIME` and perform
+  one startup catch-up run if a scheduled day was missed while the app was
+  down.
+
+Restore a Docker database to a point in time with the latest archived WAL chain:
+
+```bash
+npm run docker:restore:pitr -- --base-backup <base-backup-folder> --target-time <ISO-8601> --confirm
+```
+
+The PITR restore script:
+
+- stops the app and database containers
+- preserves the current live PostgreSQL data directory under a timestamped
+  `.pre-pitr-*` folder
+- replaces the live data directory with the selected physical base backup
+- configures `restore_command` against `/backups/pitr/wal`
+- starts PostgreSQL and promotes it at the requested recovery target time
+- starts the app again after the recovered database is ready
 
 ### Supported Disaster-Recovery Restore Path
 

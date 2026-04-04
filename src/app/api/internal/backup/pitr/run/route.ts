@@ -1,12 +1,11 @@
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
-
 import { logger } from '@/lib/logger';
 import {
-  ScheduledBackupConfigurationError,
-  runScheduledBackupJob,
-  type SchedulerRequestBody,
-} from '@/lib/backup/scheduledBackupRunner';
+  isPitrErrorWithStatusCode,
+  runScheduledPitrBaseBackup,
+  type ScheduledPitrRequestBody,
+} from '@/lib/backup/pitr';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -14,11 +13,9 @@ export const runtime = 'nodejs';
 function requireInternalToken(req: NextRequest): NextResponse | null {
   const expected = (process.env.INTERNAL_JOB_TOKEN || '').trim();
   if (!expected) {
+    logger.error('Internal PITR trigger missing INTERNAL_JOB_TOKEN env');
     return NextResponse.json(
-      {
-        success: false,
-        error: 'INTERNAL_JOB_TOKEN is not configured on the server',
-      },
+      { success: false, error: 'Internal scheduler token is not configured' },
       { status: 500 }
     );
   }
@@ -26,8 +23,8 @@ function requireInternalToken(req: NextRequest): NextResponse | null {
   const provided = (req.headers.get('x-internal-token') || '').trim();
   if (!provided || provided !== expected) {
     return NextResponse.json(
-      { success: false, error: 'Unauthorized' },
-      { status: 401, headers: { 'WWW-Authenticate': 'Bearer' } }
+      { success: false, error: 'Invalid internal scheduler token' },
+      { status: 401 }
     );
   }
 
@@ -40,35 +37,33 @@ export async function POST(request: NextRequest) {
     return authError;
   }
 
-  let body: SchedulerRequestBody = {};
+  let body: ScheduledPitrRequestBody = {};
   try {
-    body = (await request.json()) as SchedulerRequestBody;
+    body = (await request.json()) as ScheduledPitrRequestBody;
   } catch {
     body = {};
   }
 
   try {
-    const result = await runScheduledBackupJob(body);
+    const result = await runScheduledPitrBaseBackup(body);
     return NextResponse.json(result);
   } catch (error) {
-    if (error instanceof ScheduledBackupConfigurationError) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: error.message,
-        },
-        { status: 400 }
-      );
-    }
+    const statusCode = isPitrErrorWithStatusCode(error) ? error.statusCode : 500;
 
-    logger.error('Internal scheduled backup failed', { error });
+    logger.error('Internal scheduled PITR base backup failed', {
+      error,
+      statusCode,
+    });
+
     return NextResponse.json(
       {
         success: false,
         error:
-          error instanceof Error ? error.message : 'Scheduled backup failed',
+          error instanceof Error
+            ? error.message
+            : 'Internal scheduled PITR base backup failed',
       },
-      { status: 500 }
+      { status: statusCode }
     );
   }
 }

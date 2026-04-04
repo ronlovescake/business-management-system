@@ -41,6 +41,37 @@ const getArtifactSummary = (backup: Backup) => {
   };
 };
 
+const getScheduleBadges = (backup: Backup) => {
+  const scheduler = backup.manifest?.scheduler;
+  if (!scheduler) {
+    return {
+      badges: [],
+      detail: null,
+    };
+  }
+
+  if (scheduler.trigger === 'manual') {
+    return {
+      badges: [{ color: 'gray', label: 'Manual' }],
+      detail: null,
+    };
+  }
+
+  if (scheduler.catchUp) {
+    return {
+      badges: [{ color: 'orange', label: 'Recovery run' }],
+      detail: scheduler.missedDateKeys?.length
+        ? `Recovered: ${scheduler.missedDateKeys.join(', ')}`
+        : 'Recovered after downtime',
+    };
+  }
+
+  return {
+    badges: [{ color: 'teal', label: 'Scheduled' }],
+    detail: null,
+  };
+};
+
 export const BackupListCard = memo(
   ({
     backups,
@@ -102,6 +133,7 @@ export const BackupListCard = memo(
                   : null;
                 const { artifactCount, hasDump, hasJson } =
                   getArtifactSummary(backup);
+                const scheduleMeta = getScheduleBadges(backup);
 
                 return (
                   <MantineTable.Tr key={backup.timestamp}>
@@ -117,15 +149,33 @@ export const BackupListCard = memo(
                       </Stack>
                     </MantineTable.Td>
                     <MantineTable.Td>
-                      {strategyMeta ? (
-                        <Badge color={strategyMeta.color} variant="light">
-                          {strategyMeta.label}
-                        </Badge>
-                      ) : (
-                        <Badge color="gray" variant="light">
-                          Unknown
-                        </Badge>
-                      )}
+                      <Stack gap={4}>
+                        <Group gap="xs">
+                          {strategyMeta ? (
+                            <Badge color={strategyMeta.color} variant="light">
+                              {strategyMeta.label}
+                            </Badge>
+                          ) : (
+                            <Badge color="gray" variant="light">
+                              Unknown
+                            </Badge>
+                          )}
+                          {scheduleMeta.badges.map((badge) => (
+                            <Badge
+                              key={`${backup.timestamp}-${badge.label}`}
+                              color={badge.color}
+                              variant="light"
+                            >
+                              {badge.label}
+                            </Badge>
+                          ))}
+                        </Group>
+                        {scheduleMeta.detail ? (
+                          <Text size="xs" c="dimmed">
+                            {scheduleMeta.detail}
+                          </Text>
+                        ) : null}
+                      </Stack>
                     </MantineTable.Td>
                     <MantineTable.Td>
                       <Group gap="xs">

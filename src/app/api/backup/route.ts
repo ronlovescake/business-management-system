@@ -33,6 +33,7 @@ import {
   parseTimestampToDate,
   type BackupLookup,
   type BackupManifestFile,
+  type BackupSchedulerMetadata,
   type BackupStrategy,
 } from './backupRouteUtils';
 import {
@@ -83,6 +84,29 @@ class BackupGenerationError extends Error {
     this.details = details;
   }
 }
+
+export type CreateBackupJobOptions = {
+  format?: string;
+  includeSoftDeleted?: boolean;
+  strategy?: BackupStrategy;
+  strictMissingTables?: boolean;
+  allowStrategyFallback?: boolean;
+  scheduler?: BackupSchedulerMetadata;
+};
+
+export type CreateBackupJobResult = {
+  success: true;
+  message: string;
+  warnings?: string[];
+  backup: {
+    totalSize: number;
+    timestamp: string;
+    files: string[];
+    format: BackupFormat;
+    strategy: BackupStrategy;
+  };
+  manifest: BackupManifestFile;
+};
 
 function isValidStrategy(value: unknown): value is BackupStrategy {
   return value === 'full' || value === 'differential' || value === 'log';
@@ -623,34 +647,23 @@ async function createDatabaseDump(
   }
 }
 
-// POST - Create backup
-export async function POST(request: NextRequest) {
-  const authError = await requireBackupRestoreAdmin();
-  if (authError) {
-    return authError;
-  }
-
+export async function createBackupJob({
+  format = 'all',
+  includeSoftDeleted = false,
+  strategy: requestedStrategy,
+  strictMissingTables = isStrictMissingTablesEnabled(),
+  allowStrategyFallback = true,
+  scheduler,
+}: CreateBackupJobOptions = {}): Promise<CreateBackupJobResult> {
   let backupDirForCleanup: string | null = null;
 
   try {
-    const body = (await request.json()) as {
-      format?: string;
-      includeSoftDeleted?: boolean;
-      strategy?: BackupStrategy;
-      strictMissingTables?: boolean;
-    };
-    const { format = 'all', includeSoftDeleted = false } = body;
-    const strictMissingTables =
-      typeof body.strictMissingTables === 'boolean'
-        ? body.strictMissingTables
-        : isStrictMissingTablesEnabled();
-    let strategy: BackupStrategy = isValidStrategy(body.strategy)
-      ? body.strategy
+    let strategy: BackupStrategy = isValidStrategy(requestedStrategy)
+      ? requestedStrategy
       : 'full';
     const requestedFormat: BackupFormat =
       strategy === 'log' ? 'json' : normalizeBackupFormat(format);
 
-    // Generate timestamp in Manila timezone (UTC+8)
     const now = new Date();
     const manilaTime = new Date(now.getTime() + 8 * 60 * 60 * 1000);
     const timestamp = manilaTime
@@ -697,6 +710,16 @@ export async function POST(request: NextRequest) {
     if (strategy === 'differential') {
       baseReference = findLatestBackupByStrategy(BACKUP_DIR, 'full');
       if (!baseReference) {
+        if (!allowStrategyFallback) {
+          throw new BackupGenerationError(
+            'Backup failed: differential backup requires an existing full baseline',
+            'Create at least one full backup before scheduling or creating a differential backup without fallback.'
+          );
+        }
+
+        warnings.push(
+          'No full backup baseline was found, so the requested differential backup was promoted to a full backup.'
+        );
         logger.warn(
           'Differential backup requested but no full backup exists. Falling back to full backup.'
         );
@@ -729,7 +752,6 @@ export async function POST(request: NextRequest) {
             until: manilaTime.toISOString(),
           };
 
-    // JSON or Log Backup
     if (requestedFormat === 'json' || requestedFormat === 'all') {
       const metadata = {
         createdAt: manilaTime.toISOString(),
@@ -1037,12 +1059,8 @@ export async function POST(request: NextRequest) {
     const describedFiles = await describeFiles(files);
 
     if (!describedFiles.length) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: 'Backup failed: no output files were generated',
-        },
-        { status: 500 }
+      throw new BackupGenerationError(
+        'Backup failed: no output files were generated'
       );
     }
 
@@ -1080,26 +1098,21 @@ export async function POST(request: NextRequest) {
         fileChecksums,
       },
       restoreVerification,
+      scheduler,
     };
 
     const manifestFile = path.join(backupDir, 'MANIFEST.json');
     await writeFileAtomic(manifestFile, JSON.stringify(manifest, null, 2));
 
     if (!integrityVerified) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: 'Backup integrity verification failed',
-        },
-        { status: 500 }
-      );
+      throw new BackupGenerationError('Backup integrity verification failed');
     }
 
     const totalSize = describedFiles.reduce((sum, { size }) => {
       return sum + size;
     }, 0);
 
-    return NextResponse.json({
+    return {
       success: true,
       message: warnings.length
         ? 'Backup created with warnings'
@@ -1112,10 +1125,48 @@ export async function POST(request: NextRequest) {
         format: requestedFormat,
         strategy,
       },
-    });
+      manifest,
+    };
   } catch (error) {
     cleanupPartialBackup(backupDirForCleanup);
+    throw error;
+  } finally {
+    await prisma.$disconnect();
+  }
+}
 
+// POST - Create backup
+export async function POST(request: NextRequest) {
+  const authError = await requireBackupRestoreAdmin();
+  if (authError) {
+    return authError;
+  }
+
+  try {
+    const body = (await request.json()) as {
+      format?: string;
+      includeSoftDeleted?: boolean;
+      strategy?: BackupStrategy;
+      strictMissingTables?: boolean;
+    };
+    const result = await createBackupJob({
+      format: body.format,
+      includeSoftDeleted: body.includeSoftDeleted,
+      strategy: body.strategy,
+      strictMissingTables: body.strictMissingTables,
+      scheduler: {
+        trigger: 'manual',
+        triggeredAt: new Date().toISOString(),
+      },
+    });
+
+    return NextResponse.json({
+      success: result.success,
+      message: result.message,
+      warnings: result.warnings,
+      backup: result.backup,
+    });
+  } catch (error) {
     if (error instanceof MissingRequiredTablesError) {
       return NextResponse.json(
         {
@@ -1147,8 +1198,6 @@ export async function POST(request: NextRequest) {
       },
       { status: 500 }
     );
-  } finally {
-    await prisma.$disconnect();
   }
 }
 

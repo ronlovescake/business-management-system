@@ -77,6 +77,7 @@ export const useBackupSchedule = (backups: Backup[]) => {
       STRATEGY_SEQUENCE.map((key) => ({
         key,
         meta: STRATEGY_META[key],
+        lastBackup: strategyHistory[key]?.backup ?? null,
         last: strategyHistory[key]?.date ?? null,
         next: nextDueLookup[key] ?? null,
       })),

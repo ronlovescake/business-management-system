@@ -12,6 +12,7 @@ import type {
   BackupData,
   BackupChangesComparison,
   BackupChangePreview,
+  PitrStatus,
   RestoreJobStatus,
   RestorePlan,
   BackupStrategy,
@@ -24,6 +25,7 @@ import { useBackupRestoreSidebarStore } from './backup-restore/backupRestoreSide
 import { useBackupDownloadHandlers } from './backup-restore/useBackupDownloadHandlers';
 import { BackupTablesActionPanel } from './backup-restore/BackupTablesActionPanel';
 import { BackupSection } from './backup-restore/BackupSection';
+import { PitrStatusCard } from './backup-restore/PitrStatusCard';
 import { RestoreSection } from './backup-restore/RestoreSection';
 import { TablePreviewSection } from './backup-restore/TablePreviewSection';
 import {
@@ -108,6 +110,9 @@ export function BackupRestoreTab() {
   const [restoreRunnerHeartbeatAt, setRestoreRunnerHeartbeatAt] = useState<
     string | null
   >(null);
+  const [pitrStatus, setPitrStatus] = useState<PitrStatus | null>(null);
+  const [pitrStatusLoading, setPitrStatusLoading] = useState(false);
+  const [pitrCreating, setPitrCreating] = useState(false);
   const [restoreJobStatus, setRestoreJobStatus] =
     useState<RestoreJobStatus | null>(null);
   const [restoreJobLoading, setRestoreJobLoading] = useState(false);
@@ -322,9 +327,39 @@ export function BackupRestoreTab() {
     }
   }, [restoreJobStatus]);
 
+  const fetchPitrStatus = useCallback(async () => {
+    setPitrStatusLoading(true);
+
+    try {
+      const payload = await api.get<{
+        success: boolean;
+        status?: PitrStatus;
+        error?: string;
+      }>('/api/backup/pitr');
+
+      if (!payload.success || !payload.status) {
+        throw new Error(payload.error || 'Failed to fetch PITR status');
+      }
+
+      setPitrStatus(payload.status);
+    } catch (error) {
+      showNotification({
+        title: 'PITR status unavailable',
+        message: error instanceof Error ? error.message : 'Unknown error',
+        color: 'red',
+      });
+    } finally {
+      setPitrStatusLoading(false);
+    }
+  }, []);
+
   useEffect(() => {
     void fetchBackups();
   }, [fetchBackups]);
+
+  useEffect(() => {
+    void fetchPitrStatus();
+  }, [fetchPitrStatus]);
 
   useEffect(() => {
     void fetchRestoreRunnerStatus();
@@ -472,6 +507,45 @@ export function BackupRestoreTab() {
       });
     }
   };
+
+  const handleCreatePitrBaseBackup = useCallback(async () => {
+    setPitrCreating(true);
+
+    try {
+      const payload = await api.post<{
+        success: boolean;
+        message?: string;
+        error?: string;
+        status?: PitrStatus;
+      }>('/api/backup/pitr', {});
+
+      if (!payload.success) {
+        throw new Error(payload.error || 'Failed to create PITR base backup');
+      }
+
+      if (payload.status) {
+        setPitrStatus(payload.status);
+      } else {
+        await fetchPitrStatus();
+      }
+
+      showNotification({
+        title: 'PITR base backup created',
+        message:
+          payload.message ||
+          'A new physical base backup is available for point-in-time recovery.',
+        color: 'green',
+      });
+    } catch (error) {
+      showNotification({
+        title: 'PITR base backup failed',
+        message: error instanceof Error ? error.message : 'Unknown error',
+        color: 'red',
+      });
+    } finally {
+      setPitrCreating(false);
+    }
+  }, [fetchPitrStatus]);
 
   const handlePreviewBackup = useCallback(
     async (backup: Backup) => {
@@ -1225,24 +1299,34 @@ export function BackupRestoreTab() {
       />
 
       {pageTab === 'backup' ? (
-        <BackupSection
-          backups={backups}
-          loading={loading}
-          creating={creating}
-          backupStrategy={backupStrategy}
-          strategyOptions={strategyOptions}
-          backupFormat={backupFormat}
-          isLogStrategy={isLogStrategy}
-          includeSoftDeleted={includeSoftDeleted}
-          strategySchedule={strategySchedule}
-          onBackupStrategyChange={setBackupStrategy}
-          onBackupFormatChange={setBackupFormat}
-          onIncludeSoftDeletedChange={setIncludeSoftDeleted}
-          onCreateBackup={() => void handleCreateBackup()}
-          onRefresh={() => void fetchBackups()}
-          onPreview={handlePreviewBackup}
-          onDelete={(backup) => void handleDeleteBackup(backup.timestamp)}
-        />
+        <Stack gap="lg">
+          <BackupSection
+            backups={backups}
+            loading={loading}
+            creating={creating}
+            backupStrategy={backupStrategy}
+            strategyOptions={strategyOptions}
+            backupFormat={backupFormat}
+            isLogStrategy={isLogStrategy}
+            includeSoftDeleted={includeSoftDeleted}
+            strategySchedule={strategySchedule}
+            onBackupStrategyChange={setBackupStrategy}
+            onBackupFormatChange={setBackupFormat}
+            onIncludeSoftDeletedChange={setIncludeSoftDeleted}
+            onCreateBackup={() => void handleCreateBackup()}
+            onRefresh={() => void fetchBackups()}
+            onPreview={handlePreviewBackup}
+            onDelete={(backup) => void handleDeleteBackup(backup.timestamp)}
+          />
+
+          <PitrStatusCard
+            status={pitrStatus}
+            loading={pitrStatusLoading}
+            creating={pitrCreating}
+            onRefresh={() => void fetchPitrStatus()}
+            onCreateBaseBackup={() => void handleCreatePitrBaseBackup()}
+          />
+        </Stack>
       ) : null}
 
       {pageTab === 'restore' ? (

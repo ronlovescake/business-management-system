@@ -6,6 +6,18 @@ import type { RestoreVerificationSnapshot } from '@/lib/backup/restoreVerificati
 
 export type BackupStrategy = 'full' | 'differential' | 'log';
 
+export interface BackupSchedulerMetadata {
+  trigger: 'manual' | 'scheduled';
+  triggeredAt: string;
+  scheduleTime?: string;
+  scheduleCadence?: 'daily' | 'weekly';
+  scheduleDayOfWeek?: string;
+  timeZone?: string;
+  scheduledDateKey?: string;
+  catchUp?: boolean;
+  missedDateKeys?: string[];
+}
+
 export interface BackupManifestFile {
   timestamp: string;
   database: string;
@@ -34,6 +46,7 @@ export interface BackupManifestFile {
     fileChecksums: Record<string, string>;
   };
   restoreVerification?: RestoreVerificationSnapshot;
+  scheduler?: BackupSchedulerMetadata;
 }
 
 export interface BackupLookup {

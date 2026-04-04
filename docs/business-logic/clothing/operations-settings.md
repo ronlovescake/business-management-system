@@ -37,7 +37,9 @@
 | #   | Logic                                                                           | Explanation                                                                                                                                          |
 | --- | ------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
 | 9   | `/clothing/operations/settings?tab=backup` redirects to `/admin/backup-restore` | The route page checks `searchParams.tab`; the old backup tab no longer renders inside Clothing Settings and now redirects to the central admin page. |
-| 10  | The settings route renders through the shared operations page wrapper           | `renderOperationsPage('/clothing/operations/settings', <SettingsRoutePage />)` preserves the standard Clothing Operations route shell.               |
+| 10  | The centralized admin backup page now includes scheduled-backup and PITR visibility | Operators who follow the redirect land on the admin backup page, which now surfaces scheduled logical backup behavior plus PostgreSQL PITR / WAL status and base-backup controls. |
+| 11  | Detailed backup cadence and recovery procedures stay in the operational docs    | This business-logic doc records the route-level handoff only; exact scheduler cadence, WAL archiving, PITR restore steps, and container requirements are documented in `docs/DEPLOYMENT.md`. |
+| 12  | The settings route renders through the shared operations page wrapper           | `renderOperationsPage('/clothing/operations/settings', <SettingsRoutePage />)` preserves the standard Clothing Operations route shell.               |
 
 ---
 

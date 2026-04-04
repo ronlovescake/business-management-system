@@ -12,8 +12,11 @@ BMS_DATA_ROOT="${BMS_DATA_ROOT:-$(read_env_value BMS_DATA_ROOT)}"
 data_root="${BMS_DATA_ROOT:-${HOME}/business-management-system-data}"
 postgres_dir="${data_root}/postgres"
 backup_dir="${data_root}/backup"
+pitr_base_dir="${backup_dir}/pitr/base"
+pitr_wal_dir="${backup_dir}/pitr/wal"
 
-mkdir -p "$postgres_dir" "$backup_dir"
+mkdir -p "$postgres_dir" "$backup_dir" "$pitr_base_dir" "$pitr_wal_dir"
+chmod 0777 "$pitr_base_dir" "$pitr_wal_dir"
 
 if [[ -d "$postgres_dir" ]]; then
   if [[ -f "$postgres_dir/PG_VERSION" ]]; then
@@ -31,3 +34,5 @@ if [[ -d "$postgres_dir" ]]; then
 fi
 
 echo "Prepared backup directory: $backup_dir"
+echo "Prepared PITR base-backup directory: $pitr_base_dir"
+echo "Prepared PITR WAL archive directory: $pitr_wal_dir"

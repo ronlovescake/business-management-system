@@ -295,7 +295,7 @@ vi.mock('fs/promises', () => {
 
 import { POST as createBackup } from '@/app/api/backup/route';
 import { POST as restoreBackup } from '@/app/api/restore/route';
-import { POST as runInternalBackup } from '@/app/api/internal/backup/run/route';
+import { runScheduledBackupJob } from '@/lib/backup/scheduledBackupRunner';
 
 describe('Backup/Restore workflow hardening', () => {
   beforeEach(() => {
@@ -496,6 +496,9 @@ describe('Backup/Restore workflow hardening', () => {
   });
 
   it('runs the internal scheduled full-dump route and prunes expired backups', async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-04-05T14:30:00.000Z'));
+
     const expiredFolder = path.resolve(
       process.cwd(),
       'backups',
@@ -524,23 +527,286 @@ describe('Backup/Restore workflow hardening', () => {
       Buffer.from('OLDPG')
     );
 
-    const response = await runInternalBackup(
-      new NextRequest('http://localhost/api/internal/backup/run', {
-        method: 'POST',
-        headers: {
-          'content-type': 'application/json',
-          'x-internal-token': 'test-internal-token',
-        },
-        body: JSON.stringify({ retentionDays: 30, timeZone: 'Asia/Manila' }),
-      })
+    try {
+      const payload = await runScheduledBackupJob({
+        retentionDays: 30,
+        timeZone: 'Asia/Manila',
+        scheduleTime: '22:00',
+        scheduleCadence: 'weekly',
+        scheduleDayOfWeek: 'sunday',
+      });
+
+      expect(payload.success).toBe(true);
+      expect(payload.backup).toBeDefined();
+      expect(payload.prune).toBeDefined();
+      if (!payload.backup || !payload.prune) {
+        throw new Error('Expected scheduled full backup result with prune data');
+      }
+      const { backup, prune } = payload;
+
+      expect(backup.format).toBe('dump');
+      expect(backup.strategy).toBe('full');
+      expect(prune.prunedFolders).toContain('2026-01-01T01-00-00');
+
+      const manifestPath = path.resolve(
+        process.cwd(),
+        'backups',
+        backup.timestamp,
+        'MANIFEST.json'
+      );
+      const manifestRaw = fsState.files.get(manifestPath);
+      expect(manifestRaw).toBeTruthy();
+      const manifest = JSON.parse(String(manifestRaw));
+      expect(manifest.scheduler).toMatchObject({
+        trigger: 'scheduled',
+        scheduleTime: '22:00',
+        scheduleCadence: 'weekly',
+        scheduleDayOfWeek: 'sunday',
+        timeZone: 'Asia/Manila',
+        scheduledDateKey: '2026-04-05',
+      });
+      expect(typeof manifest.scheduler.catchUp).toBe('boolean');
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('does not run a weekly full dump before the scheduled Sunday window', async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-04-04T14:30:00.000Z'));
+
+    const priorFullFolder = path.resolve(
+      process.cwd(),
+      'backups',
+      '2026-03-29T14-30-00'
+    );
+    fsState.dirs.add(priorFullFolder);
+    fsState.files.set(
+      path.join(priorFullFolder, 'MANIFEST.json'),
+      Buffer.from(
+        JSON.stringify({
+          timestamp: '2026-03-29T14:30:00.000Z',
+          strategy: 'full',
+          format: 'dump',
+          files: [
+            {
+              name: 'backup-2026-03-29T14-30-00.dump',
+              size: 5,
+              path: '2026-03-29T14-30-00/backup-2026-03-29T14-30-00.dump',
+            },
+          ],
+        })
+      )
+    );
+    fsState.files.set(
+      path.join(priorFullFolder, 'backup-2026-03-29T14-30-00.dump'),
+      Buffer.from('OLDPG')
     );
 
-    const payload = await response.json();
+    try {
+      const payload = await runScheduledBackupJob({
+        retentionDays: 30,
+        timeZone: 'Asia/Manila',
+        scheduleTime: '22:00',
+        scheduleCadence: 'weekly',
+        scheduleDayOfWeek: 'sunday',
+        allowCatchUpBeforeScheduledTime: true,
+      });
 
-    expect(response.status).toBe(200);
-    expect(payload.success).toBe(true);
-    expect(payload.backup.format).toBe('dump');
-    expect(payload.backup.strategy).toBe('full');
-    expect(payload.prune.prunedFolders).toContain('2026-01-01T01-00-00');
+      expect(payload.success).toBe(true);
+      expect(payload.skipped).toBe(true);
+      expect(payload.reason).toContain('current scheduled period');
+      expect(payload.backup).toMatchObject({
+        strategy: 'full',
+        format: 'dump',
+      });
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('runs an immediate catch-up weekly full dump when a prior scheduled week was missed', async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-04-06T01:30:00.000Z'));
+
+    const priorFullFolder = path.resolve(
+      process.cwd(),
+      'backups',
+      '2026-03-29T14-00-00'
+    );
+    fsState.dirs.add(priorFullFolder);
+    fsState.files.set(
+      path.join(priorFullFolder, 'MANIFEST.json'),
+      Buffer.from(
+        JSON.stringify({
+          timestamp: '2026-03-29T14:00:00.000Z',
+          strategy: 'full',
+          format: 'dump',
+          files: [
+            {
+              name: 'backup-2026-03-29T14-00-00.dump',
+              size: 5,
+              path: '2026-03-29T14-00-00/backup-2026-03-29T14-00-00.dump',
+            },
+          ],
+        })
+      )
+    );
+    fsState.files.set(
+      path.join(priorFullFolder, 'backup-2026-03-29T14-00-00.dump'),
+      Buffer.from('OLDPG')
+    );
+
+    try {
+      const payload = await runScheduledBackupJob({
+        retentionDays: 30,
+        timeZone: 'Asia/Manila',
+        scheduleTime: '22:00',
+        scheduleCadence: 'weekly',
+        scheduleDayOfWeek: 'sunday',
+        allowCatchUpBeforeScheduledTime: true,
+      });
+
+      expect(payload.success).toBe(true);
+      expect(payload.skipped).toBeUndefined();
+      expect(payload.backup).toBeDefined();
+      expect(payload.prune).toBeDefined();
+      if (!payload.backup || !payload.prune) {
+        throw new Error('Expected catch-up full backup result with prune data');
+      }
+      const { backup, prune } = payload;
+
+      expect(backup.strategy).toBe('full');
+      expect(prune.retentionDays).toBe(30);
+
+      const manifestPath = path.resolve(
+        process.cwd(),
+        'backups',
+        backup.timestamp,
+        'MANIFEST.json'
+      );
+      const manifestRaw = fsState.files.get(manifestPath);
+      expect(manifestRaw).toBeTruthy();
+      const manifest = JSON.parse(String(manifestRaw));
+      expect(manifest.scheduler).toMatchObject({
+        trigger: 'scheduled',
+        catchUp: true,
+        scheduleTime: '22:00',
+        scheduleCadence: 'weekly',
+        scheduleDayOfWeek: 'sunday',
+        timeZone: 'Asia/Manila',
+      });
+      expect(manifest.scheduler.missedDateKeys).toEqual(['2026-04-05']);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('runs an immediate catch-up differential backup when a prior scheduled day was missed', async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-04-04T16:30:00.000Z'));
+
+    const priorFullFolder = path.resolve(
+      process.cwd(),
+      'backups',
+      '2026-04-01T18-00-00'
+    );
+    fsState.dirs.add(priorFullFolder);
+    fsState.files.set(
+      path.join(priorFullFolder, 'MANIFEST.json'),
+      Buffer.from(
+        JSON.stringify({
+          timestamp: '2026-04-02T18:00:00.000Z',
+          strategy: 'full',
+          format: 'dump',
+          files: [
+            {
+              name: 'backup-2026-04-01T18-00-00.dump',
+              size: 5,
+              path: '2026-04-01T18-00-00/backup-2026-04-01T18-00-00.dump',
+            },
+          ],
+        })
+      )
+    );
+    fsState.files.set(
+      path.join(priorFullFolder, 'backup-2026-04-01T18-00-00.dump'),
+      Buffer.from('FULLPG')
+    );
+
+    const priorDiffFolder = path.resolve(
+      process.cwd(),
+      'backups',
+      '2026-04-02T10-00-00'
+    );
+    fsState.dirs.add(priorDiffFolder);
+    fsState.files.set(
+      path.join(priorDiffFolder, 'MANIFEST.json'),
+      Buffer.from(
+        JSON.stringify({
+          timestamp: '2026-04-03T10:00:00.000Z',
+          strategy: 'differential',
+          format: 'json',
+          baseTimestamp: '2026-04-02T18:00:00.000Z',
+          files: [
+            {
+              name: 'backup-2026-04-02T10-00-00.json',
+              size: 5,
+              path: '2026-04-02T10-00-00/backup-2026-04-02T10-00-00.json',
+            },
+          ],
+        })
+      )
+    );
+    fsState.files.set(
+      path.join(priorDiffFolder, 'backup-2026-04-02T10-00-00.json'),
+      Buffer.from('{"tables":{}}')
+    );
+
+    try {
+      const payload = await runScheduledBackupJob({
+        strategy: 'differential',
+        format: 'json',
+        retentionDays: 30,
+        timeZone: 'Asia/Manila',
+        scheduleTime: '12:00',
+        allowCatchUpBeforeScheduledTime: true,
+      });
+
+      expect(payload.success).toBe(true);
+      expect(payload.skipped).toBeUndefined();
+      expect(payload.backup).toBeDefined();
+      if (!payload.backup) {
+        throw new Error('Expected catch-up differential backup result');
+      }
+      const { backup } = payload;
+
+      expect(backup.strategy).toBe('differential');
+      expect(backup.format).toBe('json');
+      expect(backup.files).toEqual([
+        expect.stringMatching(/\.json$/),
+      ]);
+
+      const manifestPath = path.resolve(
+        process.cwd(),
+        'backups',
+        backup.timestamp,
+        'MANIFEST.json'
+      );
+      const manifestRaw = fsState.files.get(manifestPath);
+      expect(manifestRaw).toBeTruthy();
+      const manifest = JSON.parse(String(manifestRaw));
+      expect(manifest.strategy).toBe('differential');
+      expect(manifest.format).toBe('json');
+      expect(manifest.scheduler).toMatchObject({
+        trigger: 'scheduled',
+        catchUp: true,
+        scheduleTime: '12:00',
+        timeZone: 'Asia/Manila',
+      });
+      expect(manifest.scheduler.missedDateKeys).toEqual(['2026-04-04']);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });
