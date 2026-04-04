@@ -3,6 +3,7 @@ import fsPromises from 'fs/promises';
 import path from 'path';
 import { logger } from '@/lib/logger';
 import type { RestoreVerificationSnapshot } from '@/lib/backup/restoreVerification';
+import { TIMESTAMP_FOLDER_REGEX } from '@/app/api/backup-restore/sharedRouteUtils';
 
 export type BackupStrategy = 'full' | 'differential' | 'log';
 
@@ -82,7 +83,9 @@ export function listBackupFoldersDescending(backupDir: string) {
 
   return fs
     .readdirSync(backupDir, { withFileTypes: true })
-    .filter((entry) => entry.isDirectory())
+    .filter(
+      (entry) => entry.isDirectory() && TIMESTAMP_FOLDER_REGEX.test(entry.name)
+    )
     .map((entry) => entry.name)
     .sort()
     .reverse();

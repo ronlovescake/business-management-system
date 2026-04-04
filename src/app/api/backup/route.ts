@@ -1215,7 +1215,10 @@ export async function GET() {
 
     const backupFolders = fs
       .readdirSync(BACKUP_DIR, { withFileTypes: true })
-      .filter((entry) => entry.isDirectory())
+      .filter(
+        (entry) =>
+          entry.isDirectory() && isValidTimestampFolderName(entry.name)
+      )
       .map((entry) => entry.name)
       .sort()
       .reverse(); // Most recent first
