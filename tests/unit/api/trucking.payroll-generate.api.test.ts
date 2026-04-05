@@ -81,18 +81,28 @@ describe('Trucking payroll generate API', () => {
     expect(mockPrisma.truckingPayroll.createMany).toHaveBeenCalled();
   });
 
-  it('returns a soft-delete cleanup action when deleted payrolls conflict', async () => {
-    mockPrisma.truckingPayroll.findMany.mockResolvedValue([
-      {
-        id: 'pay-1',
-        deletedAt: new Date('2026-03-20T00:00:00.000Z'),
-        employeeId: 'DRV-1',
-        employeeName: 'Driver One',
-      },
-    ]);
+  it('ignores soft-deleted payroll rows and only checks active payroll conflicts', async () => {
+    mockPrisma.truckingPayroll.findMany.mockResolvedValue([]);
     mockPrisma.truckingAttendance.findMany.mockResolvedValue([
       { employeeId: 'DRV-1', employeeName: 'Driver One', totalHours: 80 },
     ]);
+    mockPrisma.truckingEmployee.findMany.mockResolvedValue([
+      {
+        employeeId: 'DRV-1',
+        name: 'Driver One',
+        basicSalary: 26000,
+        currentSalary: 26000,
+        allowance: 500,
+        sssMonthlyContribution: 1000,
+        philHealthMonthlyContribution: 500,
+        pagibigMonthlyContribution: 200,
+        taxMonthlyContribution: 700,
+        bankAccount: null,
+        gcashAccount: '09171234567',
+      },
+    ]);
+    mockPrisma.truckingThirteenthMonthPayRecord.findMany.mockResolvedValue([]);
+    mockPrisma.truckingPayroll.createMany.mockResolvedValue({ count: 1 });
 
     const response = await POST(
       new NextRequest('http://localhost/api/trucking/payroll/generate', {
@@ -101,8 +111,18 @@ describe('Trucking payroll generate API', () => {
     );
     const body = await response.json();
 
+    expect(mockPrisma.truckingPayroll.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          periodStart: '2026-03-16',
+          periodEnd: '2026-03-31',
+          deletedAt: null,
+        }),
+      })
+    );
     expect(response.status).toBe(200);
-    expect(body.success).toBe(false);
-    expect(body.action).toBe('cleanup_soft_deleted');
+    expect(body.success).toBe(true);
+    expect(body.count).toBe(1);
+    expect(mockPrisma.truckingPayroll.createMany).toHaveBeenCalled();
   });
 });

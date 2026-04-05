@@ -115,7 +115,11 @@ export async function POST(request: NextRequest) {
     const settings = await getEmployeeAutomationSettings();
     const result =
       automationType === 'payroll-generation'
-        ? await executePayrollAutomation({ domain: 'clothing', settings })
+        ? await executePayrollAutomation({
+            domain: 'clothing',
+            settings,
+            triggerSource: 'manual',
+          })
         : await executeStayInAutomation({ domain: 'clothing', settings });
 
     const run = await createEmployeeAutomationRun(result, 'manual', {

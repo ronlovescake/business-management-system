@@ -505,9 +505,9 @@ export function EmployeeAutomationSettingsPage({
           )}
 
           <Alert icon={<IconBolt size={16} />} color="blue" variant="light">
-            Manual runs execute the same backend flow used by the internal
-            scheduler and every execution is recorded in the history table
-            below.
+            Manual runs are recorded in the history table below. Payroll
+            &quot;Run now&quot; targets the current payroll period, while
+            scheduled payroll automation waits for the latest due cutoff date.
           </Alert>
 
           <SimpleGrid cols={{ base: 1, md: 2 }} spacing="lg">

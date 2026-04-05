@@ -249,6 +249,7 @@ describe('GM employee automation settings API', () => {
     expect(mockExecutePayrollAutomation).toHaveBeenCalledWith({
       domain: 'general-merchandise',
       settings: expect.any(Object),
+      triggerSource: 'manual',
     });
   });
 });

@@ -14,6 +14,7 @@ import { runStayInAutoPresenceAutomation } from '@/lib/automation/stayInAutoPres
 import { runGeneralMerchandiseStayInAutoPresenceAutomation } from '@/lib/automation/stayInAutoPresenceGeneralMerchandise';
 import { runTruckingStayInAutoPresenceAutomation } from '@/lib/automation/stayInAutoPresenceTrucking';
 import { prisma } from '@/lib/db';
+import { getCurrentPayrollPeriod } from '@/lib/payroll/currentPayPeriod';
 import { invokePayrollGenerationRoute } from './payrollRouteInvoker';
 import {
   getDueStayInAutomationTarget,
@@ -25,6 +26,7 @@ import type {
   EmployeeAutomationExecutionResult,
   EmployeeAutomationRunRecord,
   EmployeeAutomationSettings,
+  EmployeeAutomationTriggerSource,
 } from './types';
 
 export type EmployeeAutomationDomain =
@@ -306,6 +308,17 @@ async function shouldSkipRecordedPayrollRun(params: {
   return true;
 }
 
+function getManualPayrollAutomationPeriod() {
+  const period = getCurrentPayrollPeriod();
+
+  return {
+    periodStart: period.start,
+    periodEnd: period.end,
+    label: period.label,
+    periodKey: `${period.start}:${period.end}`,
+  };
+}
+
 export async function executeStayInAutomation(params: {
   domain: EmployeeAutomationDomain;
   settings?: EmployeeAutomationSettings;
@@ -443,9 +456,11 @@ export async function executePayrollAutomation(params: {
   domain: EmployeeAutomationDomain;
   settings?: EmployeeAutomationSettings;
   skipIfAlreadyRecorded?: boolean;
+  triggerSource?: EmployeeAutomationTriggerSource;
 }): Promise<EmployeeAutomationExecutionResult> {
   const settings =
     params.settings ?? (await getSettingsForDomain(params.domain));
+  const triggerSource = params.triggerSource ?? 'scheduler';
 
   if (!settings.payrollAutoGenerationEnabled) {
     return buildSkippedResult(
@@ -457,11 +472,14 @@ export async function executePayrollAutomation(params: {
     );
   }
 
-  const period = getDuePayrollAutomationPeriod({
-    scheduleTime: settings.payrollAutoGenerationTime,
-    timezone: settings.payrollAutoGenerationTimezone,
-    cutoffDays: settings.payrollAutoGenerationCutoffDays,
-  });
+  const period =
+    triggerSource === 'manual'
+      ? getManualPayrollAutomationPeriod()
+      : getDuePayrollAutomationPeriod({
+          scheduleTime: settings.payrollAutoGenerationTime,
+          timezone: settings.payrollAutoGenerationTimezone,
+          cutoffDays: settings.payrollAutoGenerationCutoffDays,
+        });
 
   if (!period) {
     return buildSkippedResult(
@@ -535,6 +553,7 @@ export async function executeDueAutomations(params: {
       domain: params.domain,
       settings,
       skipIfAlreadyRecorded: true,
+      triggerSource: 'scheduler',
     })
   );
 

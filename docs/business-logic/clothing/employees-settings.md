@@ -69,13 +69,13 @@
 
 ## F - Run Automation Now
 
-| #   | Logic                                                                                                      | Explanation                                                                                                        |
-| --- | ---------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
-| 24  | Each automation card has its own "Run now" button                                                          | Operators can manually test stay-in attendance and payroll generation independently.                               |
-| 25  | `POST /employee-automation-settings` now requires an `automationType` in the request body                  | The same endpoint can run either `stay-in-attendance` or `payroll-generation`.                                     |
-| 26  | Manual runs require `ADMIN` or `SUPER_ADMIN`, create an automation-run record, and log a change            | Manual execution now has explicit permission and audit coverage.                                                   |
-| 27  | Payroll manual runs target the same current payroll period used by the Payroll page on the due cutoff date | This keeps manual payroll runs aligned with the Generate Payroll button while still supporting scheduler catch-up. |
-| 28  | After a successful manual run, the page refetches overview data so the history table updates               | Run results become immediately visible below the settings cards.                                                   |
+| #   | Logic                                                                                           | Explanation                                                                                                                    |
+| --- | ----------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| 24  | Each automation card has its own "Run now" button                                               | Operators can manually test stay-in attendance and payroll generation independently.                                           |
+| 25  | `POST /employee-automation-settings` now requires an `automationType` in the request body       | The same endpoint can run either `stay-in-attendance` or `payroll-generation`.                                                 |
+| 26  | Manual runs require `ADMIN` or `SUPER_ADMIN`, create an automation-run record, and log a change | Manual execution now has explicit permission and audit coverage.                                                               |
+| 27  | Payroll manual runs target the same current payroll period used by the Payroll page today       | This keeps manual payroll runs aligned with the Generate Payroll button, while scheduled runs still wait for due cutoff dates. |
+| 28  | After a successful manual run, the page refetches overview data so the history table updates    | Run results become immediately visible below the settings cards.                                                               |
 
 ---
 

@@ -46,6 +46,10 @@ const payrollRouteInvokerMocks = vi.hoisted(() => ({
   invokePayrollGenerationRoute: vi.fn(),
 }));
 
+const currentPayrollPeriodMocks = vi.hoisted(() => ({
+  getCurrentPayrollPeriod: vi.fn(),
+}));
+
 vi.mock('@/lib/db', () => ({
   prisma: mockPrisma,
 }));
@@ -93,6 +97,10 @@ vi.mock('../scheduling', () => ({
 vi.mock('../payrollRouteInvoker', () => ({
   invokePayrollGenerationRoute:
     payrollRouteInvokerMocks.invokePayrollGenerationRoute,
+}));
+
+vi.mock('@/lib/payroll/currentPayPeriod', () => ({
+  getCurrentPayrollPeriod: currentPayrollPeriodMocks.getCurrentPayrollPeriod,
 }));
 
 import {
@@ -147,6 +155,11 @@ function buildRunRecord(
 describe('employee automation execution dedupe', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    currentPayrollPeriodMocks.getCurrentPayrollPeriod.mockReturnValue({
+      start: '2026-04-01',
+      end: '2026-04-15',
+      label: '2026-04-01 to 2026-04-15',
+    });
     schedulingMocks.getDuePayrollAutomationPeriod.mockReturnValue({
       periodStart: '2026-04-01',
       periodEnd: '2026-04-15',
@@ -215,6 +228,38 @@ describe('employee automation execution dedupe', () => {
     expect(result.status).toBe('skipped');
     expect(result.metadata).toMatchObject({
       skipReason: 'already-recorded-run',
+    });
+  });
+
+  it('uses the current payroll period for manual payroll runs', async () => {
+    schedulingMocks.getDuePayrollAutomationPeriod.mockReturnValue({
+      periodStart: '2026-03-16',
+      periodEnd: '2026-03-31',
+      periodKey: '2026-03-16:2026-03-31',
+      label: '2026-03-16 to 2026-03-31',
+      cutoffDate: '2026-03-31',
+    });
+
+    await executePayrollAutomation({
+      domain: 'clothing',
+      settings: buildSettings(),
+      triggerSource: 'manual',
+    });
+
+    expect(
+      schedulingMocks.getDuePayrollAutomationPeriod
+    ).not.toHaveBeenCalled();
+    expect(
+      currentPayrollPeriodMocks.getCurrentPayrollPeriod
+    ).toHaveBeenCalledTimes(1);
+    expect(
+      payrollRouteInvokerMocks.invokePayrollGenerationRoute
+    ).toHaveBeenCalledWith({
+      domain: 'clothing',
+      periodStart: '2026-04-01',
+      periodEnd: '2026-04-15',
+      label: '2026-04-01 to 2026-04-15',
+      periodKey: '2026-04-01:2026-04-15',
     });
   });
 

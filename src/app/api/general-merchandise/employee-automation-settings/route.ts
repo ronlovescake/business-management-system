@@ -119,6 +119,7 @@ export async function POST(request: NextRequest) {
         ? await executePayrollAutomation({
             domain: 'general-merchandise',
             settings,
+            triggerSource: 'manual',
           })
         : await executeStayInAutomation({
             domain: 'general-merchandise',
