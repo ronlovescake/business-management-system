@@ -108,6 +108,12 @@ services:
       PITR_BASE_AUTO_URL: http://app:5000/api/internal/backup/pitr/run
       LOG_PRUNE_AUTO_ENABLED: ${LOG_PRUNE_AUTO_ENABLED:-false}
       LOG_PRUNE_AUTO_TIME: ${LOG_PRUNE_AUTO_TIME:-03:00}
+      EMPLOYEE_AUTOMATION_CLOTHING_ENABLED: ${EMPLOYEE_AUTOMATION_CLOTHING_ENABLED:-true}
+      EMPLOYEE_AUTOMATION_CLOTHING_URL: http://app:5000/api/internal/employee-automation/run-due
+      EMPLOYEE_AUTOMATION_TRUCKING_ENABLED: ${EMPLOYEE_AUTOMATION_TRUCKING_ENABLED:-true}
+      EMPLOYEE_AUTOMATION_TRUCKING_URL: http://app:5000/api/internal/trucking/employee-automation/run-due
+      EMPLOYEE_AUTOMATION_GENERAL_MERCHANDISE_ENABLED: ${EMPLOYEE_AUTOMATION_GENERAL_MERCHANDISE_ENABLED:-true}
+      EMPLOYEE_AUTOMATION_GENERAL_MERCHANDISE_URL: http://app:5000/api/internal/general-merchandise/employee-automation/run-due
 
   restore-runner:
     build:

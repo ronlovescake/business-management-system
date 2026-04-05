@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
+import { getCurrentPayrollPeriod } from '@/lib/payroll/currentPayPeriod';
 
 const normalizeKey = (value?: string | null): string =>
   (value ?? '').trim().toLowerCase();
@@ -34,7 +35,10 @@ async function logPayrollGenerated(
       }
     );
   } catch (error) {
-    logger.warn('Failed to record change log for payroll generation', { error, source });
+    logger.warn('Failed to record change log for payroll generation', {
+      error,
+      source,
+    });
   }
 }
 
@@ -50,30 +54,6 @@ function formatLocalDate(date: Date): string {
   const month = `${date.getMonth() + 1}`.padStart(2, '0');
   const day = `${date.getDate()}`.padStart(2, '0');
   return `${year}-${month}-${day}`;
-}
-
-function getCurrentPayPeriod(referenceDate: Date): {
-  start: string;
-  end: string;
-  label: string;
-} {
-  const year = referenceDate.getFullYear();
-  const month = referenceDate.getMonth();
-  const day = referenceDate.getDate();
-
-  const startDate =
-    day <= 15 ? new Date(year, month, 1) : new Date(year, month, 16);
-  const endDate =
-    day <= 15 ? new Date(year, month, 15) : new Date(year, month + 1, 0);
-
-  const start = formatLocalDate(startDate);
-  const end = formatLocalDate(endDate);
-
-  return {
-    start,
-    end,
-    label: `${start} to ${end}`,
-  };
 }
 
 function buildAttendanceSummary(
@@ -119,7 +99,7 @@ function parseAndFormatDate(value?: unknown): string | null {
 
 export async function POST(request: Request) {
   try {
-    let targetPeriod = getCurrentPayPeriod(new Date());
+    let targetPeriod = getCurrentPayrollPeriod(new Date());
 
     try {
       const body = await request.json();
@@ -408,7 +388,11 @@ export async function POST(request: Request) {
       data: payrollRecords,
     });
 
-    void logPayrollGenerated(targetPeriod, created.count, 'payroll:generate:trucking');
+    void logPayrollGenerated(
+      targetPeriod,
+      created.count,
+      'payroll:generate:trucking'
+    );
 
     return NextResponse.json({
       success: true,

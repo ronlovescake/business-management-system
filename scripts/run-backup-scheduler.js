@@ -3,7 +3,14 @@
 
 const DEFAULT_URL = 'http://app:5000/api/internal/backup/run';
 const DEFAULT_PITR_BASE_URL = 'http://app:5000/api/internal/backup/pitr/run';
-const DEFAULT_LOG_PRUNE_URL = 'http://app:5000/api/internal/maintenance/prune-logs';
+const DEFAULT_LOG_PRUNE_URL =
+  'http://app:5000/api/internal/maintenance/prune-logs';
+const DEFAULT_CLOTHING_EMPLOYEE_AUTOMATION_URL =
+  'http://app:5000/api/internal/employee-automation/run-due';
+const DEFAULT_TRUCKING_EMPLOYEE_AUTOMATION_URL =
+  'http://app:5000/api/internal/trucking/employee-automation/run-due';
+const DEFAULT_GM_EMPLOYEE_AUTOMATION_URL =
+  'http://app:5000/api/internal/general-merchandise/employee-automation/run-due';
 const DEFAULT_PITR_BASE_TIME = '01:00';
 const DEFAULT_FULL_TIME = '22:00';
 const DEFAULT_FULL_CADENCE = 'weekly';
@@ -39,6 +46,18 @@ const logPruneEnabled =
   String(process.env.LOG_PRUNE_AUTO_ENABLED || 'false')
     .trim()
     .toLowerCase() === 'true';
+const clothingEmployeeAutomationEnabled =
+  String(process.env.EMPLOYEE_AUTOMATION_CLOTHING_ENABLED || 'true')
+    .trim()
+    .toLowerCase() === 'true';
+const truckingEmployeeAutomationEnabled =
+  String(process.env.EMPLOYEE_AUTOMATION_TRUCKING_ENABLED || 'true')
+    .trim()
+    .toLowerCase() === 'true';
+const generalMerchandiseEmployeeAutomationEnabled =
+  String(process.env.EMPLOYEE_AUTOMATION_GENERAL_MERCHANDISE_ENABLED || 'true')
+    .trim()
+    .toLowerCase() === 'true';
 const runUrl = process.env.BACKUP_AUTO_URL || DEFAULT_URL;
 const pitrBaseUrl = process.env.PITR_BASE_AUTO_URL || DEFAULT_PITR_BASE_URL;
 const timeZone = process.env.BACKUP_AUTO_TIMEZONE || DEFAULT_TIMEZONE;
@@ -61,8 +80,7 @@ const scheduleConfigs = [
     enabled: fullEnabled,
     url: runUrl,
     scheduleTime: process.env.BACKUP_AUTO_TIME || DEFAULT_FULL_TIME,
-    scheduleCadence:
-      process.env.BACKUP_AUTO_CADENCE || DEFAULT_FULL_CADENCE,
+    scheduleCadence: process.env.BACKUP_AUTO_CADENCE || DEFAULT_FULL_CADENCE,
     scheduleDayOfWeek:
       process.env.BACKUP_AUTO_DAY_OF_WEEK || DEFAULT_FULL_DAY_OF_WEEK,
     payload: {
@@ -92,12 +110,42 @@ const scheduleConfigs = [
     scheduleTime: process.env.LOG_PRUNE_AUTO_TIME || DEFAULT_LOG_PRUNE_TIME,
     payload: {},
   },
+  {
+    key: 'employee-automation-clothing',
+    label: 'clothing employee automation',
+    enabled: clothingEmployeeAutomationEnabled,
+    url:
+      process.env.EMPLOYEE_AUTOMATION_CLOTHING_URL ||
+      DEFAULT_CLOTHING_EMPLOYEE_AUTOMATION_URL,
+    periodStrategy: 'minute',
+    payload: {},
+  },
+  {
+    key: 'employee-automation-trucking',
+    label: 'trucking employee automation',
+    enabled: truckingEmployeeAutomationEnabled,
+    url:
+      process.env.EMPLOYEE_AUTOMATION_TRUCKING_URL ||
+      DEFAULT_TRUCKING_EMPLOYEE_AUTOMATION_URL,
+    periodStrategy: 'minute',
+    payload: {},
+  },
+  {
+    key: 'employee-automation-general-merchandise',
+    label: 'general merchandise employee automation',
+    enabled: generalMerchandiseEmployeeAutomationEnabled,
+    url:
+      process.env.EMPLOYEE_AUTOMATION_GENERAL_MERCHANDISE_URL ||
+      DEFAULT_GM_EMPLOYEE_AUTOMATION_URL,
+    periodStrategy: 'minute',
+    payload: {},
+  },
 ].filter((config) => config.enabled);
 const internalJobToken = process.env.INTERNAL_JOB_TOKEN || '';
 
 if (scheduleConfigs.length === 0) {
   console.log(
-    '[backup-scheduler] Disabled by BACKUP_AUTO_ENABLED=false, BACKUP_DIFF_AUTO_ENABLED=false, PITR_BASE_AUTO_ENABLED=false, and LOG_PRUNE_AUTO_ENABLED=false'
+    '[backup-scheduler] Disabled by backup, PITR, log prune, and employee automation scheduler flags'
   );
   setInterval(() => {}, CHECK_INTERVAL_MS);
 } else {
@@ -186,18 +234,28 @@ if (scheduleConfigs.length === 0) {
   const parsedConfigByKey = new Map(
     scheduleConfigs.map((config) => [
       config.key,
-      {
-        ...config,
-        ...parseScheduleTime(config.label, config.scheduleTime),
-        scheduleCadence: parseScheduleCadence(
-          config.label,
-          config.scheduleCadence || 'daily'
-        ),
-        scheduleDayOfWeek:
-          (config.scheduleCadence || 'daily') === 'weekly'
-            ? parseScheduleDayOfWeek(config.label, config.scheduleDayOfWeek)
-            : null,
-      },
+      config.periodStrategy === 'minute'
+        ? {
+            ...config,
+            periodStrategy: 'minute',
+            scheduledHour: null,
+            scheduledMinute: null,
+            scheduleCadence: 'minute',
+            scheduleDayOfWeek: null,
+          }
+        : {
+            ...config,
+            periodStrategy: 'scheduled',
+            ...parseScheduleTime(config.label, config.scheduleTime),
+            scheduleCadence: parseScheduleCadence(
+              config.label,
+              config.scheduleCadence || 'daily'
+            ),
+            scheduleDayOfWeek:
+              (config.scheduleCadence || 'daily') === 'weekly'
+                ? parseScheduleDayOfWeek(config.label, config.scheduleDayOfWeek)
+                : null,
+          },
     ])
   );
 
@@ -233,6 +291,12 @@ if (scheduleConfigs.length === 0) {
 
   function getCurrentPeriodKey(zoned, config) {
     const dateKey = `${zoned.year}-${zoned.month}-${zoned.day}`;
+    if (config.periodStrategy === 'minute') {
+      return `${dateKey}T${String(zoned.hour).padStart(2, '0')}:${String(
+        zoned.minute
+      ).padStart(2, '0')}`;
+    }
+
     if (config.scheduleCadence === 'daily') {
       return dateKey;
     }
@@ -243,10 +307,16 @@ if (scheduleConfigs.length === 0) {
 
   function getDuePeriodKey(zoned, config) {
     const dateKey = `${zoned.year}-${zoned.month}-${zoned.day}`;
+
+    if (config.periodStrategy === 'minute') {
+      return getCurrentPeriodKey(zoned, config);
+    }
+
     const currentMinutes = zoned.hour * 60 + zoned.minute;
 
     if (config.scheduleCadence === 'daily') {
-      return currentMinutes >= config.scheduledHour * 60 + config.scheduledMinute
+      return currentMinutes >=
+        config.scheduledHour * 60 + config.scheduledMinute
         ? dateKey
         : shiftDateKey(dateKey, -1);
     }
@@ -263,24 +333,29 @@ if (scheduleConfigs.length === 0) {
       `[backup-scheduler] Checking scheduled ${config.label} for ${periodKey}`
     );
 
+    const requestBody =
+      config.periodStrategy === 'minute'
+        ? config.payload
+        : {
+            ...config.payload,
+            skipIfAlreadyCompletedToday: true,
+            scheduleTime: config.scheduleTime,
+            scheduleCadence: config.scheduleCadence,
+            scheduleDayOfWeek:
+              config.scheduleDayOfWeek === null
+                ? undefined
+                : WEEKDAY_NAMES[config.scheduleDayOfWeek],
+            timeZone,
+            allowCatchUpBeforeScheduledTime: true,
+          };
+
     const response = await fetch(config.url, {
       method: 'POST',
       headers: {
         'content-type': 'application/json',
         'x-internal-token': internalJobToken,
       },
-      body: JSON.stringify({
-        ...config.payload,
-        skipIfAlreadyCompletedToday: true,
-        scheduleTime: config.scheduleTime,
-        scheduleCadence: config.scheduleCadence,
-        scheduleDayOfWeek:
-          config.scheduleDayOfWeek === null
-            ? undefined
-            : WEEKDAY_NAMES[config.scheduleDayOfWeek],
-        timeZone,
-        allowCatchUpBeforeScheduledTime: true,
-      }),
+      body: JSON.stringify(requestBody),
     });
 
     const payload = await response.json().catch(() => ({}));
@@ -342,13 +417,19 @@ if (scheduleConfigs.length === 0) {
     `[backup-scheduler] Enabled. ${scheduleConfigs
       .map((config) => {
         const cadence = config.scheduleCadence || 'daily';
+        if (config.periodStrategy === 'minute') {
+          return `${config.label} every minute`;
+        }
+
         const suffix =
           cadence === 'weekly'
             ? ` every ${config.scheduleDayOfWeek || DEFAULT_FULL_DAY_OF_WEEK}`
             : ' daily';
         return `${config.label} at ${config.scheduleTime}${suffix}`;
       })
-      .join('; ')} ${timeZone}; retention ${retentionDays} day(s); startup performs one catch-up check per missed period.`
+      .join(
+        '; '
+      )} ${timeZone}; retention ${retentionDays} day(s); startup performs one catch-up check per missed period.`
   );
 
   void tick();

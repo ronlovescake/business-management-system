@@ -1093,8 +1093,37 @@ model EmployeeAutomationSetting {
   stayInAutoPresenceTime         String   @default("02:00") @db.VarChar(5)
   stayInAutoPresenceTimezone     String   @default("Asia/Manila") @db.VarChar(50)
   stayInAutoPresenceGraceMinutes Int      @default(0)
+  payrollAutoGenerationEnabled   Boolean  @default(false)
+  payrollAutoGenerationTime      String   @default("02:00") @db.VarChar(5)
+  payrollAutoGenerationTimezone  String   @default("Asia/Manila") @db.VarChar(50)
+  payrollAutoGenerationCutoffDays Int[]   @default([])
 
   @@map("employee_automation_settings")
+  @@schema("public")
+}
+
+model EmployeeAutomationRun {
+  id                  String   @id @default(cuid())
+  createdAt           DateTime @default(now())
+  automationType      String   @db.VarChar(50)
+  triggerSource       String   @db.VarChar(20)
+  status              String   @db.VarChar(20)
+  periodKey           String?  @db.VarChar(100)
+  targetDate          String?  @db.VarChar(50)
+  payrollPeriodStart  String?  @db.VarChar(50)
+  payrollPeriodEnd    String?  @db.VarChar(50)
+  message             String?  @db.VarChar(1000)
+  processed           Int      @default(0)
+  inserted            Int      @default(0)
+  skipped             Int      @default(0)
+  triggeredByUserId   String?  @db.VarChar(255)
+  triggeredByUserName String?  @db.VarChar(255)
+  metadata            Json?
+
+  @@index([automationType, createdAt])
+  @@index([periodKey])
+  @@index([status, createdAt])
+  @@map("employee_automation_runs")
   @@schema("public")
 }
 
@@ -1389,6 +1418,49 @@ model TruckingAttendance {
   @@index([employeeId, date, deletedAt])
   @@index([deletedAt, employeeId])
   @@map("trucking_attendance")
+  @@schema("public")
+}
+
+model TruckingEmployeeAutomationSetting {
+  id                             String   @id @default(cuid())
+  key                            String   @unique @default("default")
+  createdAt                      DateTime @default(now())
+  updatedAt                      DateTime @updatedAt
+  stayInAutoPresenceEnabled      Boolean  @default(true)
+  stayInAutoPresenceTime         String   @default("02:00") @db.VarChar(5)
+  stayInAutoPresenceTimezone     String   @default("Asia/Manila") @db.VarChar(50)
+  stayInAutoPresenceGraceMinutes Int      @default(0)
+  payrollAutoGenerationEnabled   Boolean  @default(false)
+  payrollAutoGenerationTime      String   @default("02:00") @db.VarChar(5)
+  payrollAutoGenerationTimezone  String   @default("Asia/Manila") @db.VarChar(50)
+  payrollAutoGenerationCutoffDays Int[]   @default([])
+
+  @@map("trucking_employee_automation_settings")
+  @@schema("public")
+}
+
+model TruckingEmployeeAutomationRun {
+  id                  String   @id @default(cuid())
+  createdAt           DateTime @default(now())
+  automationType      String   @db.VarChar(50)
+  triggerSource       String   @db.VarChar(20)
+  status              String   @db.VarChar(20)
+  periodKey           String?  @db.VarChar(100)
+  targetDate          String?  @db.VarChar(50)
+  payrollPeriodStart  String?  @db.VarChar(50)
+  payrollPeriodEnd    String?  @db.VarChar(50)
+  message             String?  @db.VarChar(1000)
+  processed           Int      @default(0)
+  inserted            Int      @default(0)
+  skipped             Int      @default(0)
+  triggeredByUserId   String?  @db.VarChar(255)
+  triggeredByUserName String?  @db.VarChar(255)
+  metadata            Json?
+
+  @@index([automationType, createdAt])
+  @@index([periodKey])
+  @@index([status, createdAt])
+  @@map("trucking_employee_automation_runs")
   @@schema("public")
 }
 
@@ -2664,8 +2736,37 @@ model GeneralMerchandiseEmployeeAutomationSetting {
   stayInAutoPresenceTime         String   @default("02:00") @db.VarChar(5)
   stayInAutoPresenceTimezone     String   @default("Asia/Manila") @db.VarChar(50)
   stayInAutoPresenceGraceMinutes Int      @default(0)
+  payrollAutoGenerationEnabled   Boolean  @default(false)
+  payrollAutoGenerationTime      String   @default("02:00") @db.VarChar(5)
+  payrollAutoGenerationTimezone  String   @default("Asia/Manila") @db.VarChar(50)
+  payrollAutoGenerationCutoffDays Int[]   @default([])
 
   @@map("employee_automation_settings")
+  @@schema("general_merchandise")
+}
+
+model GeneralMerchandiseEmployeeAutomationRun {
+  id                  String   @id @default(cuid())
+  createdAt           DateTime @default(now())
+  automationType      String   @db.VarChar(50)
+  triggerSource       String   @db.VarChar(20)
+  status              String   @db.VarChar(20)
+  periodKey           String?  @db.VarChar(100)
+  targetDate          String?  @db.VarChar(50)
+  payrollPeriodStart  String?  @db.VarChar(50)
+  payrollPeriodEnd    String?  @db.VarChar(50)
+  message             String?  @db.VarChar(1000)
+  processed           Int      @default(0)
+  inserted            Int      @default(0)
+  skipped             Int      @default(0)
+  triggeredByUserId   String?  @db.VarChar(255)
+  triggeredByUserName String?  @db.VarChar(255)
+  metadata            Json?
+
+  @@index([automationType, createdAt])
+  @@index([periodKey])
+  @@index([status, createdAt])
+  @@map("employee_automation_runs")
   @@schema("general_merchandise")
 }
 

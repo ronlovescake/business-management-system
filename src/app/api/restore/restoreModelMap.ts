@@ -11,6 +11,7 @@ export const RESTORE_MODEL_MAP: Record<string, string> = {
   shipments: 'shipment',
   employees: 'employee',
   employee_automation_settings: 'employeeAutomationSetting',
+  employee_automation_runs: 'employeeAutomationRun',
   schedules: 'schedule',
   attendance: 'attendance',
   payrolls: 'payroll',
@@ -18,6 +19,8 @@ export const RESTORE_MODEL_MAP: Record<string, string> = {
   salary_history: 'salaryHistory',
   leave_requests: 'leaveRequest',
   expenses: 'expense',
+  trucking_employee_automation_settings: 'truckingEmployeeAutomationSetting',
+  trucking_employee_automation_runs: 'truckingEmployeeAutomationRun',
   cash_advances: 'cashAdvanceRecord',
   cash_advance_deductions: 'cashAdvanceDeduction',
   clothing_accounting_opening_balances: 'clothingAccountingOpeningBalance',
@@ -45,6 +48,8 @@ export const RESTORE_MODEL_MAP: Record<string, string> = {
   general_merchandise_employees: 'generalMerchandiseEmployee',
   general_merchandise_employee_automation_settings:
     'generalMerchandiseEmployeeAutomationSetting',
+  general_merchandise_employee_automation_runs:
+    'generalMerchandiseEmployeeAutomationRun',
   general_merchandise_schedules: 'generalMerchandiseSchedule',
   general_merchandise_attendance: 'generalMerchandiseAttendance',
   general_merchandise_payrolls: 'generalMerchandisePayroll',

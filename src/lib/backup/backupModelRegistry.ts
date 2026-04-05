@@ -40,6 +40,11 @@ export const SELECTIVE_BACKUP_TABLES = [
     model: 'employeeAutomationSetting',
     modelName: 'EmployeeAutomationSetting',
   },
+  {
+    name: 'employee_automation_runs',
+    model: 'employeeAutomationRun',
+    modelName: 'EmployeeAutomationRun',
+  },
   { name: 'schedules', model: 'schedule', modelName: 'Schedule' },
   { name: 'attendance', model: 'attendance', modelName: 'Attendance' },
   { name: 'payrolls', model: 'payroll', modelName: 'Payroll' },
@@ -59,6 +64,16 @@ export const SELECTIVE_BACKUP_TABLES = [
     modelName: 'LeaveRequest',
   },
   { name: 'expenses', model: 'expense', modelName: 'Expense' },
+  {
+    name: 'trucking_employee_automation_settings',
+    model: 'truckingEmployeeAutomationSetting',
+    modelName: 'TruckingEmployeeAutomationSetting',
+  },
+  {
+    name: 'trucking_employee_automation_runs',
+    model: 'truckingEmployeeAutomationRun',
+    modelName: 'TruckingEmployeeAutomationRun',
+  },
   {
     name: 'cash_advances',
     model: 'cashAdvanceRecord',
@@ -151,6 +166,11 @@ export const SELECTIVE_BACKUP_TABLES = [
     name: 'general_merchandise_employee_automation_settings',
     model: 'generalMerchandiseEmployeeAutomationSetting',
     modelName: 'GeneralMerchandiseEmployeeAutomationSetting',
+  },
+  {
+    name: 'general_merchandise_employee_automation_runs',
+    model: 'generalMerchandiseEmployeeAutomationRun',
+    modelName: 'GeneralMerchandiseEmployeeAutomationRun',
   },
   {
     name: 'general_merchandise_schedules',

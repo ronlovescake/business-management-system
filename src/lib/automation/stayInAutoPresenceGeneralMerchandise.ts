@@ -213,13 +213,21 @@ const buildAttendancePayload = (
   >;
 };
 
-export async function runGeneralMerchandiseStayInAutoPresenceAutomation(): Promise<GeneralMerchandiseStayInAutomationResult> {
+export async function runGeneralMerchandiseStayInAutoPresenceAutomation(options?: {
+  settings?: GeneralMerchandiseEmployeeAutomationSettings;
+  targetDate?: string;
+  runTimestamp?: string;
+}): Promise<GeneralMerchandiseStayInAutomationResult> {
   let settings: GeneralMerchandiseEmployeeAutomationSettings;
-  try {
-    settings = await getGeneralMerchandiseEmployeeAutomationSettings();
-  } catch (error) {
-    logger.warn('Failed to get automation settings, using defaults', error);
-    settings = getDefaultGeneralMerchandiseEmployeeAutomationSettings();
+  if (options?.settings) {
+    settings = options.settings;
+  } else {
+    try {
+      settings = await getGeneralMerchandiseEmployeeAutomationSettings();
+    } catch (error) {
+      logger.warn('Failed to get automation settings, using defaults', error);
+      settings = getDefaultGeneralMerchandiseEmployeeAutomationSettings();
+    }
   }
 
   if (!settings.stayInAutoPresenceEnabled) {
@@ -233,11 +241,16 @@ export async function runGeneralMerchandiseStayInAutoPresenceAutomation(): Promi
     0,
     Math.min(settings.stayInAutoPresenceGraceMinutes ?? 0, 720)
   );
-  const { date: targetDate, runTimestamp } = determineTargetDate(
-    timezone,
-    settings.stayInAutoPresenceTime,
-    graceMinutes
-  );
+  const targetDate = options?.targetDate;
+  const runTimestamp =
+    options?.runTimestamp ?? dayjs().tz(timezone).format('YYYY-MM-DD HH:mm');
+  const resolvedTargetDate = targetDate
+    ? targetDate
+    : determineTargetDate(
+        timezone,
+        settings.stayInAutoPresenceTime,
+        graceMinutes
+      ).date;
 
   const stayInEmployees = await gmClient.generalMerchandiseEmployee.findMany({
     where: {
@@ -264,7 +277,7 @@ export async function runGeneralMerchandiseStayInAutoPresenceAutomation(): Promi
 
   if (employees.length === 0) {
     return buildResult({
-      targetDate,
+      targetDate: resolvedTargetDate,
       message: 'No stay-in employees found to process.',
     });
   }
@@ -276,7 +289,7 @@ export async function runGeneralMerchandiseStayInAutoPresenceAutomation(): Promi
       gmClient.generalMerchandiseAttendance.findMany({
         where: {
           deletedAt: null,
-          date: targetDate,
+          date: resolvedTargetDate,
           employeeId: { in: employeeIds },
         },
         select: { employeeId: true },
@@ -284,7 +297,7 @@ export async function runGeneralMerchandiseStayInAutoPresenceAutomation(): Promi
       gmClient.generalMerchandiseSchedule.findMany({
         where: {
           employeeId: { in: employeeIds },
-          date: targetDate,
+          date: resolvedTargetDate,
           deletedAt: null,
         },
         select: {
@@ -299,8 +312,8 @@ export async function runGeneralMerchandiseStayInAutoPresenceAutomation(): Promi
         where: {
           employeeId: { in: employeeIds },
           status: 'approved',
-          startDate: { lte: targetDate },
-          endDate: { gte: targetDate },
+          startDate: { lte: resolvedTargetDate },
+          endDate: { gte: resolvedTargetDate },
         },
         select: { employeeId: true },
       }),
@@ -343,7 +356,7 @@ export async function runGeneralMerchandiseStayInAutoPresenceAutomation(): Promi
 
     const payload = buildAttendancePayload(
       employee,
-      targetDate,
+      resolvedTargetDate,
       runTimestamp,
       timezone,
       settings.stayInAutoPresenceTime,
@@ -371,7 +384,7 @@ export async function runGeneralMerchandiseStayInAutoPresenceAutomation(): Promi
     processed,
     inserted,
     skipped,
-    targetDate,
+    targetDate: resolvedTargetDate,
     createdRecords,
     skippedDetails,
     message: messageParts.join(', '),

@@ -197,13 +197,21 @@ const buildAttendancePayload = (
   } satisfies Omit<Attendance, 'id' | 'createdAt' | 'updatedAt' | 'deletedAt'>;
 };
 
-export async function runStayInAutoPresenceAutomation(): Promise<StayInAutomationResult> {
+export async function runStayInAutoPresenceAutomation(options?: {
+  settings?: EmployeeAutomationSettings;
+  targetDate?: string;
+  runTimestamp?: string;
+}): Promise<StayInAutomationResult> {
   let settings: EmployeeAutomationSettings;
-  try {
-    settings = await getEmployeeAutomationSettings();
-  } catch (error) {
-    logger.warn('Failed to get automation settings, using defaults', error);
-    settings = getDefaultEmployeeAutomationSettings();
+  if (options?.settings) {
+    settings = options.settings;
+  } else {
+    try {
+      settings = await getEmployeeAutomationSettings();
+    } catch (error) {
+      logger.warn('Failed to get automation settings, using defaults', error);
+      settings = getDefaultEmployeeAutomationSettings();
+    }
   }
 
   if (!settings.stayInAutoPresenceEnabled) {
@@ -217,11 +225,16 @@ export async function runStayInAutoPresenceAutomation(): Promise<StayInAutomatio
     0,
     Math.min(settings.stayInAutoPresenceGraceMinutes ?? 0, 720)
   );
-  const { date: targetDate, runTimestamp } = determineTargetDate(
-    timezone,
-    settings.stayInAutoPresenceTime,
-    graceMinutes
-  );
+  const targetDate = options?.targetDate;
+  const runTimestamp =
+    options?.runTimestamp ?? dayjs().tz(timezone).format('YYYY-MM-DD HH:mm');
+  const resolvedTargetDate = targetDate
+    ? targetDate
+    : determineTargetDate(
+        timezone,
+        settings.stayInAutoPresenceTime,
+        graceMinutes
+      ).date;
 
   const stayInEmployees = await prisma.employee.findMany({
     where: {
@@ -260,7 +273,7 @@ export async function runStayInAutoPresenceAutomation(): Promise<StayInAutomatio
       prisma.attendance.findMany({
         where: {
           employeeId: { in: employeeIds },
-          date: targetDate,
+          date: resolvedTargetDate,
           deletedAt: null,
         },
         select: { employeeId: true },
@@ -268,7 +281,7 @@ export async function runStayInAutoPresenceAutomation(): Promise<StayInAutomatio
       prisma.schedule.findMany({
         where: {
           employeeId: { in: employeeIds },
-          date: targetDate,
+          date: resolvedTargetDate,
           deletedAt: null,
           status: { notIn: ['cancelled', 'on-leave'] },
         },
@@ -284,8 +297,8 @@ export async function runStayInAutoPresenceAutomation(): Promise<StayInAutomatio
         where: {
           employeeId: { in: employeeIds },
           status: 'approved',
-          startDate: { lte: targetDate },
-          endDate: { gte: targetDate },
+          startDate: { lte: resolvedTargetDate },
+          endDate: { gte: resolvedTargetDate },
         },
         select: { employeeId: true },
       }),
@@ -330,7 +343,7 @@ export async function runStayInAutoPresenceAutomation(): Promise<StayInAutomatio
 
     const payload = buildAttendancePayload(
       employee,
-      targetDate,
+      resolvedTargetDate,
       runTimestamp,
       timezone,
       settings.stayInAutoPresenceTime,
@@ -372,14 +385,14 @@ export async function runStayInAutoPresenceAutomation(): Promise<StayInAutomatio
 
   const message =
     inserted > 0
-      ? `Auto-recorded stay-in attendance for ${targetDate}: ${summaryParts.join(', ')}.${skippedSummary ? ` Skipped reasons: ${skippedSummary}.` : ''}`
-      : `No attendance entries created for ${targetDate}. ${skipped} employee(s) skipped.${skippedSummary ? ` Reasons: ${skippedSummary}.` : ''}`;
+      ? `Auto-recorded stay-in attendance for ${resolvedTargetDate}: ${summaryParts.join(', ')}.${skippedSummary ? ` Skipped reasons: ${skippedSummary}.` : ''}`
+      : `No attendance entries created for ${resolvedTargetDate}. ${skipped} employee(s) skipped.${skippedSummary ? ` Reasons: ${skippedSummary}.` : ''}`;
 
   return {
     processed,
     inserted,
     skipped,
-    targetDate,
+    targetDate: resolvedTargetDate,
     message,
     createdRecords,
     skippedDetails,

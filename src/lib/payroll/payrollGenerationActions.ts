@@ -1,6 +1,7 @@
 import { api } from '@/lib/api/client';
 import { getSwal } from '@/lib/alerts';
 import { logger } from '@/lib/logger';
+import { getCurrentPayrollPeriod } from '@/lib/payroll/currentPayPeriod';
 import { getCurrentDateISO } from '@/utils/date';
 
 type ParsedPayPeriod = {
@@ -75,23 +76,6 @@ const formatLocalISO = (date: Date) => {
   return `${year}-${month}-${day}`;
 };
 
-const getCurrentPayPeriod = () => {
-  const now = new Date();
-  const year = now.getFullYear();
-  const month = now.getMonth();
-  const day = now.getDate();
-
-  const startDate =
-    day <= 15 ? new Date(year, month, 1) : new Date(year, month, 16);
-  const endDate =
-    day <= 15 ? new Date(year, month, 15) : new Date(year, month + 1, 0);
-
-  const start = formatLocalISO(startDate);
-  const end = formatLocalISO(endDate);
-
-  return { start, end, label: `${start} to ${end}` };
-};
-
 const alignToPeriodStart = (date: Date) => {
   const year = date.getFullYear();
   const month = date.getMonth();
@@ -142,7 +126,7 @@ const selectPayrollGenerationPeriod = async ({
   'payrolls' | 'parsePayPeriodLabel'
 >): Promise<PeriodSelectionResult | null> => {
   const Swal = await getSwal();
-  const currentPeriod = getCurrentPayPeriod();
+  const currentPeriod = getCurrentPayrollPeriod();
   const existingPeriodLabels = new Set<string>();
   let earliestStart: string | null = null;
 

@@ -1,14 +1,15 @@
 import type { AttendanceFormValues } from '../types';
+import {
+  STAY_IN_ATTENDANCE_LOOKBACK_DAYS,
+  buildRollingDateRange,
+} from '@/modules/shared/employees/automation/stayInBackfill';
 import { getCurrentDateISO } from '@/utils/date';
 
-export const AUTO_RECORD_LOOKBACK_DAYS: number = 15;
+export const AUTO_RECORD_LOOKBACK_DAYS: number =
+  STAY_IN_ATTENDANCE_LOOKBACK_DAYS;
 
-export const getAutoRecordDateRange = () =>
-  Array.from({ length: AUTO_RECORD_LOOKBACK_DAYS }, (_, index) => {
-    const date = new Date();
-    date.setDate(date.getDate() - index);
-    return date.toISOString().split('T')[0];
-  });
+export const getAutoRecordDateRange = (endDate = getCurrentDateISO()) =>
+  buildRollingDateRange(endDate, AUTO_RECORD_LOOKBACK_DAYS);
 
 export const calculateTotalHours = (timeIn: string, timeOut: string) => {
   if (!timeIn || !timeOut) {

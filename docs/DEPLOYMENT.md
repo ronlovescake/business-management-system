@@ -91,6 +91,10 @@ Phase 1 automated backups use a dedicated Docker sidecar that triggers the
 internal backup endpoint for weekly full PostgreSQL dumps and optional daily
 differential snapshots.
 
+The same `backup-scheduler` sidecar can also trigger employee automation
+catch-up checks for Clothing, Trucking, and General Merchandise through the
+internal employee automation endpoints.
+
 Required `.env.docker` settings:
 
 - `INTERNAL_JOB_TOKEN` must be set on both `app` and `backup-scheduler`
@@ -107,10 +111,23 @@ Required `.env.docker` settings:
 - `PITR_ARCHIVE_TIMEOUT_SECONDS=300`
 - `PITR_BASE_AUTO_ENABLED=false`
 - `PITR_BASE_AUTO_TIME=01:00`
+- `EMPLOYEE_AUTOMATION_CLOTHING_ENABLED=true`
+- `EMPLOYEE_AUTOMATION_TRUCKING_ENABLED=true`
+- `EMPLOYEE_AUTOMATION_GENERAL_MERCHANDISE_ENABLED=true`
 
 Notes:
 
 - The scheduler calls `POST /api/internal/backup/run` with the internal token.
+- Employee automation scheduler checks call the matching internal
+  `POST /api/internal/*/employee-automation/run-due` endpoint once per minute
+  by default. Use the `EMPLOYEE_AUTOMATION_*_ENABLED=false` flags only as an
+  explicit hard-disable override for a workspace.
+- The employee automation page settings remain the primary runtime control for
+  whether attendance or payroll automations actually execute.
+- Stay-in attendance scheduler checks sweep the same rolling 15-day catch-up
+  window used by the Attendance page's automatic record-attendance action, so
+  missed downtime days in that window are backfilled on the next successful
+  scheduler check.
 - Full scheduled runs always create restore-ready PostgreSQL dump backups.
 - Weekly full scheduled runs default to Sunday at `22:00` in the configured timezone.
 - Differential scheduled runs use the manual differential pipeline and default
@@ -121,6 +138,8 @@ Notes:
   next scheduled clock time.
 - The route skips creating a second scheduled backup if one already exists for
   the current scheduled period.
+- Employee automation scheduler checks keep their own run history tables and do
+  not create duplicate run entries once a due period has already been recorded.
 - Scheduled differentials require an existing full backup baseline. If none
   exists yet, the scheduler skips the run instead of silently promoting it.
 - Old backup folders are pruned after each successful scheduled run, while the

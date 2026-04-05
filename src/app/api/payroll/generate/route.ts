@@ -5,6 +5,7 @@ import { ApiResponse } from '@/core/api';
 import { withErrorHandler } from '@/core/api/middleware';
 import { HTTP_STATUS } from '@/shared/constants/api';
 import { sanitizers } from '@/lib/security/sanitize';
+import { getCurrentPayrollPeriod } from '@/lib/payroll/currentPayPeriod';
 
 const normalizeKey = (value?: string | null): string =>
   (value ?? '').trim().toLowerCase();
@@ -38,7 +39,10 @@ async function logPayrollGenerated(
       }
     );
   } catch (error) {
-    logger.warn('Failed to record change log for payroll generation', { error, source });
+    logger.warn('Failed to record change log for payroll generation', {
+      error,
+      source,
+    });
   }
 }
 
@@ -54,37 +58,6 @@ type GeneratePayrollRequest = {
   periodEnd?: string;
   payPeriodLabel?: string;
 };
-
-function formatLocalDate(date: Date): string {
-  const year = date.getFullYear();
-  const month = `${date.getMonth() + 1}`.padStart(2, '0');
-  const day = `${date.getDate()}`.padStart(2, '0');
-  return `${year}-${month}-${day}`;
-}
-
-function getCurrentPayPeriod(referenceDate: Date): {
-  start: string;
-  end: string;
-  label: string;
-} {
-  const year = referenceDate.getFullYear();
-  const month = referenceDate.getMonth();
-  const day = referenceDate.getDate();
-
-  const startDate =
-    day <= 15 ? new Date(year, month, 1) : new Date(year, month, 16);
-  const endDate =
-    day <= 15 ? new Date(year, month, 15) : new Date(year, month + 1, 0);
-
-  const start = formatLocalDate(startDate);
-  const end = formatLocalDate(endDate);
-
-  return {
-    start,
-    end,
-    label: `${start} to ${end}`,
-  };
-}
 
 function normalizePayPeriodLabel(
   label: string | undefined,
@@ -162,7 +135,7 @@ export const POST = withErrorHandler(async (request: NextRequest) => {
       requestBody = {};
     }
 
-    let currentPeriod = getCurrentPayPeriod(new Date());
+    let currentPeriod = getCurrentPayrollPeriod(new Date());
     try {
       const override = parseRequestedPeriod(requestBody);
       if (override) {
@@ -462,7 +435,11 @@ export const POST = withErrorHandler(async (request: NextRequest) => {
 
     const created = await prisma.payroll.createMany({ data: payrollRecords });
 
-    void logPayrollGenerated(currentPeriod, created.count, 'payroll:generate:clothing');
+    void logPayrollGenerated(
+      currentPeriod,
+      created.count,
+      'payroll:generate:clothing'
+    );
 
     return ApiResponse.success(
       {
