@@ -5,7 +5,6 @@ import {
   useMemo,
   useState,
   Fragment,
-  type ReactNode,
 } from 'react';
 import {
   Alert,
@@ -18,7 +17,6 @@ import {
   ActionIcon,
   Collapse,
   Group,
-  Badge,
 } from '@mantine/core';
 import {
   IconAlertCircle,
@@ -58,14 +56,6 @@ interface GroupedNotification {
   userName: string;
   changes: OperationsNotificationRecord[];
   isOpen: boolean;
-}
-
-// Truncate long text for display in summary rows
-function truncateText(text: string, max = 80): string {
-  if (text.length <= max) {
-    return text;
-  }
-  return text.slice(0, max) + '…';
 }
 
 function NotificationsPanel({
@@ -197,25 +187,6 @@ function NotificationsPanel({
     }).format(date);
   };
 
-  const createBadgeContent = (group: GroupedNotification): ReactNode => {
-    if (group.changes.length === 1) {
-      const change = group.changes[0];
-      // For single changes: show the field name or a summary
-      const label = change.field || group.action;
-      return (
-        <Badge size="sm" variant="light">
-          {label}
-        </Badge>
-      );
-    }
-
-    return (
-      <Badge size="sm" color="blue">
-        {group.changes.length} changes
-      </Badge>
-    );
-  };
-
   return (
     <Stack gap="md">
       <StandardDataTable headers={TABLE_HEADERS} colSpan={TABLE_HEADERS.length}>
@@ -238,21 +209,17 @@ function NotificationsPanel({
                 <Table.Td>{group.userName}</Table.Td>
                 <Table.Td>
                   <Group gap="xs" wrap="nowrap" justify="space-between">
-                    {isExpandable ? (
-                      <>
-                        {createBadgeContent(group)}
-                        <ActionIcon variant="subtle" size="sm">
-                          {isOpen ? (
-                            <IconChevronDown />
-                          ) : (
-                            <IconChevronRight />
-                          )}
-                        </ActionIcon>
-                      </>
-                    ) : (
-                      <Text size="sm">
-                        {truncateText(group.changes[0].changes)}
-                      </Text>
+                    <Text size="sm">
+                      {group.changes[0].changes}
+                    </Text>
+                    {isExpandable && (
+                      <ActionIcon variant="subtle" size="sm" style={{ flexShrink: 0 }}>
+                        {isOpen ? (
+                          <IconChevronDown />
+                        ) : (
+                          <IconChevronRight />
+                        )}
+                      </ActionIcon>
                     )}
                   </Group>
                 </Table.Td>
@@ -306,7 +273,7 @@ export function NotificationsClientPage({
   apiBasePath?: string;
 }) {
   return (
-    <PageLayout title="Notifications">
+    <PageLayout fluid withPadding>
       <Tabs defaultValue="transactions">
         <Tabs.List>
           {TAB_ITEMS.map((tab) => (
