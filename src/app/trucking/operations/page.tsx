@@ -66,7 +66,7 @@ export default function TruckingOperationsWorkspace() {
             </Group>
             <Button
               component={Link}
-              href="/workspaces"
+              href="/"
               variant="light"
               rightSection={<IconArrowRight size={16} />}
               maw={240}

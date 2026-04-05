@@ -1660,6 +1660,7 @@ model User {
   deletedAt           DateTime?
   conversations       ConversationParticipant[]
   messages            Message[]
+  hiddenMessages      MessageHiddenForUser[]
   passwordResetTokens PasswordResetToken[]
   permissions         UserPermission[]
 
@@ -1913,12 +1914,29 @@ model Message {
   deletedAt      DateTime?
   conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
   sender         User         @relation(fields: [senderId], references: [id], onDelete: Cascade)
+  hiddenForUsers MessageHiddenForUser[]
 
   @@index([conversationId])
   @@index([senderId])
   @@index([createdAt])
   @@index([deletedAt])
   @@map("messages")
+  @@schema("public")
+}
+
+model MessageHiddenForUser {
+  id        String   @id @default(cuid())
+  messageId String
+  userId    String
+  hiddenAt  DateTime @default(now())
+  message   Message  @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([messageId, userId])
+  @@index([messageId])
+  @@index([userId])
+  @@index([hiddenAt])
+  @@map("message_hidden_for_users")
   @@schema("public")
 }
 

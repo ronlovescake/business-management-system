@@ -30,6 +30,7 @@ import {
   IconSend,
   IconSquareRounded,
   IconThumbUp,
+  IconTrash,
   IconUser,
   IconVideo,
   IconX,
@@ -135,6 +136,33 @@ const ChatWindow = memo(function ChatWindow({
     },
   });
 
+  const deleteMessageMutation = useMutation({
+    mutationFn: (messageId: string) =>
+      messagingService.deleteMessage(conversation.id, messageId),
+    onSuccess: ({ messageId }) => {
+      queryClient.setQueryData<Message[]>(messagesQueryKey, (old = []) =>
+        old.filter((message) => message.id !== messageId)
+      );
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.messaging.messages.all(),
+      });
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.messaging.conversations.list(),
+      });
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.messaging.unreadGlobal(),
+      });
+    },
+    onError: (error) => {
+      showNotification({
+        title: 'Error',
+        message:
+          error instanceof Error ? error.message : 'Failed to delete message',
+        color: 'red',
+      });
+    },
+  });
+
   useEffect(() => {
     if (!minimized) {
       messagingService.markAsRead(conversation.id).catch(() => {});
@@ -176,6 +204,20 @@ const ChatWindow = memo(function ChatWindow({
     }
 
     sendMessageMutation.mutate(trimmed);
+  };
+
+  const handleDeleteMessage = (message: Message, isMine: boolean) => {
+    const confirmed = window.confirm(
+      isMine
+        ? 'Unsend this message for everyone? This permanently deletes it.'
+        : 'Delete this message from your view?'
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
+    deleteMessageMutation.mutate(message.id);
   };
 
   return (
@@ -317,7 +359,32 @@ const ChatWindow = memo(function ChatWindow({
                     <Flex
                       key={message.id}
                       justify={isMine ? 'flex-end' : 'flex-start'}
+                      align="center"
+                      gap="xs"
                     >
+                      {!isMine ? (
+                        <Menu withinPortal position="bottom-start" shadow="md">
+                          <Menu.Target>
+                            <ActionIcon
+                              variant="subtle"
+                              radius="xl"
+                              aria-label="Message actions"
+                            >
+                              <IconDotsVertical size={16} />
+                            </ActionIcon>
+                          </Menu.Target>
+                          <Menu.Dropdown>
+                            <Menu.Item
+                              leftSection={<IconTrash size={16} />}
+                              onClick={() =>
+                                handleDeleteMessage(message, false)
+                              }
+                            >
+                              Delete
+                            </Menu.Item>
+                          </Menu.Dropdown>
+                        </Menu>
+                      ) : null}
                       <Box
                         style={{
                           maxWidth: '80%',
@@ -343,6 +410,27 @@ const ChatWindow = memo(function ChatWindow({
                           {timestamp}
                         </Text>
                       </Box>
+                      {isMine ? (
+                        <Menu withinPortal position="bottom-end" shadow="md">
+                          <Menu.Target>
+                            <ActionIcon
+                              variant="subtle"
+                              radius="xl"
+                              aria-label="Message actions"
+                            >
+                              <IconDotsVertical size={16} />
+                            </ActionIcon>
+                          </Menu.Target>
+                          <Menu.Dropdown>
+                            <Menu.Item
+                              leftSection={<IconTrash size={16} />}
+                              onClick={() => handleDeleteMessage(message, true)}
+                            >
+                              Unsend
+                            </Menu.Item>
+                          </Menu.Dropdown>
+                        </Menu>
+                      ) : null}
                     </Flex>
                   );
                 })}

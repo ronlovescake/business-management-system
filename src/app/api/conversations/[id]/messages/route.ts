@@ -5,6 +5,8 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth/auth';
 import { logger } from '@/lib/logger';
 
+export const dynamic = 'force-dynamic';
+
 /**
  * GET /api/conversations/[id]/messages
  * Get messages for a specific conversation
@@ -39,19 +41,25 @@ export async function GET(
     const { searchParams } = new URL(request.url);
     const limit = parseInt(searchParams.get('limit') || '50');
     const before = searchParams.get('before'); // Message ID to fetch messages before
+    const beforeMessage = before
+      ? await prisma.message.findUnique({
+          where: { id: before },
+          select: { createdAt: true },
+        })
+      : null;
 
     const messages = await prisma.message.findMany({
       where: {
         conversationId,
         deletedAt: null,
+        hiddenForUsers: {
+          none: {
+            userId: session.user.id,
+          },
+        },
         ...(before && {
           createdAt: {
-            lt: (
-              await prisma.message.findUnique({
-                where: { id: before },
-                select: { createdAt: true },
-              })
-            )?.createdAt,
+            lt: beforeMessage?.createdAt,
           },
         }),
       },

@@ -310,6 +310,7 @@ export const DUMP_ONLY_BACKUP_MODELS = [
   'Conversation',
   'ConversationParticipant',
   'Message',
+  'MessageHiddenForUser',
   'InvoiceSettings',
   'MessageTemplate',
   'PostTemplateNotice',

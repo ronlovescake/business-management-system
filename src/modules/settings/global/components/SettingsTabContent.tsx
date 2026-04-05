@@ -2,8 +2,8 @@
 
 import { UserManagementSection } from '@/components/settings/UserManagementSection';
 import type { GlobalSettingsTab } from '../types/global-settings.types';
-import { BackupRestorePlaceholder } from './BackupRestorePlaceholder';
-import { BackupSchedulerTab } from './BackupSchedulerTab';
+import { BackupRestoreTab } from '@/modules/clothing/operations/settings/components/BackupRestoreTab';
+import { SchedulerTab } from './scheduler/SchedulerTab';
 import { PaymentCardsTab } from './payments/PaymentCardsTab';
 
 interface SettingsTabContentProps {
@@ -12,11 +12,11 @@ interface SettingsTabContentProps {
 
 export function SettingsTabContent({ activeTab }: SettingsTabContentProps) {
   if (activeTab === 'backup') {
-    return <BackupRestorePlaceholder />;
+    return <BackupRestoreTab />;
   }
 
   if (activeTab === 'scheduler') {
-    return <BackupSchedulerTab />;
+    return <SchedulerTab />;
   }
 
   if (activeTab === 'payments') {

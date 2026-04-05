@@ -23,6 +23,7 @@ import {
   MultiSelect,
   Tooltip,
   ActionIcon,
+  Menu,
 } from '@mantine/core';
 import {
   IconSearch,
@@ -30,6 +31,8 @@ import {
   IconAlertCircle,
   IconVolume,
   IconVolumeOff,
+  IconDotsVertical,
+  IconTrash,
 } from '@tabler/icons-react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { showNotification } from '@mantine/notifications';
@@ -63,11 +66,13 @@ export function MessagingClientPage() {
   const [conversationTitle, setConversationTitle] = useState('');
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const previousMessagesRef = useRef<Message[]>([]);
+  const isInitialLoadRef = useRef(true);
   const queryClient = useQueryClient();
   const conversationsQueryKey = queryKeys.messaging.conversations.list();
   const usersQueryKey = queryKeys.messaging.users.list();
   const activeMessagesQueryKey =
     queryKeys.messaging.messages.detail(activeConversationId);
+  const allMessagesQueryKey = queryKeys.messaging.messages.all();
 
   // Fetch conversations with polling
   const {
@@ -157,6 +162,44 @@ export function MessagingClientPage() {
     },
   });
 
+  const deleteMessageMutation = useMutation({
+    mutationFn: ({
+      conversationId,
+      messageId,
+    }: {
+      conversationId: string;
+      messageId: string;
+    }) => messagingService.deleteMessage(conversationId, messageId),
+    onSuccess: ({ messageId, mode }) => {
+      queryClient.setQueryData(
+        activeMessagesQueryKey,
+        (oldMessages: Message[] = []) =>
+          oldMessages.filter((message) => message.id !== messageId)
+      );
+      queryClient.invalidateQueries({ queryKey: allMessagesQueryKey });
+      queryClient.invalidateQueries({ queryKey: conversationsQueryKey });
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.messaging.unreadGlobal(),
+      });
+      showNotification({
+        title: mode === 'hard-delete' ? 'Message unsent' : 'Message deleted',
+        message:
+          mode === 'hard-delete'
+            ? 'Your message was removed for everyone.'
+            : 'The message was removed from your view.',
+        color: 'green',
+      });
+    },
+    onError: (error) => {
+      showNotification({
+        title: 'Error',
+        message:
+          error instanceof Error ? error.message : 'Failed to delete message',
+        color: 'red',
+      });
+    },
+  });
+
   // Create conversation mutation
   const createConversationMutation = useMutation({
     mutationFn: (payload: {
@@ -217,6 +260,12 @@ export function MessagingClientPage() {
     };
   }, []);
 
+  // Reset initial load flag when switching conversations
+  useEffect(() => {
+    isInitialLoadRef.current = true;
+    previousMessagesRef.current = [];
+  }, [activeConversationId]);
+
   // Auto-scroll to bottom when messages change or conversation opens
   useEffect(() => {
     if (messages.length > 0 && scrollAreaRef.current) {
@@ -236,10 +285,17 @@ export function MessagingClientPage() {
     }
   }, [messages, activeConversationId]);
 
-  // Show toast notification for new messages
+  // Show toast notification for new messages (skip initial load to avoid spam)
   useEffect(() => {
     const currentUserId = session?.user?.id;
     if (!currentUserId || messages.length === 0) {
+      return;
+    }
+
+    // On initial load, seed the ref without showing notifications
+    if (isInitialLoadRef.current) {
+      previousMessagesRef.current = messages;
+      isInitialLoadRef.current = false;
       return;
     }
 
@@ -321,6 +377,28 @@ export function MessagingClientPage() {
       participantIds: selectedUserIds,
       title: isGroup && conversationTitle ? conversationTitle : undefined,
       isGroup,
+    });
+  };
+
+  const handleDeleteMessage = (message: Message) => {
+    if (!activeConversationId) {
+      return;
+    }
+
+    const isMyMessage = message.senderId === session?.user?.id;
+    const confirmed = window.confirm(
+      isMyMessage
+        ? 'Unsend this message for everyone? This permanently deletes it.'
+        : 'Delete this message from your view?'
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
+    deleteMessageMutation.mutate({
+      conversationId: activeConversationId,
+      messageId: message.id,
     });
   };
 
@@ -599,6 +677,31 @@ export function MessagingClientPage() {
                               {(message.sender.name?.[0] || 'U').toUpperCase()}
                             </Avatar>
                           )}
+                          {!isMyMessage && (
+                            <Menu
+                              withinPortal
+                              position="bottom-start"
+                              shadow="md"
+                            >
+                              <Menu.Target>
+                                <ActionIcon
+                                  variant="subtle"
+                                  color="gray"
+                                  aria-label="Message actions"
+                                >
+                                  <IconDotsVertical size={16} />
+                                </ActionIcon>
+                              </Menu.Target>
+                              <Menu.Dropdown>
+                                <Menu.Item
+                                  leftSection={<IconTrash size={16} />}
+                                  onClick={() => handleDeleteMessage(message)}
+                                >
+                                  Delete
+                                </Menu.Item>
+                              </Menu.Dropdown>
+                            </Menu>
+                          )}
                           <Stack
                             gap={6}
                             style={{
@@ -630,6 +733,31 @@ export function MessagingClientPage() {
                               {timeAgo(message.createdAt)}
                             </Text>
                           </Stack>
+                          {isMyMessage && (
+                            <Menu
+                              withinPortal
+                              position="bottom-end"
+                              shadow="md"
+                            >
+                              <Menu.Target>
+                                <ActionIcon
+                                  variant="subtle"
+                                  color="gray"
+                                  aria-label="Message actions"
+                                >
+                                  <IconDotsVertical size={16} />
+                                </ActionIcon>
+                              </Menu.Target>
+                              <Menu.Dropdown>
+                                <Menu.Item
+                                  leftSection={<IconTrash size={16} />}
+                                  onClick={() => handleDeleteMessage(message)}
+                                >
+                                  Unsend
+                                </Menu.Item>
+                              </Menu.Dropdown>
+                            </Menu>
+                          )}
                           {isMyMessage && (
                             <Avatar radius="xl" size={36}>
                               {(session?.user?.name?.[0] || 'U').toUpperCase()}

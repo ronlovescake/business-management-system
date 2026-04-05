@@ -52,6 +52,7 @@ const routePermissions: Record<string, string[]> = {
   '/general-merchandise/ledger': ['ADMIN', 'SUPER_ADMIN'],
 
   // Settings/Admin routes - Super Admin only
+  '/settings': ['SUPER_ADMIN'],
   '/clothing/settings': ['SUPER_ADMIN'],
   '/clothing/users': ['SUPER_ADMIN'],
 
@@ -68,8 +69,9 @@ const shouldBypassAuth =
 export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
   const internalJobToken = (process.env.INTERNAL_JOB_TOKEN || '').trim();
-  const providedInternalToken =
-    (req.headers.get('x-internal-token') || '').trim();
+  const providedInternalToken = (
+    req.headers.get('x-internal-token') || ''
+  ).trim();
 
   if (shouldBypassAuth) {
     return NextResponse.next();

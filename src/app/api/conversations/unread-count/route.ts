@@ -38,6 +38,11 @@ export async function GET() {
           not: session.user.id,
         },
         deletedAt: null,
+        hiddenForUsers: {
+          none: {
+            userId: session.user.id,
+          },
+        },
         OR: participations.map((p) => ({
           conversationId: p.conversationId,
           createdAt: {

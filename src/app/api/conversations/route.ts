@@ -5,6 +5,8 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth/auth';
 import { logger } from '@/lib/logger';
 
+export const dynamic = 'force-dynamic';
+
 /**
  * GET /api/conversations
  * Get all conversations for the authenticated user
@@ -45,12 +47,19 @@ export async function GET() {
           take: 1,
           where: {
             deletedAt: null,
+            hiddenForUsers: {
+              none: {
+                userId: session.user.id,
+              },
+            },
           },
           include: {
             sender: {
               select: {
                 id: true,
                 name: true,
+                email: true,
+                photoUrl: true,
               },
             },
           },
@@ -76,6 +85,11 @@ export async function GET() {
               gt: participant?.lastReadAt || new Date(0),
             },
             deletedAt: null,
+            hiddenForUsers: {
+              none: {
+                userId: session.user.id,
+              },
+            },
           },
         });
 

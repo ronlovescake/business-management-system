@@ -22,6 +22,7 @@ import { usePathname } from 'next/navigation';
 import { useEffect, useMemo, useState } from 'react';
 import { useBusinessStore } from '../../lib/store';
 import { BackupRestoreSidebarPanel } from '@/modules/clothing/operations/settings/components/backup-restore/BackupRestoreSidebarPanel';
+import { useBackupRestoreSidebarStore } from '@/modules/clothing/operations/settings/components/backup-restore/backupRestoreSidebarStore';
 import {
   buildNavigationItems,
   getWorkspaceDefinition,
@@ -46,7 +47,7 @@ export function Sidebar({ collapsed = false }: SidebarProps) {
   const { selectedBusiness, selectedWorkspace, initializeFromPath } =
     useBusinessStore();
 
-  const isAdminBackupRestore = pathname?.startsWith('/admin/backup-restore');
+  const backupSidebarActive = useBackupRestoreSidebarStore((s) => s.active);
 
   // Initialize from current path on component mount
   useEffect(() => {
@@ -64,7 +65,7 @@ export function Sidebar({ collapsed = false }: SidebarProps) {
 
   const workspaceMeta = getWorkspaceDefinition(selectedWorkspace);
 
-  if (isAdminBackupRestore) {
+  if (backupSidebarActive) {
     return (
       <Stack gap="sm" style={{ height: '100%' }}>
         <BackupRestoreSidebarPanel />
@@ -157,7 +158,7 @@ export function Sidebar({ collapsed = false }: SidebarProps) {
 
       <Divider my={0} />
 
-      {isAdminBackupRestore ? (
+      {backupSidebarActive ? (
         <BackupRestoreSidebarPanel />
       ) : (
         /* Navigation Items */

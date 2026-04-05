@@ -31,6 +31,7 @@ export async function GET() {
         id: true,
         email: true,
         name: true,
+        photoUrl: true,
       },
       orderBy: {
         name: 'asc',

@@ -56,27 +56,63 @@ export interface SendMessagePayload {
   attachmentUrl?: string;
 }
 
+export interface DeleteMessageResult {
+  messageId: string;
+  mode: 'hard-delete' | 'hidden';
+}
+
 class MessagingService {
+  private async request<T>(
+    input: string,
+    init: RequestInit | undefined,
+    fallbackError: string
+  ): Promise<T> {
+    const response = await fetch(input, {
+      cache: 'no-store',
+      credentials: 'same-origin',
+      ...init,
+      headers: {
+        'Content-Type': 'application/json',
+        ...(init?.headers ?? {}),
+      },
+    });
+
+    const body = (await response.json().catch(() => null)) as
+      | { error?: string }
+      | T
+      | null;
+
+    if (!response.ok) {
+      throw new Error(
+        body && typeof body === 'object' && 'error' in body
+          ? (body.error ?? fallbackError)
+          : fallbackError
+      );
+    }
+
+    return body as T;
+  }
+
   /**
    * Get all conversations for the current user
    */
   async getConversations(): Promise<Conversation[]> {
-    const response = await fetch('/api/conversations');
-    if (!response.ok) {
-      throw new Error('Failed to fetch conversations');
-    }
-    return response.json();
+    return this.request<Conversation[]>(
+      '/api/conversations',
+      undefined,
+      'Failed to fetch conversations'
+    );
   }
 
   /**
    * Get unread message count
    */
   async getUnreadCount(): Promise<number> {
-    const response = await fetch('/api/conversations/unread-count');
-    if (!response.ok) {
-      throw new Error('Failed to fetch unread count');
-    }
-    const data = await response.json();
+    const data = await this.request<{ unreadCount: number }>(
+      '/api/conversations/unread-count',
+      undefined,
+      'Failed to fetch unread count'
+    );
     return data.unreadCount;
   }
 
@@ -86,15 +122,14 @@ class MessagingService {
   async createConversation(
     payload: CreateConversationPayload
   ): Promise<Conversation> {
-    const response = await fetch('/api/conversations', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
-    });
-    if (!response.ok) {
-      throw new Error('Failed to create conversation');
-    }
-    return response.json();
+    return this.request<Conversation>(
+      '/api/conversations',
+      {
+        method: 'POST',
+        body: JSON.stringify(payload),
+      },
+      'Failed to create conversation'
+    );
   }
 
   /**
@@ -109,13 +144,11 @@ class MessagingService {
       limit: limit.toString(),
       ...(before && { before }),
     });
-    const response = await fetch(
-      `/api/conversations/${conversationId}/messages?${params}`
+    return this.request<Message[]>(
+      `/api/conversations/${conversationId}/messages?${params}`,
+      undefined,
+      'Failed to fetch messages'
     );
-    if (!response.ok) {
-      throw new Error('Failed to fetch messages');
-    }
-    return response.json();
   }
 
   /**
@@ -125,41 +158,56 @@ class MessagingService {
     conversationId: string,
     payload: SendMessagePayload
   ): Promise<Message> {
-    const response = await fetch(
+    return this.request<Message>(
       `/api/conversations/${conversationId}/messages`,
       {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
-      }
+      },
+      'Failed to send message'
     );
-    if (!response.ok) {
-      throw new Error('Failed to send message');
-    }
-    return response.json();
+  }
+
+  /**
+   * Delete a message from the current user's perspective.
+   * Sender deletion hard-deletes the message for everyone.
+   * Receiver deletion hides the message only for the current user.
+   */
+  async deleteMessage(
+    conversationId: string,
+    messageId: string
+  ): Promise<DeleteMessageResult> {
+    return this.request<DeleteMessageResult>(
+      `/api/conversations/${conversationId}/messages/${messageId}`,
+      {
+        method: 'DELETE',
+      },
+      'Failed to delete message'
+    );
   }
 
   /**
    * Mark conversation as read
    */
   async markAsRead(conversationId: string): Promise<void> {
-    const response = await fetch(`/api/conversations/${conversationId}/read`, {
-      method: 'POST',
-    });
-    if (!response.ok) {
-      throw new Error('Failed to mark as read');
-    }
+    await this.request(
+      `/api/conversations/${conversationId}/read`,
+      {
+        method: 'POST',
+      },
+      'Failed to mark as read'
+    );
   }
 
   /**
    * Get all users available for messaging
    */
   async getUsers(): Promise<User[]> {
-    const response = await fetch('/api/users/messaging');
-    if (!response.ok) {
-      throw new Error('Failed to fetch users');
-    }
-    return response.json();
+    return this.request<User[]>(
+      '/api/users/messaging',
+      undefined,
+      'Failed to fetch users'
+    );
   }
 }
 

@@ -46,12 +46,14 @@ import {
 export function BackupRestoreTab() {
   const pathname = usePathname();
   const isAdminBackupRestore = Boolean(
-    pathname?.startsWith('/admin/backup-restore')
+    pathname?.startsWith('/admin/backup-restore') ||
+      pathname?.startsWith('/settings')
   );
 
   const {
     tables: sidebarTables,
     selectedTable: sidebarSelectedTable,
+    setActive: setSidebarActive,
     setTables: setSidebarTables,
     setSelectedTable: setSidebarSelectedTable,
     clear: clearSidebar,
@@ -1125,10 +1127,12 @@ export function BackupRestoreTab() {
       return;
     }
 
+    setSidebarActive(true);
+
     return () => {
       clearSidebar();
     };
-  }, [isAdminBackupRestore, clearSidebar]);
+  }, [isAdminBackupRestore, setSidebarActive, clearSidebar]);
 
   useEffect(() => {
     if (!previewModalOpen) {

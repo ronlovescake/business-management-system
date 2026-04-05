@@ -15,11 +15,11 @@ export default async function Settings({
 }: {
   searchParams?: Record<string, string | string[] | undefined>;
 }) {
-  // Backup & Restore has been centralized under /admin.
+  // Backup & Restore has been centralized under /settings.
   const tab = searchParams?.tab;
   const tabValue = Array.isArray(tab) ? tab[0] : tab;
   if (tabValue === 'backup') {
-    redirect('/admin/backup-restore');
+    redirect('/settings?tab=backup');
   }
 
   return renderOperationsPage(
