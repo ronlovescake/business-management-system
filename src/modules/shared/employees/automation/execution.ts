@@ -1,18 +1,19 @@
 import {
   getGeneralMerchandiseEmployeeAutomationSettings,
-  hasGeneralMerchandiseEmployeeAutomationRunForPeriod,
+  findGeneralMerchandiseEmployeeAutomationRunForPeriod,
 } from '@/lib/settings/generalMerchandiseEmployeeAutomation';
 import {
+  findEmployeeAutomationRunForPeriod,
   getEmployeeAutomationSettings,
-  hasEmployeeAutomationRunForPeriod,
 } from '@/lib/settings/employeeAutomation';
 import {
+  findTruckingEmployeeAutomationRunForPeriod,
   getTruckingEmployeeAutomationSettings,
-  hasTruckingEmployeeAutomationRunForPeriod,
 } from '@/lib/settings/truckingEmployeeAutomation';
 import { runStayInAutoPresenceAutomation } from '@/lib/automation/stayInAutoPresence';
 import { runGeneralMerchandiseStayInAutoPresenceAutomation } from '@/lib/automation/stayInAutoPresenceGeneralMerchandise';
 import { runTruckingStayInAutoPresenceAutomation } from '@/lib/automation/stayInAutoPresenceTrucking';
+import { prisma } from '@/lib/db';
 import { invokePayrollGenerationRoute } from './payrollRouteInvoker';
 import {
   getDueStayInAutomationTarget,
@@ -22,6 +23,7 @@ import {
 import { STAY_IN_ATTENDANCE_LOOKBACK_DAYS } from './stayInBackfill';
 import type {
   EmployeeAutomationExecutionResult,
+  EmployeeAutomationRunRecord,
   EmployeeAutomationSettings,
 } from './types';
 
@@ -30,9 +32,13 @@ export type EmployeeAutomationDomain =
   | 'trucking'
   | 'general-merchandise';
 
-type RunCheck = (periodKey: string) => Promise<boolean>;
+type RunLookup = (
+  periodKey: string
+) => Promise<EmployeeAutomationRunRecord | null>;
 
 type SkipReason = 'disabled' | 'already-recorded-run';
+
+const AUTO_STAY_IN_ATTENDANCE_DETAILS = 'Auto-recorded stay-in presence entry.';
 
 function buildSkippedResult(
   automationType: EmployeeAutomationExecutionResult['automationType'],
@@ -105,10 +111,10 @@ async function runStayInAutomationForDate(params: {
   };
 }
 
-function getStayInRunCheck(domain: EmployeeAutomationDomain): RunCheck {
+function getStayInRunLookup(domain: EmployeeAutomationDomain): RunLookup {
   if (domain === 'trucking') {
     return (periodKey) =>
-      hasTruckingEmployeeAutomationRunForPeriod(
+      findTruckingEmployeeAutomationRunForPeriod(
         'stay-in-attendance',
         periodKey
       );
@@ -116,20 +122,20 @@ function getStayInRunCheck(domain: EmployeeAutomationDomain): RunCheck {
 
   if (domain === 'general-merchandise') {
     return (periodKey) =>
-      hasGeneralMerchandiseEmployeeAutomationRunForPeriod(
+      findGeneralMerchandiseEmployeeAutomationRunForPeriod(
         'stay-in-attendance',
         periodKey
       );
   }
 
   return (periodKey) =>
-    hasEmployeeAutomationRunForPeriod('stay-in-attendance', periodKey);
+    findEmployeeAutomationRunForPeriod('stay-in-attendance', periodKey);
 }
 
-function getPayrollRunCheck(domain: EmployeeAutomationDomain): RunCheck {
+function getPayrollRunLookup(domain: EmployeeAutomationDomain): RunLookup {
   if (domain === 'trucking') {
     return (periodKey) =>
-      hasTruckingEmployeeAutomationRunForPeriod(
+      findTruckingEmployeeAutomationRunForPeriod(
         'payroll-generation',
         periodKey
       );
@@ -137,14 +143,167 @@ function getPayrollRunCheck(domain: EmployeeAutomationDomain): RunCheck {
 
   if (domain === 'general-merchandise') {
     return (periodKey) =>
-      hasGeneralMerchandiseEmployeeAutomationRunForPeriod(
+      findGeneralMerchandiseEmployeeAutomationRunForPeriod(
         'payroll-generation',
         periodKey
       );
   }
 
   return (periodKey) =>
-    hasEmployeeAutomationRunForPeriod('payroll-generation', periodKey);
+    findEmployeeAutomationRunForPeriod('payroll-generation', periodKey);
+}
+
+function getExpectedStayInArtifacts(
+  run: EmployeeAutomationRunRecord
+): Array<{ targetDate: string; expectedCount: number }> {
+  const metadata =
+    run.metadata && typeof run.metadata === 'object'
+      ? (run.metadata as {
+          results?: Array<{ targetDate?: string | null; inserted?: number }>;
+        })
+      : null;
+
+  const metadataResults = Array.isArray(metadata?.results)
+    ? metadata.results
+        .map((result) => ({
+          targetDate: result?.targetDate ?? null,
+          expectedCount: Math.max(0, result?.inserted ?? 0),
+        }))
+        .filter(
+          (result): result is { targetDate: string; expectedCount: number } =>
+            Boolean(result.targetDate) && result.expectedCount > 0
+        )
+    : [];
+
+  if (metadataResults.length > 0) {
+    return metadataResults;
+  }
+
+  if (run.targetDate && run.inserted > 0) {
+    return [{ targetDate: run.targetDate, expectedCount: run.inserted }];
+  }
+
+  return [];
+}
+
+async function listActiveAutoAttendanceDates(params: {
+  domain: EmployeeAutomationDomain;
+  dates: string[];
+}): Promise<string[]> {
+  if (params.dates.length === 0) {
+    return [];
+  }
+
+  const where = {
+    deletedAt: null,
+    date: { in: params.dates },
+    details: AUTO_STAY_IN_ATTENDANCE_DETAILS,
+  };
+
+  if (params.domain === 'trucking') {
+    const records = await prisma.truckingAttendance.findMany({
+      where,
+      select: { date: true },
+    });
+
+    return records.map((record) => record.date);
+  }
+
+  if (params.domain === 'general-merchandise') {
+    const records = await prisma.generalMerchandiseAttendance.findMany({
+      where,
+      select: { date: true },
+    });
+
+    return records.map((record) => record.date);
+  }
+
+  const records = await prisma.attendance.findMany({
+    where,
+    select: { date: true },
+  });
+
+  return records.map((record) => record.date);
+}
+
+async function shouldSkipRecordedStayInRun(params: {
+  domain: EmployeeAutomationDomain;
+  run: EmployeeAutomationRunRecord;
+}): Promise<boolean> {
+  const expectedArtifacts = getExpectedStayInArtifacts(params.run);
+
+  if (expectedArtifacts.length === 0) {
+    return true;
+  }
+
+  const activeDates = await listActiveAutoAttendanceDates({
+    domain: params.domain,
+    dates: expectedArtifacts.map((artifact) => artifact.targetDate),
+  });
+
+  const activeCounts = activeDates.reduce<Map<string, number>>((acc, date) => {
+    acc.set(date, (acc.get(date) ?? 0) + 1);
+    return acc;
+  }, new Map());
+
+  return expectedArtifacts.every(
+    ({ targetDate, expectedCount }) =>
+      (activeCounts.get(targetDate) ?? 0) >= expectedCount
+  );
+}
+
+function isPayrollRecoveryCandidate(run: EmployeeAutomationRunRecord): boolean {
+  if (run.inserted > 0) {
+    return true;
+  }
+
+  const message = run.message?.toLowerCase() ?? '';
+  return message.includes('payroll already exists');
+}
+
+async function countActivePayrollRecords(params: {
+  domain: EmployeeAutomationDomain;
+  periodStart: string;
+  periodEnd: string;
+}): Promise<number> {
+  const where = {
+    deletedAt: null,
+    periodStart: params.periodStart,
+    periodEnd: params.periodEnd,
+  };
+
+  if (params.domain === 'trucking') {
+    return prisma.truckingPayroll.count({ where });
+  }
+
+  if (params.domain === 'general-merchandise') {
+    return prisma.generalMerchandisePayroll.count({ where });
+  }
+
+  return prisma.payroll.count({ where });
+}
+
+async function shouldSkipRecordedPayrollRun(params: {
+  domain: EmployeeAutomationDomain;
+  run: EmployeeAutomationRunRecord;
+  periodStart: string;
+  periodEnd: string;
+}): Promise<boolean> {
+  const activeRecordCount = await countActivePayrollRecords({
+    domain: params.domain,
+    periodStart: params.periodStart,
+    periodEnd: params.periodEnd,
+  });
+
+  if (activeRecordCount === 0) {
+    return !isPayrollRecoveryCandidate(params.run);
+  }
+
+  if (params.run.inserted > 0) {
+    return activeRecordCount >= params.run.inserted;
+  }
+
+  return true;
 }
 
 export async function executeStayInAutomation(params: {
@@ -193,11 +352,17 @@ export async function executeStayInAutomation(params: {
   }
 
   if (params.skipIfAlreadyRecorded) {
-    const alreadyRecorded = await getStayInRunCheck(params.domain)(
+    const recordedRun = await getStayInRunLookup(params.domain)(
       target.periodKey
     );
 
-    if (alreadyRecorded) {
+    if (
+      recordedRun &&
+      (await shouldSkipRecordedStayInRun({
+        domain: params.domain,
+        run: recordedRun,
+      }))
+    ) {
       return buildSkippedResult(
         'stay-in-attendance',
         `Stay-in attendance automation already ran for ${target.targetDate}.`,
@@ -312,11 +477,19 @@ export async function executePayrollAutomation(params: {
   }
 
   if (params.skipIfAlreadyRecorded) {
-    const alreadyRecorded = await getPayrollRunCheck(params.domain)(
+    const recordedRun = await getPayrollRunLookup(params.domain)(
       period.periodKey
     );
 
-    if (alreadyRecorded) {
+    if (
+      recordedRun &&
+      (await shouldSkipRecordedPayrollRun({
+        domain: params.domain,
+        run: recordedRun,
+        periodStart: period.periodStart,
+        periodEnd: period.periodEnd,
+      }))
+    ) {
       return buildSkippedResult(
         'payroll-generation',
         `Payroll automation already ran for ${period.label}.`,

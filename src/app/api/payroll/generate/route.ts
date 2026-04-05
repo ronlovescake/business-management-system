@@ -158,45 +158,27 @@ export const POST = withErrorHandler(async (request: NextRequest) => {
       });
     }
 
-    // Check for existing payroll (including soft-deleted ones)
+    // Only active payroll rows should block regeneration for a period.
     const existingRecords = await prisma.payroll.findMany({
       where: {
         periodStart: currentPeriod.start,
         periodEnd: currentPeriod.end,
+        deletedAt: null,
       },
       select: {
         id: true,
-        deletedAt: true,
         employeeId: true,
         employeeName: true,
       },
     });
 
-    const softDeletedRecords = existingRecords.filter(
-      (record) => record.deletedAt !== null
-    );
-    const activeRecords = existingRecords.filter(
-      (record) => record.deletedAt === null
-    );
-
     const activeEmployeeIds = new Set(
-      activeRecords
+      existingRecords
         .map((record) => record.employeeId)
         .filter((id): id is string => Boolean(id))
     );
     const activeEmployeeNames = new Set(
-      activeRecords
-        .map((record) => normalizeKey(record.employeeName))
-        .filter((name) => name.length > 0)
-    );
-
-    const softDeletedEmployeeIds = new Set(
-      softDeletedRecords
-        .map((record) => record.employeeId)
-        .filter((id): id is string => Boolean(id))
-    );
-    const softDeletedEmployeeNames = new Set(
-      softDeletedRecords
+      existingRecords
         .map((record) => normalizeKey(record.employeeName))
         .filter((name) => name.length > 0)
     );
@@ -255,36 +237,6 @@ export const POST = withErrorHandler(async (request: NextRequest) => {
         HTTP_STATUS.CONFLICT,
         `Payroll already exists for period ${currentPeriod.label}`,
         { meta: { period: currentPeriod } }
-      );
-    }
-
-    const softConflictSummaries = eligibleSummaries.filter((summary) => {
-      if (
-        summary.employeeId &&
-        softDeletedEmployeeIds.has(summary.employeeId)
-      ) {
-        return true;
-      }
-
-      const nameKey = normalizeKey(summary.employeeName);
-      return nameKey ? softDeletedEmployeeNames.has(nameKey) : false;
-    });
-
-    if (softConflictSummaries.length > 0) {
-      return ApiResponse.error(
-        'Soft-deleted payroll records detected',
-        HTTP_STATUS.CONFLICT,
-        `Deleted payroll exists for ${softConflictSummaries.length} employee${softConflictSummaries.length === 1 ? '' : 's'} in period ${currentPeriod.label}. Please clean up the deleted records before generating new payroll.`,
-        {
-          meta: {
-            period: currentPeriod,
-            action: 'cleanup_soft_deleted',
-            conflicts: softConflictSummaries.map((summary) => ({
-              employeeId: summary.employeeId,
-              employeeName: summary.employeeName,
-            })),
-          },
-        }
       );
     }
 

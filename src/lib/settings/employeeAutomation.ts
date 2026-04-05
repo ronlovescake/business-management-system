@@ -1,6 +1,7 @@
 import { prisma } from '@/lib/db';
 import {
   DEFAULT_EMPLOYEE_AUTOMATION_SETTINGS,
+  findRecordedAutomationRunForPeriod,
   hasRecordedAutomationRunForPeriod,
   readEmployeeAutomationOverview,
   readEmployeeAutomationSettings,
@@ -56,6 +57,17 @@ export async function hasEmployeeAutomationRunForPeriod(
   periodKey: string
 ): Promise<boolean> {
   return hasRecordedAutomationRunForPeriod(
+    runDelegate,
+    automationType,
+    periodKey
+  );
+}
+
+export async function findEmployeeAutomationRunForPeriod(
+  automationType: EmployeeAutomationRunRecord['automationType'],
+  periodKey: string
+): Promise<EmployeeAutomationRunRecord | null> {
+  return findRecordedAutomationRunForPeriod(
     runDelegate,
     automationType,
     periodKey

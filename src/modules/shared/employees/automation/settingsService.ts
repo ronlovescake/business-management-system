@@ -391,6 +391,22 @@ export async function hasRecordedAutomationRunForPeriod<
   automationType: EmployeeAutomationRunRecord['automationType'],
   periodKey: string
 ): Promise<boolean> {
+  const record = await findRecordedAutomationRunForPeriod(
+    delegate,
+    automationType,
+    periodKey
+  );
+
+  return Boolean(record);
+}
+
+export async function findRecordedAutomationRunForPeriod<
+  RecordType extends RunRecord,
+>(
+  delegate: RunDelegate<RecordType>,
+  automationType: EmployeeAutomationRunRecord['automationType'],
+  periodKey: string
+): Promise<EmployeeAutomationRunRecord | null> {
   try {
     const record = await delegate.findFirst({
       where: {
@@ -400,7 +416,7 @@ export async function hasRecordedAutomationRunForPeriod<
       orderBy: { createdAt: 'desc' },
     });
 
-    return Boolean(record);
+    return record ? mapRunRecord(record) : null;
   } catch (error) {
     if (isMissingAutomationSchemaError(error)) {
       logger.warn(
@@ -410,7 +426,7 @@ export async function hasRecordedAutomationRunForPeriod<
           error,
         }
       );
-      return false;
+      return null;
     }
 
     throw error;

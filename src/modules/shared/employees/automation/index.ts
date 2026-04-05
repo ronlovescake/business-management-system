@@ -1,5 +1,6 @@
 export {
   DEFAULT_EMPLOYEE_AUTOMATION_SETTINGS,
+  findRecordedAutomationRunForPeriod,
   hasRecordedAutomationRunForPeriod,
   listEmployeeAutomationRuns,
   readEmployeeAutomationOverview,

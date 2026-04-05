@@ -121,45 +121,27 @@ export async function POST(request: Request) {
       // If parsing fails, continue with the default current period
     }
 
-    // Check for existing payroll (including soft-deleted ones)
+    // Only active payroll rows should block regeneration for a period.
     const existingRecords = await prisma.truckingPayroll.findMany({
       where: {
         periodStart: targetPeriod.start,
         periodEnd: targetPeriod.end,
+        deletedAt: null,
       },
       select: {
         id: true,
-        deletedAt: true,
         employeeId: true,
         employeeName: true,
       },
     });
 
-    const softDeletedRecords = existingRecords.filter(
-      (record) => record.deletedAt !== null
-    );
-    const activeRecords = existingRecords.filter(
-      (record) => record.deletedAt === null
-    );
-
     const activeEmployeeIds = new Set(
-      activeRecords
+      existingRecords
         .map((record) => record.employeeId)
         .filter((id): id is string => Boolean(id))
     );
     const activeEmployeeNames = new Set(
-      activeRecords
-        .map((record) => normalizeKey(record.employeeName))
-        .filter((name) => name.length > 0)
-    );
-
-    const softDeletedEmployeeIds = new Set(
-      softDeletedRecords
-        .map((record) => record.employeeId)
-        .filter((id): id is string => Boolean(id))
-    );
-    const softDeletedEmployeeNames = new Set(
-      softDeletedRecords
+      existingRecords
         .map((record) => normalizeKey(record.employeeName))
         .filter((name) => name.length > 0)
     );
@@ -215,31 +197,6 @@ export async function POST(request: Request) {
         success: false,
         message: `Payroll already exists for period ${targetPeriod.label}`,
         period: targetPeriod,
-      });
-    }
-
-    const softConflictSummaries = eligibleSummaries.filter((summary) => {
-      if (
-        summary.employeeId &&
-        softDeletedEmployeeIds.has(summary.employeeId)
-      ) {
-        return true;
-      }
-
-      const nameKey = normalizeKey(summary.employeeName);
-      return nameKey ? softDeletedEmployeeNames.has(nameKey) : false;
-    });
-
-    if (softConflictSummaries.length > 0) {
-      return NextResponse.json({
-        success: false,
-        message: `Deleted payroll exists for ${softConflictSummaries.length} employee${softConflictSummaries.length === 1 ? '' : 's'} in period ${targetPeriod.label}. Please clean up the deleted records before generating new payroll.`,
-        period: targetPeriod,
-        action: 'cleanup_soft_deleted',
-        conflicts: softConflictSummaries.map((summary) => ({
-          employeeId: summary.employeeId,
-          employeeName: summary.employeeName,
-        })),
       });
     }
 
