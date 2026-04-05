@@ -103,15 +103,17 @@ export async function handleOrderStatusColumnEdit({
     const previousStatus = transaction['Order Status'] ?? 'Unspecified';
     const nextStatus = dropdownValue || 'Unspecified';
 
-    logNotification(
-      `Order Status changed from ${previousStatus} to ${nextStatus} for ${transactionDescriptor}.`,
-      {
-        column: 'Order Status',
-        transactionId: transaction.id,
-        previousValue: transaction['Order Status'] ?? '',
-        newValue: dropdownValue,
-      }
-    );
+    if (previousStatus !== nextStatus) {
+      logNotification(
+        `Order Status changed from ${previousStatus} to ${nextStatus} for ${transactionDescriptor}.`,
+        {
+          column: 'Order Status',
+          transactionId: transaction.id,
+          previousValue: transaction['Order Status'] ?? '',
+          newValue: dropdownValue,
+        }
+      );
+    }
   }
 
   return true;

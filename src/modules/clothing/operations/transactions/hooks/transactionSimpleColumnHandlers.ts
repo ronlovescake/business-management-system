@@ -48,15 +48,17 @@ export function handleSimpleTransactionColumnEdit({
       const nextOrderDate =
         newDate && newDate.trim() !== '' ? newDate.trim() : 'blank';
 
-      logNotification(
-        `Order Date updated from ${previousOrderDate} to ${nextOrderDate} for ${transactionDescriptor}.`,
-        {
-          column: 'Order Date',
-          transactionId: transaction.id,
-          previousValue: transaction['Order Date'] ?? '',
-          newValue: newDate,
-        }
-      );
+      if (previousOrderDate !== nextOrderDate) {
+        logNotification(
+          `Order Date updated from ${previousOrderDate} to ${nextOrderDate} for ${transactionDescriptor}.`,
+          {
+            column: 'Order Date',
+            transactionId: transaction.id,
+            previousValue: transaction['Order Date'] ?? '',
+            newValue: newDate,
+          }
+        );
+      }
     }
 
     return true;
@@ -77,15 +79,17 @@ export function handleSimpleTransactionColumnEdit({
       const previousNotes = transaction.Notes ?? '';
       const nextNotes = notesValue ?? '';
 
-      logNotification(
-        `Notes updated for ${transactionDescriptor}. Previous: "${truncateText(previousNotes)}" • New: "${truncateText(nextNotes)}"`,
-        {
-          column: 'Notes',
-          transactionId: transaction.id,
-          previousValue: previousNotes,
-          newValue: nextNotes,
-        }
-      );
+      if (previousNotes !== nextNotes) {
+        logNotification(
+          `Notes updated for ${transactionDescriptor}. Previous: "${truncateText(previousNotes)}" • New: "${truncateText(nextNotes)}"`,
+          {
+            column: 'Notes',
+            transactionId: transaction.id,
+            previousValue: previousNotes,
+            newValue: nextNotes,
+          }
+        );
+      }
     }
 
     return true;
@@ -103,12 +107,15 @@ export function handleSimpleTransactionColumnEdit({
     });
 
     if (shouldLog) {
-      logNotification(`Invoice Date updated for ${transactionDescriptor}.`, {
-        column: 'Invoice Date',
-        transactionId: transaction.id,
-        previousValue: transaction['Invoice Date'] ?? '',
-        newValue: invoiceDateValue,
-      });
+      const previousValue = (transaction['Invoice Date'] ?? '').trim();
+      if (previousValue !== invoiceDateValue) {
+        logNotification(`Invoice Date updated for ${transactionDescriptor}.`, {
+          column: 'Invoice Date',
+          transactionId: transaction.id,
+          previousValue,
+          newValue: invoiceDateValue,
+        });
+      }
     }
 
     return true;
@@ -126,12 +133,15 @@ export function handleSimpleTransactionColumnEdit({
     });
 
     if (shouldLog) {
-      logNotification(`Packed Date updated for ${transactionDescriptor}.`, {
-        column: 'Packed Date',
-        transactionId: transaction.id,
-        previousValue: transaction['Packed Date'] ?? '',
-        newValue: packedDateValue,
-      });
+      const previousValue = (transaction['Packed Date'] ?? '').trim();
+      if (previousValue !== packedDateValue) {
+        logNotification(`Packed Date updated for ${transactionDescriptor}.`, {
+          column: 'Packed Date',
+          transactionId: transaction.id,
+          previousValue,
+          newValue: packedDateValue,
+        });
+      }
     }
 
     return true;
@@ -149,12 +159,15 @@ export function handleSimpleTransactionColumnEdit({
     });
 
     if (shouldLog) {
-      logNotification(`Shipment Code updated for ${transactionDescriptor}.`, {
-        column: 'Shipment Code',
-        transactionId: transaction.id,
-        previousValue: transaction['Shipment Code'] ?? '',
-        newValue: shipmentCodeValue,
-      });
+      const previousValue = (transaction['Shipment Code'] ?? '').trim();
+      if (previousValue !== shipmentCodeValue) {
+        logNotification(`Shipment Code updated for ${transactionDescriptor}.`, {
+          column: 'Shipment Code',
+          transactionId: transaction.id,
+          previousValue,
+          newValue: shipmentCodeValue,
+        });
+      }
     }
 
     return true;

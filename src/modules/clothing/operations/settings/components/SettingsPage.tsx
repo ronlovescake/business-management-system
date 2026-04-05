@@ -6,7 +6,7 @@
  * Main settings page with tabs for marketplace, installed modules, updates, and dependencies
  */
 
-import { useState } from 'react';
+import React, { useState } from 'react';
 import {
   Button,
   Container,
@@ -85,6 +85,7 @@ export function SettingsPage({ apiBasePath }: SettingsPageProps) {
   )
     ? (templateSubTabParam as TemplateSubTab)
     : 'invoice';
+  const changeLogFiltersEnabled = activeTab === 'change-log';
 
   const isDateRangeValid = !startDate || !endDate || endDate >= startDate;
 
@@ -94,13 +95,18 @@ export function SettingsPage({ apiBasePath }: SettingsPageProps) {
         <Paper withBorder shadow="xs" p="md" radius="md">
           <Group gap="sm" wrap="nowrap" align="center">
             <TextInput
-              placeholder="Search settings..."
-              aria-label="Search settings"
+              placeholder={
+                changeLogFiltersEnabled
+                  ? 'Search customer, product code, invoice, or notes...'
+                  : 'Open Change Log to search entries'
+              }
+              aria-label="Search change log"
               value={searchQuery}
               onChange={(event) => setSearchQuery(event.currentTarget.value)}
               leftSection={<IconSearch size={16} stroke={1.5} />}
               radius="md"
               style={{ flex: 1 }}
+              disabled={!changeLogFiltersEnabled}
             />
 
             <Group gap="xs" wrap="nowrap">
@@ -109,6 +115,7 @@ export function SettingsPage({ apiBasePath }: SettingsPageProps) {
                 onChange={setStartDate}
                 placeholder="Start date"
                 aria-label="Filter start date"
+                disabled={!changeLogFiltersEnabled}
                 {...COMMON_DATE_INPUT_PROPS}
                 error={
                   isDateRangeValid ? undefined : 'Start must be before end'
@@ -120,6 +127,7 @@ export function SettingsPage({ apiBasePath }: SettingsPageProps) {
                 placeholder="End date"
                 aria-label="Filter end date"
                 minDate={startDate ?? undefined}
+                disabled={!changeLogFiltersEnabled}
                 {...COMMON_DATE_INPUT_PROPS}
                 error={isDateRangeValid ? undefined : 'End must be after start'}
               />
@@ -209,6 +217,8 @@ export function SettingsPage({ apiBasePath }: SettingsPageProps) {
             <ChangeLogPage
               hideFilters
               externalSearch={searchQuery}
+              externalStartDate={startDate}
+              externalEndDate={endDate}
               apiBasePath={apiBasePath}
             />
           </Tabs.Panel>

@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState, type CSSProperties } from 'react';
+import React, { useMemo, useState, type CSSProperties } from 'react';
 import {
   Stack,
   Group,
@@ -15,9 +15,15 @@ import {
   Divider,
   Paper,
   Tabs,
+  Button,
+  Select,
+  TextInput,
 } from '@mantine/core';
+import { DateInput } from '@mantine/dates';
+import { useDebouncedValue } from '@mantine/hooks';
 import { IconAlertCircle, IconChevronRight } from '@tabler/icons-react';
 import { StandardTableContainer } from '@/components/tables/StandardDataTable';
+import { COMMON_DATE_INPUT_PROPS } from '@/lib/dateInputConfig';
 import {
   useChangeLogQuery,
   type ChangeLogRecord,
@@ -68,6 +74,35 @@ const SUMMARY_TIME_FORMATTER = new Intl.DateTimeFormat(undefined, {
 const SUMMARY_GRID_TEMPLATE =
   'minmax(280px, 2fr) 200px minmax(180px, 1fr) 120px';
 
+const GENERIC_TABLE_HEADERS = [
+  'TIMESTAMP',
+  'USER',
+  'SOURCE',
+  'FIELD',
+  'ACTION',
+  'PREVIOUS VALUE',
+  'NEW VALUE',
+  'METADATA',
+] as const;
+
+const TRANSACTION_TABLE_HEADERS = [
+  'TIMESTAMP',
+  'USER',
+  'ORDER DATE',
+  'CUSTOMERS',
+  'PRODUCT CODE',
+  'QUANTITY',
+  'UNIT PRICE',
+  'DISCOUNT',
+  'ADJUSTMENT',
+  'LINE TOTAL',
+  'ORDER STATUS',
+  'NOTES',
+  'INVOICE DATE',
+  'PACKED DATE',
+  'SHIPMENT CODE',
+] as const;
+
 const TRANSACTION_FIELD_KEYS = [
   'orderDate',
   'customers',
@@ -93,7 +128,7 @@ const CHANGED_CELL_STYLE: CSSProperties = {
   transition: 'background-color 120ms ease, box-shadow 120ms ease',
 };
 
-const DEFAULT_LIMIT = 250;
+const DEFAULT_LIMIT = 200;
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
@@ -257,6 +292,18 @@ function getChangedTransactionFields(
   return changed;
 }
 
+function formatDateBoundary(value: Date, boundary: 'start' | 'end'): string {
+  const normalized = new Date(value);
+
+  if (boundary === 'start') {
+    normalized.setHours(0, 0, 0, 0);
+  } else {
+    normalized.setHours(23, 59, 59, 999);
+  }
+
+  return normalized.toISOString();
+}
+
 interface ValueCellProps {
   value: unknown;
 }
@@ -295,46 +342,116 @@ export interface ChangeLogPageProps {
   externalSearch?: string;
 
   /**
+   * Optional external start date for embedded change-log filtering.
+   */
+  externalStartDate?: Date | null;
+
+  /**
+   * Optional external end date for embedded change-log filtering.
+   */
+  externalEndDate?: Date | null;
+
+  /**
    * Optional API base path override (e.g. /api/general-merchandise).
    */
   apiBasePath?: string;
 }
 
 export function ChangeLogPage({
-  hideFilters: _hideFilters = false,
+  hideFilters = false,
   externalSearch,
+  externalStartDate,
+  externalEndDate,
   apiBasePath,
 }: ChangeLogPageProps) {
-  const [limit, setLimit] = useState(DEFAULT_LIMIT.toString());
   const [activeTab, setActiveTab] = useState<string | null>('transactions');
+  const [searchInput, setSearchInput] = useState('');
+  const [entityTypeFilter, setEntityTypeFilter] = useState<string | null>(null);
+  const [actionFilter, setActionFilter] = useState<string | null>(null);
+  const [sourceFilter, setSourceFilter] = useState<string | null>(null);
+  const [startDate, setStartDate] = useState<Date | null>(null);
+  const [endDate, setEndDate] = useState<Date | null>(null);
+  const [debouncedSearch] = useDebouncedValue(searchInput, 300);
+
+  const effectiveSearch = hideFilters
+    ? externalSearch?.trim() || undefined
+    : debouncedSearch.trim() || undefined;
+  const effectiveStartDate = hideFilters ? externalStartDate ?? null : startDate;
+  const effectiveEndDate = hideFilters ? externalEndDate ?? null : endDate;
+  const isDateRangeValid =
+    !effectiveStartDate || !effectiveEndDate || effectiveEndDate >= effectiveStartDate;
 
   const queryParams = useMemo(
     () => ({
       page: 1,
-      limit: Number(limit),
-      search: externalSearch?.trim() || undefined,
+      limit: DEFAULT_LIMIT,
+      search: effectiveSearch,
+      entityType: hideFilters ? undefined : entityTypeFilter || undefined,
+      action: hideFilters ? undefined : actionFilter || undefined,
+      source: hideFilters ? undefined : sourceFilter || undefined,
+      startDate:
+        isDateRangeValid && effectiveStartDate
+          ? formatDateBoundary(effectiveStartDate, 'start')
+          : undefined,
+      endDate:
+        isDateRangeValid && effectiveEndDate
+          ? formatDateBoundary(effectiveEndDate, 'end')
+          : undefined,
+      includeFilters: !hideFilters,
     }),
-    [limit, externalSearch]
+    [
+      actionFilter,
+      effectiveEndDate,
+      effectiveSearch,
+      effectiveStartDate,
+      entityTypeFilter,
+      hideFilters,
+      isDateRangeValid,
+      sourceFilter,
+    ]
   );
 
   const { data, isLoading, error } = useChangeLogQuery(
     queryParams,
-    undefined,
+    { enabled: isDateRangeValid },
     apiBasePath
   );
   const logs = useMemo(() => data?.logs ?? [], [data]);
-  const pagination = data?.pagination;
-  const totalRecords = pagination?.total;
+  const totalRecords = data?.pagination?.total ?? 0;
 
-  useEffect(() => {
-    if (!totalRecords) {
-      return;
-    }
+  const entityTypeOptions = useMemo(
+    () =>
+      (data?.filters?.entityTypes ?? []).map((value) => ({
+        value,
+        label: value,
+      })),
+    [data?.filters?.entityTypes]
+  );
+  const actionOptions = useMemo(
+    () =>
+      (data?.filters?.actions ?? []).map((value) => ({
+        value,
+        label: value,
+      })),
+    [data?.filters?.actions]
+  );
+  const sourceOptions = useMemo(
+    () =>
+      (data?.filters?.sources ?? []).map((value) => ({
+        value,
+        label: value,
+      })),
+    [data?.filters?.sources]
+  );
 
-    if (totalRecords !== Number(limit)) {
-      setLimit(totalRecords.toString());
-    }
-  }, [totalRecords, limit]);
+  const resetInternalFilters = () => {
+    setSearchInput('');
+    setEntityTypeFilter(null);
+    setActionFilter(null);
+    setSourceFilter(null);
+    setStartDate(null);
+    setEndDate(null);
+  };
 
   const emptyState = isLoading ? (
     <Group justify="center" py="lg">
@@ -497,6 +614,74 @@ export function ChangeLogPage({
 
   return (
     <Stack gap="lg">
+      {!hideFilters && (
+        <Paper withBorder shadow="xs" p="md" radius="md">
+          <Stack gap="sm">
+            <Group gap="sm" align="flex-end" wrap="wrap">
+              <TextInput
+                label="Search"
+                placeholder="Search customer, product, ID, notes, or values"
+                value={searchInput}
+                onChange={(event) => setSearchInput(event.currentTarget.value)}
+                style={{ flex: 1, minWidth: 260 }}
+              />
+              <Select
+                label="Entity"
+                placeholder="All entities"
+                data={entityTypeOptions}
+                value={entityTypeFilter}
+                onChange={setEntityTypeFilter}
+                clearable
+                w={180}
+              />
+              <Select
+                label="Action"
+                placeholder="All actions"
+                data={actionOptions}
+                value={actionFilter}
+                onChange={setActionFilter}
+                clearable
+                w={160}
+              />
+              <Select
+                label="Source"
+                placeholder="All sources"
+                data={sourceOptions}
+                value={sourceFilter}
+                onChange={setSourceFilter}
+                clearable
+                w={180}
+              />
+              <DateInput
+                label="Start date"
+                value={startDate}
+                onChange={setStartDate}
+                placeholder="Start date"
+                clearable
+                error={isDateRangeValid ? undefined : 'Start must be before end'}
+                {...COMMON_DATE_INPUT_PROPS}
+              />
+              <DateInput
+                label="End date"
+                value={endDate}
+                onChange={setEndDate}
+                placeholder="End date"
+                clearable
+                minDate={startDate ?? undefined}
+                error={isDateRangeValid ? undefined : 'End must be after start'}
+                {...COMMON_DATE_INPUT_PROPS}
+              />
+              <Button variant="light" onClick={resetInternalFilters}>
+                Reset filters
+              </Button>
+            </Group>
+            <Text size="sm" c="dimmed">
+              {totalRecords.toLocaleString()} matching entries. Showing the newest up to {DEFAULT_LIMIT} records.
+            </Text>
+          </Stack>
+        </Paper>
+      )}
+
       {error && (
         <Alert color="red" icon={<IconAlertCircle size={20} />} title="Error">
           {error instanceof Error
@@ -517,7 +702,7 @@ export function ChangeLogPage({
           <Group justify="center" py="lg">
             <Loader size="sm" />
           </Group>
-        ) : logs.length === 0 ? (
+        ) : filteredGroupedLogs.length === 0 ? (
           <Text size="sm" c="dimmed" ta="center" py="lg">
             {emptyState}
           </Text>
@@ -602,6 +787,8 @@ export function ChangeLogPage({
                   );
                   const latestDate = new Date(group.latestCreatedAt);
                   const latestEntry = sortedEntries[0];
+                  const isTransactionGroup =
+                    group.entityType.toLowerCase() === 'transaction';
 
                   return (
                     <Accordion.Item key={group.key} value={group.key}>
@@ -668,21 +855,12 @@ export function ChangeLogPage({
                           >
                             <Table.Thead>
                               <Table.Tr>
-                                <Table.Th>TIMESTAMP</Table.Th>
-                                <Table.Th>USER</Table.Th>
-                                <Table.Th>ORDER DATE</Table.Th>
-                                <Table.Th>CUSTOMERS</Table.Th>
-                                <Table.Th>PRODUCT CODE</Table.Th>
-                                <Table.Th>QUANTITY</Table.Th>
-                                <Table.Th>UNIT PRICE</Table.Th>
-                                <Table.Th>DISCOUNT</Table.Th>
-                                <Table.Th>ADJUSTMENT</Table.Th>
-                                <Table.Th>LINE TOTAL</Table.Th>
-                                <Table.Th>ORDER STATUS</Table.Th>
-                                <Table.Th>NOTES</Table.Th>
-                                <Table.Th>INVOICE DATE</Table.Th>
-                                <Table.Th>PACKED DATE</Table.Th>
-                                <Table.Th>SHIPMENT CODE</Table.Th>
+                                {(isTransactionGroup
+                                  ? TRANSACTION_TABLE_HEADERS
+                                  : GENERIC_TABLE_HEADERS
+                                ).map((header) => (
+                                  <Table.Th key={header}>{header}</Table.Th>
+                                ))}
                               </Table.Tr>
                             </Table.Thead>
                             <Table.Tbody>

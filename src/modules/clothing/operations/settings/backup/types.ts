@@ -453,7 +453,6 @@ export const formatBackupTimestamp = (timestamp: string) => {
       day: '2-digit',
       hour: '2-digit',
       minute: '2-digit',
-      timeZone: 'UTC',
     });
   } catch {
     return timestamp;

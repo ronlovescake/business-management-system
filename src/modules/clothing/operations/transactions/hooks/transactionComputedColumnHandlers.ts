@@ -62,17 +62,19 @@ export function handleComputedTransactionColumnEdit({
     if (shouldLog) {
       const previousUnitPrice = transaction['Unit Price'] ?? 0;
 
-      logNotification(
-        `Unit Price updated from ${formatCurrencyValue(previousUnitPrice)} to ${formatCurrencyValue(newUnitPrice)} for ${transactionDescriptor}. Line Total recalculated to ${formatCurrencyValue(lineTotal)}.`,
-        {
-          column: 'Unit Price',
-          transactionId: transaction.id,
-          previousValue: previousUnitPrice,
-          newValue: newUnitPrice,
-          quantity,
-          lineTotal,
-        }
-      );
+      if (previousUnitPrice !== newUnitPrice) {
+        logNotification(
+          `Unit Price updated from ${formatCurrencyValue(previousUnitPrice)} to ${formatCurrencyValue(newUnitPrice)} for ${transactionDescriptor}. Line Total recalculated to ${formatCurrencyValue(lineTotal)}.`,
+          {
+            column: 'Unit Price',
+            transactionId: transaction.id,
+            previousValue: previousUnitPrice,
+            newValue: newUnitPrice,
+            quantity,
+            lineTotal,
+          }
+        );
+      }
     }
 
     return true;
@@ -120,19 +122,21 @@ export function handleComputedTransactionColumnEdit({
       const previousUnitPrice = transaction['Unit Price'] ?? 0;
       const previousLineTotal = transaction['Line Total'] ?? 0;
 
-      let logMessage = `Discount updated from ${formatNumberValue(previousDiscount)} to ${formatNumberValue(newDiscount)} for ${transactionDescriptor}.`;
-      logMessage += ` Unit Price recalculated from ${formatCurrencyValue(previousUnitPrice)} to ${formatCurrencyValue(recalculatedUnitPrice)}.`;
-      logMessage += ` Line Total updated from ${formatCurrencyValue(previousLineTotal)} to ${formatCurrencyValue(lineTotal)}.`;
+      if (previousDiscount !== newDiscount) {
+        let logMessage = `Discount updated from ${formatNumberValue(previousDiscount)} to ${formatNumberValue(newDiscount)} for ${transactionDescriptor}.`;
+        logMessage += ` Unit Price recalculated from ${formatCurrencyValue(previousUnitPrice)} to ${formatCurrencyValue(recalculatedUnitPrice)}.`;
+        logMessage += ` Line Total updated from ${formatCurrencyValue(previousLineTotal)} to ${formatCurrencyValue(lineTotal)}.`;
 
-      logNotification(logMessage, {
-        column: 'Discount',
-        transactionId: transaction.id,
-        previousValue: previousDiscount,
-        newValue: newDiscount,
-        unitPrice: recalculatedUnitPrice,
-        lineTotal,
-        quantity: currentQuantity,
-      });
+        logNotification(logMessage, {
+          column: 'Discount',
+          transactionId: transaction.id,
+          previousValue: previousDiscount,
+          newValue: newDiscount,
+          unitPrice: recalculatedUnitPrice,
+          lineTotal,
+          quantity: currentQuantity,
+        });
+      }
     }
 
     return true;
@@ -165,18 +169,20 @@ export function handleComputedTransactionColumnEdit({
       const previousAdjustment = transaction.Adjustment ?? 0;
       const previousLineTotal = transaction['Line Total'] ?? 0;
 
-      logNotification(
-        `Adjustment updated from ${formatCurrencyValue(previousAdjustment)} to ${formatCurrencyValue(newAdjustment)} for ${transactionDescriptor}. Line Total updated from ${formatCurrencyValue(previousLineTotal)} to ${formatCurrencyValue(lineTotal)}.`,
-        {
-          column: 'Adjustment',
-          transactionId: transaction.id,
-          previousValue: previousAdjustment,
-          newValue: newAdjustment,
-          lineTotal,
-          quantity,
-          unitPrice,
-        }
-      );
+      if (previousAdjustment !== newAdjustment) {
+        logNotification(
+          `Adjustment updated from ${formatCurrencyValue(previousAdjustment)} to ${formatCurrencyValue(newAdjustment)} for ${transactionDescriptor}. Line Total updated from ${formatCurrencyValue(previousLineTotal)} to ${formatCurrencyValue(lineTotal)}.`,
+          {
+            column: 'Adjustment',
+            transactionId: transaction.id,
+            previousValue: previousAdjustment,
+            newValue: newAdjustment,
+            lineTotal,
+            quantity,
+            unitPrice,
+          }
+        );
+      }
     }
 
     return true;
@@ -203,18 +209,20 @@ export function handleComputedTransactionColumnEdit({
     if (shouldLog) {
       const previousLineTotal = transaction['Line Total'] ?? 0;
 
-      logNotification(
-        `Line Total updated from ${formatCurrencyValue(previousLineTotal)} to ${formatCurrencyValue(newLineTotal)} for ${transactionDescriptor}. Adjustment recalculated to ${formatCurrencyValue(recalculatedAdjustment)}.`,
-        {
-          column: 'Line Total',
-          transactionId: transaction.id,
-          previousValue: previousLineTotal,
-          newValue: newLineTotal,
-          adjustment: recalculatedAdjustment,
-          quantity,
-          unitPrice,
-        }
-      );
+      if (previousLineTotal !== newLineTotal) {
+        logNotification(
+          `Line Total updated from ${formatCurrencyValue(previousLineTotal)} to ${formatCurrencyValue(newLineTotal)} for ${transactionDescriptor}. Adjustment recalculated to ${formatCurrencyValue(recalculatedAdjustment)}.`,
+          {
+            column: 'Line Total',
+            transactionId: transaction.id,
+            previousValue: previousLineTotal,
+            newValue: newLineTotal,
+            adjustment: recalculatedAdjustment,
+            quantity,
+            unitPrice,
+          }
+        );
+      }
     }
 
     return true;

@@ -64,9 +64,16 @@ describe('PitrInvestigationTab', () => {
 
   it('submits actor and business identifier filters and anchors restore planning', async () => {
     const onApplyRestoreAnchor = vi.fn();
-    const fetchMock = vi
-      .fn()
-      .mockResolvedValueOnce({
+    const fetchMock = vi.fn().mockImplementation(async (input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url.includes('/api/backup/pitr/audit')) {
+        return {
+          ok: true,
+          json: async () => ({ success: true, logs: [] }),
+        };
+      }
+
+      return {
         ok: true,
         json: async () => ({
           success: true,
@@ -92,34 +99,8 @@ describe('PitrInvestigationTab', () => {
             sources: ['transactions'],
           },
         }),
-      })
-      .mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({
-          success: true,
-          logs: [
-            {
-              id: 'log-1',
-              createdAt: '2026-04-04T12:00:00.000Z',
-              userId: 'user-1',
-              userName: 'Ron',
-              entityType: 'Transaction',
-              entityId: 'txn-1',
-              action: 'delete',
-              field: null,
-              oldValue: { invoiceNumber: 'INV-1001' },
-              newValue: null,
-              source: 'transactions',
-              metadata: { customerName: 'Acme Stores', invoiceNumber: 'INV-1001' },
-            },
-          ],
-          filters: {
-            entityTypes: ['Transaction'],
-            actions: ['delete'],
-            sources: ['transactions'],
-          },
-        }),
-      });
+      };
+    });
 
     global.fetch = fetchMock as typeof fetch;
 
@@ -138,12 +119,19 @@ describe('PitrInvestigationTab', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Search Events' }));
 
     await waitFor(() => {
-      expect(fetchMock).toHaveBeenCalledTimes(2);
+      expect(fetchMock).toHaveBeenCalledTimes(4);
     });
 
-    const secondRequestUrl = fetchMock.mock.calls[1][0] as string;
-    expect(secondRequestUrl).toContain('actor=Ron');
-    expect(secondRequestUrl).toContain('search=INV-1001');
+    const filteredInvestigateRequest = fetchMock.mock.calls
+      .map((call) => String(call[0]))
+      .find(
+        (url) =>
+          url.includes('/api/backup/pitr/investigate?') &&
+          url.includes('actor=Ron') &&
+          url.includes('search=INV-1001')
+      );
+
+    expect(filteredInvestigateRequest).toBeTruthy();
 
     fireEvent.click(screen.getByRole('button', { name: 'Use' }));
 
@@ -152,5 +140,124 @@ describe('PitrInvestigationTab', () => {
       targetTime: new Date('2026-04-04T11:59:59.000Z'),
       message: expect.stringContaining('delete Transaction (txn-1)'),
     });
+  });
+
+  it('shows field-level changes for the selected event', async () => {
+    const fetchMock = vi.fn().mockImplementation(async (input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url.includes('/api/backup/pitr/audit')) {
+        return {
+          ok: true,
+          json: async () => ({ success: true, logs: [] }),
+        };
+      }
+
+      return {
+        ok: true,
+        json: async () => ({
+          success: true,
+          logs: [
+            {
+              id: 'log-2',
+              createdAt: '2026-04-04T12:00:00.000Z',
+              userId: 'user-1',
+              userName: 'Ron',
+              entityType: 'transaction',
+              entityId: '2417',
+              action: 'update',
+              field: null,
+              oldValue: { quantity: 100, customers: 'John' },
+              newValue: { quantity: 1000, customers: 'Mary' },
+              source: 'transactions:update',
+              metadata: null,
+            },
+          ],
+          filters: {
+            entityTypes: ['transaction'],
+            actions: ['update'],
+            sources: ['transactions:update'],
+          },
+        }),
+      };
+    });
+
+    global.fetch = fetchMock as typeof fetch;
+
+    renderTab();
+
+    await waitFor(() => {
+      expect(screen.getByText('Changed Fields')).toBeInTheDocument();
+    });
+
+    expect(screen.getByText('quantity')).toBeInTheDocument();
+    expect(screen.getByText('customers')).toBeInTheDocument();
+    expect(screen.getByText('100')).toBeInTheDocument();
+    expect(screen.getByText('1000')).toBeInTheDocument();
+    expect(screen.getAllByRole('button', { name: 'Copy old' }).length).toBeGreaterThan(0);
+  });
+
+  it('falls back to audit-log field changes when the change log is coarse', async () => {
+    const fetchMock = vi.fn().mockImplementation(async (input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url.includes('/api/backup/pitr/audit')) {
+        return {
+          ok: true,
+          json: async () => ({
+            success: true,
+            logs: [
+              {
+                id: 'audit-1',
+                model: 'Transaction',
+                action: 'update',
+                targetId: '2417',
+                before: { quantity: 100, customers: 'John' },
+                after: { quantity: 1000, customers: 'Mary' },
+                timestamp: '2026-04-04T12:00:00.500Z',
+              },
+            ],
+          }),
+        };
+      }
+
+      return {
+        ok: true,
+        json: async () => ({
+          success: true,
+          logs: [
+            {
+              id: 'log-3',
+              createdAt: '2026-04-04T12:00:00.000Z',
+              userId: 'user-1',
+              userName: 'Ron',
+              entityType: 'transaction',
+              entityId: '2417',
+              action: 'update',
+              field: null,
+              oldValue: null,
+              newValue: null,
+              source: 'transactions:update',
+              metadata: { changed: true },
+            },
+          ],
+          filters: {
+            entityTypes: ['transaction'],
+            actions: ['update'],
+            sources: ['transactions:update'],
+          },
+        }),
+      };
+    });
+
+    global.fetch = fetchMock as typeof fetch;
+
+    renderTab();
+
+    await waitFor(() => {
+      expect(screen.getByText('Audit log fallback')).toBeInTheDocument();
+    });
+
+    expect(screen.getByText('quantity')).toBeInTheDocument();
+    expect(screen.getByText('customers')).toBeInTheDocument();
+    expect(screen.getByText('Audit log match')).toBeInTheDocument();
   });
 });

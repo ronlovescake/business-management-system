@@ -205,25 +205,28 @@ export async function handleQuantityColumnEdit({
 
   if (shouldLog) {
     const previousQuantity = transaction.Quantity ?? 0;
-    let logMessage = `Quantity updated from ${formatNumberValue(previousQuantity)} to ${formatNumberValue(newQuantity)} for ${transactionDescriptor}.`;
 
-    if (unitPriceAutoPopulated) {
-      logMessage += ` Unit Price auto-set to ${formatCurrencyValue(autoPopulatedUnitPrice)}.`;
-    } else if (unitPriceCleared) {
-      logMessage += ' Unit Price cleared.';
+    if (previousQuantity !== newQuantity) {
+      let logMessage = `Quantity updated from ${formatNumberValue(previousQuantity)} to ${formatNumberValue(newQuantity)} for ${transactionDescriptor}.`;
+
+      if (unitPriceAutoPopulated) {
+        logMessage += ` Unit Price auto-set to ${formatCurrencyValue(autoPopulatedUnitPrice)}.`;
+      } else if (unitPriceCleared) {
+        logMessage += ' Unit Price cleared.';
+      }
+
+      logMessage += ` Line Total recalculated to ${formatCurrencyValue(lineTotal)}.`;
+
+      logNotification(logMessage, {
+        column: 'Quantity',
+        transactionId: transaction.id,
+        previousValue: previousQuantity,
+        newValue: newQuantity,
+        unitPrice: autoPopulatedUnitPrice,
+        lineTotal,
+        adjustment,
+      });
     }
-
-    logMessage += ` Line Total recalculated to ${formatCurrencyValue(lineTotal)}.`;
-
-    logNotification(logMessage, {
-      column: 'Quantity',
-      transactionId: transaction.id,
-      previousValue: previousQuantity,
-      newValue: newQuantity,
-      unitPrice: autoPopulatedUnitPrice,
-      lineTotal,
-      adjustment,
-    });
   }
 
   return true;

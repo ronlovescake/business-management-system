@@ -167,12 +167,18 @@ export interface ChangeLogQueryResult {
   limit: number;
 }
 
+interface ChangeLogCountRow {
+  total: number;
+}
+
 const CHANGE_LOG_IDENTIFIER_PATHS = [
   'description',
+  'customers',
   'customerName',
   'customer',
   'customerDisplayName',
   'customer_name',
+  'customerCode',
   'invoiceNumber',
   'invoiceNo',
   'invoice',
@@ -180,9 +186,16 @@ const CHANGE_LOG_IDENTIFIER_PATHS = [
   'transactionNo',
   'productCode',
   'product_code',
+  'productName',
+  'product',
   'sku',
   'itemCode',
   'item_code',
+  'notes',
+  'shipmentCode',
+  'shipment_code',
+  'referenceNumber',
+  'referenceNo',
   'employeeName',
   'employee',
   'routeName',
@@ -191,26 +204,39 @@ const CHANGE_LOG_IDENTIFIER_PATHS = [
   'name',
 ] as const;
 
-function buildJsonPathContainsCondition(
-  field: 'metadata' | 'oldValue' | 'newValue',
-  path: string,
-  searchTerm: string
-): Prisma.ChangeLogWhereInput {
-  const filter = {
-    path: [path],
-    string_contains: searchTerm,
-  } as Prisma.JsonFilter<'ChangeLog'>;
+const CHANGE_LOG_PRIORITY_PATHS = [
+  'customers',
+  'customerName',
+  'customer',
+  'customerDisplayName',
+  'customer_name',
+  'customerCode',
+  'invoiceNumber',
+  'invoiceNo',
+  'invoice',
+  'transactionNumber',
+  'transactionNo',
+  'productCode',
+  'product_code',
+  'productName',
+  'product',
+  'sku',
+  'itemCode',
+  'item_code',
+  'notes',
+  'shipmentCode',
+  'shipment_code',
+  'referenceNumber',
+  'referenceNo',
+] as const;
 
-  if (field === 'metadata') {
-    return { metadata: filter };
-  }
-
-  if (field === 'oldValue') {
-    return { oldValue: filter };
-  }
-
-  return { newValue: filter };
-}
+const CHANGE_LOG_GENERIC_PRIORITY_COLUMNS = [
+  'entityType',
+  'entityId',
+  'action',
+  'field',
+  'source',
+] as const;
 
 function buildActorWhere(actor: string): Prisma.ChangeLogWhereInput {
   const normalizedActor = actor.trim();
@@ -223,22 +249,197 @@ function buildActorWhere(actor: string): Prisma.ChangeLogWhereInput {
   };
 }
 
-function buildSearchWhere(searchTerm: string): Prisma.ChangeLogWhereInput {
+function escapeLikePattern(value: string): string {
+  return value.replace(/[\\%_]/g, '\\$&');
+}
+
+function buildJsonPathMatchExpressions(
+  paths: readonly string[],
+  pattern: string
+): Prisma.Sql[] {
+  return paths.flatMap((path) => [
+    Prisma.sql`COALESCE(metadata ->> ${path}, '') ILIKE ${pattern} ESCAPE '\\'`,
+    Prisma.sql`COALESCE("oldValue" ->> ${path}, '') ILIKE ${pattern} ESCAPE '\\'`,
+    Prisma.sql`COALESCE("newValue" ->> ${path}, '') ILIKE ${pattern} ESCAPE '\\'`,
+  ]);
+}
+
+function buildColumnMatchExpressions(
+  columns: readonly string[],
+  pattern: string
+): Prisma.Sql[] {
+  return columns.map(
+    (column) =>
+      Prisma.sql`COALESCE(${Prisma.raw(`"${column}"`)}, '') ILIKE ${pattern} ESCAPE '\\'`
+  );
+}
+
+function joinSqlConditions(
+  expressions: Prisma.Sql[],
+  separator: ' OR ' | ' AND '
+): Prisma.Sql {
+  if (expressions.length === 0) {
+    return Prisma.sql`FALSE`;
+  }
+
+  return Prisma.sql`(${Prisma.join(expressions, separator)})`;
+}
+
+function buildSearchSql(searchTerm: string): Prisma.Sql {
+  const likePattern = `%${escapeLikePattern(searchTerm)}%`;
+  const searchConditions: Prisma.Sql[] = [
+    ...buildColumnMatchExpressions(CHANGE_LOG_GENERIC_PRIORITY_COLUMNS, likePattern),
+    ...buildJsonPathMatchExpressions(CHANGE_LOG_IDENTIFIER_PATHS, likePattern),
+  ];
+
+  return joinSqlConditions(searchConditions, ' OR ');
+}
+
+function buildSearchRankSql(searchTerm: string): Prisma.Sql {
+  const escapedTerm = escapeLikePattern(searchTerm);
+  const prefixPattern = `${escapedTerm}%`;
+  const containsPattern = `%${escapedTerm}%`;
+
+  const priorityPrefixConditions = buildJsonPathMatchExpressions(
+    CHANGE_LOG_PRIORITY_PATHS,
+    prefixPattern
+  );
+  const genericPrefixConditions = buildColumnMatchExpressions(
+    CHANGE_LOG_GENERIC_PRIORITY_COLUMNS,
+    prefixPattern
+  );
+  const priorityContainsConditions = buildJsonPathMatchExpressions(
+    CHANGE_LOG_PRIORITY_PATHS,
+    containsPattern
+  );
+
+  return Prisma.sql`
+    CASE
+      WHEN ${joinSqlConditions(priorityPrefixConditions, ' OR ')} THEN 0
+      WHEN ${joinSqlConditions(genericPrefixConditions, ' OR ')} THEN 1
+      WHEN ${joinSqlConditions(priorityContainsConditions, ' OR ')} THEN 2
+      ELSE 3
+    END
+  `;
+}
+
+function buildChangeLogWhereSql(params: ChangeLogQuery): Prisma.Sql {
+  const conditions: Prisma.Sql[] = [];
+
+  if (params.entityType) {
+    conditions.push(Prisma.sql`"entityType" = ${params.entityType}`);
+  }
+
+  if (params.entityId) {
+    conditions.push(Prisma.sql`"entityId" = ${params.entityId}`);
+  }
+
+  if (params.userId) {
+    conditions.push(Prisma.sql`"userId" = ${params.userId}`);
+  }
+
+  if (params.action) {
+    conditions.push(Prisma.sql`action = ${params.action}`);
+  }
+
+  if (params.source) {
+    conditions.push(Prisma.sql`source = ${params.source}`);
+  }
+
+  if (params.startDate) {
+    conditions.push(Prisma.sql`"createdAt" >= ${params.startDate}`);
+  }
+
+  if (params.endDate) {
+    conditions.push(Prisma.sql`"createdAt" <= ${params.endDate}`);
+  }
+
+  if (params.actor?.trim()) {
+    const normalizedActor = params.actor.trim();
+    const actorLikePattern = `%${escapeLikePattern(normalizedActor)}%`;
+
+    conditions.push(
+      Prisma.sql`(
+        "userId" = ${normalizedActor}
+        OR COALESCE("userName", '') ILIKE ${actorLikePattern} ESCAPE '\\'
+      )`
+    );
+  }
+
+  if (params.search?.trim()) {
+    conditions.push(buildSearchSql(params.search.trim()));
+  }
+
+  if (conditions.length === 0) {
+    return Prisma.sql``;
+  }
+
+  return Prisma.sql`WHERE ${Prisma.join(conditions, ' AND ')}`;
+}
+
+async function queryChangeLogsWithCaseInsensitiveSearch(
+  params: ChangeLogQuery,
+  page: number,
+  limit: number,
+  skip: number
+): Promise<ChangeLogQueryResult> {
+  const trimmedSearch = params.search?.trim();
+  if (!trimmedSearch) {
+    throw new Error('Search term is required for ranked change-log queries.');
+  }
+
+  const whereSql = buildChangeLogWhereSql(params);
+  const searchRankSql = buildSearchRankSql(trimmedSearch);
+
+  const [data, countRows] = await Promise.all([
+    prisma.$queryRaw<ChangeLog[]>(Prisma.sql`
+      SELECT
+        id,
+        "createdAt",
+        "userId",
+        "userName",
+        "entityType",
+        "entityId",
+        action,
+        field,
+        "oldValue",
+        "newValue",
+        source,
+        metadata
+      FROM (
+        SELECT
+          id,
+          "createdAt",
+          "userId",
+          "userName",
+          "entityType",
+          "entityId",
+          action,
+          field,
+          "oldValue",
+          "newValue",
+          source,
+          metadata,
+          ${searchRankSql} AS search_rank
+        FROM "change_log"
+        ${whereSql}
+      ) ranked_logs
+      ORDER BY search_rank ASC, "createdAt" DESC
+      OFFSET ${skip}
+      LIMIT ${limit}
+    `),
+    prisma.$queryRaw<ChangeLogCountRow[]>(Prisma.sql`
+      SELECT COUNT(*)::int AS total
+      FROM "change_log"
+      ${whereSql}
+    `),
+  ]);
+
   return {
-    OR: [
-      { userId: { contains: searchTerm, mode: 'insensitive' } },
-      { userName: { contains: searchTerm, mode: 'insensitive' } },
-      { entityType: { contains: searchTerm, mode: 'insensitive' } },
-      { entityId: { contains: searchTerm, mode: 'insensitive' } },
-      { action: { contains: searchTerm, mode: 'insensitive' } },
-      { field: { contains: searchTerm, mode: 'insensitive' } },
-      { source: { contains: searchTerm, mode: 'insensitive' } },
-      ...CHANGE_LOG_IDENTIFIER_PATHS.flatMap((path) => [
-        buildJsonPathContainsCondition('metadata', path, searchTerm),
-        buildJsonPathContainsCondition('oldValue', path, searchTerm),
-        buildJsonPathContainsCondition('newValue', path, searchTerm),
-      ]),
-    ],
+    data,
+    total: countRows[0]?.total ?? 0,
+    page,
+    limit,
   };
 }
 
@@ -248,6 +449,10 @@ export async function queryChangeLogs(
   const page = Math.max(1, params.page ?? 1);
   const limit = Math.min(Math.max(1, params.limit ?? 25), 200);
   const skip = (page - 1) * limit;
+
+  if (params.search?.trim()) {
+    return queryChangeLogsWithCaseInsensitiveSearch(params, page, limit, skip);
+  }
 
   const andClauses: Prisma.ChangeLogWhereInput[] = [];
 
@@ -270,13 +475,6 @@ export async function queryChangeLogs(
         ...(params.endDate && { lte: params.endDate }),
       },
     });
-  }
-
-  if (params.search) {
-    const searchTerm = params.search.trim();
-    if (searchTerm.length > 0) {
-      andClauses.push(buildSearchWhere(searchTerm));
-    }
   }
 
   if (andClauses.length > 0) {

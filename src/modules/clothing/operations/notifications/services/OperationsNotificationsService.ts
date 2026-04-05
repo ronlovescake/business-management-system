@@ -17,7 +17,7 @@ export interface OperationsNotificationRecord {
   changes: string;
   action: string;
   userName: string;
-  field: string;
+  field: string | null;
   oldValue: string | null;
   newValue: string | null;
   transactionId: string | null;

@@ -7,6 +7,7 @@ import {
   Button,
   Card,
   Code,
+  CopyButton,
   Group,
   Progress,
   Select,
@@ -55,6 +56,22 @@ interface InvestigationResponse {
   success: boolean;
   logs?: InvestigationLogRecord[];
   filters?: InvestigationFilters | null;
+  error?: string;
+}
+
+interface InvestigationAuditLogRecord {
+  id: string;
+  model: string;
+  action: string;
+  targetId: string | null;
+  before: unknown;
+  after: unknown;
+  timestamp: string;
+}
+
+interface InvestigationAuditResponse {
+  success: boolean;
+  logs?: InvestigationAuditLogRecord[];
   error?: string;
 }
 
@@ -142,6 +159,60 @@ function findBestBaseBackup(
   return null;
 }
 
+function isPlainObject(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function valuesEqual(left: unknown, right: unknown) {
+  try {
+    return JSON.stringify(left) === JSON.stringify(right);
+  } catch {
+    return left === right;
+  }
+}
+
+interface FieldChangeEntry {
+  path: string;
+  oldValue: unknown;
+  newValue: unknown;
+}
+
+function collectFieldChanges(
+  oldValue: unknown,
+  newValue: unknown,
+  path = ''
+): FieldChangeEntry[] {
+  if (isPlainObject(oldValue) && isPlainObject(newValue)) {
+    const keys = Array.from(new Set([...Object.keys(oldValue), ...Object.keys(newValue)]));
+
+    return keys.flatMap((key) =>
+      collectFieldChanges(
+        oldValue[key],
+        newValue[key],
+        path ? `${path}.${key}` : key
+      )
+    );
+  }
+
+  if (valuesEqual(oldValue, newValue)) {
+    return [];
+  }
+
+  return [{ path, oldValue, newValue }];
+}
+
+function buildFieldChanges(log: InvestigationLogRecord) {
+  const fallbackField = log.field || 'value';
+
+  return collectFieldChanges(log.oldValue, log.newValue).map((entry) => ({
+    field: entry.path || fallbackField,
+    oldValue: entry.oldValue,
+    newValue: entry.newValue,
+    oldText: toCodeString(entry.oldValue) ?? 'null',
+    newText: toCodeString(entry.newValue) ?? 'null',
+  }));
+}
+
 export function PitrInvestigationTab({
   opened,
   baseBackups,
@@ -158,11 +229,14 @@ export function PitrInvestigationTab({
   const [searchClue, setSearchClue] = useState('');
   const [entityTypeFilter, setEntityTypeFilter] = useState<string | null>(null);
   const [entityIdFilter, setEntityIdFilter] = useState('');
-  const [actionFilter, setActionFilter] = useState<string | null>('delete');
+  const [actionFilter, setActionFilter] = useState<string | null>('update');
   const [sourceFilter, setSourceFilter] = useState<string | null>(null);
   const [startDateFilter, setStartDateFilter] = useState<Date | null>(shiftDays(new Date(), -7));
   const [endDateFilter, setEndDateFilter] = useState<Date | null>(new Date());
   const [investigationNotice, setInvestigationNotice] = useState<string | null>(null);
+  const [auditLogs, setAuditLogs] = useState<InvestigationAuditLogRecord[]>([]);
+  const [auditLoading, setAuditLoading] = useState(false);
+  const [auditError, setAuditError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!opened) {
@@ -171,6 +245,8 @@ export function PitrInvestigationTab({
       setInvestigationError(null);
       setSelectedLogId(null);
       setInvestigationNotice(null);
+      setAuditLogs([]);
+      setAuditError(null);
     }
   }, [opened]);
 
@@ -257,7 +333,7 @@ export function PitrInvestigationTab({
     setSearchClue('');
     setEntityTypeFilter(null);
     setEntityIdFilter('');
-    setActionFilter('delete');
+    setActionFilter('update');
     setSourceFilter(null);
     setStartDateFilter(shiftDays(new Date(), -7));
     setEndDateFilter(new Date());
@@ -295,6 +371,70 @@ export function PitrInvestigationTab({
           )
         )
       : null;
+  const selectedLogFieldChanges = selectedLog ? buildFieldChanges(selectedLog) : [];
+  const selectedAuditLog = auditLogs[0] ?? null;
+  const selectedAuditFieldChanges = selectedAuditLog
+    ? buildFieldChanges({
+        id: selectedAuditLog.id,
+        createdAt: selectedAuditLog.timestamp,
+        userId: null,
+        userName: null,
+        entityType: selectedLog?.entityType ?? selectedAuditLog.model,
+        entityId: selectedAuditLog.targetId,
+        action: selectedAuditLog.action,
+        field: null,
+        oldValue: selectedAuditLog.before,
+        newValue: selectedAuditLog.after,
+        source: 'audit-log',
+        metadata: null,
+      })
+    : [];
+  const visibleFieldChanges =
+    selectedLogFieldChanges.length > 0 ? selectedLogFieldChanges : selectedAuditFieldChanges;
+  const fieldChangeSourceLabel =
+    selectedLogFieldChanges.length > 0
+      ? 'Change log'
+      : selectedAuditFieldChanges.length > 0
+        ? 'Audit log fallback'
+        : null;
+
+  useEffect(() => {
+    if (!opened || !selectedLog?.entityId) {
+      setAuditLogs([]);
+      setAuditError(null);
+      setAuditLoading(false);
+      return;
+    }
+
+    setAuditLoading(true);
+    setAuditError(null);
+
+    const query = new URLSearchParams({
+      entityType: selectedLog.entityType,
+      entityId: selectedLog.entityId,
+      action: selectedLog.action,
+      eventTime: selectedLog.createdAt,
+      limit: '5',
+    });
+
+    fetch(`/api/backup/pitr/audit?${query.toString()}`)
+      .then(async (response) => {
+        const data = (await response.json()) as InvestigationAuditResponse;
+        if (!response.ok || !data.success) {
+          throw new Error(data.error || 'Failed to load audit log details.');
+        }
+
+        setAuditLogs(data.logs ?? []);
+      })
+      .catch((error) => {
+        setAuditError(
+          error instanceof Error
+            ? error.message
+            : 'Failed to load audit log details.'
+        );
+      })
+      .finally(() => setAuditLoading(false));
+  }, [opened, selectedLog]);
 
   const handleUseLogForRestore = (log: InvestigationLogRecord) => {
     const logDate = new Date(log.createdAt);
@@ -381,7 +521,6 @@ export function PitrInvestigationTab({
               value={actionFilter}
               onChange={setActionFilter}
               data={[
-                { value: 'delete', label: 'delete' },
                 { value: 'update', label: 'update' },
                 { value: 'create', label: 'create' },
                 { value: 'restore', label: 'restore' },
@@ -390,6 +529,7 @@ export function PitrInvestigationTab({
                     (action) => !['delete', 'update', 'create', 'restore'].includes(action)
                   )
                   .map((action) => ({ value: action, label: action }))),
+                { value: 'delete', label: 'delete' },
               ]}
               clearable
             />
@@ -576,6 +716,108 @@ export function PitrInvestigationTab({
             </Group>
 
             <SimpleGrid cols={{ base: 1, md: 3 }} spacing="md">
+              <Card withBorder padding="sm" radius="md" style={{ gridColumn: '1 / -1' }}>
+                <Stack gap="sm">
+                  <Group justify="space-between">
+                    <Stack gap={2}>
+                      <Title order={6}>Changed Fields</Title>
+                      <Text size="xs" c="dimmed">
+                        Use the previous values below to correct the live record manually.
+                      </Text>
+                    </Stack>
+                    <Group gap="xs">
+                      {fieldChangeSourceLabel ? (
+                        <Badge color="blue" variant="light">{fieldChangeSourceLabel}</Badge>
+                      ) : null}
+                      <Badge color="blue" variant="light">
+                        {visibleFieldChanges.length} field{visibleFieldChanges.length !== 1 ? 's' : ''}
+                      </Badge>
+                    </Group>
+                  </Group>
+
+                  {auditLoading ? <Progress value={100} animated size="xs" /> : null}
+                  {auditError ? (
+                    <Text size="xs" c="red">
+                      {auditError}
+                    </Text>
+                  ) : null}
+
+                  {visibleFieldChanges.length > 0 ? (
+                    <Table.ScrollContainer minWidth={600}>
+                      <Table withTableBorder withColumnBorders striped>
+                        <Table.Thead>
+                          <Table.Tr>
+                            <Table.Th>Field</Table.Th>
+                            <Table.Th>Previous value</Table.Th>
+                            <Table.Th>Current value</Table.Th>
+                            <Table.Th>Copy</Table.Th>
+                          </Table.Tr>
+                        </Table.Thead>
+                        <Table.Tbody>
+                          {visibleFieldChanges.map((change) => (
+                            <Table.Tr key={change.field}>
+                              <Table.Td>
+                                <Text size="xs" ff="monospace">
+                                  {change.field}
+                                </Text>
+                              </Table.Td>
+                              <Table.Td>
+                                <Text size="xs" ff="monospace" style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
+                                  {change.oldText}
+                                </Text>
+                              </Table.Td>
+                              <Table.Td>
+                                <Text size="xs" ff="monospace" style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
+                                  {change.newText}
+                                </Text>
+                              </Table.Td>
+                              <Table.Td>
+                                <Group gap="xs" wrap="nowrap">
+                                  <CopyButton value={change.oldText} timeout={1500}>
+                                    {({ copied, copy }) => (
+                                      <Button size="xs" variant="subtle" color={copied ? 'teal' : 'blue'} onClick={copy}>
+                                        {copied ? 'Copied old' : 'Copy old'}
+                                      </Button>
+                                    )}
+                                  </CopyButton>
+                                  <CopyButton value={change.newText} timeout={1500}>
+                                    {({ copied, copy }) => (
+                                      <Button size="xs" variant="subtle" color={copied ? 'teal' : 'gray'} onClick={copy}>
+                                        {copied ? 'Copied new' : 'Copy new'}
+                                      </Button>
+                                    )}
+                                  </CopyButton>
+                                </Group>
+                              </Table.Td>
+                            </Table.Tr>
+                          ))}
+                        </Table.Tbody>
+                      </Table>
+                    </Table.ScrollContainer>
+                  ) : (
+                    <Text size="sm" c="dimmed">
+                      No field-level diff could be derived from this event. Use the raw payloads below.
+                    </Text>
+                  )}
+                </Stack>
+              </Card>
+
+              {selectedAuditLog ? (
+                <Card withBorder padding="sm" radius="md">
+                  <Stack gap={4}>
+                    <Text size="xs" c="dimmed">
+                      Audit log match
+                    </Text>
+                    <Text size="sm" fw={600}>
+                      {selectedAuditLog.action} {selectedAuditLog.model}
+                    </Text>
+                    <Text size="xs" c="dimmed">
+                      {formatBackupTimestamp(selectedAuditLog.timestamp)}
+                    </Text>
+                  </Stack>
+                </Card>
+              ) : null}
+
               <Card withBorder padding="sm" radius="md">
                 <Stack gap={4}>
                   <Text size="xs" c="dimmed">

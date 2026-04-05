@@ -86,7 +86,7 @@ if [[ ! -d "$wal_archive_dir" ]]; then
   exit 1
 fi
 
-target_time_normalized="$(node -e "const value = process.argv[1]; const date = new Date(value); if (Number.isNaN(date.getTime())) { process.exit(1); } process.stdout.write(date.toISOString());" "$target_time_arg")" || {
+target_time_normalized="$(node -e "const value = process.argv[1]; const date = new Date(value); if (Number.isNaN(date.getTime())) { process.exit(1); } process.stdout.write(date.toISOString().replace('T', ' ').replace('Z', '+00'));" "$target_time_arg")" || {
   echo "Invalid --target-time value. Use an ISO-8601 timestamp."
   exit 1
 }

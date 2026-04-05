@@ -368,22 +368,24 @@ export function useTransactionOperations(
               ? dropdownValue.trim()
               : 'No customer';
 
-          let message = `Customer updated from ${previousCustomer} to ${nextCustomer} for ${transactionDescriptor}.`;
+          if (previousCustomer !== nextCustomer) {
+            let message = `Customer updated from ${previousCustomer} to ${nextCustomer} for ${transactionDescriptor}.`;
 
-          if (
-            autoPopulatedOrderDate &&
-            autoPopulatedOrderDate !== (transaction['Order Date'] ?? '')
-          ) {
-            message += ` Order Date auto-set to ${autoPopulatedOrderDate}.`;
+            if (
+              autoPopulatedOrderDate &&
+              autoPopulatedOrderDate !== (transaction['Order Date'] ?? '')
+            ) {
+              message += ` Order Date auto-set to ${autoPopulatedOrderDate}.`;
+            }
+
+            logNotification(message, {
+              column: 'Customers',
+              transactionId: transaction.id,
+              previousValue: transaction.Customers ?? '',
+              newValue: dropdownValue,
+              autoPopulatedOrderDate,
+            });
           }
-
-          logNotification(message, {
-            column: 'Customers',
-            transactionId: transaction.id,
-            previousValue: transaction.Customers ?? '',
-            newValue: dropdownValue,
-            autoPopulatedOrderDate,
-          });
         }
       }
 
