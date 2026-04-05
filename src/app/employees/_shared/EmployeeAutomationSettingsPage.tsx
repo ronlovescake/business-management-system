@@ -58,6 +58,8 @@ const AUTOMATION_LABELS: Record<EmployeeAutomationType, string> = {
   'payroll-generation': 'Payroll Generation',
 };
 
+const END_OF_MONTH_CUTOFF_DAY = 31;
+
 type SettingsKey = keyof EmployeeAutomationSettings;
 
 type EmployeeAutomationSettingsPageProps = {
@@ -91,12 +93,20 @@ function formatOrdinal(value: number) {
   return `${value}th`;
 }
 
+function formatCutoffDayLabel(value: number) {
+  if (value === END_OF_MONTH_CUTOFF_DAY) {
+    return 'End of month';
+  }
+
+  return formatOrdinal(value);
+}
+
 function formatCutoffSummary(cutoffDays: number[]) {
   if (cutoffDays.length === 0) {
     return 'No cutoff dates configured yet.';
   }
 
-  return cutoffDays.map((day) => formatOrdinal(day)).join(', ');
+  return cutoffDays.map((day) => formatCutoffDayLabel(day)).join(', ');
 }
 
 function getStatusColor(status: EmployeeAutomationRunRecord['status']) {
@@ -307,6 +317,17 @@ export function EmployeeAutomationSettingsPage({
       normalizePayrollCutoffDays([
         ...draft.payrollAutoGenerationCutoffDays,
         pendingPayrollCutoffDate.getDate(),
+      ])
+    );
+    setPendingPayrollCutoffDate(null);
+  };
+
+  const handleAddEndOfMonthCutoff = () => {
+    handleFieldChange(
+      'payrollAutoGenerationCutoffDays',
+      normalizePayrollCutoffDays([
+        ...draft.payrollAutoGenerationCutoffDays,
+        END_OF_MONTH_CUTOFF_DAY,
       ])
     );
     setPendingPayrollCutoffDate(null);
@@ -659,7 +680,7 @@ export function EmployeeAutomationSettingsPage({
                     <Group align="flex-end" grow>
                       <DatePickerInput
                         label="Add payroll cutoff date"
-                        description="Pick example cutoff dates. Only the day of month is saved and repeated every month."
+                        description="Pick example cutoff dates. Only the day of month is saved and repeated every month. Use End of month for the last calendar day."
                         placeholder="Select cutoff date"
                         value={pendingPayrollCutoffDate}
                         onChange={setPendingPayrollCutoffDate}
@@ -681,6 +702,27 @@ export function EmployeeAutomationSettingsPage({
                       </Button>
                     </Group>
 
+                    <Group gap="sm">
+                      <Button
+                        type="button"
+                        variant="default"
+                        onClick={handleAddEndOfMonthCutoff}
+                        disabled={
+                          !draft.payrollAutoGenerationEnabled ||
+                          draft.payrollAutoGenerationCutoffDays.includes(
+                            END_OF_MONTH_CUTOFF_DAY
+                          )
+                        }
+                      >
+                        Add end of month
+                      </Button>
+
+                      <Text c="dimmed" size="sm">
+                        This stores an internal cutoff marker of 31 and runs on
+                        the last day of shorter months automatically.
+                      </Text>
+                    </Group>
+
                     <Text c="dimmed" size="sm">
                       Saved monthly cutoff dates:{' '}
                       {formatCutoffSummary(
@@ -699,7 +741,7 @@ export function EmployeeAutomationSettingsPage({
                               size="lg"
                               rightSection={
                                 <CloseButton
-                                  aria-label={`Remove ${formatOrdinal(cutoffDay)} cutoff`}
+                                  aria-label={`Remove ${formatCutoffDayLabel(cutoffDay)} cutoff`}
                                   onClick={() =>
                                     handleRemovePayrollCutoffDay(cutoffDay)
                                   }
@@ -708,7 +750,7 @@ export function EmployeeAutomationSettingsPage({
                                 />
                               }
                             >
-                              {formatOrdinal(cutoffDay)}
+                              {formatCutoffDayLabel(cutoffDay)}
                             </Badge>
                           )
                         )}
