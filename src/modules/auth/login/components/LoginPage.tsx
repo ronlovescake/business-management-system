@@ -1,6 +1,5 @@
 'use client';
 
-import type { ElementType } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import {
@@ -12,24 +11,17 @@ import {
   Checkbox,
   Divider,
   Group,
-  SimpleGrid,
   Stack,
   Text,
   TextInput,
-  ThemeIcon,
   Title,
   PasswordInput,
 } from '@mantine/core';
 import {
   IconArrowRight,
-  IconBuildingWarehouse,
-  IconCheck,
-  IconLayoutDashboard,
   IconLock,
   IconLogin,
   IconMail,
-  IconShieldCheck,
-  IconTruck,
 } from '@tabler/icons-react';
 import { useLoginForm } from '../hooks/useLoginForm';
 import { AuthBackground, AuthCard } from '../../shared';
@@ -45,170 +37,123 @@ export function LoginPage() {
 
   return (
     <AuthBackground>
-      <SimpleGrid cols={{ base: 1, md: 2 }} spacing={{ base: 'lg', md: 'xl' }}>
-        <Stack
-          justify="space-between"
-          gap="xl"
-          visibleFrom="md"
-          style={{
-            minHeight: '100%',
-            padding: 'clamp(1rem, 2vw, 2rem)',
-          }}
-        >
+      <Box style={{ display: 'flex', justifyContent: 'center' }}>
+        <AuthCard maxWidth={480}>
           <Stack gap="xl">
-            <Group gap="md" align="center">
-              <BrandMark />
-              <Stack gap={4}>
-                <Badge
+            <Stack gap="lg">
+              <Group justify="space-between" align="flex-start">
+                <Stack gap={6}>
+                  <Badge
+                    variant="light"
+                    radius="xl"
+                    color="indigo"
+                    style={badgeStyle}
+                  >
+                    Secure access
+                  </Badge>
+                  <Title order={2} fw={800} style={titleStyle}>
+                    Welcome back
+                  </Title>
+                  <Text size="sm" style={subtitleStyle}>
+                    Sign in to access your dashboards, workflows, and business
+                    records.
+                  </Text>
+                </Stack>
+                <BrandMark compact />
+              </Group>
+
+              {errorMessage ? (
+                <Alert
+                  color="red"
+                  radius="lg"
                   variant="light"
-                  radius="xl"
-                  color="indigo"
-                  style={heroBadgeStyle}
+                  title="Unable to sign in"
+                  icon={<IconLock size={16} />}
+                  styles={{
+                    root: {
+                      background: 'rgba(254, 226, 226, 0.92)',
+                      border: '1px solid rgba(248, 113, 113, 0.28)',
+                    },
+                    title: {
+                      color: '#991b1b',
+                      fontWeight: 700,
+                    },
+                    body: {
+                      color: '#7f1d1d',
+                    },
+                  }}
                 >
-                  Business Management System
-                </Badge>
-                <Text fw={700} size="lg" c="#172554">
-                  Czarlie & Ron
-                </Text>
-              </Stack>
-            </Group>
-
-            <Stack gap="md">
-              <Title order={1} style={heroTitleStyle}>
-                One secure workspace for inventory, operations, and finance.
-              </Title>
-              <Text size="lg" style={heroTextStyle} maw={520}>
-                A cleaner sign-in flow for the clothing, trucking, and shared
-                back-office tools your team uses every day.
-              </Text>
+                  {errorMessage}
+                </Alert>
+              ) : null}
             </Stack>
-          </Stack>
 
-          <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="md">
-            {heroHighlights.map((highlight) => (
-              <HighlightCard key={highlight.title} {...highlight} />
-            ))}
-          </SimpleGrid>
-        </Stack>
-
-        <Box style={{ display: 'flex', justifyContent: 'center' }}>
-          <AuthCard maxWidth={480}>
-            <Stack gap="xl">
+            <form onSubmit={handleSubmit} noValidate>
               <Stack gap="lg">
-                <Group justify="space-between" align="flex-start">
-                  <Stack gap={6}>
-                    <Badge
-                      variant="light"
-                      radius="xl"
-                      color="indigo"
-                      style={badgeStyle}
-                    >
-                      Secure access
-                    </Badge>
-                    <Title order={2} fw={800} style={titleStyle}>
-                      Welcome back
-                    </Title>
-                    <Text size="sm" style={subtitleStyle}>
-                      Sign in to access your dashboards, workflows, and business
-                      records.
-                    </Text>
-                  </Stack>
-                  <BrandMark compact />
+                <TextInput
+                  withAsterisk
+                  label="Email"
+                  placeholder="you@company.com"
+                  leftSection={<IconMail size={18} stroke={1.6} />}
+                  autoComplete="email"
+                  {...form.getInputProps('email')}
+                  styles={inputStyles}
+                />
+
+                <PasswordInput
+                  withAsterisk
+                  label="Password"
+                  placeholder="Enter your password"
+                  leftSection={<IconLock size={18} stroke={1.6} />}
+                  autoComplete="current-password"
+                  {...form.getInputProps('password')}
+                  styles={{
+                    ...inputStyles,
+                    innerInput: {
+                      color: '#0f172a',
+                    },
+                  }}
+                />
+
+                <Group justify="space-between" wrap="wrap" gap="sm">
+                  <Checkbox
+                    label="Remember me"
+                    {...form.getInputProps('remember', { type: 'checkbox' })}
+                    styles={checkboxStyles}
+                  />
+                  <Anchor
+                    size="sm"
+                    component={Link}
+                    href="/forgot-password"
+                    style={linkStyle}
+                  >
+                    Forgot password?
+                  </Anchor>
                 </Group>
 
-                {errorMessage ? (
-                  <Alert
-                    color="red"
-                    radius="lg"
-                    variant="light"
-                    title="Unable to sign in"
-                    icon={<IconLock size={16} />}
-                    styles={{
-                      root: {
-                        background: 'rgba(254, 226, 226, 0.92)',
-                        border: '1px solid rgba(248, 113, 113, 0.28)',
-                      },
-                      title: {
-                        color: '#991b1b',
-                        fontWeight: 700,
-                      },
-                      body: {
-                        color: '#7f1d1d',
-                      },
-                    }}
-                  >
-                    {errorMessage}
-                  </Alert>
-                ) : null}
+                <Button
+                  type="submit"
+                  size="lg"
+                  radius="xl"
+                  loading={isSubmitting}
+                  fullWidth
+                  rightSection={<IconArrowRight size={18} />}
+                  styles={buttonStyles}
+                >
+                  Sign in
+                </Button>
               </Stack>
+            </form>
 
-              <form onSubmit={handleSubmit} noValidate>
-                <Stack gap="lg">
-                  <TextInput
-                    withAsterisk
-                    label="Email"
-                    placeholder="you@company.com"
-                    leftSection={<IconMail size={18} stroke={1.6} />}
-                    autoComplete="email"
-                    {...form.getInputProps('email')}
-                    styles={inputStyles}
-                  />
+            <Divider color="rgba(148, 163, 184, 0.35)" />
 
-                  <PasswordInput
-                    withAsterisk
-                    label="Password"
-                    placeholder="Enter your password"
-                    leftSection={<IconLock size={18} stroke={1.6} />}
-                    autoComplete="current-password"
-                    {...form.getInputProps('password')}
-                    styles={{
-                      ...inputStyles,
-                      innerInput: {
-                        color: '#0f172a',
-                      },
-                    }}
-                  />
-
-                  <Group justify="space-between" wrap="wrap" gap="sm">
-                    <Checkbox
-                      label="Remember me"
-                      {...form.getInputProps('remember', { type: 'checkbox' })}
-                      styles={checkboxStyles}
-                    />
-                    <Anchor
-                      size="sm"
-                      component={Link}
-                      href="/forgot-password"
-                      style={linkStyle}
-                    >
-                      Forgot password?
-                    </Anchor>
-                  </Group>
-
-                  <Button
-                    type="submit"
-                    size="lg"
-                    radius="xl"
-                    loading={isSubmitting}
-                    fullWidth
-                    rightSection={<IconArrowRight size={18} />}
-                    styles={buttonStyles}
-                  >
-                    Sign in
-                  </Button>
-                </Stack>
-              </form>
-
-              <Divider color="rgba(148, 163, 184, 0.35)" />
-
-              <Text size="sm" ta="center" style={footerStyle}>
-                Need access to the system? Contact an administrator to have your
-                account provisioned.
-              </Text>
-            </Stack>
-          </AuthCard>
-        </Box>
-      </SimpleGrid>
+            <Text size="sm" ta="center" style={footerStyle}>
+              Need access to the system? Contact an administrator to have your
+              account provisioned.
+            </Text>
+          </Stack>
+        </AuthCard>
+      </Box>
     </AuthBackground>
   );
 }
@@ -264,11 +209,6 @@ const badgeStyle = {
   border: '1px solid rgba(79, 70, 229, 0.12)',
 };
 
-const heroBadgeStyle = {
-  ...badgeStyle,
-  letterSpacing: '0.04em',
-};
-
 const titleStyle = {
   color: '#0f172a',
   fontSize: 'clamp(1.9rem, 2vw + 1rem, 2.5rem)',
@@ -279,19 +219,6 @@ const subtitleStyle = {
   color: '#475569',
   maxWidth: '28rem',
   lineHeight: 1.7,
-};
-
-const heroTitleStyle = {
-  color: '#0f172a',
-  fontSize: 'clamp(2.3rem, 3.6vw, 4.25rem)',
-  lineHeight: 1,
-  letterSpacing: '-0.04em',
-  maxWidth: '10ch',
-};
-
-const heroTextStyle = {
-  color: '#475569',
-  lineHeight: 1.75,
 };
 
 const footerStyle = {
@@ -308,36 +235,6 @@ const checkboxStyles = {
     color: '#475569',
   },
 };
-
-interface HighlightCardProps {
-  icon: ElementType;
-  title: string;
-  description: string;
-}
-
-const heroHighlights: HighlightCardProps[] = [
-  {
-    icon: IconShieldCheck,
-    title: 'Protected access',
-    description: 'Role-aware sign-in for accounting, staff, and operations.',
-  },
-  {
-    icon: IconLayoutDashboard,
-    title: 'Shared command center',
-    description: 'Move from dashboards to workflows without losing context.',
-  },
-  {
-    icon: IconBuildingWarehouse,
-    title: 'Inventory visibility',
-    description: 'Track stock, pricing, and dispatch details in one place.',
-  },
-  {
-    icon: IconTruck,
-    title: 'Operations ready',
-    description:
-      'Keep trucking and back-office tools aligned behind one login.',
-  },
-];
 
 function BrandMark({ compact = false }: { compact?: boolean }) {
   return (
@@ -369,51 +266,6 @@ function BrandMark({ compact = false }: { compact?: boolean }) {
       >
         <IconLogin size={compact ? 16 : 20} stroke={2} color="#4338ca" />
       </Box>
-    </Box>
-  );
-}
-
-function HighlightCard({
-  icon: IconComponent,
-  title,
-  description,
-}: HighlightCardProps) {
-  return (
-    <Box
-      style={{
-        padding: '1rem 1.1rem',
-        borderRadius: '24px',
-        background: 'rgba(255, 255, 255, 0.55)',
-        border: '1px solid rgba(255, 255, 255, 0.72)',
-        backdropFilter: 'blur(18px)',
-        boxShadow: '0 18px 32px rgba(15, 23, 42, 0.08)',
-      }}
-    >
-      <Stack gap="sm">
-        <ThemeIcon
-          size={42}
-          radius="xl"
-          variant="light"
-          color="indigo"
-          style={{
-            background: 'rgba(79, 70, 229, 0.12)',
-            color: '#4338ca',
-          }}
-        >
-          <IconComponent size={22} stroke={1.8} />
-        </ThemeIcon>
-        <Stack gap={4}>
-          <Text fw={700} c="#0f172a">
-            {title}
-          </Text>
-          <Group gap={6} align="flex-start" wrap="nowrap">
-            <IconCheck size={14} color="#2563eb" style={{ marginTop: 4 }} />
-            <Text size="sm" c="#475569" style={{ lineHeight: 1.6 }}>
-              {description}
-            </Text>
-          </Group>
-        </Stack>
-      </Stack>
     </Box>
   );
 }
