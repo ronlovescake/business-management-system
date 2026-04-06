@@ -63,6 +63,16 @@ const mockExpenseBatchCreateSchema = vi.hoisted(() => {
   };
 });
 
+const mockExpenseStatusSchema = vi.hoisted(() => ({
+  options: ['pending', 'approved', 'paid', 'rejected'],
+  safeParse: vi.fn((value) => ({ success: true, data: value })),
+}));
+
+const mockExpenseCategorySchema = vi.hoisted(() => ({
+  options: ['Office', 'Transportation', 'Fuel', 'Repairs'],
+  safeParse: vi.fn((value) => ({ success: true, data: value })),
+}));
+
 // Mock mass deletion safety check
 const mockValidateMassDeleteConfirmation = vi.hoisted(() => vi.fn(() => null));
 
@@ -70,6 +80,8 @@ vi.mock('@/modules/clothing/ledger/api', () => ({
   expenseService: mockExpenseService,
   ExpenseQuerySchema: mockExpenseQuerySchema,
   ExpenseBatchCreateSchema: mockExpenseBatchCreateSchema,
+  ExpenseStatusSchema: mockExpenseStatusSchema,
+  ExpenseCategorySchema: mockExpenseCategorySchema,
 }));
 
 // Mock Prisma (may still be used by service in other tests)
@@ -99,6 +111,7 @@ vi.mock('@/lib/safety/mass-deletion', () => ({
 // Mock sanitizers
 vi.mock('@/lib/security/sanitize', () => ({
   sanitizers: {
+    name: vi.fn((value) => String(value ?? '').trim()),
     text: vi.fn((value) => String(value ?? '')),
     number: vi.fn((value) => {
       if (value === null || value === undefined || value === '') {

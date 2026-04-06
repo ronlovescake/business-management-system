@@ -7,6 +7,7 @@ const { mockExpenseService, mockValidateMassDeleteConfirmation, mockSchemas } =
       findWithFilters: vi.fn(),
       findAll: vi.fn(),
       createMany: vi.fn(),
+      updateMany: vi.fn(),
       update: vi.fn(),
       deleteAll: vi.fn(),
     },
@@ -48,7 +49,13 @@ vi.mock('@/lib/logger', () => ({
   },
 }));
 
-import { DELETE, GET, PATCH, POST } from '@/app/api/trucking/expenses/route';
+import {
+  DELETE,
+  GET,
+  PATCH,
+  POST,
+  PUT,
+} from '@/app/api/trucking/expenses/route';
 
 describe('Trucking expenses API', () => {
   beforeEach(() => {
@@ -111,6 +118,29 @@ describe('Trucking expenses API', () => {
     expect(response.status).toBe(200);
     expect(body.success).toBe(true);
     expect(mockExpenseService.update).toHaveBeenCalledWith(1, { amount: 120 });
+  });
+
+  it('bulk updates trucking expenses on PUT', async () => {
+    mockExpenseService.updateMany.mockResolvedValue({ count: 2 });
+
+    const response = await PUT(
+      new NextRequest('http://localhost/api/trucking/expenses', {
+        method: 'PUT',
+        body: JSON.stringify([
+          { id: '1', amount: 125 },
+          { id: 2, amount: 80 },
+        ]),
+      })
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body.success).toBe(true);
+    expect(body.data.count).toBe(2);
+    expect(mockExpenseService.updateMany).toHaveBeenCalledWith([
+      { id: 1, amount: 125 },
+      { id: 2, amount: 80 },
+    ]);
   });
 
   it('deletes all trucking expenses after confirmation', async () => {

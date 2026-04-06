@@ -1,17 +1,11 @@
 import React, { act } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { render, waitFor } from '@testing-library/react';
+import { render, waitFor, type RenderResult } from '@testing-library/react';
 import { fireEvent } from '@testing-library/dom';
 import { MantineProvider } from '@mantine/core';
 import { EmployeeAutomationSettingsPage } from '@/app/employees/_shared/EmployeeAutomationSettingsPage';
 
-type TestView = {
-  container: HTMLElement;
-  findByText: (...args: unknown[]) => Promise<HTMLElement>;
-  getByText: (...args: unknown[]) => HTMLElement;
-  getByRole: (...args: unknown[]) => HTMLElement;
-  findAllByRole: (...args: unknown[]) => Promise<HTMLElement[]>;
-};
+type TestView = RenderResult;
 
 const mockLogger = vi.hoisted(() => ({
   error: vi.fn(),
@@ -61,7 +55,7 @@ function renderPage(): TestView {
     <MantineProvider>
       <EmployeeAutomationSettingsPage embedded />
     </MantineProvider>
-  ) as unknown as TestView;
+  );
 }
 
 describe('EmployeeAutomationSettingsPage', () => {
