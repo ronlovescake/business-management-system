@@ -5,10 +5,11 @@ import { mockLogger } from '@/core/testing/test-helpers';
 const mockPrisma = vi.hoisted(() => ({
   generalMerchandiseLeaveRequest: {
     findMany: vi.fn(),
+    findFirst: vi.fn(),
     createMany: vi.fn(),
     update: vi.fn(),
+    updateMany: vi.fn(),
     deleteMany: vi.fn(),
-    findUnique: vi.fn(),
     delete: vi.fn(),
   },
 }));
@@ -166,8 +167,8 @@ describe('General merchandise leave requests API', () => {
     });
   });
 
-  it('mass deletes GM leave requests after confirmation passes', async () => {
-    mockPrisma.generalMerchandiseLeaveRequest.deleteMany.mockResolvedValue({
+  it('soft deletes GM leave requests after confirmation passes', async () => {
+    mockPrisma.generalMerchandiseLeaveRequest.updateMany.mockResolvedValue({
       count: 4,
     });
 
@@ -184,16 +185,31 @@ describe('General merchandise leave requests API', () => {
     expect(response.status).toBe(200);
     expect(body.count).toBe(4);
     expect(mockValidateMassDeleteConfirmation).toHaveBeenCalled();
+    expect(
+      mockPrisma.generalMerchandiseLeaveRequest.updateMany
+    ).toHaveBeenCalledWith({
+      where: { deletedAt: null },
+      data: { deletedAt: expect.any(Date) },
+    });
   });
 
-  it('supports GM leave-request [id] fetch and delete flows', async () => {
-    mockPrisma.generalMerchandiseLeaveRequest.findUnique.mockResolvedValue({
+  it('supports GM leave-request [id] fetch and soft-delete flows', async () => {
+    mockPrisma.generalMerchandiseLeaveRequest.findFirst
+      .mockResolvedValueOnce({
+        id: 8,
+        employeeId: 'GM-001',
+        employeeName: 'Gamma Worker',
+        deletedAt: null,
+      })
+      .mockResolvedValueOnce({
+        id: 8,
+        employeeId: 'GM-001',
+        employeeName: 'Gamma Worker',
+        deletedAt: null,
+      });
+    mockPrisma.generalMerchandiseLeaveRequest.update.mockResolvedValue({
       id: 8,
-      employeeId: 'GM-001',
-      employeeName: 'Gamma Worker',
-    });
-    mockPrisma.generalMerchandiseLeaveRequest.delete.mockResolvedValue({
-      id: 8,
+      deletedAt: new Date('2026-04-06T00:00:00.000Z'),
     });
 
     const fetchResponse = await GET_BY_ID(
@@ -219,5 +235,11 @@ describe('General merchandise leave requests API', () => {
     expect(fetchBody.id).toBe('8');
     expect(deleteResponse.status).toBe(200);
     expect(deleteBody.message).toBe('Leave request deleted successfully');
+    expect(
+      mockPrisma.generalMerchandiseLeaveRequest.update
+    ).toHaveBeenCalledWith({
+      where: { id: 8 },
+      data: { deletedAt: expect.any(Date) },
+    });
   });
 });

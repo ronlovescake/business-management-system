@@ -29,8 +29,9 @@ export async function GET(_req: NextRequest, { params }: RouteParams) {
     }
 
     const leaveRequestClient = getLeaveRequestClient();
-    const leaveRequest = await leaveRequestClient.findUnique({
-      where: { id: parseInt(id, 10) },
+    const numericId = parseInt(id, 10);
+    const leaveRequest = await leaveRequestClient.findFirst({
+      where: { id: numericId, deletedAt: null },
     });
 
     if (!leaveRequest) {
@@ -64,7 +65,22 @@ export async function DELETE(_req: NextRequest, { params }: RouteParams) {
     }
 
     const leaveRequestClient = getLeaveRequestClient();
-    await leaveRequestClient.delete({ where: { id: parseInt(id, 10) } });
+    const numericId = parseInt(id, 10);
+    const existingLeaveRequest = await leaveRequestClient.findFirst({
+      where: { id: numericId, deletedAt: null },
+    });
+
+    if (!existingLeaveRequest) {
+      return NextResponse.json(
+        { error: 'Leave request not found' },
+        { status: 404 }
+      );
+    }
+
+    await leaveRequestClient.update({
+      where: { id: numericId },
+      data: { deletedAt: new Date() },
+    });
 
     return NextResponse.json({
       message: 'Leave request deleted successfully',
@@ -72,6 +88,19 @@ export async function DELETE(_req: NextRequest, { params }: RouteParams) {
     });
   } catch (error) {
     logger.error('Failed to delete GM leave request:', error);
+
+    if (
+      error &&
+      typeof error === 'object' &&
+      'code' in error &&
+      error.code === 'P2025'
+    ) {
+      return NextResponse.json(
+        { error: 'Leave request not found' },
+        { status: 404 }
+      );
+    }
+
     return NextResponse.json(
       { error: 'Failed to delete leave request' },
       { status: 500 }

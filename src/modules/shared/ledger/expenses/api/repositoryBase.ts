@@ -226,4 +226,31 @@ export class ExpenseRepositoryBase<
       },
     });
   }
+
+  async softDelete(id: number): Promise<TEntity> {
+    const existing = await this.findFirst({
+      where: this.toWhereInput({ id, deletedAt: null }),
+    });
+
+    if (!existing) {
+      throw new Error(`Expense with ID ${id} not found`);
+    }
+
+    return this.model.update({
+      where: { id },
+      data: { deletedAt: new Date() } as TUpdateInput,
+    });
+  }
+
+  async softDeleteMany(
+    where?: WhereInput<TEntity>
+  ): Promise<{ count: number }> {
+    return this.model.updateMany({
+      where: this.toWhereInput({
+        ...(where as Record<string, unknown> | undefined),
+        deletedAt: null,
+      }),
+      data: { deletedAt: new Date() } as TUpdateInput,
+    });
+  }
 }

@@ -1,6 +1,6 @@
 # Refactor Checklist
 
-Last updated: 2026-04-04 (all PITR checklist items completed: business-identifier change_log enrichment, BACKUP_RETENTION_DAYS raised to 90, scheduled log pruning, PITR scratch restore script, drill and retention validation documentation)
+Last updated: 2026-04-06 (completed large-surface controller extractions, reconciled Audit Cycle 3 status, recorded defer decisions, landed soft-delete/schema groundwork, removed dead code, extracted shared schedule/attendance helpers, and standardized the employee-automation API route family onto shared middleware-backed error handling)
 
 This file is the canonical tracker for repo-wide refactor work.
 
@@ -188,6 +188,78 @@ Remaining lower-coverage trucking routes: `analytics/profitability`, `employee-a
 ### Pending (Audit Cycle 2)
 
 - P2 and current P3 implementation backlog closed. Remaining follow-up is secondary coverage expansion and future audit-cycle hygiene.
+
+## Audit Cycle 3 — Verified Follow-up Checklist (2026-04-06)
+
+Source: two-pass repo-wide refactor assessment with adversarial verification. Items below are limited to findings that survived independent re-checking against the current repo state.
+
+### 1. Data Safety
+
+- [x] Audit soft-delete policy for every schema model with `deletedAt` that is currently excluded from `SOFT_DELETE_MODELS` in `src/core/database/middleware/soft-delete.ts`.
+- [x] Decide explicit keep-hard-delete exceptions before any middleware expansion, especially for `Message`, `Conversation`, and `User`.
+- [x] Add `deletedAt` support to `LeaveRequest`, `CashAdvanceRecord`, `TruckingLeaveRequest`, `TruckingCashAdvanceRecord`, `GeneralMerchandiseLeaveRequest`, `GeneralMerchandiseCashAdvanceRecord`, `Expense`, `TruckingExpense`, and `GeneralMerchandiseExpense` if the approved data-retention policy requires soft delete.
+- [x] Review and harden active destructive routes that currently perform observed hard deletes on models without soft-delete protection.
+- [x] Confirm General Merchandise leave-request delete flows are intentionally destructive or migrate them to soft-delete-safe behavior.
+- [x] Confirm clothing, trucking, and GM expense delete flows are intentionally destructive or migrate them to soft-delete-safe behavior.
+- [x] Document the final per-model deletion policy in code comments or architecture docs so future refactors do not guess.
+
+### 2. Dead Code Cleanup
+
+- [x] Remove `src/modules/settings/global/components/BackupRestorePlaceholder.tsx` if no longer needed.
+- [x] Remove `src/modules/settings/global/components/BackupSchedulerTab.tsx` if no longer needed.
+- [x] Remove `src/modules/clothing/operations/messaging/data.ts` if the mock exports are permanently retired.
+- [x] Remove stale workspace-picker and workspace modal CSS left behind in `src/app/globals.css` after workspaces removal.
+
+### 3. Route And Module Consolidation
+
+- [x] Extract shared schedule-route parsing and validation logic from `src/app/api/general-merchandise/schedules/route.ts` and `src/app/api/trucking/schedules/route.ts`.
+- [x] Extract shared attendance-route logic from `src/app/api/general-merchandise/attendance/route.ts` and `src/app/api/trucking/attendance/route.ts` where the overlap is stable enough.
+- [x] Re-evaluate whether messaging mutation logic shared by `src/app/clothing/operations/messaging/MessagingClientPage.tsx` and `src/components/navigation/header-quick-actions/ChatWindows.tsx` is worth extracting now, or defer if the UI contexts continue to diverge.
+- [x] Standardize API error-handling patterns opportunistically toward the repo-preferred middleware pattern instead of mixing wrappers, ad hoc try/catch blocks, and unwrapped handlers.
+
+### 4. Coverage Gaps
+
+- [x] Add Clothing employee-automation API route coverage to match the existing GM parity coverage.
+- [x] Add UI/component tests for `src/app/employees/_shared/EmployeeAutomationSettingsPage.tsx`.
+- [x] Add UI/component tests for `src/modules/clothing/operations/settings/components/BackupRestoreTab.tsx`.
+- [x] Evaluate whether `src/modules/settings/global/components/scheduler/SchedulerTab.tsx` needs direct component coverage or can remain covered indirectly through shared employee automation tests.
+- [x] Evaluate whether `src/components/GlobalMessageNotifications.tsx` needs direct component coverage or can remain covered indirectly through service- and route-level messaging tests.
+
+### 5. Planning Notes
+
+- [x] Treat missing explicit `export const dynamic` declarations as a consistency cleanup only, not a current defect, unless a specific route demonstrates caching/runtime issues.
+- [x] Prioritize observed current deletion risks before broad style consistency work.
+- [x] Re-check this checklist before each refactor batch so only confirmed items are promoted into active implementation plans.
+
+## Optimization And Enhancement Candidates (2026-04-06)
+
+Source: repo-wide scan plus follow-up validation. These are improvement candidates, not confirmed safety defects.
+
+### 1. Messaging Maintainability
+
+- [x] Evaluate extracting a shared messaging mutation hook for `src/app/clothing/operations/messaging/MessagingClientPage.tsx` and `src/components/navigation/header-quick-actions/ChatWindows.tsx` so send/delete/cache invalidation logic does not drift.
+- [x] Keep the full-page messaging UI and popup chat UI separate unless the shared extraction stays limited to business logic and does not force awkward UI abstraction.
+
+### 2. Route-Level Consolidation Opportunities
+
+- [x] Consolidate the shared parsing, validation, and request-shaping logic in the GM and trucking schedules routes into a factory/helper pattern similar to payroll.
+- [x] Consolidate the stable shared logic in the GM and trucking attendance routes where doing so reduces duplicate behavior without collapsing domain-specific differences.
+- [x] Review route factories already in use for payroll and apply the same threshold for future consolidation work instead of hand-merging domain routes aggressively.
+
+### 3. Large-Surface Component Decomposition
+
+- [x] Continue decomposing large orchestration-heavy shared surfaces such as `src/app/employees/_shared/EmployeeAutomationSettingsPage.tsx` into smaller hooks/components that are easier to test and reuse.
+- [x] Continue decomposing `src/modules/clothing/operations/settings/components/BackupRestoreTab.tsx` where the remaining orchestration surface still limits testability and change safety.
+
+### 4. Low-Risk Hygiene Wins
+
+- [x] Remove dead placeholders, mock messaging data, and orphaned workspace CSS as a small-scope cleanup pass to reduce stale surface area.
+- [x] Prefer quick-win cleanup items that reduce drift and review overhead without changing business behavior.
+
+### 5. Defer Unless A Concrete Need Appears
+
+- [x] Do not schedule a repo-wide `export const dynamic` normalization pass unless a route shows actual runtime or caching issues.
+- [x] Do not force full messaging-page/popup-chat unification unless the shared logic boundary becomes clearly stable.
 
 ## Recovery And PITR Readiness Checklist (2026-04-04)
 
@@ -679,6 +751,11 @@ Run this for each completed implementation ticket.
 - [x] Clothing and GM accounting `data-fetchers.ts` now use the same absolute `@/lib/accounting/*` import style with no behavior change
 - [x] `BackupRestoreTab.tsx` now delegates tab-panel rendering to `BackupSection.tsx`, `RestoreSection.tsx`, and `TablePreviewSection.tsx` while keeping shared preview/restore orchestration in the parent
 - [x] Backup/restore tab split validation passed: `npm run lint`, `npm run typecheck`, `tests/unit/api/backup-restore.api.test.ts`, `tests/hardening/backup-restore.security.test.ts`, `tests/hardening/backup-restore.atomic.test.ts`, `tests/hardening/backup-restore.workflow.test.ts`, `tests/hardening/backup-restore.integrity.test.ts`
+- [x] `EmployeeAutomationSettingsPage.tsx` now delegates fetch/save/run form orchestration into `useEmployeeAutomationSettingsController.ts` and renders history through `EmployeeAutomationHistoryCard.tsx`, reducing parent-page state density while keeping shared route resolution intact
+- [x] `BackupRestoreTab.tsx` now delegates preview/restore/sidebar/polling orchestration into `backup-restore/useBackupRestorePreviewController.ts`, leaving the parent focused on backup/PITR composition and panel wiring
+- [x] Post-decomposition validation passed: `npm run guardrails:check`, `npm run test:full`, `npm run test:e2e:chromium`, `npm run docker:build`, `npm run docker:up`, and `curl -fsS http://localhost:5000/api/health`
+- [x] Clothing, trucking, and GM employee-automation settings routes now share `src/modules/shared/employees/api/employeeAutomationRouteFactory.ts`, centralizing auth/error mapping/manual-run logging while preserving per-domain services and response semantics
+- [x] Follow-up validation after API error-handling standardization passed: `npm run guardrails:check`, `npm run test:full`, `npm run test:e2e:chromium`, `npm run docker:build`, `npm run docker:up`, and `curl -fsS http://localhost:5000/api/health`
 - [x] `useSchedules.ts` now delegates pure time-range, duration, and overlap calculations to `scheduleTimeUtils.ts`
 - [x] `useSchedules.ts` now delegates filtering, sorting, weekly breakdown, and status aggregation to `scheduleListUtils.ts`
 - [x] `useSchedules.ts` now delegates form-state reset/edit population to `useScheduleFormState.ts`

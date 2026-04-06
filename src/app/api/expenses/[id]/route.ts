@@ -23,8 +23,8 @@ export async function GET(
       );
     }
 
-    const expense = await prisma.expense.findUnique({
-      where: { id },
+    const expense = await prisma.expense.findFirst({
+      where: { id, deletedAt: null },
     });
 
     if (!expense) {
@@ -56,13 +56,22 @@ export async function DELETE(
       );
     }
 
-    const expense = await prisma.expense.delete({
+    const expense = await prisma.expense.findFirst({
+      where: { id, deletedAt: null },
+    });
+
+    if (!expense) {
+      return NextResponse.json({ error: 'Expense not found' }, { status: 404 });
+    }
+
+    const deletedExpense = await prisma.expense.update({
       where: { id },
+      data: { deletedAt: new Date() },
     });
 
     return NextResponse.json({
       message: 'Expense deleted successfully',
-      expense,
+      expense: deletedExpense,
     });
   } catch (error) {
     logger.error('Failed to delete expense:', error);

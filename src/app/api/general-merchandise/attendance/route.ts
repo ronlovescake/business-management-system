@@ -2,12 +2,15 @@ import type { NextRequest } from 'next/server';
 import { prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
 import { ApiResponseUtil } from '@/core/api/response';
-import { sanitizers } from '@/lib/security/sanitize';
 import {
   validateAttendance,
   validateAttendanceUpdate,
   formatValidationErrors,
 } from '@/lib/validations/attendance.validation';
+import {
+  buildAttendanceWhere,
+  validateAttendanceBatch,
+} from '@/modules/shared/employees/api/attendanceRouteUtils';
 
 type GMAttendanceClient = Pick<
   typeof prisma,
@@ -26,42 +29,9 @@ const gmClient: GMAttendanceClient = prisma;
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
-    const employeeId = searchParams.get('employeeId');
-    const status = searchParams.get('status');
-    const startDate = searchParams.get('startDate');
-    const endDate = searchParams.get('endDate');
-
-    const where: Record<string, unknown> = {
-      deletedAt: null,
-    };
-
-    if (employeeId) {
-      const normalizedEmployeeId = sanitizers.productCode(employeeId);
-      if (normalizedEmployeeId) {
-        where.employeeId = normalizedEmployeeId.toUpperCase();
-      }
-    }
-
-    if (status && status !== 'all') {
-      where.status = sanitizers.name(status);
-    }
-
-    if (startDate) {
-      if (!where.date) {
-        where.date = {};
-      }
-      (where.date as Record<string, unknown>).gte = sanitizers.date(startDate);
-    }
-
-    if (endDate) {
-      if (!where.date) {
-        where.date = {};
-      }
-      (where.date as Record<string, unknown>).lte = sanitizers.date(endDate);
-    }
 
     const attendance = await gmClient.generalMerchandiseAttendance.findMany({
-      where,
+      where: buildAttendanceWhere(searchParams),
       select: {
         id: true,
         employeeId: true,
@@ -111,29 +81,8 @@ export async function POST(request: NextRequest) {
         );
       }
 
-      const validationErrors: Array<{
-        index: number;
-        errors: Record<string, string>;
-      }> = [];
-      const validatedRecords: Array<(typeof body)[0]> = [];
-      const employeeIds = new Set<string>();
-
-      for (let i = 0; i < body.length; i++) {
-        const record = body[i];
-        const validation = validateAttendance(record);
-
-        if (!validation.success) {
-          validationErrors.push({
-            index: i,
-            errors: formatValidationErrors(validation.error),
-          });
-        } else {
-          validatedRecords.push(validation.data);
-          if (record.employeeId) {
-            employeeIds.add(record.employeeId);
-          }
-        }
-      }
+      const { validationErrors, validatedRecords, employeeIds } =
+        validateAttendanceBatch(body);
 
       if (validationErrors.length > 0) {
         return ApiResponseUtil.error(

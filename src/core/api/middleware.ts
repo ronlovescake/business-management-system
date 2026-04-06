@@ -10,6 +10,10 @@ import type { ZodSchema } from 'zod';
 import { ApiResponseUtil } from './response';
 import { logger } from '@/lib/logger';
 
+interface ErrorHandlerOptions {
+  onError?: (error: unknown, request: NextRequest) => NextResponse | undefined;
+}
+
 /**
  * Error Handler Middleware
  *
@@ -22,7 +26,8 @@ import { logger } from '@/lib/logger';
  * });
  */
 export function withErrorHandler<T = unknown>(
-  handler: (request: NextRequest, context?: T) => Promise<NextResponse>
+  handler: (request: NextRequest, context?: T) => Promise<NextResponse>,
+  options: ErrorHandlerOptions = {}
 ) {
   return async (request: NextRequest, context?: T): Promise<NextResponse> => {
     try {
@@ -41,9 +46,14 @@ export function withErrorHandler<T = unknown>(
 
       logger.error('API Route Error', {
         path,
-        method: request.method,
+        method: request?.method ?? 'unknown',
         error,
       });
+
+      const mappedResponse = options.onError?.(error, request);
+      if (mappedResponse) {
+        return mappedResponse;
+      }
 
       if (error instanceof Error) {
         return ApiResponseUtil.error(

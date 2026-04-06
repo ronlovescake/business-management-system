@@ -1,6 +1,6 @@
 /**
  * Comprehensive Test Suite: Cash Advance Service
- * 
+ *
  * Testing cash advance business logic including:
  * - CRUD operations
  * - Status management
@@ -19,6 +19,7 @@ import { Decimal } from '@prisma/client/runtime/library';
 const mockCashAdvances: CashAdvanceRecord[] = [
   {
     id: '1',
+    deletedAt: null,
     employeeId: 'emp1',
     employeeName: 'John Doe',
     amount: new Decimal(5000),
@@ -43,6 +44,7 @@ const mockCashAdvances: CashAdvanceRecord[] = [
   },
   {
     id: '2',
+    deletedAt: null,
     employeeId: 'emp2',
     employeeName: 'Jane Smith',
     amount: new Decimal(3000),
@@ -67,6 +69,7 @@ const mockCashAdvances: CashAdvanceRecord[] = [
   },
   {
     id: '3',
+    deletedAt: null,
     employeeId: 'emp1',
     employeeName: 'John Doe',
     amount: new Decimal(2000),
@@ -169,19 +172,28 @@ function formatCurrency(amount: number): string {
 }
 
 function getCashAdvanceStats(advances: CashAdvanceRecord[]) {
-  const totalRequested = advances.reduce((sum, adv) => sum + Number(adv.amount), 0);
-  const totalOutstanding = advances.reduce((sum, adv) => sum + Number(adv.remainingBalance || 0), 0);
+  const totalRequested = advances.reduce(
+    (sum, adv) => sum + Number(adv.amount),
+    0
+  );
+  const totalOutstanding = advances.reduce(
+    (sum, adv) => sum + Number(adv.remainingBalance || 0),
+    0
+  );
   const totalPaid = totalRequested - totalOutstanding;
-  
-  const byStatus = advances.reduce((acc, adv) => {
-    if (!acc[adv.status]) {
-      acc[adv.status] = { count: 0, total: 0, outstanding: 0 };
-    }
-    acc[adv.status].count++;
-    acc[adv.status].total += Number(adv.amount);
-    acc[adv.status].outstanding += Number(adv.remainingBalance || 0);
-    return acc;
-  }, {} as Record<string, { count: number; total: number; outstanding: number }>);
+
+  const byStatus = advances.reduce(
+    (acc, adv) => {
+      if (!acc[adv.status]) {
+        acc[adv.status] = { count: 0, total: 0, outstanding: 0 };
+      }
+      acc[adv.status].count++;
+      acc[adv.status].total += Number(adv.amount);
+      acc[adv.status].outstanding += Number(adv.remainingBalance || 0);
+      return acc;
+    },
+    {} as Record<string, { count: number; total: number; outstanding: number }>
+  );
 
   return {
     totalRequested,
@@ -371,7 +383,7 @@ describe('Cash Advance Service', () => {
 
     it('should count advances by status', () => {
       const stats = getCashAdvanceStats(mockCashAdvances);
-      
+
       expect(stats.byStatus.Active.count).toBe(1);
       expect(stats.byStatus.Paid.count).toBe(1);
       expect(stats.byStatus.pending.count).toBe(1);
@@ -379,7 +391,7 @@ describe('Cash Advance Service', () => {
 
     it('should sum amounts by status', () => {
       const stats = getCashAdvanceStats(mockCashAdvances);
-      
+
       expect(stats.byStatus.Active.total).toBe(5000);
       expect(stats.byStatus.Paid.total).toBe(3000);
       expect(stats.byStatus.pending.total).toBe(2000);
@@ -387,7 +399,7 @@ describe('Cash Advance Service', () => {
 
     it('should sum outstanding by status', () => {
       const stats = getCashAdvanceStats(mockCashAdvances);
-      
+
       expect(stats.byStatus.Active.outstanding).toBe(3000);
       expect(stats.byStatus.Paid.outstanding).toBe(0);
       expect(stats.byStatus.pending.outstanding).toBe(2000);
@@ -395,7 +407,7 @@ describe('Cash Advance Service', () => {
 
     it('should handle empty advances array', () => {
       const stats = getCashAdvanceStats([]);
-      
+
       expect(stats.totalRequested).toBe(0);
       expect(stats.totalOutstanding).toBe(0);
       expect(stats.totalPaid).toBe(0);
@@ -405,7 +417,7 @@ describe('Cash Advance Service', () => {
 
     it('should handle single advance', () => {
       const stats = getCashAdvanceStats([mockCashAdvances[0]]);
-      
+
       expect(stats.totalRequested).toBe(5000);
       expect(stats.totalOutstanding).toBe(3000);
       expect(stats.count).toBe(1);
@@ -444,7 +456,7 @@ describe('Cash Advance Service', () => {
       const emp1Advances = mockCashAdvances.filter(
         (adv) => adv.employeeId === 'emp1'
       );
-      
+
       expect(emp1Advances).toHaveLength(2);
       expect(emp1Advances.every((adv) => adv.employeeId === 'emp1')).toBe(true);
     });
@@ -453,25 +465,27 @@ describe('Cash Advance Service', () => {
       const johnAdvances = mockCashAdvances.filter(
         (adv) => adv.employeeName === 'John Doe'
       );
-      
+
       expect(johnAdvances).toHaveLength(2);
-      expect(johnAdvances.every((adv) => adv.employeeName === 'John Doe')).toBe(true);
+      expect(johnAdvances.every((adv) => adv.employeeName === 'John Doe')).toBe(
+        true
+      );
     });
 
     it('should filter advances with remaining balance', () => {
       const withBalance = mockCashAdvances.filter(
         (adv) => Number(adv.remainingBalance || 0) > 0
       );
-      
+
       expect(withBalance).toHaveLength(2);
-      expect(withBalance.every((adv) => Number(adv.remainingBalance || 0) > 0)).toBe(true);
+      expect(
+        withBalance.every((adv) => Number(adv.remainingBalance || 0) > 0)
+      ).toBe(true);
     });
 
     it('should filter advances by status', () => {
-      const active = mockCashAdvances.filter(
-        (adv) => adv.status === 'Active'
-      );
-      
+      const active = mockCashAdvances.filter((adv) => adv.status === 'Active');
+
       expect(active).toHaveLength(1);
       expect(active[0].status).toBe('Active');
     });
@@ -485,7 +499,7 @@ describe('Cash Advance Service', () => {
     });
 
     it('should handle decimal amounts in balance calculation', () => {
-      expect(calculateRemainingBalance(5000.50, 2000.25)).toBe(3000.25);
+      expect(calculateRemainingBalance(5000.5, 2000.25)).toBe(3000.25);
     });
 
     it('should handle advances with no notes', () => {

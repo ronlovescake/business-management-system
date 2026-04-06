@@ -7,7 +7,10 @@ import type {
 } from '@/components/ui/HandsontableGrid';
 import { TransactionService } from '../services/TransactionService';
 import { DueDateService } from '../../due-dates/services/DueDateService';
-import { STATUS_FILTER_OPTIONS } from '../types/transaction.types';
+import {
+  ORDER_STATUS_OPTIONS,
+  STATUS_FILTER_OPTIONS,
+} from '../types/transaction.types';
 import type {
   TransactionData,
   ColumnIdToKey,
@@ -40,7 +43,7 @@ interface UseTransactionsDerivedDataParams {
 }
 
 interface UseTransactionsDerivedDataResult {
-  statusDropdownOptions: string[];
+  statusFilterOptions: string[];
   columns: HandsontableColumn[];
   idToKey: ColumnIdToKey;
   getCellData: ({
@@ -87,8 +90,13 @@ export function useTransactionsDerivedData({
   productToShipmentMap,
   transactionUpdateMap,
 }: UseTransactionsDerivedDataParams): UseTransactionsDerivedDataResult {
-  const statusDropdownOptions = useMemo(
+  const statusFilterOptions = useMemo(
     () => Array.from(STATUS_FILTER_OPTIONS),
+    []
+  );
+
+  const orderStatusDropdownOptions = useMemo(
+    () => Array.from(ORDER_STATUS_OPTIONS),
     []
   );
 
@@ -98,9 +106,9 @@ export function useTransactionsDerivedData({
         customerNames,
         productCodes,
         readOnlyColumns,
-        statusDropdownOptions,
+        statusDropdownOptions: orderStatusDropdownOptions,
       }),
-    [customerNames, productCodes, readOnlyColumns, statusDropdownOptions]
+    [customerNames, productCodes, readOnlyColumns, orderStatusDropdownOptions]
   );
 
   const idToKey = useMemo(() => buildColumnIdToKey(), []);
@@ -496,7 +504,7 @@ export function useTransactionsDerivedData({
   );
 
   return {
-    statusDropdownOptions,
+    statusFilterOptions,
     columns,
     idToKey,
     getCellData,

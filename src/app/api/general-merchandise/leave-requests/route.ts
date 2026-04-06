@@ -338,7 +338,10 @@ export async function DELETE(request: NextRequest) {
     }
 
     const leaveRequestClient = getLeaveRequestClient();
-    const result = await leaveRequestClient.deleteMany();
+    const result = await leaveRequestClient.updateMany({
+      where: { deletedAt: null },
+      data: { deletedAt: new Date() },
+    });
 
     return NextResponse.json({
       message: `Successfully deleted ${result.count} leave request records`,

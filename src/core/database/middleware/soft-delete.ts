@@ -17,28 +17,78 @@
 import type { PrismaClient } from '@prisma/client';
 
 /**
- * Models that support soft-delete pattern (have deletedAt field)
+ * Models that support soft-delete pattern (have deletedAt field).
+ *
+ * Policy:
+ * - Business-domain records default to soft delete when they expose a `deletedAt` column.
+ * - Messaging/auth/system records that still intentionally hard-delete stay out of this set.
+ * - Explicit hard-delete exceptions today: `Message`, `Conversation`, and `User`.
  */
 export const SOFT_DELETE_MODELS = new Set([
   'Customer',
+  'AdditionalCustomerInfo',
   'Price',
   'Product',
+  'InventoryMovement',
+  'ClothingInventoryReclassEntry',
+  'ClothingInventoryTransitBuildEntry',
   'Shipment',
   'Transaction',
+  'TransactionPayment',
+  'TransactionRefund',
   'GeneralMerchandiseTransaction',
   'SortingDistribution',
+  'CheckoutLink',
+  'ItemWeight',
+  'Invoice',
+  'ShippingFeeCalculatorState',
   // Employee Workspace Models
   'Employee',
+  'LeaveRequest',
   'Attendance',
   'Schedule',
   'Payroll',
   'SalaryHistory',
-  // NOTE: 'LeaveRequest' excluded - requires deletedAt field in Prisma schema
-  // FUTURE: Add deletedAt field to LeaveRequest model to enable soft-delete
-  // NOTE: 'CashAdvanceRecord' excluded - requires deletedAt field in Prisma schema
-  // FUTURE: Add deletedAt field to CashAdvanceRecord model to enable soft-delete
+  'CashAdvanceRecord',
+  'Expense',
+  // Trucking Domain Models
+  'TruckingFleetRegistry',
+  'TruckingTrip',
+  'TruckingVehicleAssignment',
+  'TruckingEmployee',
+  'TruckingLeaveRequest',
+  'TruckingAttendance',
+  'TruckingSchedule',
+  'TruckingPayroll',
+  'TruckingSalaryHistory',
+  'TruckingCashAdvanceRecord',
+  'TruckingExpense',
+  // General Merchandise Domain Models
+  'GeneralMerchandiseCustomer',
+  'GeneralMerchandiseAdditionalCustomerInfo',
+  'GeneralMerchandisePrice',
+  'GeneralMerchandiseProduct',
+  'GeneralMerchandiseInventoryMovement',
+  'GeneralMerchandiseInventoryReclassEntry',
+  'GeneralMerchandiseInventoryTransitBuildEntry',
+  'GeneralMerchandiseShipment',
+  'GeneralMerchandiseTransactionPayment',
+  'GeneralMerchandiseTransactionRefund',
+  'GeneralMerchandiseSortingDistribution',
+  'GeneralMerchandiseCheckoutLink',
+  'GeneralMerchandiseItemWeight',
+  'GeneralMerchandiseInvoice',
+  'GeneralMerchandiseShippingFeeCalculatorState',
+  'GeneralMerchandiseEmployee',
+  'GeneralMerchandiseLeaveRequest',
+  'GeneralMerchandiseAttendance',
+  'GeneralMerchandiseSchedule',
+  'GeneralMerchandisePayroll',
+  'GeneralMerchandiseSalaryHistory',
+  'GeneralMerchandiseCashAdvanceRecord',
+  'GeneralMerchandiseExpense',
   // NOTE: 'ThirteenthMonthPayRecord' excluded - does NOT have deletedAt field in schema
-  // NOTE: 'Expense' excluded - does NOT have deletedAt field in schema
+  // NOTE: 'Message', 'Conversation', and 'User' intentionally remain hard-delete models.
 ]);
 
 /**

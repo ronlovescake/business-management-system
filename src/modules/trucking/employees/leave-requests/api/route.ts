@@ -483,7 +483,10 @@ export async function DELETE(request: NextRequest) {
     }
 
     const leaveRequestClient = getLeaveRequestClient();
-    const result = await leaveRequestClient.deleteMany();
+    const result = await leaveRequestClient.updateMany({
+      where: { deletedAt: null },
+      data: { deletedAt: new Date() },
+    });
 
     logger.warn('Mass deletion executed', {
       entity: 'leave_requests',

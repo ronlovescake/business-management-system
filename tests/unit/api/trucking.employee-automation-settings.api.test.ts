@@ -25,11 +25,11 @@ const {
   mockUpdateSettings: vi.fn(),
 }));
 
-vi.mock('@/lib/settings/generalMerchandiseEmployeeAutomation', () => ({
-  createGeneralMerchandiseEmployeeAutomationRun: mockCreateRun,
-  getGeneralMerchandiseEmployeeAutomationOverview: mockGetOverview,
-  getGeneralMerchandiseEmployeeAutomationSettings: mockGetSettings,
-  updateGeneralMerchandiseEmployeeAutomationSettings: mockUpdateSettings,
+vi.mock('@/lib/settings/truckingEmployeeAutomation', () => ({
+  createTruckingEmployeeAutomationRun: mockCreateRun,
+  getTruckingEmployeeAutomationOverview: mockGetOverview,
+  getTruckingEmployeeAutomationSettings: mockGetSettings,
+  updateTruckingEmployeeAutomationSettings: mockUpdateSettings,
 }));
 
 vi.mock('@/modules/shared/employees/automation', () => ({
@@ -53,9 +53,9 @@ import {
   GET,
   PUT,
   POST,
-} from '@/app/api/general-merchandise/employee-automation-settings/route';
+} from '@/app/api/trucking/employee-automation-settings/route';
 
-describe('GM employee automation settings API', () => {
+describe('Trucking employee automation settings API', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockRequireAdmin.mockResolvedValue({
@@ -81,7 +81,7 @@ describe('GM employee automation settings API', () => {
 
     const response = await GET(
       new NextRequest(
-        'http://localhost/api/general-merchandise/employee-automation-settings',
+        'http://localhost/api/trucking/employee-automation-settings',
         {
           method: 'GET',
         }
@@ -123,7 +123,7 @@ describe('GM employee automation settings API', () => {
 
     const response = await PUT(
       new NextRequest(
-        'http://localhost/api/general-merchandise/employee-automation-settings',
+        'http://localhost/api/trucking/employee-automation-settings',
         {
           method: 'PUT',
           body: JSON.stringify({ payrollAutoGenerationTime: '25:00' }),
@@ -160,7 +160,7 @@ describe('GM employee automation settings API', () => {
 
     const response = await PUT(
       new NextRequest(
-        'http://localhost/api/general-merchandise/employee-automation-settings',
+        'http://localhost/api/trucking/employee-automation-settings',
         {
           method: 'PUT',
           body: JSON.stringify({ payrollAutoGenerationEnabled: true }),
@@ -198,7 +198,7 @@ describe('GM employee automation settings API', () => {
 
     const response = await POST(
       new NextRequest(
-        'http://localhost/api/general-merchandise/employee-automation-settings',
+        'http://localhost/api/trucking/employee-automation-settings',
         {
           method: 'POST',
           body: JSON.stringify({ automationType: 'stay-in-attendance' }),
@@ -211,7 +211,7 @@ describe('GM employee automation settings API', () => {
     expect(body.success).toBe(true);
     expect(body.result.message).toBe('Stay-in automation completed.');
     expect(mockExecuteStayInAutomation).toHaveBeenCalledWith({
-      domain: 'general-merchandise',
+      domain: 'trucking',
       settings: expect.any(Object),
     });
   });
@@ -241,7 +241,7 @@ describe('GM employee automation settings API', () => {
 
     const response = await POST(
       new NextRequest(
-        'http://localhost/api/general-merchandise/employee-automation-settings',
+        'http://localhost/api/trucking/employee-automation-settings',
         {
           method: 'POST',
           body: JSON.stringify({ automationType: 'payroll-generation' }),
@@ -254,7 +254,7 @@ describe('GM employee automation settings API', () => {
     expect(body.success).toBe(true);
     expect(body.result.message).toBe('Payroll automation completed.');
     expect(mockExecutePayrollAutomation).toHaveBeenCalledWith({
-      domain: 'general-merchandise',
+      domain: 'trucking',
       settings: expect.any(Object),
       triggerSource: 'manual',
     });

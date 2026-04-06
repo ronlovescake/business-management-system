@@ -133,7 +133,7 @@ export class GeneralMerchandiseExpenseService extends ExpenseServiceBase<
         throw new Error(`Expense with ID ${id} not found`);
       }
 
-      const deleted = await this.repository.delete(id);
+      const deleted = await this.repository.softDelete(id);
 
       const { recordChange } = await import('@/core/change-log');
       await recordChange(
@@ -156,7 +156,7 @@ export class GeneralMerchandiseExpenseService extends ExpenseServiceBase<
 
   async deleteAll(): Promise<{ count: number }> {
     try {
-      return await generalMerchandiseExpenseRepository.deleteMany();
+      return await generalMerchandiseExpenseRepository.softDeleteMany();
     } catch (error) {
       logger.error('Failed to delete GM expenses', { error });
       throw new Error('Failed to delete GM expenses');

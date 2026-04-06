@@ -384,7 +384,7 @@ export function TransactionsPage({ apiBasePath }: TransactionsPageProps) {
   // DERIVED DATA + GRID HELPERS
   // ============================================================================
   const {
-    statusDropdownOptions,
+    statusFilterOptions,
     columns,
     getCellData,
     packingListEligibleData,
@@ -949,7 +949,7 @@ export function TransactionsPage({ apiBasePath }: TransactionsPageProps) {
           recentlyUpdatedColumns={recentlyUpdatedColumns}
           recentlyUpdatedData={recentlyUpdatedData}
           getRecentlyUpdatedCellData={getRecentlyUpdatedCellData}
-          statusOptions={statusDropdownOptions}
+          statusOptions={statusFilterOptions}
           selectedStatuses={selectedStatuses}
           onStatusFilter={handleStatusFilter}
           onGenerateInvoice={prepareInvoiceGeneration}

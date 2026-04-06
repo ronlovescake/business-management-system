@@ -18,7 +18,9 @@ type ExpenseRepositoryLike<
   createMany(data: TNormalizedCreateInput[]): Promise<{ count: number }>;
   update(id: number, data: TNormalizedUpdateInput): Promise<TEntity>;
   delete(id: number): Promise<TEntity>;
+  softDelete(id: number): Promise<TEntity>;
   deleteMany?: (where?: WhereInput<TEntity>) => Promise<{ count: number }>;
+  softDeleteMany?: (where?: WhereInput<TEntity>) => Promise<{ count: number }>;
   findByEmployeeName(employeeName: string): Promise<TEntity[]>;
   findByStatus(status: string): Promise<TEntity[]>;
   findByCategory(category: string): Promise<TEntity[]>;
@@ -188,12 +190,7 @@ export class ExpenseServiceBase<
 
   async delete(id: number): Promise<TEntity | void> {
     try {
-      const existing = await this.repository.findById(id);
-      if (!existing) {
-        throw new Error(`Expense with ID ${id} not found`);
-      }
-
-      await this.repository.delete(id);
+      await this.repository.softDelete(id);
       logger.info('Expense deleted', { id });
     } catch (error) {
       logger.error('Failed to delete expense', { error, id });
@@ -203,16 +200,14 @@ export class ExpenseServiceBase<
 
   async deleteAll(): Promise<{ count: number }> {
     try {
-      const expenses = await this.repository.findMany({});
-      let count = 0;
-
-      for (const expense of expenses) {
-        await this.repository.delete(expense.id);
-        count += 1;
+      if (!this.repository.softDeleteMany) {
+        throw new Error('Bulk soft delete is not available');
       }
 
-      logger.warn('All expenses deleted', { count });
-      return { count };
+      const result = await this.repository.softDeleteMany();
+
+      logger.warn('All expenses deleted', { count: result.count });
+      return result;
     } catch (error) {
       logger.error('Failed to delete all expenses', { error });
       throw new Error('Failed to delete all expenses');

@@ -5,8 +5,10 @@ const { mockPrisma, mockValidateMassDeleteConfirmation } = vi.hoisted(() => ({
   mockPrisma: {
     truckingLeaveRequest: {
       findMany: vi.fn(),
+      findFirst: vi.fn(),
       createMany: vi.fn(),
       update: vi.fn(),
+      updateMany: vi.fn(),
       deleteMany: vi.fn(),
     },
     truckingEmployee: {
@@ -44,6 +46,10 @@ import {
   PATCH,
   POST,
 } from '@/app/api/trucking/leave-requests/route';
+import {
+  GET as GET_BY_ID,
+  DELETE as DELETE_BY_ID,
+} from '@/app/api/trucking/leave-requests/[id]/route';
 
 describe('Trucking leave-requests API', () => {
   beforeEach(() => {
@@ -124,8 +130,8 @@ describe('Trucking leave-requests API', () => {
     expect(body.error).toBe('Leave request ID is required');
   });
 
-  it('mass deletes leave requests after confirmation', async () => {
-    mockPrisma.truckingLeaveRequest.deleteMany.mockResolvedValue({ count: 3 });
+  it('soft deletes leave requests after confirmation', async () => {
+    mockPrisma.truckingLeaveRequest.updateMany.mockResolvedValue({ count: 3 });
 
     const response = await DELETE(
       new NextRequest('http://localhost/api/trucking/leave-requests', {
@@ -136,6 +142,41 @@ describe('Trucking leave-requests API', () => {
 
     expect(response.status).toBe(200);
     expect(body.count).toBe(3);
-    expect(mockPrisma.truckingLeaveRequest.deleteMany).toHaveBeenCalled();
+    expect(mockPrisma.truckingLeaveRequest.updateMany).toHaveBeenCalledWith({
+      where: { deletedAt: null },
+      data: { deletedAt: expect.any(Date) },
+    });
+  });
+
+  it('fetches and soft deletes a trucking leave request by id', async () => {
+    mockPrisma.truckingLeaveRequest.findFirst
+      .mockResolvedValueOnce({ id: 12, employeeId: 'DRV-001', deletedAt: null })
+      .mockResolvedValueOnce({
+        id: 12,
+        employeeId: 'DRV-001',
+        deletedAt: null,
+      });
+    mockPrisma.truckingLeaveRequest.update.mockResolvedValue({
+      id: 12,
+      deletedAt: new Date('2026-04-06T00:00:00.000Z'),
+    });
+
+    const fetchResponse = await GET_BY_ID(
+      new NextRequest('http://localhost/api/trucking/leave-requests/12'),
+      { params: { id: '12' } }
+    );
+    const deleteResponse = await DELETE_BY_ID(
+      new NextRequest('http://localhost/api/trucking/leave-requests/12', {
+        method: 'DELETE',
+      }),
+      { params: { id: '12' } }
+    );
+
+    expect(fetchResponse.status).toBe(200);
+    expect(deleteResponse.status).toBe(200);
+    expect(mockPrisma.truckingLeaveRequest.update).toHaveBeenCalledWith({
+      where: { id: 12 },
+      data: { deletedAt: expect.any(Date) },
+    });
   });
 });

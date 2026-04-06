@@ -6,8 +6,10 @@ import { mockLogger } from '@/core/testing/test-helpers';
 const mockPrisma = vi.hoisted(() => ({
   leaveRequest: {
     findMany: vi.fn(),
+    findFirst: vi.fn(),
     createMany: vi.fn(),
     update: vi.fn(),
+    updateMany: vi.fn(),
     deleteMany: vi.fn(),
   },
   employee: {
@@ -36,6 +38,10 @@ vi.mock('@/utils/date', () => ({
 
 // Import route handlers after mocks
 import { GET, POST, PUT, PATCH, DELETE } from '@/app/api/leave-requests/route';
+import {
+  GET as GET_BY_ID,
+  DELETE as DELETE_BY_ID,
+} from '@/app/api/leave-requests/[id]/route';
 
 describe('Leave Requests API - GET', () => {
   beforeEach(() => {
@@ -785,8 +791,8 @@ describe('Leave Requests API - DELETE', () => {
     vi.clearAllMocks();
   });
 
-  it('should delete all leave requests', async () => {
-    mockPrisma.leaveRequest.deleteMany.mockResolvedValue({ count: 5 });
+  it('should soft delete all leave requests', async () => {
+    mockPrisma.leaveRequest.updateMany.mockResolvedValue({ count: 5 });
 
     const request = new NextRequest('http://localhost/api/leave-requests', {
       method: 'DELETE',
@@ -797,11 +803,46 @@ describe('Leave Requests API - DELETE', () => {
     expect(response.status).toBe(200);
     expect(data.count).toBe(5);
     expect(data.message).toContain('5 leave request records');
-    expect(mockPrisma.leaveRequest.deleteMany).toHaveBeenCalled();
+    expect(mockPrisma.leaveRequest.updateMany).toHaveBeenCalledWith({
+      where: { deletedAt: null },
+      data: { deletedAt: expect.any(Date) },
+    });
+  });
+
+  it('should fetch and soft delete a leave request by id', async () => {
+    mockPrisma.leaveRequest.findFirst
+      .mockResolvedValueOnce({ id: 1, employeeId: 'emp1', deletedAt: null })
+      .mockResolvedValueOnce({ id: 1, employeeId: 'emp1', deletedAt: null });
+    mockPrisma.leaveRequest.update.mockResolvedValue({
+      id: 1,
+      employeeId: 'emp1',
+      deletedAt: new Date('2026-04-06T00:00:00.000Z'),
+    });
+
+    const getResponse = await GET_BY_ID(
+      new NextRequest('http://localhost/api/leave-requests/1'),
+      { params: { id: '1' } }
+    );
+    const deleteResponse = await DELETE_BY_ID(
+      new NextRequest('http://localhost/api/leave-requests/1', {
+        method: 'DELETE',
+      }),
+      { params: { id: '1' } }
+    );
+
+    expect(getResponse.status).toBe(200);
+    expect(mockPrisma.leaveRequest.findFirst).toHaveBeenNthCalledWith(1, {
+      where: { id: 1, deletedAt: null },
+    });
+    expect(deleteResponse.status).toBe(200);
+    expect(mockPrisma.leaveRequest.update).toHaveBeenCalledWith({
+      where: { id: 1 },
+      data: { deletedAt: expect.any(Date) },
+    });
   });
 
   it('should handle errors', async () => {
-    mockPrisma.leaveRequest.deleteMany.mockRejectedValue(
+    mockPrisma.leaveRequest.updateMany.mockRejectedValue(
       new Error('Database error')
     );
 

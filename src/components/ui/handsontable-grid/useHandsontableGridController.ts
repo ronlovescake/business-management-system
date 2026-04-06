@@ -68,6 +68,12 @@ type ColumnSettings = Handsontable.ColumnSettings;
 type GridSettings = Handsontable.GridSettings;
 type CoreInstance = Handsontable;
 
+function normalizeDropdownCandidate(value: unknown): string {
+  return String(value ?? '')
+    .replace(/^[^A-Za-z0-9]+/, '')
+    .trim();
+}
+
 export function useHandsontableGridController<T extends object>({
   columns,
   filteredData,
@@ -609,10 +615,7 @@ export function useHandsontableGridController<T extends object>({
         const dropdownValues = col.dropdownValues ?? [];
         const source =
           col.dropdownSearchMode === 'contains'
-            ? (
-                query: string,
-                process: (matches: string[]) => void
-              ): void => {
+            ? (query: string, process: (matches: string[]) => void): void => {
                 const normalizedQuery = query.trim().toLowerCase();
 
                 if (!normalizedQuery) {
@@ -856,16 +859,19 @@ export function useHandsontableGridController<T extends object>({
           changeCol === state.col &&
           columns[changeCol]?.type === 'dropdown'
         ) {
-          const normalizedNewValue =
-            newValue === null || newValue === undefined
-              ? ''
-              : String(newValue).trim();
+          const normalizedNewValue = normalizeDropdownCandidate(newValue);
           const dropdownValues = columns[changeCol]?.dropdownValues ?? [];
+          const matchedDropdownValue =
+            normalizedNewValue === ''
+              ? ''
+              : dropdownValues.find((value) => value === normalizedNewValue);
           const isAllowedDropdownValue =
-            normalizedNewValue === '' ||
-            dropdownValues.some((value) => value === normalizedNewValue);
+            normalizedNewValue === '' || Boolean(matchedDropdownValue);
 
           if (state.selectionMade || isAllowedDropdownValue) {
+            if (matchedDropdownValue && newValue !== matchedDropdownValue) {
+              change[3] = matchedDropdownValue;
+            }
             state.selectionMade = true;
             return;
           }

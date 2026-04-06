@@ -11,6 +11,7 @@ import {
   getAutoRecordDateRange,
   AUTO_RECORD_LOOKBACK_DAYS,
 } from '@/app/clothing/employees/attendance/hooks/attendanceHookUtils';
+import { DATE_STORAGE_FORMAT, dayjs, getCurrentDateISO } from '@/utils/date';
 
 // ---------------------------------------------------------------------------
 // Section A — calculateTotalHours
@@ -67,7 +68,7 @@ describe('Attendance — getAutoRecordDateRange', () => {
   });
 
   it('first date is today', () => {
-    const today = new Date().toISOString().split('T')[0];
+    const today = getCurrentDateISO();
     expect(getAutoRecordDateRange()[0]).toBe(today);
   });
 
@@ -87,8 +88,10 @@ describe('Attendance — getAutoRecordDateRange', () => {
 
   it('last date is (lookback - 1) days ago', () => {
     const dates = getAutoRecordDateRange();
-    const expected = new Date();
-    expected.setDate(expected.getDate() - (AUTO_RECORD_LOOKBACK_DAYS - 1));
-    expect(dates[dates.length - 1]).toBe(expected.toISOString().split('T')[0]);
+    const expected = dayjs(getCurrentDateISO())
+      .subtract(AUTO_RECORD_LOOKBACK_DAYS - 1, 'day')
+      .format(DATE_STORAGE_FORMAT);
+
+    expect(dates[dates.length - 1]).toBe(expected);
   });
 });
