@@ -121,8 +121,9 @@ describe('Trucking Attendance API', () => {
     const response = await POST(request);
     const body = await response.json();
 
-    expect(response.status).toBe(200);
-    expect(body.id).toBe('att-7');
+    expect(response.status).toBe(201);
+    expect(body.success).toBe(true);
+    expect(body.data.id).toBe('att-7');
     expect(mockPrisma.truckingEmployee.findFirst).toHaveBeenCalledWith({
       where: {
         employeeId: 'DRV-7',
@@ -153,9 +154,9 @@ describe('Trucking Attendance API', () => {
     const body = await response.json();
 
     expect(response.status).toBe(200);
-    expect(body.id).toBe('att-9');
+    expect(body.success).toBe(true);
     expect(mockPrisma.truckingAttendance.update).toHaveBeenCalledWith({
-      where: { id: 'att-9' },
+      where: { id: 'att-9', deletedAt: null },
       data: { deletedAt: expect.any(Date) },
     });
   });

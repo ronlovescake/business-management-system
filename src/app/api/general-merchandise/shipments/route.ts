@@ -3,24 +3,13 @@ import { ApiResponse } from '@/core/api';
 import { withErrorHandler } from '@/core/api/middleware';
 import { prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
-import { sanitizers } from '@/lib/security/sanitize';
 import type { ShipmentData, ShipmentDB } from '@/types';
 import type { ShipmentRecordInput } from '@/modules/shipments/api/schemas';
-
-const MONTH_NAMES = [
-  'Jan',
-  'Feb',
-  'Mar',
-  'Apr',
-  'May',
-  'Jun',
-  'Jul',
-  'Aug',
-  'Sep',
-  'Oct',
-  'Nov',
-  'Dec',
-];
+import {
+  convertShipmentDBToData,
+  convertShipmentDataToDB,
+  type ShipmentDbPayload,
+} from '@/modules/shipments/api/shipmentUtils';
 
 type GeneralMerchandiseShipmentClient = Pick<
   typeof prisma,
@@ -28,82 +17,6 @@ type GeneralMerchandiseShipmentClient = Pick<
 >;
 
 const gmPrisma: GeneralMerchandiseShipmentClient = prisma;
-
-function formatDateValue(date: string | Date | null | undefined): string {
-  if (!date) {
-    return '';
-  }
-
-  if (date instanceof Date) {
-    const month = date.getUTCMonth();
-    const day = date.getUTCDate();
-    const year = date.getUTCFullYear();
-    return `${MONTH_NAMES[month]} ${day}, ${year}`;
-  }
-
-  const isoMatch = date.match(/^\d{4}-\d{2}-\d{2}$/);
-  if (isoMatch) {
-    const [year, month, day] = date.split('-');
-    const monthIndex = Number(month) - 1;
-    const dayNumber = Number(day);
-    if (
-      Number.isInteger(monthIndex) &&
-      monthIndex >= 0 &&
-      monthIndex < MONTH_NAMES.length &&
-      Number.isInteger(dayNumber)
-    ) {
-      return `${MONTH_NAMES[monthIndex]} ${dayNumber}, ${year}`;
-    }
-  }
-
-  const parsed = new Date(date);
-  if (Number.isNaN(parsed.getTime())) {
-    return date;
-  }
-
-  return formatDateValue(parsed);
-}
-
-function convertShipmentDBToData(shipment: ShipmentDB): ShipmentData {
-  return {
-    id: shipment.id,
-    'Shipment Code': shipment.shipmentCode,
-    'CV Number': shipment.cvNumber || '',
-    'No. Of Sacks': shipment.noOfSacks,
-    'Total CBM': shipment.totalCBM,
-    Weight: shipment.weight,
-    Fee: shipment.fee,
-    'Shipment Status': shipment.shipmentStatus,
-    'Date Created': formatDateValue(shipment.dateCreated),
-    'Date Delivered': formatDateValue(shipment.dateDelivered),
-    Duration: shipment.duration || '',
-    Notes: shipment.notes || '',
-  };
-}
-
-function convertShipmentDataToDB(
-  data: Partial<ShipmentData> | ShipmentRecordInput
-) {
-  const cleanNumber = (value: unknown, decimals = 2): number => {
-    return sanitizers.number(value, { min: 0, decimals }) ?? 0;
-  };
-
-  return {
-    shipmentCode: sanitizers.productCode(data['Shipment Code']) || '',
-    cvNumber: sanitizers.name(data['CV Number']) || null,
-    noOfSacks: Math.round(cleanNumber(data['No. Of Sacks'], 0)),
-    totalCBM: cleanNumber(data['Total CBM']),
-    weight: cleanNumber(data['Weight']),
-    fee: cleanNumber(data['Fee']),
-    shipmentStatus: sanitizers.name(data['Shipment Status']) || '',
-    dateCreated: sanitizers.date(data['Date Created']) || null,
-    dateDelivered: sanitizers.date(data['Date Delivered']) || null,
-    duration: sanitizers.name(data['Duration']) || null,
-    notes: sanitizers.notes(data['Notes']) || null,
-  };
-}
-
-type ShipmentDbPayload = ReturnType<typeof convertShipmentDataToDB>;
 
 async function cascadeShipmentDataToProducts(
   client: GeneralMerchandiseShipmentClient,

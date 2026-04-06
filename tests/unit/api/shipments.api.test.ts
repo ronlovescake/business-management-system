@@ -750,7 +750,7 @@ describe('Shipments API - /api/shipments/[id]', () => {
       );
 
       const request = buildRequest('/api/shipments/1');
-      const response = await deleteShipment(request, { params: { id: '1' } });
+      const response = await deleteShipment!(request, { params: { id: '1' } });
       const payload = await response.json();
 
       expect(prisma.shipment.delete).toHaveBeenCalledWith({
@@ -763,7 +763,9 @@ describe('Shipments API - /api/shipments/[id]', () => {
 
     it('should return 400 for invalid ID', async () => {
       const request = buildRequest('/api/shipments/xyz');
-      const response = await deleteShipment(request, { params: { id: 'xyz' } });
+      const response = await deleteShipment!(request, {
+        params: { id: 'xyz' },
+      });
       const payload = await response.json();
 
       expect(response.status).toBe(400);

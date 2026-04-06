@@ -1,111 +1,40 @@
-import type { NextRequest } from 'next/server';
-import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
-import { logger } from '@/lib/logger';
+import { createLeaveRequestRoutes } from '@/modules/shared/employees/api/leaveRequestRouteFactory';
 
-interface RouteParams {
-  params: { id: string };
-}
+const { GET_BY_ID, DELETE_BY_ID } = createLeaveRequestRoutes({
+  leaveRequestModel: {
+    findMany: (args) => prisma.truckingLeaveRequest.findMany(args),
+    findActiveById: (id) =>
+      prisma.truckingLeaveRequest.findFirst({
+        where: { id, deletedAt: null },
+      }),
+    createMany: (data) => prisma.truckingLeaveRequest.createMany({ data }),
+    update: (id, data) =>
+      prisma.truckingLeaveRequest.update({
+        where: { id },
+        data,
+      }),
+    softDelete: (id) =>
+      prisma.truckingLeaveRequest.update({
+        where: { id },
+        data: { deletedAt: new Date() },
+      }),
+    softDeleteAll: () =>
+      prisma.truckingLeaveRequest.updateMany({
+        where: { deletedAt: null },
+        data: { deletedAt: new Date() },
+      }),
+  },
+  employeeModel: {
+    findExistingIds: (employeeIds) =>
+      prisma.truckingEmployee.findMany({
+        where: {
+          employeeId: { in: employeeIds },
+          deletedAt: null,
+        },
+        select: { employeeId: true },
+      }),
+  },
+});
 
-type LeaveRequestDelegate = typeof prisma.truckingLeaveRequest;
-
-function parseString(value: unknown): string {
-  if (value === null || value === undefined) {
-    return '';
-  }
-  return String(value).trim();
-}
-
-function getLeaveRequestClient(): LeaveRequestDelegate {
-  return prisma.truckingLeaveRequest;
-}
-
-export async function GET(_req: NextRequest, { params }: RouteParams) {
-  try {
-    const id = parseString(params.id);
-    if (!id) {
-      return NextResponse.json(
-        { error: 'Leave request ID is required' },
-        { status: 400 }
-      );
-    }
-
-    const leaveRequestClient = getLeaveRequestClient();
-    const numericId = parseInt(id, 10);
-    const leaveRequest = await leaveRequestClient.findFirst({
-      where: { id: numericId, deletedAt: null },
-    });
-
-    if (!leaveRequest) {
-      return NextResponse.json(
-        { error: 'Leave request not found' },
-        { status: 404 }
-      );
-    }
-
-    return NextResponse.json({
-      ...leaveRequest,
-      id: String(leaveRequest.id), // Convert integer ID to string
-    });
-  } catch (error) {
-    logger.error('Failed to fetch leave request:', error);
-    return NextResponse.json(
-      { error: 'Failed to fetch leave request' },
-      { status: 500 }
-    );
-  }
-}
-
-export async function DELETE(_req: NextRequest, { params }: RouteParams) {
-  try {
-    const id = parseString(params.id);
-    if (!id) {
-      return NextResponse.json(
-        { error: 'Leave request ID is required' },
-        { status: 400 }
-      );
-    }
-
-    const leaveRequestClient = getLeaveRequestClient();
-    const numericId = parseInt(id, 10);
-    const existingLeaveRequest = await leaveRequestClient.findFirst({
-      where: { id: numericId, deletedAt: null },
-    });
-
-    if (!existingLeaveRequest) {
-      return NextResponse.json(
-        { error: 'Leave request not found' },
-        { status: 404 }
-      );
-    }
-
-    await leaveRequestClient.update({
-      where: { id: numericId },
-      data: { deletedAt: new Date() },
-    });
-
-    return NextResponse.json({
-      message: 'Leave request deleted successfully',
-      id,
-    });
-  } catch (error) {
-    logger.error('Failed to delete leave request:', error);
-
-    if (
-      error &&
-      typeof error === 'object' &&
-      'code' in error &&
-      error.code === 'P2025'
-    ) {
-      return NextResponse.json(
-        { error: 'Leave request not found' },
-        { status: 404 }
-      );
-    }
-
-    return NextResponse.json(
-      { error: 'Failed to delete leave request' },
-      { status: 500 }
-    );
-  }
-}
+export { GET_BY_ID as GET, DELETE_BY_ID as DELETE };

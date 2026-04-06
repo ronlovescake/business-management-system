@@ -58,6 +58,30 @@ describe('Trucking attendance apply-leave API', () => {
     expect(body.error).toBe('Employee ID is required');
   });
 
+  it('returns a no-op response for future-only trucking leave ranges', async () => {
+    const response = await POST(
+      new NextRequest('http://localhost/api/trucking/attendance/apply-leave', {
+        method: 'POST',
+        body: JSON.stringify({
+          employeeId: 'DRV-01',
+          employeeName: 'Driver One',
+          leaveType: 'Vacation Leave',
+          startDate: '2026-03-20',
+          endDate: '2026-03-22',
+        }),
+      })
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body.success).toBe(true);
+    expect(body.totalAffected).toBe(0);
+    expect(body.message).toContain('future dates only');
+    expect(mockPrisma.truckingAttendance.findMany).not.toHaveBeenCalled();
+    expect(mockPrisma.truckingAttendance.updateMany).not.toHaveBeenCalled();
+    expect(mockPrisma.truckingAttendance.createMany).not.toHaveBeenCalled();
+  });
+
   it('updates existing leave attendance rows and creates missing days', async () => {
     mockPrisma.truckingEmployee.findFirst.mockResolvedValue({
       employeeId: 'DRV-01',

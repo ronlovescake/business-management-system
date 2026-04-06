@@ -1,6 +1,6 @@
 # Refactor Checklist
 
-Last updated: 2026-04-06 (completed large-surface controller extractions, reconciled Audit Cycle 3 status, recorded defer decisions, landed soft-delete/schema groundwork, removed dead code, extracted shared schedule/attendance helpers, and standardized the employee-automation API route family onto shared middleware-backed error handling)
+Last updated: 2026-04-06 (completed large-surface controller extractions, reconciled Audit Cycle 3 status, recorded defer decisions, landed soft-delete/schema groundwork, removed dead code, extracted shared schedule/attendance helpers, standardized the employee-automation, expense, attendance/apply-leave, attendance, schedules, leave-requests, and thirteenth-month-pay API route families, and converted the remaining route work into a continuous verified backlog)
 
 This file is the canonical tracker for repo-wide refactor work.
 
@@ -180,6 +180,9 @@ Remaining lower-coverage trucking routes: `analytics/profitability`, `employee-a
 - [x] P3 trucking trips dashboard decomposition completed.
 - [x] P3 slice: split `src/modules/trucking/operations/trips/hooks/useTripsDashboard.ts` into shared dashboard types/utilities plus dedicated data-loading and view-model hooks so the main hook now focuses on import/export, CRUD/finalize actions, and modal orchestration.
 - [x] P3 validation: targeted ESLint on the trips dashboard hooks plus `npm run typecheck` passed.
+- [x] P2 API route deduplication — shipments, invoices, message-templates, post-template-notice completed.
+- [x] P2 dedup slice: extracted shared factories (`shipmentDetailRouteFactory`, `transitBuildRouteFactory`, `transitReclassRouteFactory`, `invoiceRouteFactory`) and shared services (`messageTemplateService`, `postTemplateNoticeService`), plus `shipmentUtils.ts` for shared conversion helpers. Clothing and GM domain route files are now thin wrappers delegating to the shared factories.
+- [x] P2 dedup validation: `npm run typecheck`, `npm run lint`, `npm run guardrails:check`, and `npm run test:unit` (230 files / 2689 tests) passed.
 
 ### In Progress
 
@@ -230,6 +233,25 @@ Source: two-pass repo-wide refactor assessment with adversarial verification. It
 - [x] Treat missing explicit `export const dynamic` declarations as a consistency cleanup only, not a current defect, unless a specific route demonstrates caching/runtime issues.
 - [x] Prioritize observed current deletion risks before broad style consistency work.
 - [x] Re-check this checklist before each refactor batch so only confirmed items are promoted into active implementation plans.
+
+### 6. Business Logic Documentation Drift
+
+Source: two-pass verification of the shared route-family doc audit for shipments, invoices, message templates, and post-template notice.
+
+- [x] Update `docs/business-logic/clothing/operations-message-templates.md` so the documented create/update payload uses `paragraphs` arrays instead of a `body` string.
+- [x] Clarify `docs/business-logic/clothing/operations-message-templates.md` so the operator-facing blank-line editor is distinguished from the persisted `paragraphs` array contract.
+- [x] Update `docs/business-logic/clothing/operations-message-templates.md` source-file references to the shared messaging route/service implementation.
+- [x] Update `docs/business-logic/clothing/operations-post-template.md` to use the live `/api/post-template-notice` endpoint path for GET and PUT.
+- [x] Update `docs/business-logic/clothing/operations-post-template.md` to document that the missing singleton notice record is created and persisted on first load, not just returned from an in-memory default.
+- [x] Update `docs/business-logic/clothing/operations-post-template.md` to document the current minimum-one-bullet validation rule.
+- [x] Update `docs/business-logic/clothing/operations-post-template.md` source-file references to the shared messaging route/service implementation.
+- [x] Expand `docs/business-logic/clothing/operations-shipments.md` Transit Build coverage to include split mode, account allowlists, cutover enforcement, cents-precision validation, and mode-mixing guardrails.
+- [x] Expand `docs/business-logic/clothing/operations-shipments.md` Transit Reclass coverage to include Delivered-only gating, cutover enforcement, `selectedIdempotencyKeys`, and missing/double-reclass guardrails.
+- [x] Update `docs/business-logic/general-merchandise/operations-message-templates.md` to describe empty-table-only default seeding rather than selective missing-template re-seeding.
+- [x] Update `docs/business-logic/general-merchandise/operations-message-templates.md` to document the real load-failure behavior (500 error) instead of fallback-to-default behavior.
+- [x] Update `docs/business-logic/general-merchandise/operations-shipments.md` to document that GM shipment detail routes support GET/PUT only and do not expose DELETE.
+- [x] Add explicit base invoice CRUD documentation for clothing and GM, while keeping the already-documented tickbox and calculate-weights behavior anchored in checkout-links docs.
+- [x] Re-check these doc updates against the shared factories before closing the shared route-family documentation follow-up.
 
 ## Optimization And Enhancement Candidates (2026-04-06)
 
@@ -758,6 +780,7 @@ Run this for each completed implementation ticket.
 - [x] Follow-up validation after API error-handling standardization passed: `npm run guardrails:check`, `npm run test:full`, `npm run test:e2e:chromium`, `npm run docker:build`, `npm run docker:up`, and `curl -fsS http://localhost:5000/api/health`
 - [x] `useSchedules.ts` now delegates pure time-range, duration, and overlap calculations to `scheduleTimeUtils.ts`
 - [x] `useSchedules.ts` now delegates filtering, sorting, weekly breakdown, and status aggregation to `scheduleListUtils.ts`
+
 - [x] `useSchedules.ts` now delegates form-state reset/edit population to `useScheduleFormState.ts`
 - [x] `useSchedules.ts` now delegates leave-date matching to `scheduleLeaveUtils.ts`
 - [x] `useLeaveTracker.ts` now delegates form state to `useLeaveTrackerFormState.ts`, data/query loading to `useLeaveTrackerQueries.ts`, mutations to `useLeaveTrackerMutations.ts`, and CSV import/export to `leaveTrackerCsvUtils.ts`
@@ -813,6 +836,62 @@ Run this for each completed implementation ticket.
 - [x] Clothing payroll hook decomposition completed: `src/modules/clothing/employees/payroll/hooks/usePayroll.ts` now follows the shared payroll-base pattern while retaining module-local CSV behavior.
 - [x] Final P2 close-out validation passed: focused lint, `npm run typecheck`, and the targeted trucking API Vitest batch (`11` files / `34` tests).
 - [x] Global settings JS artifact cleanup passed: focused lint on the live TS/TSX files and `npm run typecheck`.
+
+## Continuous API Refactor Backlog (2026-04-06)
+
+Purpose: keep one verified queue of remaining route-family refactors so future batches can be pulled continuously without re-auditing the API surface each time.
+
+### Already Standardized Route Families
+
+- [x] `employee-automation-settings` — clothing, trucking, and GM now use `src/modules/shared/employees/api/employeeAutomationRouteFactory.ts`
+- [x] `expenses` — clothing, trucking, and GM now use `src/modules/shared/ledger/expenses/api/routeFactory.ts`
+- [x] `payroll` — clothing, trucking, and GM now use `src/modules/shared/ledger/payroll/api/routeAdapter.ts`
+- [x] `cash-advances` — clothing, trucking, and GM now use `src/modules/employees/cash-advance/api/routeFactory.ts`
+- [x] `customers` base routes — clothing and GM use `src/modules/customers/api/routeFactory.ts`
+- [x] `products` base routes — clothing and GM use `src/modules/products/api/routeFactory.ts`
+- [x] `transactions` base routes — clothing and GM use `src/modules/transactions/api/routeFactory.ts`
+- [x] `opening-balance` — clothing and GM use `src/modules/shared/ledger/opening-balance/api/routeAdapter.ts`
+- [x] `manual-journal` — clothing and GM use `src/modules/shared/ledger/manual-journal/api/routeAdapter.ts`
+- [x] `recurring-payments` (`templates`, `generate`, `drafts`, `approve`, `skip`) — clothing and GM use `src/modules/shared/ledger/recurring-payments/api/routeAdapters.ts`
+- [x] `employees/[id]/salary-history` — clothing and trucking use `src/modules/employees/salary-history/api/routeFactory.ts`
+
+### P1 — Next Shared Route Families
+
+- [x] `attendance/apply-leave` — extracted one shared POST handler across clothing, GM, and trucking in `src/modules/shared/employees/api/applyLeaveRouteFactory.ts` while keeping per-domain Prisma delegates explicit; validation passed with focused route tests, `npm run guardrails:check`, `npm run typecheck`, and `npm run test:integration`.
+- [x] `attendance` — clothing, GM, and trucking now use `src/modules/shared/employees/api/attendanceRouteFactory.ts` for GET/POST/PATCH/DELETE flow, normalized success envelopes, and shared Prisma error mapping while keeping per-domain delegates explicit; validation passed with focused ESLint, focused attendance route unit tests, `npm run guardrails:check`, `npm run typecheck`, and `npm run test:integration`.
+- [x] `schedules` — clothing, GM, and trucking now use `src/modules/shared/employees/api/scheduleRouteFactory.ts` for GET/POST/PATCH/DELETE flow, duplicate detection, employee existence checks, and normalized success envelopes while keeping per-domain Prisma delegates explicit; validation passed with focused ESLint, focused schedules route unit tests, `npm run guardrails:check`, `npm run typecheck`, and `npm run test:integration`.
+- [x] `leave-requests` (`route.ts` and `[id]/route.ts`) — clothing, GM, and trucking now use `src/modules/shared/employees/api/leaveRequestRouteFactory.ts` for shared list/detail parsing, employee existence checks, bulk/single update handling, and soft-delete flows while keeping per-domain Prisma bindings explicit; validation passed with focused leave-request and thirteenth-month route unit tests, focused ESLint, `npm run guardrails:check`, `npm run typecheck`, and `npm run test:integration`.
+- [x] `thirteenth-month-pay` (`route.ts` and `[recordId]/status/route.ts`) — clothing, GM, and trucking now use `src/modules/shared/employees/api/thirteenthMonthPayRouteFactory.ts` for shared query, upsert, and status-update route scaffolding, with GM normalized through `src/app/api/general-merchandise/thirteenth-month-pay/serviceAdapter.ts`; validation passed with focused leave-request and thirteenth-month route unit tests, focused ESLint, `npm run guardrails:check`, `npm run typecheck`, and `npm run test:integration`.
+
+### P2 — Medium-Complexity Cross-Domain Families
+
+- [ ] `shipments` — evaluate a shared route family for clothing and GM covering base routes plus `[id]`, `transit-build`, and `transit-reclass` without collapsing domain-specific shipment rules.
+- [ ] `invoices` — evaluate a shared route family for clothing and GM covering base CRUD plus `customer-orders`, `calculate-weights`, `generate-*`, and `[id]/tickbox`; assess trucking invoice overlap separately instead of forcing one abstraction immediately.
+- [ ] `message-templates` and `post-template-notice` — extract thin shared CRUD/request-shaping adapters if the GM and clothing payload contracts are still materially identical.
+- [ ] `inventory` — review `check-stock` and `movements` route pairs across clothing and GM for adapter extraction opportunities that preserve inventory and accounting invariants.
+- [ ] `sorting-distribution` — review `sorting-distribution` and `generate-distribution` route pairs across clothing and GM for a shared validation/request-shaping seam.
+
+### P3 — Lower-Priority Or Pattern-Only Standardization
+
+- [ ] `prices`, `bundles`, `mix-and-match`, and `item-weights` — standardize only if field mapping can be injected cleanly without hiding business rules in a generic adapter.
+- [ ] Clothing/GM operations-settings side routes (`change-log`, `notifications`, shipping-fee calculator, checkout-links-adjacent routes) — extract thin shared adapters only where the route shape is already stable.
+- [ ] Trucking ops routes (`trips`, `vehicle-assignments`, `fleet-vehicles`, `payments`, `analytics/profitability`) — standardize internal handler structure, middleware usage, and service boundaries even where no cross-domain factory is appropriate yet.
+- [ ] Low-traffic admin/auth/internal routes — opportunistically standardize error handling, auth wrappers, and request parsing when those files are touched for other work.
+
+### Explicit Defers And Guardrails
+
+- [x] Do not reopen `cash-advances` as a candidate unless the existing factory proves insufficient; GM is already using the shared route factory.
+- [x] Do not treat household routes as cross-domain consolidation targets; they remain intentionally separate.
+- [x] Do not merge accounting-heavy `balance-sheet`, `ledger`, or `journal` routes blindly; treat them as dedicated accounting refactors only after data-contract differences are mapped first.
+- [x] Do not count a family as complete until route-level tests are added or updated for every touched domain.
+- [x] Keep this section API-first; large-hook and large-component decomposition work remains tracked in the rest of this checklist and should not be mixed into this route queue.
+
+### Working Rules For Continuous Execution
+
+- Work top-to-bottom unless a higher item is blocked by domain risk or missing tests.
+- For each family, complete route extraction, parity tests, and any required docs updates in the same batch.
+- If a family turns out to be more divergent than expected, downgrade it here with a short note instead of forcing a bad abstraction.
+- When a shared factory already exists, prefer adoption and cleanup before inventing a second adapter pattern.
 
 ## Notes
 

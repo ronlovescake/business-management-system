@@ -21,12 +21,12 @@
 
 ## B — GM-Specific Data Seeding & Persistence
 
-| #   | Logic                                                                                           | Explanation                                                                                                |
-| --- | ----------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
-| 4   | The route loads GM message templates from `generalMerchandiseMessageTemplate` records           | The page queries GM-specific template records before rendering.                                            |
-| 5   | Missing default templates are seeded automatically into the GM table                            | The route compares stored template slugs against `DEFAULT_MESSAGE_TEMPLATES` and inserts missing defaults. |
-| 6   | If the GM table is empty, the page falls back to the default template set                       | An empty table returns the default in-memory template list.                                                |
-| 7   | If template loading fails, the route logs the failure and still falls back to default templates | The page avoids hard failure on template-load errors.                                                      |
+| #   | Logic                                                                                 | Explanation                                                                                                               |
+| --- | ------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
+| 4   | The route loads GM message templates from `generalMerchandiseMessageTemplate` records | The page queries GM-specific template records before rendering.                                                           |
+| 5   | Default templates are seeded only when the GM table is completely empty               | The shared service checks `records.length`; it does not selectively re-seed individual missing template slugs.            |
+| 6   | Empty-table bootstrap creates the defaults in the GM table before returning them      | `createMany` persists the default templates, then the shared service returns the default template set in canonical order. |
+| 7   | Template-loading failures log the error and return a 500 response                     | There is no successful fallback-to-default API response when the shared route fails to load GM templates.                 |
 
 ---
 

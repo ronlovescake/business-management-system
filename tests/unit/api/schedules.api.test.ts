@@ -5,7 +5,7 @@ import { mockLogger } from '@/core/testing/test-helpers';
 
 // Helper to create Prisma error
 const createPrismaError = (code: string, message: string) => {
-  const error = new Error(message) as any;
+  const error = new Error(message) as Error & { code?: string };
   error.code = code;
   // Make it pass instanceof check
   Object.setPrototypeOf(error, Prisma.PrismaClientKnownRequestError.prototype);
@@ -96,14 +96,17 @@ describe('Schedules API - GET', () => {
 
     mockPrisma.schedule.findMany.mockResolvedValue(mockSchedules);
 
-    const response = await GET();
+    const response = await GET(
+      new NextRequest('http://localhost/api/schedules')
+    );
     const data = await response.json();
 
     expect(response.status).toBe(200);
-    expect(data).toHaveLength(2);
-    expect(data[0].id).toBe('sch1');
-    expect(data[0].shiftType).toBe('morning');
-    expect(data[1].id).toBe('sch2');
+    expect(data.success).toBe(true);
+    expect(data.data).toHaveLength(2);
+    expect(data.data[0].id).toBe('sch1');
+    expect(data.data[0].shiftType).toBe('morning');
+    expect(data.data[1].id).toBe('sch2');
     // Verify query was called with soft-delete filter and ordering
     expect(mockPrisma.schedule.findMany).toHaveBeenCalled();
     const callArgs = mockPrisma.schedule.findMany.mock.calls[0][0];
@@ -115,7 +118,7 @@ describe('Schedules API - GET', () => {
   it('should exclude deleted schedules', async () => {
     mockPrisma.schedule.findMany.mockResolvedValue([]);
 
-    await GET();
+    await GET(new NextRequest('http://localhost/api/schedules'));
 
     // Verify query was called with soft-delete filter
     expect(mockPrisma.schedule.findMany).toHaveBeenCalled();
@@ -127,22 +130,26 @@ describe('Schedules API - GET', () => {
   it('should handle empty schedules list', async () => {
     mockPrisma.schedule.findMany.mockResolvedValue([]);
 
-    const response = await GET();
+    const response = await GET(
+      new NextRequest('http://localhost/api/schedules')
+    );
     const data = await response.json();
 
     expect(response.status).toBe(200);
-    expect(data).toEqual([]);
+    expect(data.success).toBe(true);
+    expect(data.data).toEqual([]);
   });
 
   it('should handle errors', async () => {
     mockPrisma.schedule.findMany.mockRejectedValue(new Error('Database error'));
 
-    const response = await GET();
+    const response = await GET(
+      new NextRequest('http://localhost/api/schedules')
+    );
     const data = await response.json();
 
     expect(response.status).toBe(500);
     expect(data.error).toBe('Failed to fetch schedules');
-    expect(data.details).toBe('Database error');
   });
 });
 
@@ -200,10 +207,11 @@ describe('Schedules API - POST', () => {
     const response = await POST(request);
     const data = await response.json();
 
-    expect(response.status).toBe(200);
-    expect(data.count).toBe(1);
-    expect(data.schedules).toHaveLength(1);
-    expect(data.schedules[0].employeeId).toBe('emp1');
+    expect(response.status).toBe(201);
+    expect(data.success).toBe(true);
+    expect(data.data.count).toBe(1);
+    expect(data.data.schedules).toHaveLength(1);
+    expect(data.data.schedules[0].employeeId).toBe('emp1');
     expect(mockPrisma.schedule.createMany).toHaveBeenCalled();
   });
 
@@ -290,9 +298,10 @@ describe('Schedules API - POST', () => {
     const response = await POST(request);
     const data = await response.json();
 
-    expect(response.status).toBe(200);
-    expect(data.count).toBe(2);
-    expect(data.schedules).toHaveLength(2);
+    expect(response.status).toBe(201);
+    expect(data.success).toBe(true);
+    expect(data.data.count).toBe(2);
+    expect(data.data.schedules).toHaveLength(2);
     expect(data.message).toBe('Successfully saved 2 schedule(s)');
   });
 
@@ -342,8 +351,9 @@ describe('Schedules API - POST', () => {
     const response = await POST(request);
     const data = await response.json();
 
-    expect(response.status).toBe(200);
-    expect(data.schedules[0].shiftType).toBe('morning');
+    expect(response.status).toBe(201);
+    expect(data.success).toBe(true);
+    expect(data.data.schedules[0].shiftType).toBe('morning');
   });
 
   it('should default to morning for invalid shift types', async () => {
@@ -392,8 +402,9 @@ describe('Schedules API - POST', () => {
     const response = await POST(request);
     const data = await response.json();
 
-    expect(response.status).toBe(200);
-    expect(data.schedules[0].shiftType).toBe('morning');
+    expect(response.status).toBe(201);
+    expect(data.success).toBe(true);
+    expect(data.data.schedules[0].shiftType).toBe('morning');
   });
 
   it('should normalize status values', async () => {
@@ -443,8 +454,9 @@ describe('Schedules API - POST', () => {
     const response = await POST(request);
     const data = await response.json();
 
-    expect(response.status).toBe(200);
-    expect(data.schedules[0].status).toBe('completed');
+    expect(response.status).toBe(201);
+    expect(data.success).toBe(true);
+    expect(data.data.schedules[0].status).toBe('completed');
   });
 
   it('should normalize source values', async () => {
@@ -495,8 +507,9 @@ describe('Schedules API - POST', () => {
     const response = await POST(request);
     const data = await response.json();
 
-    expect(response.status).toBe(200);
-    expect(data.schedules[0].source).toBe('template');
+    expect(response.status).toBe(201);
+    expect(data.success).toBe(true);
+    expect(data.data.schedules[0].source).toBe('template');
   });
 
   it('should parse boolean isOverride field', async () => {
@@ -546,8 +559,9 @@ describe('Schedules API - POST', () => {
     const response = await POST(request);
     const data = await response.json();
 
-    expect(response.status).toBe(200);
-    expect(data.schedules[0].isOverride).toBe(true);
+    expect(response.status).toBe(201);
+    expect(data.success).toBe(true);
+    expect(data.data.schedules[0].isOverride).toBe(true);
   });
 
   it('should return 400 for empty request body', async () => {
@@ -577,7 +591,7 @@ describe('Schedules API - POST', () => {
 
     expect(response.status).toBe(400);
     expect(data.error).toBe('Validation failed for multiple records');
-    expect(data.details[0].errors._error).toContain(
+    expect(data.meta.details[0].errors._error).toContain(
       'Missing required schedule fields'
     );
   });
@@ -691,11 +705,12 @@ describe('Schedules API - PATCH', () => {
     const data = await response.json();
 
     expect(response.status).toBe(200);
+    expect(data.success).toBe(true);
     expect(data.message).toBe('Schedule updated successfully');
-    expect(data.schedule.status).toBe('completed');
-    expect(data.schedule.notes).toBe('Shift completed');
+    expect(data.data.schedule.status).toBe('completed');
+    expect(data.data.schedule.notes).toBe('Shift completed');
     expect(mockPrisma.schedule.update).toHaveBeenCalledWith({
-      where: { id: 'sch1' },
+      where: { id: 'sch1', deletedAt: null },
       data: {
         status: 'completed',
         notes: 'Shift completed',
@@ -790,9 +805,10 @@ describe('Schedules API - DELETE', () => {
     const data = await response.json();
 
     expect(response.status).toBe(200);
+    expect(data.success).toBe(true);
     expect(data.message).toBe('Schedule deleted successfully');
     expect(mockPrisma.schedule.update).toHaveBeenCalledWith({
-      where: { id: 'sch1' },
+      where: { id: 'sch1', deletedAt: null },
       data: { deletedAt: expect.any(Date) },
     });
   });

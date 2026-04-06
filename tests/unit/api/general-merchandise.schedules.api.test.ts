@@ -5,8 +5,12 @@ import { mockLogger } from '@/core/testing/test-helpers';
 const mockPrisma = vi.hoisted(() => ({
   generalMerchandiseSchedule: {
     findMany: vi.fn(),
-    create: vi.fn(),
+    findFirst: vi.fn(),
+    createMany: vi.fn(),
     update: vi.fn(),
+  },
+  generalMerchandiseEmployee: {
+    findMany: vi.fn(),
   },
 }));
 
@@ -41,41 +45,54 @@ describe('General merchandise schedules API', () => {
   it('fetches non-deleted GM schedules ordered by date desc', async () => {
     mockPrisma.generalMerchandiseSchedule.findMany.mockResolvedValue([]);
 
-    const response = await GET();
+    const response = await GET(
+      new NextRequest('http://localhost/api/general-merchandise/schedules')
+    );
     const body = await response.json();
 
     expect(response.status).toBe(200);
-    expect(body).toEqual([]);
+    expect(body.success).toBe(true);
+    expect(body.data).toEqual([]);
     expect(mockPrisma.generalMerchandiseSchedule.findMany).toHaveBeenCalledWith(
       {
         where: { deletedAt: null },
         select: expect.any(Object),
-        orderBy: { date: 'desc' },
+        orderBy: [{ date: 'desc' }, { startTime: 'asc' }],
       }
     );
   });
 
   it('creates a GM schedule and normalizes shift, status, and source values', async () => {
-    mockPrisma.generalMerchandiseSchedule.create.mockResolvedValue({
-      id: 'sch-1',
-      employeeId: 'GM-001',
-      employeeName: 'Gamma Worker',
-      date: '2026-03-20',
-      shiftType: 'morning',
-      startTime: '08:00',
-      break1: null,
-      lunch: null,
-      break2: null,
-      endTime: '17:00',
-      position: 'Picker',
-      department: 'Operations',
-      status: 'scheduled',
-      notes: null,
-      source: 'manual',
-      templateId: null,
-      recurrenceId: null,
-      isOverride: false,
+    mockPrisma.generalMerchandiseEmployee.findMany.mockResolvedValue([
+      { employeeId: 'GM-001' },
+    ]);
+    mockPrisma.generalMerchandiseSchedule.createMany.mockResolvedValue({
+      count: 1,
     });
+    mockPrisma.generalMerchandiseSchedule.findMany
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([
+        {
+          id: 'sch-1',
+          employeeId: 'GM-001',
+          employeeName: 'Gamma Worker',
+          date: '2026-03-20',
+          shiftType: 'morning',
+          startTime: '08:00',
+          break1: null,
+          lunch: null,
+          break2: null,
+          endTime: '17:00',
+          position: 'Picker',
+          department: 'Operations',
+          status: 'scheduled',
+          notes: null,
+          source: 'manual',
+          templateId: null,
+          recurrenceId: null,
+          isOverride: false,
+        },
+      ]);
 
     const response = await POST(
       new NextRequest('http://localhost/api/general-merchandise/schedules', {
@@ -97,7 +114,8 @@ describe('General merchandise schedules API', () => {
     const body = await response.json();
 
     expect(response.status).toBe(201);
-    expect(body).toEqual([
+    expect(body.success).toBe(true);
+    expect(body.data.schedules).toEqual([
       expect.objectContaining({
         id: 'sch-1',
         shiftType: 'morning',
@@ -105,13 +123,18 @@ describe('General merchandise schedules API', () => {
         source: 'manual',
       }),
     ]);
-    expect(mockPrisma.generalMerchandiseSchedule.create).toHaveBeenCalledWith({
-      data: expect.objectContaining({
-        employeeId: 'GM-001',
-        shiftType: 'morning',
-        status: 'scheduled',
-        source: 'manual',
-      }),
+    expect(
+      mockPrisma.generalMerchandiseSchedule.createMany
+    ).toHaveBeenCalledWith({
+      data: [
+        expect.objectContaining({
+          employeeId: 'GM-001',
+          shiftType: 'morning',
+          status: 'scheduled',
+          source: 'manual',
+        }),
+      ],
+      skipDuplicates: true,
     });
   });
 
@@ -132,11 +155,34 @@ describe('General merchandise schedules API', () => {
     const body = await response.json();
 
     expect(response.status).toBe(400);
-    expect(body.error).toBe('Validation failed');
-    expect(body.createdCount).toBe(0);
+    expect(body.error).toBe('Validation failed for multiple records');
+    expect(body.meta.validCount).toBe(0);
+    expect(body.meta.invalidCount).toBe(1);
   });
 
   it('updates and soft-deletes GM schedules by id', async () => {
+    mockPrisma.generalMerchandiseSchedule.findFirst
+      .mockResolvedValueOnce({
+        id: 'sch-1',
+        employeeId: 'GM-001',
+        employeeName: 'Gamma Worker',
+        date: '2026-03-20',
+        shiftType: 'morning',
+        startTime: '08:00',
+        break1: null,
+        lunch: null,
+        break2: null,
+        endTime: '17:00',
+        position: 'Picker',
+        department: 'Operations',
+        status: 'scheduled',
+        notes: null,
+        source: 'manual',
+        templateId: null,
+        recurrenceId: null,
+        isOverride: false,
+      })
+      .mockResolvedValueOnce(null);
     mockPrisma.generalMerchandiseSchedule.update
       .mockResolvedValueOnce({
         id: 'sch-1',
@@ -201,13 +247,15 @@ describe('General merchandise schedules API', () => {
     const deleteBody = await deleteResponse.json();
 
     expect(updateResponse.status).toBe(200);
-    expect(updateBody.status).toBe('completed');
+    expect(updateBody.success).toBe(true);
+    expect(updateBody.data.schedule.status).toBe('completed');
     expect(deleteResponse.status).toBe(200);
-    expect(deleteBody.id).toBe('sch-1');
+    expect(deleteBody.success).toBe(true);
+    expect(deleteBody.data.schedule.id).toBe('sch-1');
     expect(
       mockPrisma.generalMerchandiseSchedule.update
     ).toHaveBeenNthCalledWith(1, {
-      where: { id: 'sch-1' },
+      where: { id: 'sch-1', deletedAt: null },
       data: expect.objectContaining({
         shiftType: 'afternoon',
         status: 'completed',
@@ -216,7 +264,7 @@ describe('General merchandise schedules API', () => {
     expect(
       mockPrisma.generalMerchandiseSchedule.update
     ).toHaveBeenNthCalledWith(2, {
-      where: { id: 'sch-1' },
+      where: { id: 'sch-1', deletedAt: null },
       data: { deletedAt: expect.any(Date) },
     });
   });

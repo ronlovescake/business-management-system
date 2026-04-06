@@ -12,6 +12,9 @@ const mockPrisma = vi.hoisted(() => ({
     deleteMany: vi.fn(),
     delete: vi.fn(),
   },
+  generalMerchandiseEmployee: {
+    findMany: vi.fn(),
+  },
 }));
 
 const mockValidateMassDeleteConfirmation = vi.hoisted(() => vi.fn(() => null));
@@ -91,6 +94,9 @@ describe('General merchandise leave requests API', () => {
   });
 
   it('creates leave requests with normalized status, payment status, and calculated days', async () => {
+    mockPrisma.generalMerchandiseEmployee.findMany.mockResolvedValue([
+      { employeeId: 'GM-001' },
+    ]);
     mockPrisma.generalMerchandiseLeaveRequest.createMany.mockResolvedValue({
       count: 1,
     });
@@ -115,7 +121,7 @@ describe('General merchandise leave requests API', () => {
     );
     const body = await response.json();
 
-    expect(response.status).toBe(201);
+    expect(response.status).toBe(200);
     expect(body.count).toBe(1);
     expect(
       mockPrisma.generalMerchandiseLeaveRequest.createMany
@@ -130,6 +136,15 @@ describe('General merchandise leave requests API', () => {
         }),
       ],
     });
+    expect(mockPrisma.generalMerchandiseEmployee.findMany).toHaveBeenCalledWith(
+      {
+        where: {
+          employeeId: { in: ['GM-001'] },
+          deletedAt: null,
+        },
+        select: { employeeId: true },
+      }
+    );
   });
 
   it('updates a GM leave request by numeric id', async () => {

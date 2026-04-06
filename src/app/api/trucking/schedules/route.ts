@@ -1,483 +1,83 @@
-import type { NextRequest } from 'next/server';
-import { NextResponse } from 'next/server';
-import { randomUUID } from 'crypto';
-import { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/db';
-import { logger } from '@/lib/logger';
 import {
-  validateSchedule,
-  formatValidationErrors,
-  scheduleUpdateSchema,
-} from '@/lib/validations/schedule.validation';
-import {
-  ensureScheduleArray,
-  mapScheduleToResponse,
-  parseScheduleString,
-  type PersistableScheduleInput,
-  type ScheduleCreateInput,
-  type ScheduleEntity,
-  type SchedulePayload,
-  type ScheduleUpdateInput,
-  toScheduleCreateInput,
-  toScheduleUpdateInput,
-} from '@/modules/shared/employees/api/scheduleRouteUtils';
+  createScheduleRoutes,
+  scheduleOrderBy,
+  scheduleSelect,
+} from '@/modules/shared/employees/api/scheduleRouteFactory';
 
-const getScheduleDelegate = (client: unknown) =>
-  (
-    client as {
-      truckingSchedule: {
-        findMany: (args: unknown) => Promise<ScheduleEntity[]>;
-        findFirst: (args: unknown) => Promise<ScheduleEntity | null>;
-        create: (args: {
-          data: ScheduleCreateInput;
-        }) => Promise<ScheduleEntity>;
-        update: (args: {
-          where: { id: string };
-          data: ScheduleUpdateInput;
-        }) => Promise<ScheduleEntity>;
-      };
-    }
-  ).truckingSchedule;
-
-const scheduleDelegate = getScheduleDelegate(prisma);
-
-export async function GET() {
-  try {
-    // ========================================================================
-    // ⚠️ QUERY OPTIMIZATION - Use select to fetch only needed fields
-    // ========================================================================
-    // Fetch only essential fields for schedule list view
-    // ========================================================================
-    const schedules = await scheduleDelegate.findMany({
-      where: { deletedAt: null },
-      select: {
-        id: true,
-        employeeId: true,
-        employeeName: true,
-        date: true,
-        shiftType: true,
-        startTime: true,
-        break1: true,
-        lunch: true,
-        break2: true,
-        endTime: true,
-        position: true,
-        department: true,
-        status: true,
-        notes: true,
-        source: true,
-        templateId: true,
-        recurrenceId: true,
-        isOverride: true,
-      },
-      orderBy: [{ date: 'desc' }, { startTime: 'asc' }],
-    });
-
-    return NextResponse.json(schedules.map(mapScheduleToResponse));
-  } catch (error) {
-    logger.error('Failed to fetch schedules:', error);
-    return NextResponse.json(
-      {
-        error: 'Failed to fetch schedules',
-        details: error instanceof Error ? error.message : String(error),
-      },
-      { status: 500 }
-    );
-  }
-}
-
-export async function POST(request: NextRequest) {
-  try {
-    const payload = await request.json();
-    const items = ensureScheduleArray(payload);
-
-    if (items.length === 0) {
-      return NextResponse.json(
-        { error: 'Request body must contain schedule data' },
-        { status: 400 }
-      );
-    }
-
-    // ========================================================================
-    // ⚠️ BATCH SIZE LIMIT - Maximum 10000 records per import
-    // ========================================================================
-    if (items.length > 10000) {
-      return NextResponse.json(
-        {
-          error: 'Batch size limit exceeded',
-          details: `You are trying to import ${items.length} records. Maximum is 10,000 records per import.`,
-          suggestion:
-            'Please split your import into smaller batches of 10,000 records or less.',
-        },
-        { status: 413 } // Payload Too Large
-      );
-    }
-
-    // Validate all records
-    const validationErrors: Array<{
-      index: number;
-      errors: Record<string, string>;
-    }> = [];
-    const validatedInputs: ScheduleCreateInput[] = [];
-    const employeeIds = new Set<string>();
-
-    for (let i = 0; i < items.length; i++) {
-      const item = items[i];
-
-      // Convert to create input first
-      let createInput: ScheduleCreateInput;
-      try {
-        createInput = toScheduleCreateInput(item);
-      } catch (error) {
-        validationErrors.push({
-          index: i,
-          errors: {
-            _error:
-              error instanceof Error ? error.message : 'Invalid schedule data',
-          },
-        });
-        continue;
-      }
-
-      // Validate with schema
-      const validation = validateSchedule(createInput);
-      if (!validation.success) {
-        validationErrors.push({
-          index: i,
-          errors: formatValidationErrors(validation.error),
-        });
-      } else {
-        validatedInputs.push(validation.data as ScheduleCreateInput);
-        employeeIds.add(createInput.employeeId);
-      }
-    }
-
-    if (validationErrors.length > 0) {
-      return NextResponse.json(
-        {
-          error: 'Validation failed for multiple records',
-          details: validationErrors,
-          validCount: validatedInputs.length,
-          invalidCount: validationErrors.length,
-        },
-        { status: 400 }
-      );
-    }
-
-    // Detect duplicate schedules within the same request (same employee + date)
-    const seenKeys = new Map<
-      string,
-      { firstIndex: number; duplicates: number[] }
-    >();
-    validatedInputs.forEach((input, index) => {
-      const key = `${input.employeeId}__${input.date}`;
-      const existing = seenKeys.get(key);
-      if (existing) {
-        existing.duplicates.push(index);
-      } else {
-        seenKeys.set(key, { firstIndex: index, duplicates: [] });
-      }
-    });
-
-    const duplicateEntries = Array.from(seenKeys.entries())
-      .filter(([, value]) => value.duplicates.length > 0)
-      .map(([key, value]) => ({
-        key,
-        firstIndex: value.firstIndex,
-        duplicateIndexes: value.duplicates,
-      }));
-
-    if (duplicateEntries.length > 0) {
-      return NextResponse.json(
-        {
-          error: 'Duplicate schedules in request',
-          details:
-            'Each employee can only have one schedule per date. Remove duplicates and try again.',
-          duplicates: duplicateEntries,
-        },
-        { status: 409 }
-      );
-    }
-
-    // Prevent duplicates against existing records (same employee + date, not deleted)
-    const pairs = Array.from(seenKeys.keys()).map((key) => {
-      const [employeeId, date] = key.split('__');
-      return { employeeId, date };
-    });
-
-    if (pairs.length > 0) {
-      const existingConflicts = await scheduleDelegate.findMany({
+const { GET, POST, PATCH, DELETE } = createScheduleRoutes({
+  scheduleModel: {
+    findAll: () =>
+      prisma.truckingSchedule.findMany({
+        where: { deletedAt: null },
+        select: scheduleSelect,
+        orderBy: [...scheduleOrderBy],
+      }),
+    findByIds: (ids) =>
+      prisma.truckingSchedule.findMany({
+        where: { id: { in: ids }, deletedAt: null },
+        select: scheduleSelect,
+        orderBy: [...scheduleOrderBy],
+      }),
+    findExistingConflicts: (pairs) =>
+      prisma.truckingSchedule.findMany({
         where: {
           deletedAt: null,
-          OR: pairs.map((p) => ({ employeeId: p.employeeId, date: p.date })),
+          OR: pairs.map((pair) => ({
+            employeeId: pair.employeeId,
+            date: pair.date,
+          })),
         },
-        select: { employeeId: true, employeeName: true, date: true },
-      });
-
-      if (existingConflicts.length > 0) {
-        return NextResponse.json(
-          {
-            error: 'Duplicate schedules exist',
-            details:
-              'A schedule already exists for one or more employee/date combinations.',
-            conflicts: existingConflicts,
-          },
-          { status: 409 }
-        );
-      }
-    }
-
-    // Check if all referenced employees exist
-    if (employeeIds.size > 0) {
-      const existingEmployees = await prisma.truckingEmployee.findMany({
+        select: { employeeId: true, date: true },
+      }),
+    findById: (id) =>
+      prisma.truckingSchedule.findFirst({
+        where: { id, deletedAt: null },
+      }),
+    findOtherByEmployeeAndDate: (id, employeeId, date) =>
+      prisma.truckingSchedule.findFirst({
         where: {
-          employeeId: { in: Array.from(employeeIds) },
+          id: { not: id },
+          employeeId,
+          date,
+          deletedAt: null,
+        },
+        select: { id: true },
+      }),
+    createMany: (records) =>
+      prisma.truckingSchedule.createMany({
+        data: records,
+        skipDuplicates: true,
+      }),
+    update: (id, data) =>
+      prisma.truckingSchedule.update({
+        where: { id, deletedAt: null },
+        data,
+      }),
+    softDelete: (id) =>
+      prisma.truckingSchedule.update({
+        where: { id, deletedAt: null },
+        data: { deletedAt: new Date() },
+      }),
+  },
+  employeeModel: {
+    findExistingIds: async (employeeIds) => {
+      const records = await prisma.truckingEmployee.findMany({
+        where: {
+          employeeId: { in: employeeIds },
           deletedAt: null,
         },
         select: { employeeId: true },
       });
 
-      const existingIds = new Set(existingEmployees.map((e) => e.employeeId));
-      const missingIds = Array.from(employeeIds).filter(
-        (id) => !existingIds.has(id)
-      );
+      return records.map((record) => record.employeeId);
+    },
+  },
+  logMessages: {
+    created: 'Trucking schedules created',
+    updated: 'Trucking schedule updated',
+    deleted: 'Trucking schedule deleted',
+  },
+});
 
-      if (missingIds.length > 0) {
-        return NextResponse.json(
-          {
-            error: 'Referenced employees not found',
-            details: `The following employee IDs do not exist: ${missingIds.join(', ')}`,
-            missingEmployeeIds: missingIds,
-            suggestion:
-              'Please ensure all employees exist before importing schedules',
-          },
-          { status: 409 }
-        );
-      }
-    }
-
-    const createInputs: PersistableScheduleInput[] = validatedInputs.map(
-      (input) => ({
-        id: randomUUID(),
-        ...input,
-      })
-    );
-
-    const ids = createInputs.map((input) => input.id);
-
-    await prisma.truckingSchedule.createMany({
-      data: createInputs,
-      skipDuplicates: true,
-    });
-
-    const created = await scheduleDelegate.findMany({
-      where: { id: { in: ids }, deletedAt: null },
-      orderBy: [{ date: 'desc' }, { startTime: 'asc' }],
-    });
-
-    const response = created.map(mapScheduleToResponse);
-
-    logger.info('Schedules created', { count: response.length });
-
-    return NextResponse.json({
-      message: `Successfully saved ${response.length} schedule(s)`,
-      count: response.length,
-      schedules: response,
-    });
-  } catch (error) {
-    if (error instanceof Prisma.PrismaClientKnownRequestError) {
-      if (error.code === 'P2002') {
-        const target = (error.meta?.target as string[]) || [];
-        return NextResponse.json(
-          {
-            error: 'Duplicate schedule',
-            details: `A schedule with this ${target.join(', ')} already exists`,
-            field: target[0],
-          },
-          { status: 409 }
-        );
-      }
-
-      if (error.code === 'P2003') {
-        return NextResponse.json(
-          {
-            error: 'Referenced employee not found',
-            details: 'One or more employee IDs do not exist in the database',
-          },
-          { status: 409 }
-        );
-      }
-    }
-
-    logger.error('Failed to create schedules', {
-      error: error instanceof Error ? error.message : 'Unknown error',
-    });
-
-    return NextResponse.json(
-      {
-        error: 'Failed to create schedules',
-        details: error instanceof Error ? error.message : String(error),
-      },
-      { status: 500 }
-    );
-  }
-}
-
-export async function PATCH(request: NextRequest) {
-  try {
-    const payload = (await request.json()) as SchedulePayload & { id?: string };
-    const id = parseScheduleString(payload.id);
-
-    if (!id) {
-      return NextResponse.json(
-        { error: 'Schedule ID is required' },
-        { status: 400 }
-      );
-    }
-
-    const existing = await scheduleDelegate.findFirst({
-      where: { id, deletedAt: null },
-    });
-
-    if (!existing) {
-      return NextResponse.json(
-        { error: 'Schedule not found or already deleted' },
-        { status: 404 }
-      );
-    }
-
-    const updateData = toScheduleUpdateInput(payload);
-
-    if (Object.keys(updateData).length === 0) {
-      return NextResponse.json(
-        { error: 'No valid fields supplied for update' },
-        { status: 400 }
-      );
-    }
-
-    // Validate update data (partial schema for updates)
-    const validation = scheduleUpdateSchema.safeParse(updateData);
-    if (!validation.success) {
-      return NextResponse.json(
-        {
-          error: 'Validation failed',
-          details: formatValidationErrors(validation.error),
-        },
-        { status: 400 }
-      );
-    }
-
-    const targetEmployeeId = validation.data.employeeId ?? existing.employeeId;
-    const targetDate = validation.data.date ?? existing.date;
-
-    const conflicting = await scheduleDelegate.findFirst({
-      where: {
-        id: { not: id },
-        employeeId: targetEmployeeId,
-        date: targetDate,
-        deletedAt: null,
-      },
-      select: { id: true },
-    });
-
-    if (conflicting) {
-      return NextResponse.json(
-        {
-          error: 'Duplicate schedule',
-          details:
-            'Another schedule already exists for this employee and date.',
-        },
-        { status: 409 }
-      );
-    }
-
-    const updated = await scheduleDelegate.update({
-      where: { id },
-      data: validation.data as ScheduleUpdateInput,
-    });
-
-    logger.info('Schedule updated', { id });
-
-    return NextResponse.json({
-      message: 'Schedule updated successfully',
-      schedule: mapScheduleToResponse(updated),
-    });
-  } catch (error) {
-    if (error instanceof Prisma.PrismaClientKnownRequestError) {
-      if (error.code === 'P2025') {
-        return NextResponse.json(
-          { error: 'Schedule not found or already deleted' },
-          { status: 404 }
-        );
-      }
-
-      if (error.code === 'P2002') {
-        const target = (error.meta?.target as string[]) || [];
-        return NextResponse.json(
-          {
-            error: 'Duplicate schedule',
-            details: `A schedule with this ${target.join(', ')} already exists`,
-            field: target[0],
-          },
-          { status: 409 }
-        );
-      }
-    }
-
-    logger.error('Failed to update schedule', {
-      error: error instanceof Error ? error.message : 'Unknown error',
-    });
-
-    return NextResponse.json(
-      {
-        error: 'Failed to update schedule',
-        details: error instanceof Error ? error.message : String(error),
-      },
-      { status: 500 }
-    );
-  }
-}
-
-export async function DELETE(request: NextRequest) {
-  try {
-    const { searchParams } = new URL(request.url);
-    const id = parseScheduleString(searchParams.get('id'));
-
-    if (!id) {
-      return NextResponse.json(
-        { error: 'Schedule ID is required' },
-        { status: 400 }
-      );
-    }
-
-    const deleted = await scheduleDelegate.update({
-      where: { id },
-      data: { deletedAt: new Date() },
-    });
-
-    logger.info('Schedule soft deleted', { id });
-
-    return NextResponse.json({
-      message: 'Schedule deleted successfully',
-      schedule: mapScheduleToResponse(deleted),
-    });
-  } catch (error) {
-    if (error instanceof Prisma.PrismaClientKnownRequestError) {
-      if (error.code === 'P2025') {
-        return NextResponse.json(
-          { error: 'Schedule not found or already deleted' },
-          { status: 404 }
-        );
-      }
-    }
-
-    logger.error('Failed to delete schedule', {
-      error: error instanceof Error ? error.message : 'Unknown error',
-    });
-
-    return NextResponse.json(
-      { error: 'Failed to delete schedule' },
-      { status: 500 }
-    );
-  }
-}
+export { GET, POST, PATCH, DELETE };

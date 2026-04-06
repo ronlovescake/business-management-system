@@ -10,6 +10,10 @@
 > - `src/modules/clothing/operations/shipments/types/shipment.types.ts`
 > - `src/app/api/shipments/route.ts`
 > - `src/app/api/shipments/[id]/route.ts`
+> - `src/app/api/shipments/[id]/transit-build/route.ts`
+> - `src/app/api/shipments/[id]/transit-reclass/route.ts`
+> - `src/modules/shipments/api/transitBuildRouteFactory.ts`
+> - `src/modules/shipments/api/transitReclassRouteFactory.ts`
 
 ---
 
@@ -113,21 +117,21 @@
 
 ## I — Transit Build Accounting Entry
 
-| #   | Logic                                                                              | Explanation                                                                                      |
-| --- | ---------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------ |
-| 43  | Creating a shipment can generate a Transit Build journal entry                     | `createTransitBuildEntry(shipment)` is called when the operator triggers the TransitBuild modal. |
-| 44  | The entry records debit (Inventory-in-Transit) and credit (Accounts Payable) lines | Both lines are written atomically in a single transaction.                                       |
-| 45  | The journal amount comes from the shipment's `fee` field                           | The cost estimate stored in `fee` is used as the monetary amount.                                |
-| 46  | Duplicate transit-build entries are prevented                                      | An upsert-style guard prevents creating a second entry for the same shipment.                    |
+| #   | Logic                                                                                                          | Explanation                                                                                                                                                                             |
+| --- | -------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 43  | Transit build-up requires a shipment code plus linked valued products                                          | The route refuses to create entries until the shipment has a `shipmentCode` and at least one linked product with usable cost values.                                                    |
+| 44  | Posting date must be on or after the accounting cutover date                                                   | The shared route rejects posting dates earlier than `2026-01-01` and directs pre-cutover values to opening balances instead.                                                            |
+| 45  | The amount comes from linked product costs, not the shipment fee, and can post in single-account or split mode | Single-account mode credits one allowed account; split mode allocates paid, supplier, forwarder, and courier amounts whose cent-precision total must match the computed shipment total. |
+| 46  | Transit build-up entries are idempotent and block unsafe mode mixing                                           | Idempotency keys prevent duplicates, and shipments that already have legacy single-account entries cannot be mixed with the newer split-mode entry pattern.                             |
 
 ---
 
 ## J — Transit Reclass Accounting Entry
 
-| #   | Logic                                                                        | Explanation                                                                         |
-| --- | ---------------------------------------------------------------------------- | ----------------------------------------------------------------------------------- |
-| 47  | The TransitReclass modal moves inventory from in-transit to warehouse        | `createTransitReclassEntries(shipment)` is triggered from the TransitReclass modal. |
-| 48  | Reclass entries are only valid for shipments that have a Transit Build entry | An error is shown if no matching transit build entry exists for the shipment.       |
+| #   | Logic                                                                                            | Explanation                                                                                                                                                                               |
+| --- | ------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 47  | Transit reclass is only allowed for Delivered shipments on or after the accounting cutover date  | The shared route rejects reclass requests unless the shipment status is `Delivered` and the posting date is on or after `2026-01-01`.                                                     |
+| 48  | Reclassing requires matching transit build-up entries and blocks missing or duplicate processing | The route can target a selected subset via `selectedIdempotencyKeys`, but it rejects requests when transit build entries are missing or when the selected entries were already reclassed. |
 
 ---
 

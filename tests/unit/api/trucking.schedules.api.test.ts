@@ -4,6 +4,7 @@ import { NextRequest } from 'next/server';
 const mockPrisma = vi.hoisted(() => ({
   truckingSchedule: {
     findMany: vi.fn(),
+    findFirst: vi.fn(),
     createMany: vi.fn(),
     update: vi.fn(),
   },
@@ -82,12 +83,15 @@ describe('Trucking Schedules API', () => {
       },
     ]);
 
-    const response = await GET();
+    const response = await GET(
+      new NextRequest('http://localhost/api/trucking/schedules')
+    );
     const body = await response.json();
 
     expect(response.status).toBe(200);
-    expect(body).toHaveLength(1);
-    expect(body[0].employeeId).toBe('DRV-1');
+    expect(body.success).toBe(true);
+    expect(body.data).toHaveLength(1);
+    expect(body.data[0].employeeId).toBe('DRV-1');
     expect(mockPrisma.truckingSchedule.findMany).toHaveBeenCalledWith({
       where: { deletedAt: null },
       select: {
@@ -146,9 +150,10 @@ describe('Trucking Schedules API', () => {
     const response = await POST(request);
     const body = await response.json();
 
-    expect(response.status).toBe(200);
-    expect(body.count).toBe(1);
-    expect(body.schedules[0].employeeId).toBe('DRV-2');
+    expect(response.status).toBe(201);
+    expect(body.success).toBe(true);
+    expect(body.data.count).toBe(1);
+    expect(body.data.schedules[0].employeeId).toBe('DRV-2');
     expect(mockPrisma.truckingEmployee.findMany).toHaveBeenCalledWith({
       where: {
         employeeId: { in: ['DRV-2'] },

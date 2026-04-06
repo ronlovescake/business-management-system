@@ -2,50 +2,45 @@
 
 > **Source files:**
 >
-> - `src/modules/clothing/operations/settings/components/tabs/PostTemplatesTab.tsx`
-> - `src/app/api/post-template/notice/route.ts`
-> - `src/modules/clothing/operations/settings/services/notice.service.ts`
-> - `src/modules/clothing/operations/settings/data/notice.data.ts`
+> - `src/modules/clothing/operations/settings/components/PostTemplatesTab.tsx`
+> - `src/modules/clothing/operations/post-template/components/PostTemplateComponent.tsx`
+> - `src/app/api/post-template-notice/route.ts`
+> - `src/modules/shared/messaging/api/postTemplateNoticeRouteFactory.ts`
+> - `src/modules/shared/messaging/api/postTemplateNoticeService.ts`
+> - `src/modules/clothing/operations/post-template/notice.data.ts`
 
 ---
 
 ## A — Page Load
 
-| #   | Logic                                                                                      | Explanation                                                                                                                                                         |
-| --- | ------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 1   | Post Template tab is nested inside Settings → InvoiceMessageTab → "Post Templates" sub-tab | The tab is accessible from the Settings page by clicking the `message` quick-action button or selecting the message sub-tab, then choosing "Post Templates" within. |
-| 2   | Template data is fetched on mount via `GET /api/post-template/notice`                      | The service looks up the `post-template-notice` record by slug. If no record exists, the `DEFAULT_POST_TEMPLATE_NOTICE` constant is returned as the initial value.  |
-| 3   | Loading state disables the form                                                            | While the initial fetch is in-flight, input fields are disabled and the Save button is grayed out.                                                                  |
+| #   | Logic                                                                                   | Explanation                                                                                                                                                                    |
+| --- | --------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| 1   | Post Template editing is available inside Settings → Invoice Message → "Post Templates" | The settings tab hosts the dedicated Post Template editor, while the Post Template module consumes the same stored notice copy.                                                |
+| 2   | Template data is fetched on mount via `GET /api/post-template-notice`                   | The service looks up the `post-template-notice` record by slug. If no record exists, the shared service creates and persists the default singleton record before returning it. |
+| 3   | Loading state disables editing                                                          | While the fetch is in-flight, textareas remain read-only and the editor actions are unavailable.                                                                               |
+| 4   | Load failures fall back to the default copy in the UI                                   | The settings UI logs the error, shows a red notification, and restores the serialized `DEFAULT_POST_TEMPLATE_NOTICE` copy locally when the GET request fails.                  |
 
 ---
 
-## B — Intro Paragraphs Management
+## B — Editing Model
 
-| #   | Logic                                                         | Explanation                                                                                                                                                |
-| --- | ------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 4   | The template body is composed of one or more intro paragraphs | Each intro paragraph is rendered as a separate `Textarea` input. Paragraphs are stored as a JSON array (`introParagraphs`) in the database.                |
-| 5   | "Add Paragraph" button appends a blank paragraph              | Clicking the add button appends an empty string to the local `introParagraphs` array. The new textarea is immediately visible and focused.                 |
-| 6   | Each paragraph has a "Delete" button                          | Clicking the delete icon removes that paragraph at its array index. At least one paragraph must remain — if only one exists the delete button is disabled. |
-| 7   | Paragraph content is updated on change                        | `onChange` for each textarea calls a handler that replaces the value at that array index.                                                                  |
-
----
-
-## C — Bullet Points Management
-
-| #   | Logic                                                             | Explanation                                                                                                    |
-| --- | ----------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------- |
-| 8   | Below the intro paragraphs, a list of bullet-point items is shown | Each bullet point is rendered as a single-line `Textarea`. Points are stored as a JSON array (`bulletPoints`). |
-| 9   | "Add Bullet" button appends a blank bullet                        | Works identically to the paragraph add: appends an empty string and renders a new textarea.                    |
-| 10  | Each bullet has a "Remove" button                                 | Removes the bullet at its index. No minimum count is enforced for bullets — all can be deleted.                |
-| 11  | Bullet content is updated on change                               | Same index-based update pattern as paragraphs.                                                                 |
+| #   | Logic                                                             | Explanation                                                                                                                          |
+| --- | ----------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
+| 5   | The editor uses two textareas: Intro paragraphs and Bullet points | The stored arrays are flattened for editing: intro paragraphs are joined with blank lines and bullet points are joined one-per-line. |
+| 6   | Intro paragraphs are parsed from blank-line-separated text        | Saving splits the intro textarea on blank lines, trims each paragraph, and persists the result as the `introParagraphs` array.       |
+| 7   | Bullet points are parsed from one item per line                   | Saving splits the bullet textarea on newlines, trims each item, and persists the result as the `bulletPoints` array.                 |
+| 8   | Editing is gated behind a warning confirmation                    | "Enable editing" first shows a warning dialog because changes update the shared Post Template notice copy.                           |
+| 9   | Cancel editing restores the last loaded snapshot                  | Cancelling discards unsaved textarea changes and resets the editor to the most recently loaded or saved values.                      |
 
 ---
 
-## D — Saving
+## C — Saving
 
-| #   | Logic                                                     | Explanation                                                                                                              |
-| --- | --------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
-| 12  | "Save" button submits via `PUT /api/post-template/notice` | The request body includes the full `introParagraphs` and `bulletPoints` arrays serialised as JSON.                       |
-| 13  | Success shows a green notification                        | Mantine `showNotification({ title: 'Saved', message: 'Post template updated.', color: 'green' })` is displayed.          |
-| 14  | Failure shows a red notification                          | Mantine `showNotification({ title: 'Error', message: 'Failed to save post template.', color: 'red' })` is displayed.     |
-| 15  | `upsertPostTemplateNotice` creates or updates the record  | The service uses Prisma `upsert` with `slug = 'post-template-notice'` as the unique key, so the operation is idempotent. |
+| #   | Logic                                                      | Explanation                                                                                                                                      |
+| --- | ---------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
+| 10  | Save is only meaningful when the textarea snapshot changed | The UI tracks a serialized snapshot and only enables a meaningful save flow once intro paragraphs or bullets differ from the last loaded values. |
+| 11  | At least one intro paragraph is required                   | Both the UI and the shared route reject saves where the parsed `introParagraphs` array is empty.                                                 |
+| 12  | At least one bullet point is required                      | Both the UI and the shared route reject saves where the parsed `bulletPoints` array is empty.                                                    |
+| 13  | "Save" submits via `PUT /api/post-template-notice`         | The request body is `{ introParagraphs, bulletPoints }`, where both properties are trimmed string arrays.                                        |
+| 14  | `upsertPostTemplateNotice` creates or updates the record   | The shared service uses Prisma `upsert` on `slug = 'post-template-notice'`, so saves remain idempotent once the singleton record exists.         |
+| 15  | Success shows a green notification; failure shows red      | The settings tab reports "Notice saved" on success and surfaces the API error message when save fails.                                           |

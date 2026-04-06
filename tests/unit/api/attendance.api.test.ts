@@ -109,7 +109,8 @@ describe('Attendance API - GET', () => {
     const data = await response.json();
 
     expect(response.status).toBe(200);
-    expect(data).toHaveLength(2);
+    expect(data.success).toBe(true);
+    expect(data.data).toHaveLength(2);
     expect(mockPrisma.attendance.findMany).toHaveBeenCalledWith({
       where: {
         deletedAt: null,
@@ -318,9 +319,10 @@ describe('Attendance API - POST', () => {
     const response = await POST(request);
     const data = await response.json();
 
-    expect(response.status).toBe(200);
-    expect(data.id).toBe('att1');
-    expect(data.employeeId).toBe('emp1');
+    expect(response.status).toBe(201);
+    expect(data.success).toBe(true);
+    expect(data.data.id).toBe('att1');
+    expect(data.data.employeeId).toBe('emp1');
     expect(mockPrisma.attendance.create).toHaveBeenCalledWith({
       data: {
         employeeId: 'emp1',
@@ -406,8 +408,8 @@ describe('Attendance API - POST', () => {
 
     expect(response.status).toBe(200);
     expect(data.success).toBe(true);
-    expect(data.count).toBe(2);
-    expect(data.records).toHaveLength(2);
+    expect(data.data.count).toBe(2);
+    expect(data.data.records).toHaveLength(2);
     expect(mockPrisma.$transaction).toHaveBeenCalled();
   });
 
@@ -424,8 +426,8 @@ describe('Attendance API - POST', () => {
 
     expect(response.status).toBe(200);
     expect(data.success).toBe(true);
-    expect(data.count).toBe(0);
-    expect(data.records).toHaveLength(0);
+    expect(data.data.count).toBe(0);
+    expect(data.data.records).toHaveLength(0);
   });
 
   it('should handle errors', async () => {
@@ -514,7 +516,8 @@ describe('Attendance API - PATCH', () => {
     const data = await response.json();
 
     expect(response.status).toBe(200);
-    expect(data.status).toBe('absent');
+    expect(data.success).toBe(true);
+    expect(data.data.status).toBe('absent');
     expect(mockPrisma.attendance.update).toHaveBeenCalledWith({
       where: { id: 'att1', deletedAt: null },
       data: {
@@ -571,8 +574,9 @@ describe('Attendance API - PATCH', () => {
     const data = await response.json();
 
     expect(response.status).toBe(200);
-    expect(data.status).toBe('late');
-    expect(data.timeIn).toBe('09:30');
+    expect(data.success).toBe(true);
+    expect(data.data.status).toBe('late');
+    expect(data.data.timeIn).toBe('09:30');
   });
 
   it('should handle errors', async () => {
@@ -638,7 +642,7 @@ describe('Attendance API - DELETE', () => {
     const data = await response.json();
 
     expect(response.status).toBe(200);
-    expect(data.deletedAt).toBeTruthy();
+    expect(data.success).toBe(true);
     expect(mockPrisma.attendance.update).toHaveBeenCalledWith({
       where: { id: 'att1', deletedAt: null },
       data: { deletedAt: expect.any(Date) },

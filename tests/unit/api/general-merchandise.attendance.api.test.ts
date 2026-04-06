@@ -75,12 +75,16 @@ describe('General merchandise attendance API', () => {
   it('applies GM attendance filters on GET', async () => {
     mockPrisma.generalMerchandiseAttendance.findMany.mockResolvedValue([]);
 
-    await GET(
+    const response = await GET(
       new NextRequest(
         'http://localhost/api/general-merchandise/attendance?employeeId=gm-1&status=present&startDate=2026-03-01&endDate=2026-03-15'
       )
     );
+    const body = await response.json();
 
+    expect(response.status).toBe(200);
+    expect(body.success).toBe(true);
+    expect(body.data).toEqual([]);
     expect(
       mockPrisma.generalMerchandiseAttendance.findMany
     ).toHaveBeenCalledWith({
@@ -203,6 +207,21 @@ describe('General merchandise attendance API', () => {
     expect(
       mockPrisma.generalMerchandiseAttendance.findMany
     ).not.toHaveBeenCalled();
+  });
+
+  it('requires an employee id when applying GM leave', async () => {
+    const request = {
+      json: async () => ({
+        startDate: '2026-03-15',
+        endDate: '2026-03-17',
+      }),
+    } as NextRequest;
+
+    const response = await APPLY_LEAVE_POST(request);
+    const body = await response.json();
+
+    expect(response.status).toBe(400);
+    expect(body.error).toBe('Employee ID is required');
   });
 
   it('updates existing GM leave attendance rows and creates missing dates up to today', async () => {

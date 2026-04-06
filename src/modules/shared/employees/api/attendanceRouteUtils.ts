@@ -1,5 +1,6 @@
 import { sanitizers } from '@/lib/security/sanitize';
 import {
+  type AttendanceInput,
   formatValidationErrors,
   validateAttendance,
 } from '@/lib/validations/attendance.validation';
@@ -51,7 +52,7 @@ export function buildAttendanceWhere(searchParams: URLSearchParams) {
 
 export function validateAttendanceBatch(records: unknown[]) {
   const validationErrors: AttendanceBatchValidationError[] = [];
-  const validatedRecords: unknown[] = [];
+  const validatedRecords: AttendanceInput[] = [];
   const employeeIds = new Set<string>();
 
   records.forEach((record, index) => {

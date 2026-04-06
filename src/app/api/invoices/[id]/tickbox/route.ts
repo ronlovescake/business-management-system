@@ -1,58 +1,6 @@
-/**
- * Invoice Tickbox API Route
- * Updates the tickbox (message sent) status for an invoice
- */
-
-import type { NextRequest } from 'next/server';
-import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
-import { logger } from '@/lib/logger';
+import { createTickboxRoute } from '@/modules/invoices/api/invoiceRouteFactory';
 
-/**
- * PUT /api/invoices/[id]/tickbox
- *
- * Update invoice tickbox status
- */
-export async function PUT(
-  request: NextRequest,
-  { params }: { params: { id: string } }
-) {
-  try {
-    const { id } = params;
-    const body = await request.json();
-    const { tickbox } = body;
+const { PUT } = createTickboxRoute(prisma.invoice);
 
-    if (typeof tickbox !== 'boolean') {
-      return NextResponse.json(
-        { error: 'Tickbox value must be a boolean' },
-        { status: 400 }
-      );
-    }
-
-    // Update the invoice tickbox
-    const updatedInvoice = await prisma.invoice.update({
-      where: { id },
-      data: { tickbox },
-    });
-
-    return NextResponse.json({
-      success: true,
-      data: updatedInvoice,
-    });
-  } catch (error) {
-    logger.error('Error updating invoice tickbox', error);
-
-    // Handle record not found
-    if (
-      error instanceof Error &&
-      error.message.includes('Record to update not found')
-    ) {
-      return NextResponse.json({ error: 'Invoice not found' }, { status: 404 });
-    }
-
-    return NextResponse.json(
-      { error: 'Failed to update invoice tickbox' },
-      { status: 500 }
-    );
-  }
-}
+export { PUT };

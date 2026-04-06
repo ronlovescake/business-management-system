@@ -1,13 +1,11 @@
 export const dynamic = 'force-dynamic';
 
-import type { NextRequest } from 'next/server';
-import { NextResponse } from 'next/server';
 import type { CustomerOrderData } from '@/modules/clothing/operations/checkout-links/types';
 import {
   calculateCustomerOrdersFromTransactions,
   type WeightCalculationResult,
 } from '../_lib/weightCalculation';
-import { logger } from '@/lib/logger';
+import { createCustomerOrdersRoute } from '@/modules/invoices/api/invoiceRouteFactory';
 
 const mapResultsToCustomerOrders = (
   results: WeightCalculationResult[]
@@ -47,35 +45,10 @@ const mapResultsToCustomerOrders = (
   });
 };
 
-export async function GET(request: NextRequest) {
-  try {
-    const { searchParams } = new URL(request.url);
-    const customerName = searchParams.get('customerName') ?? undefined;
+const { GET } = createCustomerOrdersRoute(
+  calculateCustomerOrdersFromTransactions,
+  mapResultsToCustomerOrders,
+  { defaultRequireInvoiceDate: true }
+);
 
-    const results = await calculateCustomerOrdersFromTransactions({
-      customerName,
-      requireInvoiceDate: true,
-    });
-
-    const orders = mapResultsToCustomerOrders(results);
-    const unmatchedProductCount = results.reduce(
-      (total, current) => total + current.unmatchedProducts.length,
-      0
-    );
-
-    return NextResponse.json({
-      success: true,
-      orders,
-      summary: {
-        customersProcessed: results.length,
-        unmatchedProductCount,
-      },
-    });
-  } catch (error) {
-    logger.error('Error loading customer orders', error);
-    return NextResponse.json(
-      { success: false, error: 'Failed to load customer orders' },
-      { status: 500 }
-    );
-  }
-}
+export { GET };

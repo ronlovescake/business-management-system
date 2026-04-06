@@ -20,11 +20,11 @@
 
 ## B — Workflow Baseline
 
-| #   | Logic                                                                                                                                  | Explanation                                                   |
-| --- | -------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------- |
-| 4   | The GM shipments workflow follows the same shared shipment CRUD, filtering, and transit-related behavior as the shared shipments route | The route is a thin business wrapper over shared shipment UI. |
-| 5   | GM-specific meaning comes from the GM path and data domain rather than a different shipments interaction model                         | Workflow parity is the current baseline.                      |
-| 6   | Shared shipments workflow changes that affect GM should also update this GM doc                                                        | Shared implementation still defines GM operator behavior.     |
+| #   | Logic                                                                                                                                               | Explanation                                                                                       |
+| --- | --------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------- |
+| 4   | The GM shipments workflow follows the shared shipment list, filtering, dashboard, and transit-related behavior, but shipment detail is GET/PUT only | The GM wrapper reuses the shared shipments UI, but its `[id]` API route does not export `DELETE`. |
+| 5   | GM-specific meaning comes from the GM path and data domain rather than a different shipments interaction model                                      | Workflow parity is the current baseline.                                                          |
+| 6   | Shared shipments workflow changes that affect GM should also update this GM doc                                                                     | Shared implementation still defines GM operator behavior.                                         |
 
 ---
 

@@ -10,6 +10,7 @@ const mockThirteenthMonthPayService = vi.hoisted(() => ({
   findByRecordId: vi.fn(),
   update: vi.fn(),
   create: vi.fn(),
+  updateStatusByRecordId: vi.fn(),
 }));
 
 vi.mock('@/modules/clothing/employees/thirteenth-month-pay/api', () => ({
@@ -54,6 +55,7 @@ vi.mock('@/lib/security/sanitize', () => ({
 }));
 
 import { GET, PATCH } from '@/app/api/thirteenth-month-pay/route';
+import { PATCH as PATCH_STATUS } from '@/app/api/thirteenth-month-pay/[recordId]/status/route';
 
 describe('13th Month Pay API', () => {
   beforeEach(() => {
@@ -532,6 +534,37 @@ describe('13th Month Pay API', () => {
 
       expect(response.status).toBe(500);
       expect(data.error).toBe('Failed to persist record');
+    });
+  });
+
+  describe('PATCH /api/thirteenth-month-pay/[recordId]/status', () => {
+    it('should update status by record id', async () => {
+      mockThirteenthMonthPayService.updateStatusByRecordId.mockResolvedValue({
+        ...mockRecords[0],
+        status: 'paid',
+      });
+
+      const response = await PATCH_STATUS(
+        createMockRequest({ body: { status: 'paid' } }),
+        { params: { recordId: '13th-2025-EMP001' } }
+      );
+      const data = await response.json();
+
+      expect(response.status).toBe(200);
+      expect(data.status).toBe('paid');
+      expect(
+        mockThirteenthMonthPayService.updateStatusByRecordId
+      ).toHaveBeenCalledWith('13th-2025-EMP001', 'paid');
+    });
+
+    it('should return 400 when status is missing', async () => {
+      const response = await PATCH_STATUS(createMockRequest({ body: {} }), {
+        params: { recordId: '13th-2025-EMP001' },
+      });
+      const data = await response.json();
+
+      expect(response.status).toBe(400);
+      expect(data.error).toBe('Status is required');
     });
   });
 });

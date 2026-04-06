@@ -479,7 +479,7 @@ describe('Leave Requests API - POST', () => {
     );
   });
 
-  it('should return 500 for missing required fields', async () => {
+  it('should return 400 for missing required fields', async () => {
     const request = new NextRequest('http://localhost/api/leave-requests', {
       method: 'POST',
       body: JSON.stringify({
@@ -491,7 +491,7 @@ describe('Leave Requests API - POST', () => {
     const response = await POST(request);
     const data = await response.json();
 
-    expect(response.status).toBe(500);
+    expect(response.status).toBe(400);
     expect(data.error).toBe('Failed to import leave requests');
     expect(data.details).toContain('Missing required fields');
   });
