@@ -283,6 +283,40 @@ Source: repo-wide scan plus follow-up validation. These are improvement candidat
 - [x] Do not schedule a repo-wide `export const dynamic` normalization pass unless a route shows actual runtime or caching issues.
 - [x] Do not force full messaging-page/popup-chat unification unless the shared logic boundary becomes clearly stable.
 
+## HTTPS And Transport Security (Deferred)
+
+Status: deferred. Current deployment is plain HTTP on a trusted private LAN (`192.168.68.63:3000`). Immich and Nextcloud on the same network also run plain HTTP. Promote this work when external access (VPN, tunnel, port forwarding) is needed or when defense-in-depth on the LAN becomes a priority.
+
+### Current Baseline
+
+- All three self-hosted services (business app, Immich, Nextcloud) run plain HTTP behind Docker on a private LAN.
+- Security headers (HSTS, CSP, X-Frame-Options) are configured in `next.config.js` but HSTS is inert over HTTP.
+- NextAuth session cookies do not carry the `Secure` flag because the transport is HTTP.
+- Rate limiting middleware exists (`src/core/api/middleware.ts`) but is not applied to any route.
+
+### When To Promote
+
+- [ ] Promote to active when the app is exposed outside the private LAN (VPN, Tailscale, Cloudflare Tunnel, port forwarding, or public DNS).
+- [ ] Promote to active if a device on the LAN is compromised or untrusted devices regularly join the network.
+
+### Implementation Plan (Reverse Proxy — Recommended)
+
+- [ ] Add a Caddy reverse-proxy service to `docker-compose.yml` (Alpine image, ~7 MB).
+- [ ] Create a `Caddyfile` that terminates TLS and proxies to `app:5000`.
+- [ ] Generate LAN certs with `mkcert` covering `localhost`, `127.0.0.1`, and `192.168.68.63`.
+- [ ] Remove the `app` service `ports` mapping so the app is only reachable through Caddy inside the Docker network.
+- [ ] Update `.env.docker` to set `NEXT_PUBLIC_APP_URL` and `NEXTAUTH_URL` to `https://192.168.68.63`.
+- [ ] Install the mkcert root CA on LAN devices that need trusted access (phone, other computers).
+- [ ] Verify `Secure` cookie flag activates, HSTS header becomes functional, and CSP `connect-src` still works over HTTPS.
+- [ ] Consider applying the same Caddy proxy to Immich and Nextcloud as a single TLS termination point for all services.
+
+### Companion Security Items (Can Be Done Independently)
+
+- [ ] Apply `withRateLimit` to login, password reset, and other public-facing API routes.
+- [ ] Align password reset minimum length to the declared 8-character policy in `src/constants/validation.ts`.
+- [ ] Evaluate tightening CSP by removing `unsafe-eval` from `script-src` in `next.config.js`.
+- [ ] Add auth-focused hardening tests (role boundaries, session abuse, negative-path coverage).
+
 ## Recovery And PITR Readiness Checklist (2026-04-04)
 
 Purpose: make backup recovery, incident investigation, and row-level recovery operationally reliable so PITR is usable under pressure instead of only technically enabled.

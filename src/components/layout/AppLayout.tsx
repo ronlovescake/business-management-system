@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import { usePathname } from 'next/navigation';
 import {
   ActionIcon,
   AppShell,
@@ -44,6 +45,7 @@ const primaryColor: MantineColorsTuple = [
 
 const MAX_DROPDOWN_HEIGHT_PX = 556;
 const SIDEBAR_COLLAPSED_STORAGE_KEY = 'app-layout-sidebar-collapsed';
+const AUTH_ROUTE_PREFIXES = ['/login', '/forgot-password', '/reset-password'];
 
 const theme = createTheme({
   primaryColor: 'indigo',
@@ -96,6 +98,7 @@ const theme = createTheme({
 });
 
 export function AppLayout({ children }: AppLayoutProps) {
+  const pathname = usePathname();
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [isSidebarVisualCollapsed, setIsSidebarVisualCollapsed] =
     useState(false);
@@ -180,6 +183,10 @@ export function AppLayout({ children }: AppLayoutProps) {
   };
 
   const sidebarWidth = isSidebarCollapsed ? 76 : 280;
+  const isAuthRoute = AUTH_ROUTE_PREFIXES.some(
+    (routePrefix) =>
+      pathname === routePrefix || pathname?.startsWith(`${routePrefix}/`)
+  );
 
   return (
     <MantineProvider theme={theme}>
@@ -187,127 +194,133 @@ export function AppLayout({ children }: AppLayoutProps) {
       <ModalsProvider>
         <GridAdapterProvider adapter={glideGridAdapter}>
           <GridLayoutProvider>
-            {/* Skip navigation link for accessibility */}
-            <a
-              href="#main-content"
-              style={{
-                position: 'absolute',
-                left: '-9999px',
-                zIndex: 9999,
-                padding: '1rem',
-                backgroundColor: '#2563eb',
-                color: 'white',
-                textDecoration: 'none',
-                borderRadius: '4px',
-                fontWeight: 600,
-              }}
-              onFocus={(e) => {
-                e.currentTarget.style.left = '1rem';
-                e.currentTarget.style.top = '1rem';
-              }}
-              onBlur={(e) => {
-                e.currentTarget.style.left = '-9999px';
-              }}
-            >
-              Skip to main content
-            </a>
             <Notifications />
-            <AppShell
-              navbar={{
-                width: sidebarWidth,
-                breakpoint: 'sm',
-              }}
-              header={{ height: 80 }}
-              transitionDuration={120}
-              transitionTimingFunction="ease"
-              padding="md"
-              style={{
-                '--mantine-color-body': 'var(--background)',
-                background: '#f1f5f9',
-                minHeight: '100vh',
-              }}
-            >
-              <AppShell.Header
-                style={{
-                  border: 'none',
-                  backgroundColor: '#ffffff',
-                  borderBottom: '1px solid #e2e8f0',
-                  boxShadow: '0 1px 3px 0 rgba(0, 0, 0, 0.05)',
-                }}
-              >
-                <div
+            {isAuthRoute ? (
+              children
+            ) : (
+              <>
+                {/* Skip navigation link for accessibility */}
+                <a
+                  href="#main-content"
                   style={{
-                    padding: '1rem 1.5rem',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    height: '100%',
-                    gap: '1.5rem',
+                    position: 'absolute',
+                    left: '-9999px',
+                    zIndex: 9999,
+                    padding: '1rem',
+                    backgroundColor: '#2563eb',
+                    color: 'white',
+                    textDecoration: 'none',
+                    borderRadius: '4px',
+                    fontWeight: 600,
+                  }}
+                  onFocus={(e) => {
+                    e.currentTarget.style.left = '1rem';
+                    e.currentTarget.style.top = '1rem';
+                  }}
+                  onBlur={(e) => {
+                    e.currentTarget.style.left = '-9999px';
                   }}
                 >
-                  <div
+                  Skip to main content
+                </a>
+                <AppShell
+                  navbar={{
+                    width: sidebarWidth,
+                    breakpoint: 'sm',
+                  }}
+                  header={{ height: 80 }}
+                  transitionDuration={120}
+                  transitionTimingFunction="ease"
+                  padding="md"
+                  style={{
+                    '--mantine-color-body': 'var(--background)',
+                    background: '#f1f5f9',
+                    minHeight: '100vh',
+                  }}
+                >
+                  <AppShell.Header
                     style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '0.75rem',
-                      minWidth: 0,
+                      border: 'none',
+                      backgroundColor: '#ffffff',
+                      borderBottom: '1px solid #e2e8f0',
+                      boxShadow: '0 1px 3px 0 rgba(0, 0, 0, 0.05)',
                     }}
                   >
-                    <Tooltip
-                      label={
-                        isSidebarCollapsed
-                          ? 'Expand side panel'
-                          : 'Collapse side panel'
-                      }
+                    <div
+                      style={{
+                        padding: '1rem 1.5rem',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        height: '100%',
+                        gap: '1.5rem',
+                      }}
                     >
-                      <ActionIcon
-                        variant="subtle"
-                        color="gray"
-                        size="lg"
-                        radius="md"
-                        onClick={handleSidebarToggle}
-                        aria-label={
-                          isSidebarCollapsed
-                            ? 'Expand side panel'
-                            : 'Collapse side panel'
-                        }
+                      <div
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '0.75rem',
+                          minWidth: 0,
+                        }}
                       >
-                        {isSidebarCollapsed ? (
-                          <IconLayoutSidebarLeftExpand size={20} />
-                        ) : (
-                          <IconLayoutSidebarLeftCollapse size={20} />
-                        )}
-                      </ActionIcon>
-                    </Tooltip>
-                    <BreadcrumbNavigation />
-                  </div>
-                  <HeaderQuickActions />
-                </div>
-              </AppShell.Header>
+                        <Tooltip
+                          label={
+                            isSidebarCollapsed
+                              ? 'Expand side panel'
+                              : 'Collapse side panel'
+                          }
+                        >
+                          <ActionIcon
+                            variant="subtle"
+                            color="gray"
+                            size="lg"
+                            radius="md"
+                            onClick={handleSidebarToggle}
+                            aria-label={
+                              isSidebarCollapsed
+                                ? 'Expand side panel'
+                                : 'Collapse side panel'
+                            }
+                          >
+                            {isSidebarCollapsed ? (
+                              <IconLayoutSidebarLeftExpand size={20} />
+                            ) : (
+                              <IconLayoutSidebarLeftCollapse size={20} />
+                            )}
+                          </ActionIcon>
+                        </Tooltip>
+                        <BreadcrumbNavigation />
+                      </div>
+                      <HeaderQuickActions />
+                    </div>
+                  </AppShell.Header>
 
-              <AppShell.Navbar
-                p="lg"
-                style={{
-                  backgroundColor: '#ffffff',
-                  border: 'none',
-                  borderRight: '1px solid #e2e8f0',
-                  boxShadow: '0 1px 2px 0 rgba(0, 0, 0, 0.05)',
-                  overflowX: 'hidden',
-                }}
-              >
-                <Sidebar collapsed={isSidebarVisualCollapsed} />
-              </AppShell.Navbar>
+                  <AppShell.Navbar
+                    p="lg"
+                    style={{
+                      backgroundColor: '#ffffff',
+                      border: 'none',
+                      borderRight: '1px solid #e2e8f0',
+                      boxShadow: '0 1px 2px 0 rgba(0, 0, 0, 0.05)',
+                      overflowX: 'hidden',
+                    }}
+                  >
+                    <Sidebar collapsed={isSidebarVisualCollapsed} />
+                  </AppShell.Navbar>
 
-              <AppShell.Main
-                id="main-content"
-                style={{
-                  backgroundColor: 'transparent',
-                  minHeight: '100vh',
-                }}
-              >
-                {children}
-              </AppShell.Main>
-            </AppShell>
+                  <AppShell.Main
+                    id="main-content"
+                    style={{
+                      backgroundColor: 'transparent',
+                      minHeight: '100vh',
+                    }}
+                  >
+                    {children}
+                  </AppShell.Main>
+                </AppShell>
+              </>
+            )}
           </GridLayoutProvider>
         </GridAdapterProvider>
       </ModalsProvider>
