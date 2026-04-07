@@ -3,7 +3,7 @@ import { redirect } from 'next/navigation';
 type EmployeesExpensesRedirectPageProps = {
   redirectPath:
     | '/clothing/accounting'
-    | '/general-merchandise/accounting/expenses';
+    | '/general-merchandise/accounting/journal';
 };
 
 export function EmployeesExpensesRedirectPage({

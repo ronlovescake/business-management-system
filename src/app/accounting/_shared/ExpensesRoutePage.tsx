@@ -11,6 +11,7 @@ import { AnalyticsTable } from '@/app/clothing/accounting/components/AnalyticsTa
 import { ReceiptViewerModal } from '@/app/clothing/accounting/components/ReceiptViewerModal';
 import { ExpensesErrorBoundary } from '@/app/clothing/accounting/components/ExpensesErrorBoundary';
 import { useExpenses } from '@/app/clothing/accounting/hooks/useExpenses';
+import { AccountingLoadErrorAlert } from '@/app/accounting/_shared/AccountingLoadErrorAlert';
 import type { useExpenseData } from '@/hooks/useSheetData';
 
 type ExpensesRoutePageProps = {
@@ -42,6 +43,7 @@ export function ExpensesRoutePage(props: ExpensesRoutePageProps) {
     activeTab,
     setActiveTab,
     isImporting,
+    loadError,
     formDate,
     setFormDate,
     formAmount,
@@ -88,6 +90,8 @@ export function ExpensesRoutePage(props: ExpensesRoutePageProps) {
     <ExpensesErrorBoundary>
       <PageLayout fluid withPadding>
         <Stack gap="lg">
+          <AccountingLoadErrorAlert message={loadError} />
+
           <StatsCards
             totalExpenses={totalExpenses}
             pendingExpenses={pendingExpenses}

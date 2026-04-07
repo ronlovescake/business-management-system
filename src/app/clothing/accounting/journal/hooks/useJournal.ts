@@ -25,6 +25,7 @@ import {
   escapeCsvValue,
 } from '@/lib/accounting/csv';
 import { parseDate } from '@/lib/accounting/date-utils';
+import { getAccountingLoadErrorMessage } from '@/lib/accounting/load-error';
 import { getApiDataOrThrow } from '@/lib/api/response';
 import { buildApiPath } from '@/lib/api/paths';
 import type { ApiResponse } from '@/types/api';
@@ -70,6 +71,7 @@ export function useJournal(options: { apiBasePath?: string } = {}) {
   const [activeTab, setActiveTab] = useState<string | null>('list');
   const [period, setPeriod] = useState<JournalPeriodOption>('All Time');
   const [entries, setEntries] = useState<JournalEntry[]>([]);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [stats, setStats] = useState<JournalStats>({
     totalDebits: 0,
     totalCredits: 0,
@@ -107,8 +109,15 @@ export function useJournal(options: { apiBasePath?: string } = {}) {
       const data = await fetchJournalData();
       setEntries(data?.entries ?? []);
       setStats((prev) => data?.stats ?? prev);
+      setLoadError(null);
     } catch (error) {
       logger.warn('Journal fetch failed, showing empty results', { error });
+      setLoadError(
+        getAccountingLoadErrorMessage(
+          error,
+          'The journal API failed to load. Check the server logs for details.'
+        )
+      );
       setEntries([]);
       setStats({
         totalDebits: 0,
@@ -542,6 +551,7 @@ export function useJournal(options: { apiBasePath?: string } = {}) {
   return {
     entries,
     filteredEntries,
+    loadError,
     stats: filteredStats,
     period,
     setPeriod,

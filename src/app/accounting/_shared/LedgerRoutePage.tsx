@@ -15,6 +15,7 @@ import { OpeningBalanceEntryModal } from '@/app/clothing/accounting/ledger/compo
 import { ManualJournalEntryModal } from '@/app/clothing/accounting/components/ManualJournalEntryModal';
 import { LedgerHelpPanel } from '@/app/clothing/accounting/ledger/components/LedgerHelpPanel';
 import { useLedger } from '@/app/clothing/accounting/ledger/hooks/useLedger';
+import { AccountingLoadErrorAlert } from '@/app/accounting/_shared/AccountingLoadErrorAlert';
 
 type LedgerRoutePageProps = {
   apiBasePath?: string;
@@ -26,6 +27,7 @@ export function LedgerRoutePage(props: LedgerRoutePageProps) {
   const {
     entries,
     filteredEntries,
+    loadError,
     stats,
     refreshLedger,
     period,
@@ -78,6 +80,8 @@ export function LedgerRoutePage(props: LedgerRoutePageProps) {
   return (
     <PageLayout fluid withPadding>
       <Stack gap="lg">
+        <AccountingLoadErrorAlert message={loadError} />
+
         {!isOpeningBalanceTab && !isHelpTab && !isRecurringPaymentsTab && (
           <LedgerStatsCards
             totalDebits={stats.totalDebits}

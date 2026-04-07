@@ -344,7 +344,7 @@ export function buildNavigationItems(
   }
 
   if (workspace === 'accounting') {
-    if (business === 'clothing' || business === 'general-merchandise') {
+    if (business === 'clothing') {
       additionalItems.push(
         {
           label: 'Expenses',
@@ -352,6 +352,35 @@ export function buildNavigationItems(
           icon: IconReceipt as IconComponent,
           order: 0,
         },
+        {
+          label: 'Journal',
+          path: `${basePath}/journal`,
+          icon: IconClipboardList as IconComponent,
+          order: 1,
+        },
+        {
+          label: 'Ledger',
+          path: `${basePath}/ledger`,
+          icon: IconChartBar as IconComponent,
+          order: 2,
+        },
+        {
+          label: 'Profit & Loss',
+          path: `${basePath}/profit-loss`,
+          icon: IconCurrencyPeso as IconComponent,
+          order: 3,
+        },
+        {
+          label: 'Balance Sheet',
+          path: `${basePath}/balance-sheet`,
+          icon: IconCalendar as IconComponent,
+          order: 4,
+        }
+      );
+    }
+
+    if (business === 'general-merchandise') {
+      additionalItems.push(
         {
           label: 'Journal',
           path: `${basePath}/journal`,

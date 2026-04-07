@@ -2,6 +2,9 @@ import { AccountingRootRedirectPage } from '@/app/accounting/_shared/AccountingR
 
 export default function GeneralMerchandiseAccountingRoot() {
   return (
-    <AccountingRootRedirectPage businessPathPrefix="/general-merchandise" />
+    <AccountingRootRedirectPage
+      businessPathPrefix="/general-merchandise"
+      defaultSection="journal"
+    />
   );
 }

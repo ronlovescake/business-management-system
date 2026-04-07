@@ -2,6 +2,6 @@ import { EmployeesExpensesRedirectPage } from '@/app/employees/_shared/Employees
 
 export default function GeneralMerchandiseEmployeesExpenses() {
   return (
-    <EmployeesExpensesRedirectPage redirectPath="/general-merchandise/accounting/expenses" />
+    <EmployeesExpensesRedirectPage redirectPath="/general-merchandise/accounting/journal" />
   );
 }

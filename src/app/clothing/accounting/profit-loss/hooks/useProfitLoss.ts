@@ -3,6 +3,7 @@ import { logger } from '@/lib/logger';
 import { PERIOD_OPTIONS, type PeriodOption } from '@/lib/accounting/constants';
 import { buildPeriodSearchParams } from '@/lib/accounting/query';
 import { formatCurrencyPHP } from '@/lib/accounting/formatters';
+import { getAccountingLoadErrorMessage } from '@/lib/accounting/load-error';
 import {
   buildCsvContent,
   downloadCsvFile,
@@ -69,6 +70,8 @@ export function useProfitLoss(options: { apiBasePath?: string } = {}) {
   const [period, setPeriod] = useState<ProfitLossPeriodOption>('All Time');
   const [rows, setRows] = useState<ProfitLossRow[]>([]);
   const [detailRows, setDetailRows] = useState<ProfitLossDetailRow[]>([]);
+  const [summaryLoadError, setSummaryLoadError] = useState<string | null>(null);
+  const [detailsLoadError, setDetailsLoadError] = useState<string | null>(null);
   const [, setStats] = useState<ProfitLossStats>({
     revenueTotal: 0,
     cogsTotal: 0,
@@ -98,6 +101,7 @@ export function useProfitLoss(options: { apiBasePath?: string } = {}) {
         }
         setRows(data.rows ?? []);
         setStats((prev) => data.stats ?? prev);
+        setSummaryLoadError(null);
       } catch (error) {
         logger.warn('Profit & Loss fetch failed, showing empty data', {
           error,
@@ -105,6 +109,12 @@ export function useProfitLoss(options: { apiBasePath?: string } = {}) {
         if (!isMounted) {
           return;
         }
+        setSummaryLoadError(
+          getAccountingLoadErrorMessage(
+            error,
+            'The profit and loss API failed to load. Check the server logs for details.'
+          )
+        );
         setRows([]);
         setStats({
           revenueTotal: 0,
@@ -149,6 +159,7 @@ export function useProfitLoss(options: { apiBasePath?: string } = {}) {
         }
 
         setDetailRows(data.rows ?? []);
+        setDetailsLoadError(null);
       } catch (error) {
         logger.warn('Profit & Loss details fetch failed, showing empty data', {
           error,
@@ -156,6 +167,12 @@ export function useProfitLoss(options: { apiBasePath?: string } = {}) {
         if (!isMounted) {
           return;
         }
+        setDetailsLoadError(
+          getAccountingLoadErrorMessage(
+            error,
+            'The profit and loss details API failed to load. Check the server logs for details.'
+          )
+        );
         setDetailRows([]);
       }
     }
@@ -288,12 +305,14 @@ export function useProfitLoss(options: { apiBasePath?: string } = {}) {
   };
 
   const effectiveStats = derivedStats;
+  const loadError = summaryLoadError ?? detailsLoadError;
 
   return {
     rows,
     filteredRows,
     detailRows,
     filteredDetailRows,
+    loadError,
     stats: effectiveStats,
     period,
     setPeriod,

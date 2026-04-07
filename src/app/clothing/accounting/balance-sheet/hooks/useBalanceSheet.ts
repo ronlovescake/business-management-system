@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { logger } from '@/lib/logger';
 import { formatCurrencyPHP } from '@/lib/accounting/formatters';
+import { getAccountingLoadErrorMessage } from '@/lib/accounting/load-error';
 import {
   buildCsvContent,
   downloadCsvFile,
@@ -120,6 +121,7 @@ export function useBalanceSheet(options: { apiBasePath?: string } = {}) {
   const [activeTab, setActiveTab] = useState<string | null>('list');
   const [asOf, setAsOf] = useState(() => toDisplayDate(getCurrentDateISO()));
   const [rows, setRows] = useState<BalanceSheetRow[]>([]);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [stats, setStats] = useState<BalanceSheetStats>(DEFAULT_STATS);
 
   const fetchBalanceSheet = useCallback(async () => {
@@ -134,6 +136,7 @@ export function useBalanceSheet(options: { apiBasePath?: string } = {}) {
       const data = getApiDataOrThrow(payload, 'Failed to load balance sheet');
 
       setRows(data.rows ?? []);
+      setLoadError(null);
       const nextStats = data.stats;
       setStats(
         nextStats
@@ -145,6 +148,12 @@ export function useBalanceSheet(options: { apiBasePath?: string } = {}) {
       );
     } catch (error) {
       logger.warn('Balance sheet fetch failed; showing empty data', { error });
+      setLoadError(
+        getAccountingLoadErrorMessage(
+          error,
+          'The balance sheet API failed to load. Check the server logs for details.'
+        )
+      );
       setRows([]);
       setStats({ ...DEFAULT_STATS, asOf: toDisplayDate(iso) });
     }
@@ -358,6 +367,7 @@ export function useBalanceSheet(options: { apiBasePath?: string } = {}) {
   return {
     rows,
     filteredRows,
+    loadError,
     cashBreakdownRows: cashBreakdownData.rows,
     cashBreakdownTotalRows: cashBreakdownData.totalRows,
     cashBreakdownSummary: cashBreakdownData.summary,

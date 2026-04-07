@@ -8,6 +8,7 @@ import { JournalStatsCards } from '@/app/clothing/accounting/journal/components/
 import { JournalControls } from '@/app/clothing/accounting/journal/components/JournalControls';
 import { JournalListTable } from '@/app/clothing/accounting/journal/components/JournalListTable';
 import { useJournal } from '@/app/clothing/accounting/journal/hooks/useJournal';
+import { AccountingLoadErrorAlert } from '@/app/accounting/_shared/AccountingLoadErrorAlert';
 
 type JournalRoutePageProps = {
   apiBasePath?: string;
@@ -18,6 +19,7 @@ export function JournalRoutePage(props: JournalRoutePageProps) {
   const {
     entries,
     filteredEntries,
+    loadError,
     stats,
     accounts,
     searchQuery,
@@ -48,6 +50,8 @@ export function JournalRoutePage(props: JournalRoutePageProps) {
   return (
     <PageLayout fluid withPadding>
       <Stack gap="lg">
+        <AccountingLoadErrorAlert message={loadError} />
+
         <JournalStatsCards
           totalDebits={stats.totalDebits}
           totalCredits={stats.totalCredits}

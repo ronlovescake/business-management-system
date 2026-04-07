@@ -10,6 +10,7 @@ import { BalanceSheetStockTable } from '@/app/clothing/accounting/balance-sheet/
 import { BalanceSheetTransitTable } from '@/app/clothing/accounting/balance-sheet/components/BalanceSheetTransitTable';
 import { BalanceSheetTable } from '@/app/clothing/accounting/balance-sheet/components/BalanceSheetTable';
 import { useBalanceSheet } from '@/app/clothing/accounting/balance-sheet/hooks/useBalanceSheet';
+import { AccountingLoadErrorAlert } from '@/app/accounting/_shared/AccountingLoadErrorAlert';
 
 export function BalanceSheetRoutePage(props: { apiBasePath?: string }) {
   const { apiBasePath } = props;
@@ -25,6 +26,7 @@ export function BalanceSheetRoutePage(props: { apiBasePath?: string }) {
     transitBreakdownRows,
     transitBreakdownTotalRows,
     transitBreakdownSummary,
+    loadError,
     stats,
     asOf,
     setAsOf,
@@ -40,6 +42,8 @@ export function BalanceSheetRoutePage(props: { apiBasePath?: string }) {
   return (
     <PageLayout fluid withPadding>
       <Stack gap="lg">
+        <AccountingLoadErrorAlert message={loadError} />
+
         <BalanceSheetStatsCards
           assets={stats.assets}
           liabilities={stats.liabilities}

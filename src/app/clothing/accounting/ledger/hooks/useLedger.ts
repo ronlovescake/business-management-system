@@ -6,6 +6,7 @@ import {
   formatCurrencyPHP,
   formatLongDateUS,
 } from '@/lib/accounting/formatters';
+import { getAccountingLoadErrorMessage } from '@/lib/accounting/load-error';
 import {
   buildLedgerAccounts,
   filterAndSortLedgerEntries,
@@ -68,6 +69,7 @@ export function useLedger(options: { apiBasePath?: string } = {}) {
   const [openingBalancePeriod, setOpeningBalancePeriod] =
     useState<OpeningBalancePeriodOption>('This Month');
   const [entries, setEntries] = useState<LedgerEntry[]>([]);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [stats, setStats] = useState<LedgerStats>({
     totalDebits: 0,
     totalCredits: 0,
@@ -110,8 +112,15 @@ export function useLedger(options: { apiBasePath?: string } = {}) {
       const data = await fetchLedgerData();
       setEntries(data.entries ?? []);
       setStats(data.stats ?? defaultStats());
+      setLoadError(null);
     } catch (error) {
       logger.warn('Ledger fetch failed, showing empty results', { error });
+      setLoadError(
+        getAccountingLoadErrorMessage(
+          error,
+          'The ledger API failed to load. Check the server logs for details.'
+        )
+      );
       setEntries([]);
       setStats(defaultStats());
     }
@@ -214,6 +223,7 @@ export function useLedger(options: { apiBasePath?: string } = {}) {
   return {
     entries,
     filteredEntries,
+    loadError,
     stats: filteredStats,
     refreshLedger,
     period,

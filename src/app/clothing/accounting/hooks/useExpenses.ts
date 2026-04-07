@@ -29,6 +29,7 @@ import {
   buildExpenseImportMissingColumnsMessage,
   getMissingRequiredColumns,
 } from '@/lib/accounting/expense-import';
+import { getAccountingLoadErrorMessage } from '@/lib/accounting/load-error';
 import { useExpenseData } from '@/hooks/useSheetData';
 import { showNotification } from '@mantine/notifications';
 import { getCurrentDateISO } from '@/utils/date';
@@ -135,6 +136,7 @@ export function useExpenses(options: UseExpensesOptions = {}) {
   const {
     data: expensesFromDB,
     isLoading: isLoadingExpenses,
+    error: expenseLoadFailure,
     create: createExpense,
     update: updateExpense,
     delete: _deleteExpense,
@@ -298,6 +300,17 @@ export function useExpenses(options: UseExpensesOptions = {}) {
       totalExpenses
     ) as MonthlyBreakdown[];
   }, [filteredExpenses, categories, totalExpenses]);
+
+  const loadError = useMemo(() => {
+    if (!expenseLoadFailure) {
+      return null;
+    }
+
+    return getAccountingLoadErrorMessage(
+      expenseLoadFailure,
+      'The expenses API failed to load. Check the server logs for details.'
+    );
+  }, [expenseLoadFailure]);
 
   // ============================================================================
   // UTILITY FUNCTIONS
@@ -732,6 +745,7 @@ export function useExpenses(options: UseExpensesOptions = {}) {
     setActiveTab,
     isImporting,
     isLoading: isLoadingExpenses,
+    loadError,
 
     // Form state
     formDate,

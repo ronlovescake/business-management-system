@@ -9,6 +9,7 @@ import { ProfitLossTable } from '@/app/clothing/accounting/profit-loss/component
 import { ProfitLossDetailsTable } from '@/app/clothing/accounting/profit-loss/components/ProfitLossDetailsTable';
 import { ProfitLossBreakdownsPanel } from '@/app/clothing/accounting/profit-loss/components/ProfitLossBreakdownsPanel';
 import { useProfitLoss } from '@/app/clothing/accounting/profit-loss/hooks/useProfitLoss';
+import { AccountingLoadErrorAlert } from '@/app/accounting/_shared/AccountingLoadErrorAlert';
 
 type ProfitLossRoutePageProps = {
   apiBasePath?: string;
@@ -22,6 +23,7 @@ export function ProfitLossRoutePage(props: ProfitLossRoutePageProps) {
     filteredRows,
     detailRows,
     filteredDetailRows,
+    loadError,
     stats,
     period,
     setPeriod,
@@ -38,6 +40,8 @@ export function ProfitLossRoutePage(props: ProfitLossRoutePageProps) {
   return (
     <PageLayout fluid withPadding>
       <Stack gap="lg">
+        <AccountingLoadErrorAlert message={loadError} />
+
         <ProfitLossStatsCards
           revenueTotal={stats.revenueTotal}
           cogsTotal={stats.cogsTotal}
