@@ -1,5 +1,6 @@
 'use client';
 
+import { Suspense } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import {
@@ -26,7 +27,7 @@ import {
 import { useLoginForm } from '../hooks/useLoginForm';
 import { AuthBackground, AuthCard } from '../../shared';
 
-export function LoginPage() {
+function LoginPageContent() {
   const searchParams = useSearchParams();
   const { form, isSubmitting, handleSubmit } = useLoginForm();
   const error = searchParams?.get('error');
@@ -155,6 +156,33 @@ export function LoginPage() {
         </AuthCard>
       </Box>
     </AuthBackground>
+  );
+}
+
+function LoginPageFallback() {
+  return (
+    <AuthBackground>
+      <Box style={{ display: 'flex', justifyContent: 'center' }}>
+        <AuthCard maxWidth={480}>
+          <Stack gap="md" align="center">
+            <Title order={3} fw={800} style={titleStyle} ta="center">
+              Loading sign in
+            </Title>
+            <Text size="sm" style={subtitleStyle} ta="center">
+              Preparing the secure login experience.
+            </Text>
+          </Stack>
+        </AuthCard>
+      </Box>
+    </AuthBackground>
+  );
+}
+
+export function LoginPage() {
+  return (
+    <Suspense fallback={<LoginPageFallback />}>
+      <LoginPageContent />
+    </Suspense>
   );
 }
 
