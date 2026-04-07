@@ -38,11 +38,13 @@ npm run docker:build && npm run docker:up
 npm run docker:up
 ```
 
-**Full rebuild and restart** (database up → build image → start app):
+**Full rebuild and restart** (database up → build image → migrate → start app):
 
 ```bash
 npm run docker:prod
 ```
+
+This command now runs Prisma deploy automatically before the app container starts.
 
 ---
 
@@ -52,15 +54,15 @@ npm run docker:prod
 
 ```bash
 git pull origin main
-npm run docker:build && npm run docker:up
+npm run docker:prod
 ```
 
-**Safe deploy when the pull may include database migrations:**
+**Manual equivalent of `npm run docker:prod`:**
 
 ```bash
 npm run docker:db:up
 npm run docker:build
-docker compose --env-file .env.docker run --rm app npm run db:deploy
+npm run docker:db:deploy
 npm run docker:up
 ```
 
@@ -83,7 +85,7 @@ npm run docker:up
 | Command                                           | What it does                                                    | When to use it                                              |
 | ------------------------------------------------- | --------------------------------------------------------------- | ----------------------------------------------------------- |
 | `npm run docker:db:up`                            | Starts only the PostgreSQL container                            | Before running migrations or other steps that need the DB   |
+| `npm run docker:db:deploy`                        | Waits for PostgreSQL, then runs Prisma migrations in Docker     | Before app startup when the pulled code may include schema changes |
 | `npm run docker:build`                            | Builds a fresh app image                                        | After pulling code changes                                  |
 | `npm run docker:up`                               | Recreates / restarts the app container using the existing image | When the image is already built and you just need a restart |
-| `npm run docker:prod`                             | Full pipeline: DB up → build → app up                           | When you want to rebuild everything in one shot             |
-| `docker compose … run --rm app npm run db:deploy` | Runs Prisma migrations inside a temporary container             | After a pull that includes new migration files              |
+| `npm run docker:prod`                             | Full pipeline: DB up → build → migrate → app up                | When you want the safe one-shot production deploy path      |
