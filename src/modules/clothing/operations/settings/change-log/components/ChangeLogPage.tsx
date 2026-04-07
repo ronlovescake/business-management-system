@@ -18,16 +18,27 @@ import {
   Button,
   Select,
   TextInput,
+  SegmentedControl,
+  ThemeIcon,
+  Timeline,
 } from '@mantine/core';
 import { DateInput } from '@mantine/dates';
 import { useDebouncedValue } from '@mantine/hooks';
-import { IconAlertCircle, IconChevronRight } from '@tabler/icons-react';
+import {
+  IconAlertCircle,
+  IconChevronRight,
+  IconArrowRight,
+  IconTable,
+  IconTimeline,
+} from '@tabler/icons-react';
 import { StandardTableContainer } from '@/components/tables/StandardDataTable';
 import { COMMON_DATE_INPUT_PROPS } from '@/lib/dateInputConfig';
 import {
   useChangeLogQuery,
   type ChangeLogRecord,
 } from '../hooks/useChangeLogQuery';
+
+type PanelView = 'table' | 'timeline';
 
 const ACTION_COLOR_MAP: Record<string, string> = {
   create: 'green',
@@ -83,24 +94,6 @@ const GENERIC_TABLE_HEADERS = [
   'PREVIOUS VALUE',
   'NEW VALUE',
   'METADATA',
-] as const;
-
-const TRANSACTION_TABLE_HEADERS = [
-  'TIMESTAMP',
-  'USER',
-  'ORDER DATE',
-  'CUSTOMERS',
-  'PRODUCT CODE',
-  'QUANTITY',
-  'UNIT PRICE',
-  'DISCOUNT',
-  'ADJUSTMENT',
-  'LINE TOTAL',
-  'ORDER STATUS',
-  'NOTES',
-  'INVOICE DATE',
-  'PACKED DATE',
-  'SHIPMENT CODE',
 ] as const;
 
 const TRANSACTION_FIELD_KEYS = [
@@ -198,12 +191,51 @@ function resolveDetail(value: unknown, keys: string[]): string | null {
   return null;
 }
 
+const TRANSACTION_FIELD_LABEL_MAP: Record<TransactionFieldKey, string> = {
+  orderDate: 'Order Date',
+  customers: 'Customer',
+  productCode: 'Product Code',
+  quantity: 'Quantity',
+  unitPrice: 'Unit Price',
+  discount: 'Discount',
+  adjustment: 'Adjustment',
+  lineTotal: 'Line Total',
+  orderStatus: 'Order Status',
+  notes: 'Notes',
+  invoiceDate: 'Invoice Date',
+  packedDate: 'Packed Date',
+  shipmentCode: 'Shipment Code',
+};
+
+const TRANSACTION_HEADER_FOR_FIELD: Record<TransactionFieldKey, string> = {
+  orderDate: 'ORDER DATE',
+  customers: 'CUSTOMERS',
+  productCode: 'PRODUCT CODE',
+  quantity: 'QUANTITY',
+  unitPrice: 'UNIT PRICE',
+  discount: 'DISCOUNT',
+  adjustment: 'ADJUSTMENT',
+  lineTotal: 'LINE TOTAL',
+  orderStatus: 'ORDER STATUS',
+  notes: 'NOTES',
+  invoiceDate: 'INVOICE DATE',
+  packedDate: 'PACKED DATE',
+  shipmentCode: 'SHIPMENT CODE',
+};
+
 function formatTimestamp(value: string): string {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) {
     return value;
   }
-  // Format with date, time, and milliseconds
+  return TIMESTAMP_FORMATTER.format(date);
+}
+
+function formatTimestampFull(value: string): string {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return value;
+  }
   const formatted = TIMESTAMP_FORMATTER.format(date);
   const milliseconds = date.getMilliseconds().toString().padStart(3, '0');
   return `${formatted}.${milliseconds}`;
@@ -292,6 +324,250 @@ function getChangedTransactionFields(
   return changed;
 }
 
+function getGroupChangedColumns(
+  entries: ChangeLogRecord[]
+): Set<TransactionFieldKey> {
+  const allChanged = new Set<TransactionFieldKey>();
+  for (const log of entries) {
+    if (
+      log.newValue &&
+      typeof log.newValue === 'object' &&
+      'orderDate' in log.newValue
+    ) {
+      const newTx = log.newValue as Record<string, unknown>;
+      const fields = getChangedTransactionFields(newTx, log.oldValue);
+      Array.from(fields).forEach((f) => allChanged.add(f));
+    }
+  }
+  return allChanged;
+}
+
+function formatCellValue(value: unknown): string {
+  if (
+    value === null ||
+    value === undefined ||
+    value === '' ||
+    value === 0 ||
+    value === '0'
+  ) {
+    return '';
+  }
+  return String(value);
+}
+
+interface InlineDiffCellProps {
+  field: TransactionFieldKey;
+  newTx: Record<string, unknown>;
+  oldTx: Record<string, unknown> | null;
+  isChanged: boolean;
+}
+
+function InlineDiffCell({
+  field,
+  newTx,
+  oldTx,
+  isChanged,
+}: InlineDiffCellProps) {
+  const newVal = formatCellValue(newTx[field]);
+
+  if (!isChanged) {
+    return <>{newVal}</>;
+  }
+
+  const oldVal = oldTx ? formatCellValue(oldTx[field]) : '';
+
+  if (!oldVal || oldVal === newVal) {
+    return (
+      <Text size="sm" fw={600} c="blue.7">
+        {newVal || '(cleared)'}
+      </Text>
+    );
+  }
+
+  return (
+    <Stack gap={2}>
+      <Text size="xs" c="dimmed" td="line-through">
+        {oldVal}
+      </Text>
+      <Text size="sm" fw={600} c="blue.7">
+        {newVal || '(cleared)'}
+      </Text>
+    </Stack>
+  );
+}
+
+interface TimelineViewProps {
+  entries: ChangeLogRecord[];
+}
+
+function TimelineView({ entries }: TimelineViewProps) {
+  const sortedEntries = [...entries].sort(
+    (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+  );
+
+  return (
+    <Timeline active={0} bulletSize={24} lineWidth={2} color="blue">
+      {sortedEntries.map((log) => {
+        const isTransactionRecord =
+          log.newValue &&
+          typeof log.newValue === 'object' &&
+          'orderDate' in log.newValue;
+        const actionColor =
+          ACTION_COLOR_MAP[log.action.toLowerCase()] ?? 'gray';
+        const date = new Date(log.createdAt);
+
+        if (isTransactionRecord) {
+          const newTx = log.newValue as Record<string, unknown>;
+          const changedFields = getChangedTransactionFields(
+            newTx,
+            log.oldValue
+          );
+          const oldTx = isRecord(log.oldValue)
+            ? (log.oldValue as Record<string, unknown>)
+            : null;
+
+          if (changedFields.size === 0) {
+            return (
+              <Timeline.Item
+                key={log.id}
+                bullet={
+                  <ThemeIcon
+                    size={24}
+                    variant="light"
+                    color={actionColor}
+                    radius="xl"
+                  >
+                    <IconArrowRight size={12} />
+                  </ThemeIcon>
+                }
+              >
+                <Group gap="xs" align="baseline" wrap="wrap">
+                  <Text size="sm" fw={600}>
+                    {SUMMARY_DATE_FORMATTER.format(date)} ·{' '}
+                    {SUMMARY_TIME_FORMATTER.format(date)}
+                  </Text>
+                  <Text size="xs" c="dimmed">
+                    {log.userName || 'System'}
+                  </Text>
+                </Group>
+                <Text size="sm" c="dimmed" mt={4}>
+                  {log.action} (no field changes detected)
+                </Text>
+              </Timeline.Item>
+            );
+          }
+
+          return (
+            <Timeline.Item
+              key={log.id}
+              bullet={
+                <ThemeIcon
+                  size={24}
+                  variant="light"
+                  color={actionColor}
+                  radius="xl"
+                >
+                  <IconArrowRight size={12} />
+                </ThemeIcon>
+              }
+            >
+              <Group gap="xs" align="baseline" wrap="wrap">
+                <Text size="sm" fw={600}>
+                  {SUMMARY_DATE_FORMATTER.format(date)} ·{' '}
+                  {SUMMARY_TIME_FORMATTER.format(date)}
+                </Text>
+                <Text size="xs" c="dimmed">
+                  {log.userName || 'System'}
+                </Text>
+              </Group>
+              <Stack gap={4} mt={4}>
+                {Array.from(changedFields).map((field) => {
+                  const oldVal = oldTx ? formatCellValue(oldTx[field]) : '';
+                  const newVal = formatCellValue(newTx[field]);
+                  const label = TRANSACTION_FIELD_LABEL_MAP[field];
+                  return (
+                    <Group key={field} gap={6} wrap="nowrap">
+                      <Text
+                        size="sm"
+                        fw={500}
+                        c="dark"
+                        style={{ minWidth: 100 }}
+                      >
+                        {label}:
+                      </Text>
+                      {oldVal ? (
+                        <>
+                          <Text size="sm" c="dimmed" td="line-through">
+                            {oldVal}
+                          </Text>
+                          <IconArrowRight
+                            size={12}
+                            color="var(--mantine-color-gray-5)"
+                          />
+                          <Text size="sm" fw={600} c="blue.7">
+                            {newVal || '(cleared)'}
+                          </Text>
+                        </>
+                      ) : (
+                        <Text size="sm" fw={600} c="blue.7">
+                          {newVal || '(cleared)'}
+                        </Text>
+                      )}
+                    </Group>
+                  );
+                })}
+              </Stack>
+            </Timeline.Item>
+          );
+        }
+
+        return (
+          <Timeline.Item
+            key={log.id}
+            bullet={
+              <ThemeIcon
+                size={24}
+                variant="light"
+                color={actionColor}
+                radius="xl"
+              >
+                <IconArrowRight size={12} />
+              </ThemeIcon>
+            }
+          >
+            <Group gap="xs" align="baseline" wrap="wrap">
+              <Text size="sm" fw={600}>
+                {SUMMARY_DATE_FORMATTER.format(date)} ·{' '}
+                {SUMMARY_TIME_FORMATTER.format(date)}
+              </Text>
+              <Text size="xs" c="dimmed">
+                {log.userName || 'System'}
+              </Text>
+              <Badge color={actionColor} variant="light" radius="sm" size="sm">
+                {log.action.toUpperCase()}
+              </Badge>
+            </Group>
+            {log.field && (
+              <Group gap={6} mt={4} wrap="nowrap">
+                <Text size="sm" fw={500} c="dark">
+                  {log.field}:
+                </Text>
+                <Text size="sm" c="dimmed" td="line-through">
+                  {formatLogValue(log.oldValue)}
+                </Text>
+                <IconArrowRight size={12} color="var(--mantine-color-gray-5)" />
+                <Text size="sm" fw={600} c="blue.7">
+                  {formatLogValue(log.newValue)}
+                </Text>
+              </Group>
+            )}
+          </Timeline.Item>
+        );
+      })}
+    </Timeline>
+  );
+}
+
 function formatDateBoundary(value: Date, boundary: 'start' | 'end'): string {
   const normalized = new Date(value);
 
@@ -365,6 +641,7 @@ export function ChangeLogPage({
   apiBasePath,
 }: ChangeLogPageProps) {
   const [activeTab, setActiveTab] = useState<string | null>('transactions');
+  const [panelView, setPanelView] = useState<PanelView>('table');
   const [searchInput, setSearchInput] = useState('');
   const [entityTypeFilter, setEntityTypeFilter] = useState<string | null>(null);
   const [actionFilter, setActionFilter] = useState<string | null>(null);
@@ -376,10 +653,14 @@ export function ChangeLogPage({
   const effectiveSearch = hideFilters
     ? externalSearch?.trim() || undefined
     : debouncedSearch.trim() || undefined;
-  const effectiveStartDate = hideFilters ? externalStartDate ?? null : startDate;
-  const effectiveEndDate = hideFilters ? externalEndDate ?? null : endDate;
+  const effectiveStartDate = hideFilters
+    ? (externalStartDate ?? null)
+    : startDate;
+  const effectiveEndDate = hideFilters ? (externalEndDate ?? null) : endDate;
   const isDateRangeValid =
-    !effectiveStartDate || !effectiveEndDate || effectiveEndDate >= effectiveStartDate;
+    !effectiveStartDate ||
+    !effectiveEndDate ||
+    effectiveEndDate >= effectiveStartDate;
 
   const queryParams = useMemo(
     () => ({
@@ -658,7 +939,9 @@ export function ChangeLogPage({
                 onChange={setStartDate}
                 placeholder="Start date"
                 clearable
-                error={isDateRangeValid ? undefined : 'Start must be before end'}
+                error={
+                  isDateRangeValid ? undefined : 'Start must be before end'
+                }
                 {...COMMON_DATE_INPUT_PROPS}
               />
               <DateInput
@@ -676,7 +959,8 @@ export function ChangeLogPage({
               </Button>
             </Group>
             <Text size="sm" c="dimmed">
-              {totalRecords.toLocaleString()} matching entries. Showing the newest up to {DEFAULT_LIMIT} records.
+              {totalRecords.toLocaleString()} matching entries. Showing the
+              newest up to {DEFAULT_LIMIT} records.
             </Text>
           </Stack>
         </Paper>
@@ -690,12 +974,39 @@ export function ChangeLogPage({
         </Alert>
       )}
 
-      <Tabs value={activeTab} onChange={setActiveTab}>
-        <Tabs.List>
-          <Tabs.Tab value="transactions">TRANSACTIONS</Tabs.Tab>
-          <Tabs.Tab value="system">SYSTEM</Tabs.Tab>
-        </Tabs.List>
-      </Tabs>
+      <Group justify="space-between" align="flex-end">
+        <Tabs value={activeTab} onChange={setActiveTab}>
+          <Tabs.List>
+            <Tabs.Tab value="transactions">TRANSACTIONS</Tabs.Tab>
+            <Tabs.Tab value="system">SYSTEM</Tabs.Tab>
+          </Tabs.List>
+        </Tabs>
+        <SegmentedControl
+          size="xs"
+          value={panelView}
+          onChange={(v) => setPanelView(v as PanelView)}
+          data={[
+            {
+              value: 'table',
+              label: (
+                <Group gap={4} wrap="nowrap">
+                  <IconTable size={14} />
+                  <span>Table</span>
+                </Group>
+              ),
+            },
+            {
+              value: 'timeline',
+              label: (
+                <Group gap={4} wrap="nowrap">
+                  <IconTimeline size={14} />
+                  <span>Timeline</span>
+                </Group>
+              ),
+            },
+          ]}
+        />
+      </Group>
 
       <StandardTableContainer>
         {isLoading ? (
@@ -790,6 +1101,20 @@ export function ChangeLogPage({
                   const isTransactionGroup =
                     group.entityType.toLowerCase() === 'transaction';
 
+                  const distinctUsers = new Set(
+                    group.entries.map((e) => e.userName || 'System')
+                  );
+
+                  const groupChangedCols = isTransactionGroup
+                    ? getGroupChangedColumns(group.entries)
+                    : new Set<TransactionFieldKey>();
+
+                  const visibleFieldKeys = isTransactionGroup
+                    ? TRANSACTION_FIELD_KEYS.filter((f) =>
+                        groupChangedCols.has(f)
+                      )
+                    : [];
+
                   return (
                     <Accordion.Item key={group.key} value={group.key}>
                       <Accordion.Control>
@@ -825,9 +1150,10 @@ export function ChangeLogPage({
                             <Text size="sm" fw={500}>
                               {latestEntry?.userName || 'System'}
                             </Text>
-                            {latestEntry?.userId && (
+                            {distinctUsers.size > 1 && (
                               <Text size="xs" c="dimmed">
-                                {latestEntry.userId}
+                                +{distinctUsers.size - 1} other
+                                {distinctUsers.size > 2 ? 's' : ''}
                               </Text>
                             )}
                           </Stack>
@@ -846,211 +1172,162 @@ export function ChangeLogPage({
                       </Accordion.Control>
                       <Accordion.Panel>
                         <Divider mb="md" variant="dashed" />
-                        <Box style={{ overflowX: 'auto' }}>
-                          <Table
-                            horizontalSpacing="md"
-                            verticalSpacing="sm"
-                            striped
-                            highlightOnHover
-                          >
-                            <Table.Thead>
-                              <Table.Tr>
-                                {(isTransactionGroup
-                                  ? TRANSACTION_TABLE_HEADERS
-                                  : GENERIC_TABLE_HEADERS
-                                ).map((header) => (
-                                  <Table.Th key={header}>{header}</Table.Th>
-                                ))}
-                              </Table.Tr>
-                            </Table.Thead>
-                            <Table.Tbody>
-                              {sortedEntries.map((log) => {
-                                // Check if oldValue and newValue are transaction objects
-                                const isTransactionRecord =
-                                  log.newValue &&
-                                  typeof log.newValue === 'object' &&
-                                  'orderDate' in log.newValue;
+                        {panelView === 'timeline' ? (
+                          <TimelineView entries={group.entries} />
+                        ) : (
+                          <Box style={{ overflowX: 'auto' }}>
+                            <Table
+                              horizontalSpacing="md"
+                              verticalSpacing="sm"
+                              striped
+                              highlightOnHover
+                            >
+                              <Table.Thead>
+                                <Table.Tr>
+                                  <Table.Th>TIMESTAMP</Table.Th>
+                                  <Table.Th>USER</Table.Th>
+                                  {isTransactionGroup
+                                    ? visibleFieldKeys.map((f) => (
+                                        <Table.Th key={f}>
+                                          {TRANSACTION_HEADER_FOR_FIELD[f]}
+                                        </Table.Th>
+                                      ))
+                                    : GENERIC_TABLE_HEADERS.slice(2).map(
+                                        (header) => (
+                                          <Table.Th key={header}>
+                                            {header}
+                                          </Table.Th>
+                                        )
+                                      )}
+                                </Table.Tr>
+                              </Table.Thead>
+                              <Table.Tbody>
+                                {sortedEntries.map((log) => {
+                                  // Check if oldValue and newValue are transaction objects
+                                  const isTransactionRecord =
+                                    log.newValue &&
+                                    typeof log.newValue === 'object' &&
+                                    'orderDate' in log.newValue;
 
-                                if (isTransactionRecord) {
-                                  // Only show the NEW values (after the change)
-                                  // Users can compare with the previous row to see what changed
-                                  const newTx = log.newValue as Record<
-                                    string,
-                                    unknown
-                                  >;
-                                  const changedFields =
-                                    getChangedTransactionFields(
-                                      newTx,
-                                      log.oldValue
+                                  if (isTransactionRecord) {
+                                    const newTx = log.newValue as Record<
+                                      string,
+                                      unknown
+                                    >;
+                                    const oldTx = isRecord(log.oldValue)
+                                      ? (log.oldValue as Record<
+                                          string,
+                                          unknown
+                                        >)
+                                      : null;
+                                    const changedFields =
+                                      getChangedTransactionFields(
+                                        newTx,
+                                        log.oldValue
+                                      );
+
+                                    return (
+                                      <Table.Tr key={log.id}>
+                                        <Table.Td>
+                                          <Tooltip
+                                            label={formatTimestampFull(
+                                              log.createdAt
+                                            )}
+                                            withArrow
+                                          >
+                                            <Text size="sm" fw={500} c="dark">
+                                              {formatTimestamp(log.createdAt)}
+                                            </Text>
+                                          </Tooltip>
+                                        </Table.Td>
+                                        <Table.Td>
+                                          <Text size="sm" fw={500}>
+                                            {log.userName || 'System'}
+                                          </Text>
+                                        </Table.Td>
+                                        {visibleFieldKeys.map((field) => (
+                                          <Table.Td
+                                            key={field}
+                                            style={
+                                              changedFields.has(field)
+                                                ? CHANGED_CELL_STYLE
+                                                : undefined
+                                            }
+                                          >
+                                            <InlineDiffCell
+                                              field={field}
+                                              newTx={newTx}
+                                              oldTx={oldTx}
+                                              isChanged={changedFields.has(
+                                                field
+                                              )}
+                                            />
+                                          </Table.Td>
+                                        ))}
+                                      </Table.Tr>
                                     );
+                                  }
 
-                                  const highlightCell = (
-                                    field: TransactionFieldKey
-                                  ) =>
-                                    changedFields.has(field)
-                                      ? CHANGED_CELL_STYLE
-                                      : undefined;
-
-                                  // Helper to format cell values: show blank for 0, empty, null, or undefined
-                                  const formatCell = (
-                                    value: unknown
-                                  ): string => {
-                                    if (
-                                      value === null ||
-                                      value === undefined ||
-                                      value === '' ||
-                                      value === 0 ||
-                                      value === '0'
-                                    ) {
-                                      return '';
-                                    }
-                                    return String(value);
-                                  };
+                                  // Fall back to old rendering for non-transaction logs
+                                  const actionColor =
+                                    ACTION_COLOR_MAP[
+                                      log.action.toLowerCase()
+                                    ] ?? 'gray';
 
                                   return (
                                     <Table.Tr key={log.id}>
                                       <Table.Td>
-                                        <Text size="sm" fw={500} c="dark">
-                                          {formatTimestamp(log.createdAt)}
-                                        </Text>
+                                        <Tooltip
+                                          label={formatTimestampFull(
+                                            log.createdAt
+                                          )}
+                                          withArrow
+                                        >
+                                          <Text size="sm" fw={500} c="dark">
+                                            {formatTimestamp(log.createdAt)}
+                                          </Text>
+                                        </Tooltip>
                                       </Table.Td>
                                       <Table.Td>
-                                        <Stack gap={2}>
-                                          <Text size="sm" fw={500}>
-                                            {log.userName || 'System'}
-                                          </Text>
-                                          {log.userId && (
-                                            <Text size="xs" c="dimmed">
-                                              {log.userId}
-                                            </Text>
-                                          )}
-                                        </Stack>
-                                      </Table.Td>
-                                      <Table.Td
-                                        style={highlightCell('orderDate')}
-                                      >
-                                        {formatCell(newTx.orderDate)}
-                                      </Table.Td>
-                                      <Table.Td
-                                        style={highlightCell('customers')}
-                                      >
-                                        {formatCell(newTx.customers)}
-                                      </Table.Td>
-                                      <Table.Td
-                                        style={highlightCell('productCode')}
-                                      >
-                                        {formatCell(newTx.productCode)}
-                                      </Table.Td>
-                                      <Table.Td
-                                        style={highlightCell('quantity')}
-                                      >
-                                        {formatCell(newTx.quantity)}
-                                      </Table.Td>
-                                      <Table.Td
-                                        style={highlightCell('unitPrice')}
-                                      >
-                                        {formatCell(newTx.unitPrice)}
-                                      </Table.Td>
-                                      <Table.Td
-                                        style={highlightCell('discount')}
-                                      >
-                                        {formatCell(newTx.discount)}
-                                      </Table.Td>
-                                      <Table.Td
-                                        style={highlightCell('adjustment')}
-                                      >
-                                        {formatCell(newTx.adjustment)}
-                                      </Table.Td>
-                                      <Table.Td
-                                        style={highlightCell('lineTotal')}
-                                      >
-                                        {formatCell(newTx.lineTotal)}
-                                      </Table.Td>
-                                      <Table.Td
-                                        style={highlightCell('orderStatus')}
-                                      >
-                                        {formatCell(newTx.orderStatus)}
-                                      </Table.Td>
-                                      <Table.Td style={highlightCell('notes')}>
-                                        {formatCell(newTx.notes)}
-                                      </Table.Td>
-                                      <Table.Td
-                                        style={highlightCell('invoiceDate')}
-                                      >
-                                        {formatCell(newTx.invoiceDate)}
-                                      </Table.Td>
-                                      <Table.Td
-                                        style={highlightCell('packedDate')}
-                                      >
-                                        {formatCell(newTx.packedDate)}
-                                      </Table.Td>
-                                      <Table.Td
-                                        style={highlightCell('shipmentCode')}
-                                      >
-                                        {formatCell(newTx.shipmentCode)}
-                                      </Table.Td>
-                                    </Table.Tr>
-                                  );
-                                }
-
-                                // Fall back to old rendering for non-transaction logs
-                                const actionColor =
-                                  ACTION_COLOR_MAP[log.action.toLowerCase()] ??
-                                  'gray';
-
-                                return (
-                                  <Table.Tr key={log.id}>
-                                    <Table.Td>
-                                      <Text size="sm" fw={500} c="dark">
-                                        {formatTimestamp(log.createdAt)}
-                                      </Text>
-                                    </Table.Td>
-                                    <Table.Td>
-                                      <Stack gap={2}>
                                         <Text size="sm" fw={500}>
                                           {log.userName || 'System'}
                                         </Text>
-                                        {log.userId && (
-                                          <Text size="xs" c="dimmed">
-                                            {log.userId}
-                                          </Text>
-                                        )}
-                                      </Stack>
-                                    </Table.Td>
-                                    <Table.Td>
-                                      <Text size="sm" c="dimmed">
-                                        {log.source || '—'}
-                                      </Text>
-                                    </Table.Td>
-                                    <Table.Td>
-                                      <Text size="sm" c="dark">
-                                        {log.field || '—'}
-                                      </Text>
-                                    </Table.Td>
-                                    <Table.Td>
-                                      <Badge
-                                        color={actionColor}
-                                        variant="light"
-                                        radius="sm"
-                                      >
-                                        {log.action.toUpperCase()}
-                                      </Badge>
-                                    </Table.Td>
-                                    <Table.Td>
-                                      <ValueCell value={log.oldValue} />
-                                    </Table.Td>
-                                    <Table.Td>
-                                      <ValueCell value={log.newValue} />
-                                    </Table.Td>
-                                    <Table.Td>
-                                      <ValueCell value={log.metadata} />
-                                    </Table.Td>
-                                  </Table.Tr>
-                                );
-                              })}
-                            </Table.Tbody>
-                          </Table>
-                        </Box>
+                                      </Table.Td>
+                                      <Table.Td>
+                                        <Text size="sm" c="dimmed">
+                                          {log.source || '—'}
+                                        </Text>
+                                      </Table.Td>
+                                      <Table.Td>
+                                        <Text size="sm" c="dark">
+                                          {log.field || '—'}
+                                        </Text>
+                                      </Table.Td>
+                                      <Table.Td>
+                                        <Badge
+                                          color={actionColor}
+                                          variant="light"
+                                          radius="sm"
+                                        >
+                                          {log.action.toUpperCase()}
+                                        </Badge>
+                                      </Table.Td>
+                                      <Table.Td>
+                                        <ValueCell value={log.oldValue} />
+                                      </Table.Td>
+                                      <Table.Td>
+                                        <ValueCell value={log.newValue} />
+                                      </Table.Td>
+                                      <Table.Td>
+                                        <ValueCell value={log.metadata} />
+                                      </Table.Td>
+                                    </Table.Tr>
+                                  );
+                                })}
+                              </Table.Tbody>
+                            </Table>
+                          </Box>
+                        )}
                       </Accordion.Panel>
                     </Accordion.Item>
                   );
