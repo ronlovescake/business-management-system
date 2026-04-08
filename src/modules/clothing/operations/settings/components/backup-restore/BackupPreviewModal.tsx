@@ -156,6 +156,11 @@ const formatDelta = (value: number) => {
   return `${value > 0 ? '+' : ''}${value.toLocaleString()}`;
 };
 
+const RESTORE_RUNNER_START_COMMAND =
+  'docker compose --env-file .env.docker up -d --build restore-runner';
+
+const RESTORE_RUNNER_START_COMMAND_ALT = 'npm run docker:restore:runner:up';
+
 const renderComparisonTable = ({
   rows,
   columns,
@@ -985,6 +990,35 @@ export const BackupPreviewModal = ({
                       ? formatBackupTimestamp(restoreRunnerHeartbeatAt)
                       : 'Unavailable'}
                   </Text>
+
+                  {!restoreRunnerAvailable ? (
+                    <Alert color="yellow" icon={<IconAlertCircle size={16} />}>
+                      <Stack gap={6}>
+                        <Text size="sm">
+                          Start the restore-runner from the project root before
+                          submitting a UI restore.
+                        </Text>
+                        <Text
+                          component="pre"
+                          size="xs"
+                          style={{
+                            margin: 0,
+                            padding: '10px 12px',
+                            borderRadius: 8,
+                            backgroundColor: 'rgba(0, 0, 0, 0.04)',
+                            whiteSpace: 'pre-wrap',
+                            overflowX: 'auto',
+                          }}
+                        >
+                          {`cd <project-root>\n${RESTORE_RUNNER_START_COMMAND}`}
+                        </Text>
+                        <Text size="xs" c="dimmed">
+                          Shortcut from the project root:{' '}
+                          <strong>{RESTORE_RUNNER_START_COMMAND_ALT}</strong>
+                        </Text>
+                      </Stack>
+                    </Alert>
+                  ) : null}
 
                   {restoreJobStatus ? (
                     <Card withBorder padding="sm" radius="md">

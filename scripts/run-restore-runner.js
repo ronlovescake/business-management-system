@@ -11,6 +11,8 @@ const POLL_MS = Math.max(
   2000,
   Number(process.env.RESTORE_RUNNER_POLL_MS || 5000)
 );
+const RUNNER_COMPOSE_FILE = '/app/docker-compose.yml';
+const RUNNER_ENV_FILE = '/app/.env.docker';
 
 const jobsDirectory = path.join(BACKUP_DIR, '_restore-jobs');
 const statusFilePath = path.join(jobsDirectory, 'status.json');
@@ -19,35 +21,59 @@ const JOBS_DIRECTORY_MODE = 0o777;
 const JOBS_FILE_MODE = 0o666;
 
 let running = false;
+let inspectedContainer;
+
+function inspectCurrentContainer() {
+  if (inspectedContainer !== undefined) {
+    return inspectedContainer;
+  }
+
+  const containerId = process.env.HOSTNAME;
+  if (!containerId) {
+    inspectedContainer = null;
+    return inspectedContainer;
+  }
+
+  try {
+    const inspectOutput = execFileSync('docker', ['inspect', containerId], {
+      encoding: 'utf8',
+    });
+    const [containerInfo] = JSON.parse(inspectOutput);
+    inspectedContainer = containerInfo ?? null;
+  } catch (error) {
+    console.error('[restore-runner] Failed to inspect runner container:', error);
+    inspectedContainer = null;
+  }
+
+  return inspectedContainer;
+}
 
 function resolveComposeProjectName() {
   if (process.env.COMPOSE_PROJECT_NAME) {
     return process.env.COMPOSE_PROJECT_NAME;
   }
 
-  const containerId = process.env.HOSTNAME;
-  if (!containerId) {
+  return (
+    inspectCurrentContainer()?.Config?.Labels?.['com.docker.compose.project'] ||
+    ''
+  );
+}
+
+function resolveMountedSource(destination) {
+  const mounts = inspectCurrentContainer()?.Mounts;
+  if (!Array.isArray(mounts)) {
     return '';
   }
 
-  try {
-    return execFileSync(
-      'docker',
-      [
-        'inspect',
-        containerId,
-        '--format',
-        '{{ index .Config.Labels "com.docker.compose.project" }}',
-      ],
-      { encoding: 'utf8' }
-    ).trim();
-  } catch (error) {
-    console.error('[restore-runner] Failed to detect compose project:', error);
-    return '';
-  }
+  const mount = mounts.find((entry) => entry?.Destination === destination);
+  return typeof mount?.Source === 'string' ? mount.Source : '';
 }
 
 const composeProjectName = resolveComposeProjectName();
+const composeFilePath =
+  process.env.COMPOSE_FILE_PATH || resolveMountedSource(RUNNER_COMPOSE_FILE);
+const composeEnvFile =
+  process.env.COMPOSE_ENV_FILE || resolveMountedSource(RUNNER_ENV_FILE);
 
 function ensureJobsDirectory() {
   if (!fs.existsSync(jobsDirectory)) {
@@ -143,6 +169,8 @@ function executeRestore(status) {
         env: {
           ...process.env,
           ENV_FILE,
+          ...(composeFilePath ? { COMPOSE_FILE_PATH: composeFilePath } : {}),
+          ...(composeEnvFile ? { COMPOSE_ENV_FILE: composeEnvFile } : {}),
           ...(composeProjectName
             ? { COMPOSE_PROJECT_NAME: composeProjectName }
             : {}),
@@ -232,6 +260,14 @@ console.log(
 
 if (composeProjectName) {
   console.log(`[restore-runner] Using compose project: ${composeProjectName}`);
+}
+
+if (composeFilePath) {
+  console.log(`[restore-runner] Using host compose file: ${composeFilePath}`);
+}
+
+if (composeEnvFile) {
+  console.log(`[restore-runner] Using host env file: ${composeEnvFile}`);
 }
 
 void tick();
