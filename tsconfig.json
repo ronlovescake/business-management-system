@@ -32,6 +32,7 @@
     "tmp-*.ts",
     "tmp-*.tsx",
     "scripts/tmp/**",
-    "scripts/tmp/root-archive/**"
+    "scripts/tmp/root-archive/**",
+    "vitest.config*.ts"
   ]
 }
