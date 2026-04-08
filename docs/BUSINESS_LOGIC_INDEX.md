@@ -89,6 +89,35 @@ This index is the shortest path to the domain and workspace logic documents with
 - [Reports](./business-logic/household-finance/household-reports.md)
 - [Settings](./business-logic/household-finance/household-settings.md)
 
-## Missing Domain Docs
+## Trucking
 
-- Trucking does not yet have a parallel `docs/business-logic/trucking/**` set. The current codebase supports trucking features, but the documentation is still thinner than the clothing and general-merchandise domains.
+- [Business overview](./business-logic/trucking/business-overview.md)
+- [Operations overview](./business-logic/trucking/operations-overview.md)
+- [Finance overview](./business-logic/trucking/finance-overview.md)
+- [Employees overview](./business-logic/trucking/employees-overview.md)
+- [Profitability analytics](./business-logic/trucking/analytics-profitability.md)
+- [Cashflow report](./business-logic/trucking/reports-cashflow.md)
+
+## Platform / Shared Logic
+
+- [Platform overview](./business-logic/platform/platform-overview.md)
+- [Auth and access](./business-logic/platform/auth-and-access.md)
+- [Admin backup and restore](./business-logic/platform/admin-backup-restore.md)
+- [Settings and configuration](./business-logic/platform/settings-and-configuration.md)
+- [Change log and version history](./business-logic/platform/change-log-and-version-history.md)
+- [User management and permissions](./business-logic/platform/user-management-and-permissions.md)
+- [Module marketplace and module operations](./business-logic/platform/module-marketplace-and-module-operations.md)
+- [Internal messaging and conversations](./business-logic/platform/internal-messaging-and-conversations.md)
+- [Shared employee automation](./business-logic/platform/shared-employee-automation.md)
+
+## Documentation Standards
+
+- [Business Logic Documentation Standard](./BUSINESS_LOGIC_DOCUMENTATION_STANDARD.md)
+- [Business Logic Coverage Audit (2026-04-08)](./BUSINESS_LOGIC_COVERAGE_AUDIT_2026-04-08.md)
+
+## Coverage Gap Notes
+
+- Trucking operations, finance, profitability, and cashflow now have detailed rule docs; trucking employees remain the main trucking area that still needs deeper rule extraction.
+- Platform user management / permissions and shared employee automation still have documentation homes but remain overview-level compared with the more mature detailed docs.
+- Cross-domain admin, auth, backup/restore, permission, and shared automation logic now has a dedicated `docs/business-logic/platform/**` home instead of being scattered across unrelated docs.
+- The next pass should expand trucking and platform docs from overview-level mapping into detailed per-module rule tables.

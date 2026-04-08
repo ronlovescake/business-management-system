@@ -261,9 +261,9 @@ export function BreadcrumbNavigation() {
 
   // Page segments (intermediate + current page)
   const pageSegments = getPageSegments();
-  pageSegments.forEach((label, index) => {
+  pageSegments.forEach((label) => {
     breadcrumbItems.push(
-      <Text key={`page-${index}`} size="sm" c="dimmed">
+      <Text key={`page-${label}`} size="sm" c="dimmed">
         {label}
       </Text>
     );

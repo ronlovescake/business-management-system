@@ -148,6 +148,7 @@ export const LeaveListTable = React.memo(function LeaveListTable({
       getLeaveTypeColor,
       getPaymentStatusColor,
       getStatusColor,
+      getEmployeeStatus,
     ]
   );
 

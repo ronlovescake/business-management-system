@@ -14,8 +14,8 @@
 | #   | Logic                                                                        | Explanation                                                                                                           |
 | --- | ---------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------- |
 | 1   | The GM settings page lives at `/general-merchandise/operations/settings`     | The route path is registered as a GM operations module.                                                               |
-| 2   | `?tab=backup` redirects to `/admin/backup-restore`                           | Backup & Restore has been centralized under `/admin`, so the GM settings route redirects old backup-tab entry points. |
-| 3   | The centralized admin backup page now includes scheduled-backup and PITR visibility | The redirected admin page now shows scheduled logical backup behavior plus PostgreSQL PITR / WAL status and base-backup controls instead of an embedded GM-only backup tab. |
+| 2   | `?tab=backup` redirects to `/settings?tab=backup`                           | Backup & Restore has been centralized under the shared settings surface, so the GM settings route redirects old backup-tab entry points there. |
+| 3   | The centralized settings backup surface now includes scheduled-backup and PITR visibility | The redirected shared settings tab shows scheduled logical backup behavior plus PostgreSQL PITR / WAL status and base-backup controls instead of an embedded GM-only backup tab. |
 | 4   | Detailed backup cadence and recovery procedures stay in the operational docs | This GM business-logic doc records the redirect surface only; exact scheduler cadence, WAL archiving, PITR restore steps, and container requirements are documented in `docs/DEPLOYMENT.md`. |
 | 5   | The route renders through the shared GM operations shell for non-backup tabs | The route uses `renderGmOperationsPage` after redirect handling.                                                      |
 

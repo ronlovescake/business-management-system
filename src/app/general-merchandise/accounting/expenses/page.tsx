@@ -1,5 +1,7 @@
-import { redirect } from 'next/navigation';
+import { AccountingExpensesRedirectPage } from '@/app/accounting/_shared/AccountingExpensesRedirectPage';
 
 export default function GeneralMerchandiseExpensesPage() {
-  redirect('/general-merchandise/accounting/journal');
+  return (
+    <AccountingExpensesRedirectPage redirectPath="/general-merchandise/accounting/journal" />
+  );
 }

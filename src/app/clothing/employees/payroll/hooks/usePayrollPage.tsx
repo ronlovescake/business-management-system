@@ -339,7 +339,7 @@ export function usePayrollPage(apiBasePath?: string) {
         render: (item) => <Text size="sm">{item.bankGcash}</Text>,
       },
     ],
-    [formatCurrency, formatDate, getStatusColor, resolveContributionValue]
+    [formatCurrency, formatDate, getStatus, getStatusColor, resolveContributionValue]
   );
 
   const actions = useMemo<TableAction<Payroll>[]>(

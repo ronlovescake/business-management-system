@@ -3,6 +3,7 @@ import { config as loadEnv } from 'dotenv';
 import { beforeAll, vi } from 'vitest';
 import { execSync } from 'child_process';
 import { PrismaClient } from '@prisma/client';
+import { resolveVitestEnvFile } from '../resolveVitestEnvFile';
 
 vi.mock('sweetalert2', () => {
   const fire = vi.fn(async () => ({
@@ -38,8 +39,10 @@ vi.mock('sweetalert2', () => {
   };
 });
 
-const envFile = process.env.INTEGRATION_ENV_FILE || '.env.test';
-loadEnv({ path: path.resolve(process.cwd(), envFile), override: true });
+const envFile = resolveVitestEnvFile(
+  process.env.INTEGRATION_ENV_FILE || '.env.test'
+);
+loadEnv({ path: envFile, override: true });
 
 const requiredTables = [
   'HealthCheck',

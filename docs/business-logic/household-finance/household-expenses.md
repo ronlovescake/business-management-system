@@ -25,9 +25,9 @@
 
 | #   | Logic                                                                | Explanation                                                                                     |
 | --- | -------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------- |
-| 4   | New Household expenses default to `pending`                          | This is the default in the schema layer.                                                        |
+| 4   | New Household expenses created from the current UI save flow default to `paid` | `useHouseholdExpenses.ts` explicitly submits `status: 'paid'` on create and save-and-add-new. |
 | 5   | Supported statuses are `pending`, `approved`, `rejected`, and `paid` | Status is enum-validated in the module schema.                                                  |
-| 6   | Only `approved` and `paid` affect linked account balances            | Balance impact is enforced in the service layer.                                                |
+| 6   | The broader Household expense model still supports the full status workflow and balance rules | Even though the current create UI seeds `paid`, the schema and service layer still recognize `pending`, `approved`, `rejected`, and `paid`, and linked balance impact still depends on the service-layer status rules. |
 | 7   | Expense source tracking is preserved                                 | `sourceType`, `sourceId`, `sourceLineKey`, and `systemGenerated` are part of the stored record. |
 
 ---
