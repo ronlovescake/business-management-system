@@ -9,16 +9,26 @@ type TransitBuildEntry = {
   amount: number;
 };
 
-const mockPrisma = vi.hoisted(() => ({
-  product: {},
-  generalMerchandiseProduct: {
-    findMany: vi.fn(),
-  },
-  generalMerchandiseInventoryTransitBuildEntry: {
-    findMany: vi.fn(),
-    createMany: vi.fn(),
-  },
-}));
+const mockPrisma = vi.hoisted(() => {
+  const gmCreateMany = vi.fn();
+  return {
+    product: {},
+    generalMerchandiseProduct: {
+      findMany: vi.fn(),
+    },
+    generalMerchandiseInventoryTransitBuildEntry: {
+      findMany: vi.fn(),
+      createMany: gmCreateMany,
+      deleteMany: vi.fn(),
+    },
+    $transaction: vi.fn((cb: (tx: unknown) => Promise<unknown>) => cb({
+      generalMerchandiseInventoryTransitBuildEntry: {
+        deleteMany: vi.fn().mockResolvedValue({ count: 0 }),
+        createMany: gmCreateMany,
+      },
+    })),
+  };
+});
 
 vi.mock('@/lib/db', () => ({
   prisma: mockPrisma,
@@ -57,7 +67,7 @@ describe('generalMerchandiseProductService manual transit build-up (by shipment 
 
     mockPrisma.generalMerchandiseInventoryTransitBuildEntry.createMany.mockResolvedValue(
       {
-        count: 3,
+        count: 1,
       }
     );
 
@@ -73,32 +83,17 @@ describe('generalMerchandiseProductService manual transit build-up (by shipment 
 
     const data = createManyCalls[0]?.[0]?.data ?? [];
 
+    // With ENABLE_TRANSIT_BUILD_LOGISTICS_COMPONENTS = false, only Grand Total is created
+    expect(data).toHaveLength(1);
+
     const grandTotal = data.find((row) =>
       row.idempotencyKey.endsWith(':GRAND_TOTAL')
-    );
-    const forwarder = data.find((row) =>
-      row.idempotencyKey.endsWith(':FORWARDER_FEE')
-    );
-    const lalamove = data.find((row) =>
-      row.idempotencyKey.endsWith(':LALAMOVE')
     );
 
     expect(grandTotal).toMatchObject({
       debitAccount: 'Inventory in Transit',
       creditAccount: 'Cash',
       amount: 300,
-    });
-
-    expect(forwarder).toMatchObject({
-      debitAccount: 'Landed Cost Clearing',
-      creditAccount: 'Cash',
-      amount: 30,
-    });
-
-    expect(lalamove).toMatchObject({
-      debitAccount: 'Landed Cost Clearing',
-      creditAccount: 'Cash',
-      amount: 12,
     });
   });
 
@@ -122,7 +117,7 @@ describe('generalMerchandiseProductService manual transit build-up (by shipment 
 
     mockPrisma.generalMerchandiseInventoryTransitBuildEntry.createMany.mockResolvedValue(
       {
-        count: 3,
+        count: 1,
       }
     );
 
@@ -138,32 +133,17 @@ describe('generalMerchandiseProductService manual transit build-up (by shipment 
 
     const data = createManyCalls[0]?.[0]?.data ?? [];
 
+    // With ENABLE_TRANSIT_BUILD_LOGISTICS_COMPONENTS = false, only Grand Total is created
+    expect(data).toHaveLength(1);
+
     const grandTotal = data.find((row) =>
       row.idempotencyKey.endsWith(':GRAND_TOTAL')
-    );
-    const forwarder = data.find((row) =>
-      row.idempotencyKey.endsWith(':FORWARDER_FEE')
-    );
-    const lalamove = data.find((row) =>
-      row.idempotencyKey.endsWith(':LALAMOVE')
     );
 
     expect(grandTotal).toMatchObject({
       debitAccount: 'Inventory in Transit',
       creditAccount: 'Supplier Payable',
       amount: 400,
-    });
-
-    expect(forwarder).toMatchObject({
-      debitAccount: 'Landed Cost Clearing',
-      creditAccount: 'Forwarder Payable',
-      amount: 40,
-    });
-
-    expect(lalamove).toMatchObject({
-      debitAccount: 'Landed Cost Clearing',
-      creditAccount: 'Courier Payable',
-      amount: 15,
     });
   });
 });

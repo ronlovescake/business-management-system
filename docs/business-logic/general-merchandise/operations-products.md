@@ -29,9 +29,9 @@
 | 5   | GM product persistence is backed by `generalMerchandiseProduct` records                  | The product service binds directly to GM Prisma product models.                                                            |
 | 6   | GM manual transit build-up posts accounting entries by shipment code                     | The service exposes `postManualTransitBuildUpByShipmentCode` as a GM-specific product accounting workflow.                 |
 | 7   | Manual transit build-up debits `Inventory in Transit` for product grand total            | Test coverage confirms the grand total posts to `Inventory in Transit`.                                                    |
-| 8   | Manual transit build-up debits `Landed Cost Clearing` for forwarder and courier costs    | Forwarder's Fee and Lalamove are posted separately to `Landed Cost Clearing`.                                              |
-| 9   | Paid products credit `Cash` during manual transit build-up posting                       | For paid products, all three manual transit build-up lines credit `Cash`.                                                  |
-| 10  | Unpaid products credit different payable accounts during manual transit build-up posting | Grand total credits `Supplier Payable`, forwarder fee credits `Forwarder Payable`, and Lalamove credits `Courier Payable`. |
+| 8   | Manual transit build-up does not post separate forwarder or courier entries               | Forwarder's Fee and Lalamove entry creation is disabled via the `ENABLE_TRANSIT_BUILD_LOGISTICS_COMPONENTS` feature flag. Only the Grand Total entry is posted. These costs are handled separately via the Logistics Costs tab. |
+| 9   | Paid products credit `Cash` during manual transit build-up posting                       | For paid products, the Grand Total transit build-up line credits `Cash`.                                                   |
+| 10  | Unpaid products credit `Supplier Payable` during manual transit build-up posting         | Only the Grand Total entry is created, crediting `Supplier Payable`. Forwarder Payable and Courier Payable entries are disabled. |
 
 ---
 

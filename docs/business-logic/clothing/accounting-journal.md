@@ -134,3 +134,15 @@
 | #   | Logic                                              | Explanation                                     |
 | --- | -------------------------------------------------- | ----------------------------------------------- |
 | 45  | "Download Template" generates a blank CSV template | Filename: `journal_template_${YYYY-MM-DD}.csv`. |
+
+---
+
+## M — Journal Lines by Ref API
+
+> **Source file:** `src/app/api/accounting/journal-lines-by-ref/route.ts`
+
+| #   | Logic                                                                                           | Explanation                                                                                                                                                  |
+| --- | ----------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| 46  | `GET /accounting/journal-lines-by-ref?ref={ref}` returns journal lines matching a ref string    | Used by the Logistics Costs tab to fetch posting history for a shipment code. Returns `{ data: JournalLine[] }`.                                             |
+| 47  | The `ref` query parameter is required                                                           | Returns an error if the `ref` parameter is missing or empty.                                                                                                 |
+| 48  | Each returned line includes `id`, `date`, `ref`, `account`, `debit`, `credit`, `description`, `sourceType`, `sourceLineKey` | The Logistics Costs tab uses `description` keywords and account names to detect which posting steps have been completed for each vendor. |

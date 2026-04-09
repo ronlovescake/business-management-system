@@ -344,19 +344,28 @@ export const GET = withErrorHandler(async () => {
 
     const linkedProductCountByShipmentCode = new Map<string, number>();
     const linkedProductCogsByShipmentCode = new Map<string, number>();
+    const linkedProductGrandTotalByCode = new Map<string, number>();
+    const linkedProductForwardersFeeByCode = new Map<string, number>();
+    const linkedProductLalamoveByCode = new Map<string, number>();
+    const linkedProductPackagingCostByCode = new Map<string, number>();
     for (const entry of linkedProductAggregates) {
       const code = (entry.shipmentCode ?? '').trim();
       if (!code) {
         continue;
       }
       linkedProductCountByShipmentCode.set(code, entry._count._all);
+      const grandTotal = Number(entry._sum.grandTotal ?? 0);
+      const forwardersFee = Number(entry._sum.forwardersFee ?? 0);
+      const lalamove = Number(entry._sum.lalamove ?? 0);
+      const packagingCost = Number(entry._sum.packagingCost ?? 0);
       linkedProductCogsByShipmentCode.set(
         code,
-        Number(entry._sum.grandTotal ?? 0) +
-          Number(entry._sum.forwardersFee ?? 0) +
-          Number(entry._sum.lalamove ?? 0) +
-          Number(entry._sum.packagingCost ?? 0)
+        grandTotal + forwardersFee + lalamove + packagingCost
       );
+      linkedProductGrandTotalByCode.set(code, grandTotal);
+      linkedProductForwardersFeeByCode.set(code, forwardersFee);
+      linkedProductLalamoveByCode.set(code, lalamove);
+      linkedProductPackagingCostByCode.set(code, packagingCost);
     }
 
     const convertedShipments = shipments.map((shipment) => {
@@ -373,6 +382,18 @@ export const GET = withErrorHandler(async () => {
         linkedProductCount,
         hasLinkedProducts: linkedProductCount > 0,
         linkedProductCogsTotal,
+        linkedProductGrandTotal: shipmentCode
+          ? (linkedProductGrandTotalByCode.get(shipmentCode) ?? 0)
+          : 0,
+        linkedProductForwardersFee: shipmentCode
+          ? (linkedProductForwardersFeeByCode.get(shipmentCode) ?? 0)
+          : 0,
+        linkedProductLalamove: shipmentCode
+          ? (linkedProductLalamoveByCode.get(shipmentCode) ?? 0)
+          : 0,
+        linkedProductPackagingCost: shipmentCode
+          ? (linkedProductPackagingCostByCode.get(shipmentCode) ?? 0)
+          : 0,
       };
     });
     logger.info('Shipments fetched', { count: convertedShipments.length });

@@ -47,6 +47,14 @@ export interface ShipmentData {
   hasLinkedProducts?: boolean;
   /** Derived from Products table: sum of Product COGS for this shipmentCode. */
   linkedProductCogsTotal?: number;
+  /** Derived from Products: sum of grandTotal (supplier cost) for this shipmentCode. */
+  linkedProductGrandTotal?: number;
+  /** Derived from Products: sum of forwardersFee for this shipmentCode. */
+  linkedProductForwardersFee?: number;
+  /** Derived from Products: sum of lalamove (courier) for this shipmentCode. */
+  linkedProductLalamove?: number;
+  /** Derived from Products: sum of packagingCost for this shipmentCode. */
+  linkedProductPackagingCost?: number;
 }
 
 /**

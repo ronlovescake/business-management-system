@@ -28,10 +28,11 @@
 
 ---
 
-## C — Documentation Notes
+## C — Recent Shared Workflow Changes
 
-| #   | Logic                                                                                                                         | Explanation                                                                                   |
-| --- | ----------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------- |
-| 7   | The module remains part of the GM Operations family                                                                           | The module config assigns the route to GM operations with a shipment-specific icon and order. |
-| 8   | If GM later diverges in shipment posting, duration, or modal behavior, document that divergence here explicitly               | This doc currently records parity as the baseline.                                            |
-| 9   | Shipment changes that affect GM product/accounting automation should be cross-checked against GM products and accounting docs | Shipments influence other GM business workflows through shared route behavior.                |
+| #   | Logic                                                                                                                  | Explanation                                                                                                                                                                                  |
+| --- | ---------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 7   | The Logistics Costs tab was rebuilt with a stepper workflow, smart action buttons, and posting history                  | See Clothing `operations-shipments.md` Section M for full documentation. The same shared tab interface applies to GM shipments.                                                               |
+| 8   | The Shipments API now returns per-product cost breakdowns                                                              | `GET /api/shipments` includes `linkedProductForwardersFee`, `linkedProductLalamove`, `linkedProductPackagingCost`, and `linkedProductGrandTotal` fields per shipment.                         |
+| 9   | Transit build-up only creates Grand Total entries                                                                      | Forwarder/Lalamove entries are disabled via the `ENABLE_TRANSIT_BUILD_LOGISTICS_COMPONENTS` feature flag. Those costs are handled separately via the Logistics Costs tab.                     |
+| 10  | Transit build-up idempotency uses transactional purge-and-recreate                                                     | Soft-deleted rows are purged before `createMany`, wrapped in a Prisma `$transaction`.                                                                                                        |

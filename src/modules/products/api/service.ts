@@ -26,6 +26,11 @@ const SUPPLIER_PAYABLE_ACCOUNT = 'Supplier Payable';
 const FORWARDER_PAYABLE_ACCOUNT = 'Forwarder Payable';
 const COURIER_PAYABLE_ACCOUNT = 'Courier Payable';
 
+// Feature flag: set to true to include forwarder fee & lalamove entries in
+// transit build-up.  Disabled because these costs are handled separately via
+// the Logistics Costs tab on the Shipments page.
+const ENABLE_TRANSIT_BUILD_LOGISTICS_COMPONENTS = false;
+
 function normalizeToUtcMidnight(date: Date): Date {
   return new Date(
     Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate())
@@ -907,31 +912,33 @@ export const productService: ProductService = {
         amount: toAmount(product.grandTotal),
       });
 
-      addEntry({
-        productId: product.id,
-        productCode: product.productCode,
-        productName: product.product,
-        payment,
-        postingDate,
-        debitAccount: LANDED_COST_CLEARING_ACCOUNT,
-        creditAccount: forwarderCreditAccount,
-        componentKey: 'FORWARDER_FEE',
-        componentLabel: "Forwarder's Fee",
-        amount: toAmount(product.forwardersFee),
-      });
+      if (ENABLE_TRANSIT_BUILD_LOGISTICS_COMPONENTS) {
+        addEntry({
+          productId: product.id,
+          productCode: product.productCode,
+          productName: product.product,
+          payment,
+          postingDate,
+          debitAccount: LANDED_COST_CLEARING_ACCOUNT,
+          creditAccount: forwarderCreditAccount,
+          componentKey: 'FORWARDER_FEE',
+          componentLabel: "Forwarder's Fee",
+          amount: toAmount(product.forwardersFee),
+        });
 
-      addEntry({
-        productId: product.id,
-        productCode: product.productCode,
-        productName: product.product,
-        payment,
-        postingDate,
-        debitAccount: LANDED_COST_CLEARING_ACCOUNT,
-        creditAccount: courierCreditAccount,
-        componentKey: 'LALAMOVE',
-        componentLabel: 'Lalamove',
-        amount: toAmount(product.lalamove),
-      });
+        addEntry({
+          productId: product.id,
+          productCode: product.productCode,
+          productName: product.product,
+          payment,
+          postingDate,
+          debitAccount: LANDED_COST_CLEARING_ACCOUNT,
+          creditAccount: courierCreditAccount,
+          componentKey: 'LALAMOVE',
+          componentLabel: 'Lalamove',
+          amount: toAmount(product.lalamove),
+        });
+      }
     }
 
     if (entries.length === 0) {
@@ -942,9 +949,25 @@ export const productService: ProductService = {
       };
     }
 
-    const result = await prisma.clothingInventoryTransitBuildEntry.createMany({
-      data: entries,
-      skipDuplicates: true,
+    // Purge soft-deleted entries whose idempotency keys would conflict with the
+    // new rows, then insert — wrapped in a transaction so the delete is visible
+    // to createMany within the same atomic operation.
+    const newKeys = entries.map((e) => e.idempotencyKey).filter(Boolean);
+
+    const result = await prisma.$transaction(async (tx) => {
+      if (newKeys.length > 0) {
+        await tx.clothingInventoryTransitBuildEntry.deleteMany({
+          where: {
+            deletedAt: { not: null },
+            idempotencyKey: { in: newKeys as string[] },
+          },
+        });
+      }
+
+      return tx.clothingInventoryTransitBuildEntry.createMany({
+        data: entries,
+        skipDuplicates: true,
+      });
     });
 
     const skippedEntries = Math.max(0, entries.length - result.count);

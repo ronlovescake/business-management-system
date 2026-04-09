@@ -202,6 +202,10 @@ describe('Shipments API - /api/shipments', () => {
         linkedProductCount: 2,
         hasLinkedProducts: true,
         linkedProductCogsTotal: 0,
+        linkedProductGrandTotal: 0,
+        linkedProductForwardersFee: 0,
+        linkedProductLalamove: 0,
+        linkedProductPackagingCost: 0,
       });
     });
 
