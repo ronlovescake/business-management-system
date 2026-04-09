@@ -58,7 +58,7 @@
     "docker:db:wait": "docker compose --env-file .env.docker exec -T db sh -lc 'until pg_isready -U \"$POSTGRES_USER\" -d \"$POSTGRES_DB\" >/dev/null 2>&1; do echo \"Waiting for PostgreSQL...\"; sleep 1; done'",
     "docker:db:deploy": "npm run docker:db:wait && docker compose --env-file .env.docker run --rm app npm run db:deploy",
     "docker:build": "docker compose --env-file .env.docker build app",
-    "docker:up": "docker compose --env-file .env.docker up -d app",
+    "docker:up": "docker compose --env-file .env.docker up -d app backup-scheduler",
     "docker:prod": "npm run docker:db:up && npm run docker:build && npm run docker:db:deploy && npm run docker:up",
     "docker:start:test": "docker compose -f docker-compose.test.yml up -d",
     "docker:clean:test": "docker compose -f docker-compose.test.yml down",
