@@ -54,6 +54,7 @@ snapshots/
 !prisma/migrations/20260111090000_add_household_budget_table/migration.sql
 !prisma/migrations/20260406120000_add_message_hidden_for_users/migration.sql
 !prisma/migrations/20260411120000_add_cash_advance_soft_delete_columns/migration.sql
+!prisma/migrations/20260411130000_fix_remaining_schema_drift/migration.sql
 !prisma/manual/20260116_create_clothing_recurring_payments.sql
 !prisma/manual/20260116_reconcile_prisma_drift.sql
 !archives/migration-scripts/20260318_backfill_missing_shipment_jt0012625740989.sql
