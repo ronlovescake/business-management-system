@@ -52,13 +52,16 @@ beforeEach(() => {
 // Import service
 // ---------------------------------------------------------------------------
 import { HouseholdExpenseService } from '@/modules/household/expenses/api/service';
+import type { HouseholdExpenseCreateInput } from '@/modules/household/expenses/api/schemas';
 
 const service = new HouseholdExpenseService();
 
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
-function makeInput(overrides: Record<string, unknown> = {}) {
+function makeInput(
+  overrides: Partial<HouseholdExpenseCreateInput> = {}
+): HouseholdExpenseCreateInput {
   return {
     date: new Date('2025-06-01'),
     amount: 100,
@@ -66,6 +69,8 @@ function makeInput(overrides: Record<string, unknown> = {}) {
     category: 'Groceries',
     status: 'paid',
     accountId: 'acc-1',
+    sourceType: 'MANUAL',
+    systemGenerated: false,
     ...overrides,
   };
 }

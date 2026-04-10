@@ -53,25 +53,15 @@ test.describe('Customers Page', () => {
   test('should display data grid or table', async ({ page }) => {
     await gotoCustomers(page);
 
-    // Wait for grid/table to be visible (adjust selector based on your actual implementation)
-    // Glide Data Grid typically renders in a canvas or specific container
-    const gridContainer = page
-      .locator('[role="grid"], canvas, .data-grid-container')
-      .first();
-    const emptyState = page
-      .locator('text=/no customers/i, text=/empty/i, text=/no data/i')
+    const pageReady = page
+      .locator('.data-grid-container')
+      .or(page.getByPlaceholder(/search customers/i))
+      .or(
+        page.getByText(/customer management system - import csv file to get started/i)
+      )
       .first();
 
-    const gridVisible = await gridContainer
-      .waitFor({ state: 'visible', timeout: 15000 })
-      .then(() => true)
-      .catch(() => false);
-    const emptyVisible = await emptyState
-      .waitFor({ state: 'visible', timeout: 15000 })
-      .then(() => true)
-      .catch(() => false);
-
-    expect(gridVisible || emptyVisible).toBeTruthy();
+    await expect(pageReady).toBeVisible({ timeout: 30_000 });
   });
 
   test('should show loading skeleton initially', async ({ page }) => {
@@ -98,25 +88,15 @@ test.describe('Customers Page', () => {
   test('should handle empty state if no customers exist', async ({ page }) => {
     await gotoCustomers(page, 2000);
 
-    const gridLocator = page.locator(
-      '[role="grid"], canvas, .data-grid-container'
-    );
-    const emptyStateLocator = page
-      .locator('text=/no customers/i, text=/empty/i')
+    const pageState = page
+      .locator('.data-grid-container')
+      .or(
+        page.getByText(/customer management system - import csv file to get started/i)
+      )
+      .or(page.getByText(/showing\s+\d+\s+of\s+\d+\s+customers/i))
       .first();
 
-    const gridVisible = await gridLocator
-      .first()
-      .waitFor({ state: 'visible', timeout: 8000 })
-      .then(() => true)
-      .catch(() => false);
-    const gridExists = (await gridLocator.count().catch(() => 0)) > 0;
-    const emptyMessage = await emptyStateLocator
-      .waitFor({ state: 'visible', timeout: 8000 })
-      .then(() => true)
-      .catch(() => false);
-
-    expect(gridVisible || gridExists || emptyMessage).toBeTruthy();
+    await expect(pageState).toBeVisible({ timeout: 15_000 });
   });
 
   test('should have search/filter functionality', async ({ page }) => {

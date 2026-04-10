@@ -269,8 +269,7 @@ describe('Modules — Reload API (Business Rules)', () => {
       mockModuleHMR.getPendingReloads.mockReturnValue(['mod-a']);
 
       const { GET } = await import('@/app/api/modules/reload/route');
-      const req = new NextRequest('http://localhost/api/modules/reload');
-      const res = await GET(req);
+      const res = await GET();
       const json = await res.json();
 
       expect(res.status).toBe(200);

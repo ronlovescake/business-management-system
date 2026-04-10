@@ -31,15 +31,13 @@ RUN apt-get update \
  && rm -rf /var/lib/apt/lists/*
 
 COPY package.json package-lock.json ./
-COPY prisma ./prisma
-COPY scripts ./scripts
 
 RUN npm ci --include=dev --ignore-scripts
+RUN npx playwright install --with-deps chromium
 
 COPY . .
 
 RUN npm run db:generate \
- && npx playwright install --with-deps chromium \
  && npm run build \
  && mkdir -p /ms-playwright \
  && chown -R node:node /ms-playwright /app/node_modules/.prisma /app/node_modules/@prisma

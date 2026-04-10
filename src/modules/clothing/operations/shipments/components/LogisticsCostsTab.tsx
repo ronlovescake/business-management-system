@@ -260,14 +260,23 @@ function detectCompletedSteps(
     const key = line.sourceLineKey === 'debit' || line.sourceLineKey === 'credit'
       ? `${line.date}-${line.description}-${Math.max(line.debit, line.credit)}`
       : line.id.toString();
-    if (!pairsBySource.has(key)) {pairsBySource.set(key, {});}
-    const pair = pairsBySource.get(key)!;
-    if (line.debit > 0) {pair.debit = line;}
-    if (line.credit > 0) {pair.credit = line;}
+    let pair = pairsBySource.get(key);
+    if (!pair) {
+      pair = {};
+      pairsBySource.set(key, pair);
+    }
+    if (line.debit > 0) {
+      pair.debit = line;
+    }
+    if (line.credit > 0) {
+      pair.credit = line;
+    }
   }
 
   for (const line of lines) {
-    if (line.credit > 0) {continue;} // only process debit lines to avoid double-counting
+    if (line.credit > 0) {
+      continue;
+    }
     const action = detectActionFromDescription(line.description);
     const lineVendor = detectVendorFromDescription(line.description);
 

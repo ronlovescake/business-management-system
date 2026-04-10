@@ -45,17 +45,17 @@ test.describe('General Merchandise — Operations', () => {
 });
 
 test.describe('General Merchandise — Accounting', () => {
-  test('accounting root redirects to expenses and the page loads', async ({
+  test('accounting root redirects to journal and the page loads', async ({
     page,
   }) => {
     await gotoPage(page, '/general-merchandise/accounting');
-    await expect(page).toHaveURL(/\/general-merchandise\/accounting\/expenses/);
+    await expect(page).toHaveURL(/\/general-merchandise\/accounting\/journal/);
     await expect(page.locator('body')).toBeVisible();
   });
 
-  test('expenses page is reachable directly', async ({ page }) => {
-    await gotoPage(page, '/general-merchandise/accounting/expenses');
-    await expect(page).toHaveURL(/\/general-merchandise\/accounting\/expenses/);
+  test('journal page is reachable directly', async ({ page }) => {
+    await gotoPage(page, '/general-merchandise/accounting/journal');
+    await expect(page).toHaveURL(/\/general-merchandise\/accounting\/journal/);
     await expect(page.locator('body')).toBeVisible();
   });
 });

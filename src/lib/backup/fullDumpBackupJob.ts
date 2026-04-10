@@ -104,7 +104,7 @@ function cleanupPartialBackup(backupDir: string | null) {
 
 async function createDatabaseDump(timestamp: string, backupDir: string) {
   const { user, password, host, port, database } = parseDatabaseUrl();
-  const dumpFile = path.join(backupDir, `backup-${timestamp}.dump`);
+  const dumpFile = path.join(backupDir, `full-backup-${timestamp}.dump`);
 
   const env = {
     ...process.env,
@@ -160,7 +160,8 @@ export async function createFullDumpBackup() {
 
   try {
     const timestamp = buildBackupTimestamp();
-    const backupDir = ensureBackupDir(timestamp);
+    const folderName = `${timestamp}-full-backup`;
+    const backupDir = ensureBackupDir(folderName);
     backupDirForCleanup = backupDir;
 
     const { dumpFile, database } = await createDatabaseDump(
@@ -208,7 +209,7 @@ export async function createFullDumpBackup() {
     return {
       success: true,
       backup: {
-        timestamp,
+        timestamp: folderName,
         files: files.map((filePath) => path.basename(filePath)),
         totalSize,
         format: 'dump',

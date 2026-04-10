@@ -1,6 +1,6 @@
 import type { MantineColor } from '@mantine/core';
 
-export type GlobalSettingsTab = 'users' | 'backup' | 'scheduler' | 'payments';
+export type GlobalSettingsTab = 'users' | 'backup' | 'scheduler' | 'payments' | 'pitr';
 
 export interface GlobalSettingsToolbarAction {
   value: GlobalSettingsTab;

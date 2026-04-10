@@ -68,7 +68,12 @@ import {
   buildLeaveRequestsCsv,
 } from '@/app/clothing/employees/leave-tracker/hooks/leaveTrackerCsvUtils';
 
-import type { LeaveRequest } from '@/app/clothing/employees/leave-tracker/types';
+import type {
+  LeaveRequest,
+  LeaveType,
+} from '@/app/clothing/employees/leave-tracker/types';
+
+const sickLeave: LeaveType = 'Sick Leave';
 
 // =========================================================================
 // Rule #40: CSV import validates required columns
@@ -126,7 +131,7 @@ describe('Rule #39: buildLeaveRequestsCsv', () => {
         id: 'lr-1',
         employeeId: 'emp-1',
         employeeName: 'Alice',
-        leaveType: 'Sick',
+        leaveType: sickLeave,
         startDate: '2026-04-01',
         endDate: '2026-04-03',
         numberOfDays: 3,
@@ -144,7 +149,7 @@ describe('Rule #39: buildLeaveRequestsCsv', () => {
     expect(lines).toHaveLength(2); // header + 1 row
     expect(lines[1]).toContain('emp-1');
     expect(lines[1]).toContain('Alice');
-    expect(lines[1]).toContain('Sick');
+    expect(lines[1]).toContain('Sick Leave');
     expect(lines[1]).toContain('approved');
   });
 });
@@ -182,7 +187,7 @@ describe('Rules #22,#41,#42: parseImportedLeaveRequests', () => {
   it('Rule #42: parses valid rows', () => {
     const text = [
       'employeeid,employeename,leavetype,startdate,enddate,reason',
-      'emp-1,Alice,Sick,2026-04-01,2026-04-03,Flu',
+      'emp-1,Alice,Sick Leave,2026-04-01,2026-04-03,Flu',
     ].join('\n');
 
     const result = parseImportedLeaveRequests({
@@ -193,18 +198,25 @@ describe('Rules #22,#41,#42: parseImportedLeaveRequests', () => {
     });
 
     expect('importedRequests' in result).toBe(true);
-    if ('importedRequests' in result) {
-      expect(result.successCount).toBe(1);
-      expect(result.importedRequests[0].employeeId).toBe('emp-1');
-      expect(result.importedRequests[0].numberOfDays).toBe(3);
-      expect(result.importedRequests[0].status).toBe('pending'); // default
+    if (!('importedRequests' in result)) {
+      throw new Error('Expected imported requests result');
     }
+
+    const importedRequests = result.importedRequests;
+    if (!importedRequests) {
+      throw new Error('Expected imported requests payload');
+    }
+
+    expect(result.successCount).toBe(1);
+    expect(importedRequests[0].employeeId).toBe('emp-1');
+    expect(importedRequests[0].numberOfDays).toBe(3);
+    expect(importedRequests[0].status).toBe('pending');
   });
 
   it('Rule #22: reports overlap errors', () => {
     const text = [
       'employeeid,employeename,leavetype,startdate,enddate,reason',
-      'emp-1,Alice,Sick,2026-04-01,2026-04-03,Flu',
+      'emp-1,Alice,Sick Leave,2026-04-01,2026-04-03,Flu',
     ].join('\n');
 
     const alwaysOverlap = () => true;
@@ -215,16 +227,23 @@ describe('Rules #22,#41,#42: parseImportedLeaveRequests', () => {
       getCurrentDateISO: today,
     });
 
-    if ('errors' in result) {
-      expect(result.errors.length).toBeGreaterThan(0);
-      expect(result.errors[0]).toMatch(/overlap/i);
+    if (!('errors' in result)) {
+      throw new Error('Expected validation errors');
     }
+
+    const errors = result.errors;
+    if (!errors) {
+      throw new Error('Expected validation errors payload');
+    }
+
+    expect(errors.length).toBeGreaterThan(0);
+    expect(errors[0]).toMatch(/overlap/i);
   });
 
   it('Rule #42: rejects end date before start date', () => {
     const text = [
       'employeeid,employeename,leavetype,startdate,enddate,reason',
-      'emp-1,Alice,Sick,2026-04-05,2026-04-01,Backwards',
+      'emp-1,Alice,Sick Leave,2026-04-05,2026-04-01,Backwards',
     ].join('\n');
 
     const result = parseImportedLeaveRequests({
@@ -234,16 +253,23 @@ describe('Rules #22,#41,#42: parseImportedLeaveRequests', () => {
       getCurrentDateISO: today,
     });
 
-    if ('errors' in result) {
-      expect(result.errors.length).toBeGreaterThan(0);
-      expect(result.errors[0]).toMatch(/precedes/i);
+    if (!('errors' in result)) {
+      throw new Error('Expected validation errors');
     }
+
+    const errors = result.errors;
+    if (!errors) {
+      throw new Error('Expected validation errors payload');
+    }
+
+    expect(errors.length).toBeGreaterThan(0);
+    expect(errors[0]).toMatch(/precedes/i);
   });
 
   it('defaults status to pending when invalid', () => {
     const text = [
       'employeeid,employeename,leavetype,startdate,enddate,reason,status',
-      'emp-1,Alice,Sick,2026-04-01,2026-04-03,Flu,invalid-status',
+      'emp-1,Alice,Sick Leave,2026-04-01,2026-04-03,Flu,invalid-status',
     ].join('\n');
 
     const result = parseImportedLeaveRequests({
@@ -253,8 +279,15 @@ describe('Rules #22,#41,#42: parseImportedLeaveRequests', () => {
       getCurrentDateISO: today,
     });
 
-    if ('importedRequests' in result) {
-      expect(result.importedRequests[0].status).toBe('pending');
+    if (!('importedRequests' in result)) {
+      throw new Error('Expected imported requests result');
     }
+
+    const importedRequests = result.importedRequests;
+    if (!importedRequests) {
+      throw new Error('Expected imported requests payload');
+    }
+
+    expect(importedRequests[0].status).toBe('pending');
   });
 });

@@ -49,17 +49,20 @@ beforeEach(() => {
 // Import
 // ---------------------------------------------------------------------------
 import { HouseholdIncomeService } from '@/modules/household/income/api/service';
+import type { HouseholdIncomeCreateInput } from '@/modules/household/income/api/schemas';
 
 const service = new HouseholdIncomeService();
 
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
-function makeInput(overrides: Record<string, unknown> = {}) {
+function makeInput(
+  overrides: Partial<HouseholdIncomeCreateInput> = {}
+): HouseholdIncomeCreateInput {
   return {
     date: new Date('2025-06-01'),
     amount: 500,
-    type: 'Salary',
+    type: 'SALARY',
     accountId: 'acc-1',
     ...overrides,
   };

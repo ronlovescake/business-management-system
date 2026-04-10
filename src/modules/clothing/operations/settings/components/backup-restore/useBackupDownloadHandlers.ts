@@ -51,7 +51,7 @@ export const useBackupDownloadHandlers = ({
     try {
       const jsonFile =
         backup.files.find(
-          (f) => f.startsWith('backup-') && f.endsWith('.json')
+          (f) => f.includes('backup-') && f.endsWith('.json')
         ) || backup.files.find((f) => f.endsWith('.json'));
       if (!jsonFile) {
         return;
@@ -83,11 +83,11 @@ export const useBackupDownloadHandlers = ({
     try {
       const dumpFile =
         backup.files.find(
-          (f) => f.startsWith('backup-') && f.endsWith('.dump')
+          (f) => f.includes('backup-') && f.endsWith('.dump')
         ) ||
         backup.files.find((f) => f.endsWith('.dump')) ||
         backup.files.find(
-          (f) => f.startsWith('backup-') && f.endsWith('.sql')
+          (f) => f.includes('backup-') && f.endsWith('.sql')
         ) ||
         backup.files.find((f) => f.endsWith('.sql'));
       if (!dumpFile) {

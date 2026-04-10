@@ -255,7 +255,6 @@ describe('BackupRestoreTab', () => {
     renderTab();
 
     await screen.findByText('backup-count:1');
-    expect(screen.getByText('pitr-enabled:true')).toBeInTheDocument();
 
     await waitFor(() => {
       expect(mockSetSidebarActive).toHaveBeenCalledWith(true);

@@ -61,9 +61,11 @@ container_dump_path="/backups/${dump_basename}"
 echo "Validating full dump manifest and checksum..."
 node scripts/docker/validate-dump-backup.js "$dump_file"
 
+copied_dump=""
 if [[ "$dump_file" != "${backup_dir}/${dump_basename}" ]]; then
   mkdir -p "$backup_dir"
   cp "$dump_file" "${backup_dir}/${dump_basename}"
+  copied_dump="${backup_dir}/${dump_basename}"
 else
   dump_relative_path="${dump_file#${backup_dir}/}"
   container_dump_path="/backups/${dump_relative_path}"
@@ -79,7 +81,19 @@ DROP DATABASE IF EXISTS "${drill_db}";
 SQL
 }
 
-trap cleanup_drill_db EXIT
+cleanup_copied_dump() {
+  if [[ -n "$copied_dump" && -f "$copied_dump" ]]; then
+    rm -f "$copied_dump"
+    echo "Cleaned up temporary dump copy: ${copied_dump}"
+  fi
+}
+
+cleanup_all() {
+  cleanup_drill_db
+  cleanup_copied_dump
+}
+
+trap cleanup_all EXIT
 
 echo "Preparing Docker restore drill from: ${dump_file}"
 docker compose --env-file "$ENV_FILE" up -d db

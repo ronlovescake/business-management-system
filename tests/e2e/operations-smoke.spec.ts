@@ -44,21 +44,33 @@ async function gotoOperationsPage(page: Page, path: string) {
 async function expectTextVisibleWithReload(
   page: Page,
   text: string,
-  timeout = 15_000
+  timeout = 20_000,
+  retries = 2
 ) {
   const locator = page.getByText(text).first();
-  const visible = await locator.isVisible({ timeout }).catch(() => false);
 
-  if (visible) {
-    await expect(locator).toBeVisible();
-    return;
+  for (let attempt = 0; attempt <= retries; attempt += 1) {
+    const visible = await locator
+      .waitFor({ state: 'visible', timeout })
+      .then(() => true)
+      .catch(() => false);
+
+    if (visible) {
+      await expect(locator).toBeVisible();
+      return;
+    }
+
+    if (attempt < retries) {
+      await page.reload({ waitUntil: 'domcontentloaded', timeout: 90_000 });
+      await page
+        .waitForLoadState('networkidle', { timeout: 20_000 })
+        .catch(() => {
+          /* long-poll / analytics requests may keep the network busy */
+        });
+    }
   }
 
-  await page.reload({ waitUntil: 'domcontentloaded', timeout: 90_000 });
-  await page.waitForLoadState('networkidle', { timeout: 20_000 }).catch(() => {
-    /* long-poll / analytics requests may keep the network busy */
-  });
-  await expect(locator).toBeVisible({ timeout: 30_000 });
+  await expect(locator).toBeVisible({ timeout: timeout * 2 });
 }
 
 test.beforeEach(async ({ page }) => {

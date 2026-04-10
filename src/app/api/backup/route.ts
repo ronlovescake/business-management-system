@@ -601,7 +601,8 @@ function normalizeBackupFormat(value: unknown): BackupFormat {
 
 async function createDatabaseDump(
   timestamp: string,
-  backupDir: string
+  backupDir: string,
+  strategy: string
 ): Promise<DatabaseDumpResult> {
   try {
     const { user, password, host, port, database } = parseDatabaseUrl();
@@ -612,7 +613,7 @@ async function createDatabaseDump(
       port,
       database,
     } satisfies DatabaseConnectionConfig;
-    const dumpFile = path.join(backupDir, `backup-${timestamp}.dump`);
+    const dumpFile = path.join(backupDir, `${strategy}-backup-${timestamp}.dump`);
 
     try {
       await runLocalPgDump(config, dumpFile);
@@ -670,7 +671,8 @@ export async function createBackupJob({
       .toISOString()
       .replace(/[:.]/g, '-')
       .slice(0, -5);
-    const backupDir = ensureBackupDir(timestamp);
+    const folderName = `${timestamp}-${strategy}-backup`;
+    const backupDir = ensureBackupDir(folderName);
     backupDirForCleanup = backupDir;
 
     let backupFile = '';
@@ -865,7 +867,7 @@ export async function createBackupJob({
       const jsonFileName =
         strategy === 'log'
           ? `log-backup-${timestamp}.json`
-          : `backup-${timestamp}.json`;
+          : `${strategy}-backup-${timestamp}.json`;
       backupFile = path.join(backupDir, jsonFileName);
       await writeFileAtomic(
         backupFile,
@@ -953,7 +955,7 @@ export async function createBackupJob({
       (requestedFormat === 'dump' || requestedFormat === 'all')
     ) {
       logger.info('Starting PostgreSQL custom dump generation...');
-      const databaseDump = await createDatabaseDump(timestamp, backupDir);
+      const databaseDump = await createDatabaseDump(timestamp, backupDir, strategy);
       if (databaseDump.ok) {
         files.push(databaseDump.filePath);
         backupFile = databaseDump.filePath;
@@ -1041,7 +1043,7 @@ export async function createBackupJob({
         }
 
         if (sheetCount > 0) {
-          const xlsxFile = path.join(backupDir, `backup-${timestamp}.xlsx`);
+          const xlsxFile = path.join(backupDir, `${strategy}-backup-${timestamp}.xlsx`);
           await writeWorkbookToFile(wb, xlsxFile);
           files.push(xlsxFile);
           backupFile = xlsxFile;
@@ -1119,7 +1121,7 @@ export async function createBackupJob({
         : 'Backup created successfully',
       warnings: warnings.length ? warnings : undefined,
       backup: {
-        timestamp,
+        timestamp: folderName,
         files: files.map((f) => path.basename(f)),
         totalSize,
         format: requestedFormat,

@@ -9,6 +9,7 @@
  *       buildPaymentData validation (customerId, paymentDate, method required)
  */
 
+import type { NextRequest } from 'next/server';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 // ---------------------------------------------------------------------------
@@ -64,17 +65,19 @@ beforeEach(() => {
 // ---------------------------------------------------------------------------
 // Import
 // ---------------------------------------------------------------------------
-const importRoute = () =>
-  import('@/app/api/trucking/payments/route') as Promise<{
-    GET: (req: Request) => Promise<Response>;
-    POST: (req: Request) => Promise<Response>;
-  }>;
+type TruckingPaymentsRouteModule = typeof import('@/app/api/trucking/payments/route');
 
-function makeRequest(body: Record<string, unknown>, url = 'http://localhost/api/trucking/payments') {
+const importRoute = () =>
+  import('@/app/api/trucking/payments/route') as Promise<TruckingPaymentsRouteModule>;
+
+function makeRequest(
+  body: Record<string, unknown>,
+  url = 'http://localhost/api/trucking/payments'
+) {
   return {
     json: async () => body,
     url,
-  } as unknown as Request;
+  } as unknown as NextRequest;
 }
 
 // ---------------------------------------------------------------------------
@@ -92,7 +95,7 @@ describe('Trucking Payments API', () => {
       const { GET } = await importRoute();
       const req = {
         url: 'http://localhost/api/trucking/payments',
-      } as unknown as Request;
+      } as unknown as NextRequest;
       const res = await GET(req);
 
       expect(mockPrisma.truckingPayment.findMany).toHaveBeenCalledWith(
@@ -108,7 +111,7 @@ describe('Trucking Payments API', () => {
       const { GET } = await importRoute();
       const req = {
         url: 'http://localhost/api/trucking/payments?customerId=42',
-      } as unknown as Request;
+      } as unknown as NextRequest;
       const res = await GET(req);
 
       expect(mockPrisma.truckingPayment.findMany).toHaveBeenCalledWith(
@@ -191,7 +194,7 @@ describe('Trucking Payment validation helpers (tested via route)', () => {
       // Testing the pattern: unknown → OTHER
       const unknownInput = 'BITCOIN';
       const expected = 'OTHER';
-      expect(unknownInput === expected).toBe(false); // not a valid enum value
+      expect(unknownInput).not.toBe(expected);
     });
   });
 

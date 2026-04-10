@@ -302,7 +302,7 @@ export function useBackupRestorePreviewController({
       try {
         const jsonFile =
           backup.files.find(
-            (file) => file.startsWith('backup-') && file.endsWith('.json')
+            (file) => file.includes('backup-') && file.endsWith('.json')
           ) || backup.files.find((file) => file.endsWith('.json'));
 
         const planPromise = fetchRestorePlan(backup.timestamp)
@@ -321,8 +321,11 @@ export function useBackupRestorePreviewController({
             setRestorePlanLoading(false);
           });
 
-        const changesPromise = fetchBackupChanges(backup.timestamp)
-          .then((comparison) => {
+        const isFullBackup = !backup.strategy || backup.strategy === 'full';
+
+        const changesPromise = isFullBackup
+          ? fetchBackupChanges(backup.timestamp)
+              .then((comparison) => {
             setBackupChanges(comparison);
             setBackupChangesError(null);
 
@@ -381,7 +384,13 @@ export function useBackupRestorePreviewController({
           })
           .finally(() => {
             setBackupChangesLoading(false);
-          });
+          })
+          : Promise.resolve().then(() => {
+              setBackupChangesLoading(false);
+              setBackupChangesError(
+                'Change summaries are only available for full backups.'
+              );
+            });
 
         if (jsonFile) {
           const response = await fetchWithTimeout(

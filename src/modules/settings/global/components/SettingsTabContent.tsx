@@ -3,6 +3,7 @@
 import { UserManagementSection } from '@/components/settings/UserManagementSection';
 import type { GlobalSettingsTab } from '../types/global-settings.types';
 import { BackupRestoreTab } from '@/modules/clothing/operations/settings/components/BackupRestoreTab';
+import { PitrWalTab } from './pitr/PitrWalTab';
 import { SchedulerTab } from './scheduler/SchedulerTab';
 import { PaymentCardsTab } from './payments/PaymentCardsTab';
 
@@ -13,6 +14,10 @@ interface SettingsTabContentProps {
 export function SettingsTabContent({ activeTab }: SettingsTabContentProps) {
   if (activeTab === 'backup') {
     return <BackupRestoreTab />;
+  }
+
+  if (activeTab === 'pitr') {
+    return <PitrWalTab />;
   }
 
   if (activeTab === 'scheduler') {

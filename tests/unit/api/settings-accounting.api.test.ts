@@ -10,6 +10,7 @@
  *        isMissingAccountingSettingsTable() — P2021 fail-open
  */
 
+import type { NextRequest } from 'next/server';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 // ---------------------------------------------------------------------------
@@ -38,17 +39,16 @@ beforeEach(() => {
 // ---------------------------------------------------------------------------
 // Import route after mocks
 // ---------------------------------------------------------------------------
+type SettingsAccountingRouteModule = typeof import('@/app/api/settings/accounting/route');
+
 const importRoute = () =>
-  import('@/app/api/settings/accounting/route') as Promise<{
-    GET: () => Promise<Response>;
-    PUT: (req: Request) => Promise<Response>;
-  }>;
+  import('@/app/api/settings/accounting/route') as Promise<SettingsAccountingRouteModule>;
 
 // ---------------------------------------------------------------------------
 // Helper to build a NextRequest-like object
 // ---------------------------------------------------------------------------
 function makeRequest(body: Record<string, unknown>) {
-  return { json: async () => body } as unknown as Request;
+  return { json: async () => body } as unknown as NextRequest;
 }
 
 // ---------------------------------------------------------------------------

@@ -92,7 +92,7 @@ function getJsonBackupFilePath(timestamp: string, tableName: string) {
 
   const jsonFile =
     manifest.files.find(
-      (file) => file.name.startsWith('backup-') && file.name.endsWith('.json')
+      (file) => file.name.includes('backup-') && file.name.endsWith('.json')
     ) ?? manifest.files.find((file) => file.name.endsWith('.json'));
 
   if (!jsonFile?.path) {

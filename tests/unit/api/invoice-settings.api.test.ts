@@ -10,6 +10,7 @@
  *        POST /api/invoice-settings resets to default
  */
 
+import type { NextRequest } from 'next/server';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 // ---------------------------------------------------------------------------
@@ -36,15 +37,13 @@ beforeEach(() => {
 // ---------------------------------------------------------------------------
 // Import
 // ---------------------------------------------------------------------------
+type InvoiceSettingsRouteModule = typeof import('@/app/api/invoice-settings/route');
+
 const importRoute = () =>
-  import('@/app/api/invoice-settings/route') as Promise<{
-    GET: () => Promise<Response>;
-    PUT: (req: Request) => Promise<Response>;
-    POST: () => Promise<Response>;
-  }>;
+  import('@/app/api/invoice-settings/route') as Promise<InvoiceSettingsRouteModule>;
 
 function makeRequest(body: Record<string, unknown>) {
-  return { json: async () => body } as unknown as Request;
+  return { json: async () => body } as unknown as NextRequest;
 }
 
 // ---------------------------------------------------------------------------

@@ -309,11 +309,12 @@ export const STRATEGY_SEQUENCE: BackupStrategy[] = [
   'log',
 ];
 
-export const TIMESTAMP_FOLDER_REGEX = /^\d{4}-\d{2}-\d{2}T\d{2}-\d{2}-\d{2}$/;
+export const TIMESTAMP_FOLDER_REGEX = /^\d{4}-\d{2}-\d{2}T\d{2}-\d{2}-\d{2}(-(?:full|differential|log)-backup)?$/;
 
 export const normalizeTimestamp = (timestamp: string) => {
   if (TIMESTAMP_FOLDER_REGEX.test(timestamp)) {
-    return timestamp.replace(/T(\d{2})-(\d{2})-(\d{2})$/, 'T$1:$2:$3Z');
+    const bare = timestamp.replace(/-(full|differential|log)-backup$/, '');
+    return bare.replace(/T(\d{2})-(\d{2})-(\d{2})$/, 'T$1:$2:$3Z');
   }
   return timestamp;
 };

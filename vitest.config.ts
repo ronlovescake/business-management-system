@@ -10,6 +10,10 @@ export default defineConfig({
   test: {
     environment: 'jsdom',
     setupFiles: ['./tests/setup.ts'],
+    pool: 'forks',
+    maxWorkers: 1,
+    minWorkers: 1,
+    fileParallelism: false,
     include: [
       'tests/unit/**/*.test.ts',
       'tests/unit/**/*.test.tsx',

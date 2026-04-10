@@ -61,8 +61,9 @@ export type BackupFileDescriptor = {
 };
 
 export function sanitizeTimestamp(timestamp: string) {
-  if (/^\d{4}-\d{2}-\d{2}T\d{2}-\d{2}-\d{2}$/.test(timestamp)) {
-    return timestamp.replace(/T(\d{2})-(\d{2})-(\d{2})$/, 'T$1:$2:$3Z');
+  const bare = timestamp.replace(/-(full|differential|log)-backup$/, '');
+  if (/^\d{4}-\d{2}-\d{2}T\d{2}-\d{2}-\d{2}$/.test(bare)) {
+    return bare.replace(/T(\d{2})-(\d{2})-(\d{2})$/, 'T$1:$2:$3Z');
   }
   return timestamp;
 }

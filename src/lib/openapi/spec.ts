@@ -128,7 +128,7 @@ export const openApiSpec: Record<string, unknown> = {
                     properties: {
                       filename: {
                         type: 'string',
-                        example: 'backup-2025-10-27.dump',
+                        example: 'full-backup-2025-10-27.dump',
                       },
                       timestamp: { type: 'string', format: 'date-time' },
                       size: { type: 'number', example: 1024000 },
@@ -155,7 +155,7 @@ export const openApiSpec: Record<string, unknown> = {
                     success: { type: 'boolean', example: true },
                     filename: {
                       type: 'string',
-                      example: 'backup-2025-10-27.dump',
+                      example: 'full-backup-2025-10-27.dump',
                     },
                     message: { type: 'string' },
                   },

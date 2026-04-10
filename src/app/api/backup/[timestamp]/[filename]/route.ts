@@ -8,6 +8,7 @@ import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 import { requireAdmin } from '@/lib/auth/session';
 import { getBackupDirectory } from '@/lib/backup-storage';
+import { isValidTimestampFolderName } from '@/app/api/backup-restore/sharedRouteUtils';
 import fs from 'fs';
 import path from 'path';
 import { parser } from 'stream-json';
@@ -234,7 +235,7 @@ export async function GET(
     logger.info('Backup file request:', { timestamp, filename, BACKUP_DIR });
 
     // Security: Validate timestamp format to prevent directory traversal
-    if (!/^\d{4}-\d{2}-\d{2}T\d{2}-\d{2}-\d{2}$/.test(timestamp)) {
+    if (!isValidTimestampFolderName(timestamp)) {
       logger.error('Invalid timestamp format:', timestamp);
       return NextResponse.json(
         { error: 'Invalid timestamp format' },

@@ -5,7 +5,7 @@ import {
   Badge,
   Button,
   Card,
-  Divider,
+  Collapse,
   Group,
   Select,
   SimpleGrid,
@@ -13,8 +13,10 @@ import {
   Switch,
   Text,
   Title,
+  UnstyledButton,
 } from '@mantine/core';
-import { IconDatabase, IconHistory } from '@tabler/icons-react';
+import { useDisclosure } from '@mantine/hooks';
+import { IconChevronDown, IconChevronRight, IconDatabase, IconHistory } from '@tabler/icons-react';
 import type { Backup, BackupStrategy } from '../../backup/types';
 import { formatBackupTimestamp, formatRelativeTime } from '../../backup/types';
 import { BackupListCard } from './BackupListCard';
@@ -136,31 +138,32 @@ export function BackupSection({
   };
 
   return (
-    <Stack gap="lg">
-      <Card shadow="sm" padding="lg" radius="md" withBorder>
-        <Group justify="space-between" mb="md">
+    <Stack gap="md">
+      <Card shadow="sm" padding="md" radius="md" withBorder>
+        <Group justify="space-between" mb="sm">
           <div>
-            <Title order={3}>Create Backup</Title>
-            <Text size="sm" c="dimmed">
-              Use this page for one-off snapshots. Full backups with a
-              PostgreSQL dump are the restore-ready option.
+            <Title order={4}>Create Backup</Title>
+            <Text size="xs" c="dimmed">
+              One-off snapshots. Use a full backup with PostgreSQL dump for the
+              safest restore path.
             </Text>
           </div>
-          <Badge color="blue">Manual</Badge>
+          <Badge color="blue" size="sm">Manual</Badge>
         </Group>
 
-        <Stack gap="md">
-          <SimpleGrid cols={{ base: 1, md: 2 }} spacing="md">
+        <Stack gap="sm">
+          <SimpleGrid cols={{ base: 1, md: 2 }} spacing="sm">
             <Select
+              size="sm"
               label="Backup strategy"
               data={strategyOptions}
               value={backupStrategy}
               onChange={(value) =>
                 onBackupStrategyChange((value as BackupStrategy) ?? 'full')
               }
-              description="Full baseline, differential snapshot, or log capture"
             />
             <Select
+              size="sm"
               label="Format"
               data={[
                 { value: 'json', label: 'JSON only' },
@@ -180,115 +183,39 @@ export function BackupSection({
                 !isLogStrategy && onBackupFormatChange(value || 'all')
               }
               disabled={isLogStrategy}
-              description="Keep the PostgreSQL dump if you may need restore later"
             />
           </SimpleGrid>
 
           {isLogStrategy ? (
-            <Alert icon={<IconHistory size={16} />} color="blue">
+            <Alert icon={<IconHistory size={16} />} color="blue" py="xs">
               <Text size="sm">
                 Log backups always export JSON change events.
               </Text>
             </Alert>
           ) : null}
 
-          <Switch
-            label="Include deleted records"
-            checked={includeSoftDeleted}
-            onChange={(event) =>
-              onIncludeSoftDeletedChange(event.currentTarget.checked)
-            }
-          />
-
-          <Button
-            leftSection={<IconDatabase size={16} />}
-            onClick={onCreateBackup}
-            loading={creating}
-            fullWidth
-          >
-            {creating ? 'Creating...' : 'Create Backup Now'}
-          </Button>
-
-          <Text size="xs" c="dimmed">
-            Tip: if you want the safest restore path, choose a full backup and
-            keep the PostgreSQL dump in the output.
-          </Text>
+          <Group justify="space-between">
+            <Switch
+              size="sm"
+              label="Include deleted records"
+              checked={includeSoftDeleted}
+              onChange={(event) =>
+                onIncludeSoftDeletedChange(event.currentTarget.checked)
+              }
+            />
+            <Button
+              size="sm"
+              leftSection={<IconDatabase size={16} />}
+              onClick={onCreateBackup}
+              loading={creating}
+            >
+              {creating ? 'Creating...' : 'Create Backup Now'}
+            </Button>
+          </Group>
         </Stack>
       </Card>
 
-      <Card shadow="sm" padding="lg" radius="md" withBorder>
-        <Group justify="space-between" mb="md" align="flex-start">
-          <div>
-            <Title order={3}>Backup Plan</Title>
-            <Text size="sm" c="dimmed">
-              Full dumps and differential snapshots can both run from the
-              server-side scheduler. Log strategy remains manual-only.
-            </Text>
-          </div>
-          <Badge color="teal">Overview</Badge>
-        </Group>
-
-        <Stack gap="sm">
-          <SimpleGrid cols={{ base: 1, md: 3 }} spacing="md">
-            {strategySchedule.map(({ key, meta, lastBackup, last, next }) => {
-              const lastRunStatus = getLastRunStatus(lastBackup);
-
-              return (
-              <Card key={key} withBorder padding="sm" radius="md" h="100%">
-                <Stack gap="sm" h="100%" justify="space-between">
-                  <Group gap="sm" align="center" wrap="nowrap">
-                    <Badge color={meta.color}>{meta.label}</Badge>
-                    <Text size="sm" c="dimmed">
-                      {getPlanCadenceLabel(key)}
-                    </Text>
-                  </Group>
-                  <Stack gap={2}>
-                    <Text size="sm">
-                      {last
-                        ? `Last: ${formatRelativeTime(last)}`
-                        : 'Last: Never'}
-                    </Text>
-                    {lastRunStatus ? (
-                      <Stack gap={2}>
-                        <Group gap="xs">
-                        <Badge color={lastRunStatus.tone} variant="light">
-                          {lastRunStatus.label}
-                        </Badge>
-                        {lastRunStatus.detail ? (
-                          <Text size="xs" c="dimmed">
-                            {lastRunStatus.detail}
-                          </Text>
-                        ) : null}
-                        </Group>
-                        {lastRunStatus.recoveredDateKeys ? (
-                          <Text size="xs" c="dimmed">
-                            Recovered dates: {lastRunStatus.recoveredDateKeys}
-                          </Text>
-                        ) : null}
-                      </Stack>
-                    ) : null}
-                    <Text size="xs" c="dimmed">
-                      {getPlanNextLabel(key, next)}
-                    </Text>
-                  </Stack>
-                </Stack>
-              </Card>
-              );
-            })}
-          </SimpleGrid>
-
-          <Alert color="teal">
-            Scheduled automation supports full dumps and differential snapshots,
-            with one startup catch-up run after downtime when a scheduled day
-            was missed. Configure `BACKUP_AUTO_ENABLED`, `BACKUP_AUTO_TIME`,
-            `BACKUP_DIFF_AUTO_ENABLED`, `BACKUP_DIFF_AUTO_TIME`,
-            `BACKUP_AUTO_TIMEZONE`, and `BACKUP_RETENTION_DAYS` in your Docker
-            environment.
-          </Alert>
-        </Stack>
-      </Card>
-
-      <Divider />
+      <BackupPlanSection strategySchedule={strategySchedule} getPlanCadenceLabel={getPlanCadenceLabel} getPlanNextLabel={getPlanNextLabel} getLastRunStatus={getLastRunStatus} />
 
       <BackupListCard
         backups={backups}
@@ -297,8 +224,95 @@ export function BackupSection({
         onPreview={onPreview}
         onDelete={onDelete}
         title={`Recent Backups (${backups.length})`}
-        subtitle="Open a backup to inspect it, download artifacts, compare changes, or restore it."
+        subtitle="Inspect, download, compare, or restore a backup."
       />
     </Stack>
+  );
+}
+
+function BackupPlanSection({
+  strategySchedule,
+  getPlanCadenceLabel,
+  getPlanNextLabel,
+  getLastRunStatus,
+}: {
+  strategySchedule: StrategyScheduleEntry[];
+  getPlanCadenceLabel: (key: BackupStrategy) => string;
+  getPlanNextLabel: (key: BackupStrategy, next: Date | null) => string;
+  getLastRunStatus: (backup: Backup | null) => {
+    tone: 'gray' | 'orange' | 'teal';
+    label: string;
+    detail: string | null;
+    recoveredDateKeys: string | null;
+  } | null;
+}) {
+  const [opened, { toggle }] = useDisclosure(false);
+
+  return (
+    <Card shadow="sm" padding="md" radius="md" withBorder>
+      <UnstyledButton onClick={toggle} w="100%">
+        <Group justify="space-between">
+          <Group gap="sm">
+            {opened ? <IconChevronDown size={16} /> : <IconChevronRight size={16} />}
+            <Title order={4}>Backup Plan</Title>
+            <Badge color="teal" size="sm">Schedule</Badge>
+          </Group>
+          <Text size="xs" c="dimmed">
+            {strategySchedule.filter((s) => s.last).length} of {strategySchedule.length} strategies have run
+          </Text>
+        </Group>
+      </UnstyledButton>
+
+      <Collapse in={opened}>
+        <Stack gap="sm" mt="sm">
+          <SimpleGrid cols={{ base: 1, md: 3 }} spacing="sm">
+            {strategySchedule.map(({ key, meta, lastBackup, last, next }) => {
+              const lastRunStatus = getLastRunStatus(lastBackup);
+
+              return (
+                <Card key={key} withBorder padding="sm" radius="md" h="100%">
+                  <Stack gap="xs" h="100%" justify="space-between">
+                    <Group gap="sm" align="center" wrap="nowrap">
+                      <Badge color={meta.color} size="sm">{meta.label}</Badge>
+                      <Text size="xs" c="dimmed">
+                        {getPlanCadenceLabel(key)}
+                      </Text>
+                    </Group>
+                    <Stack gap={2}>
+                      <Text size="sm">
+                        {last
+                          ? `Last: ${formatRelativeTime(last)}`
+                          : 'Last: Never'}
+                      </Text>
+                      {lastRunStatus ? (
+                        <Group gap="xs">
+                          <Badge color={lastRunStatus.tone} variant="light" size="xs">
+                            {lastRunStatus.label}
+                          </Badge>
+                          {lastRunStatus.detail ? (
+                            <Text size="xs" c="dimmed">
+                              {lastRunStatus.detail}
+                            </Text>
+                          ) : null}
+                        </Group>
+                      ) : null}
+                      <Text size="xs" c="dimmed">
+                        {getPlanNextLabel(key, next)}
+                      </Text>
+                    </Stack>
+                  </Stack>
+                </Card>
+              );
+            })}
+          </SimpleGrid>
+
+          <Text size="xs" c="dimmed">
+            Configure scheduling via BACKUP_AUTO_ENABLED, BACKUP_AUTO_TIME,
+            BACKUP_DIFF_AUTO_ENABLED, and BACKUP_RETENTION_DAYS in your Docker
+            environment.
+          </Text>
+        </Stack>
+      </Collapse>
+    </Card>
   );
 }

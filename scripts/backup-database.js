@@ -51,6 +51,7 @@ const getManilaTimestamp = () => {
 };
 
 const timestamp = getManilaTimestamp();
+const folderName = `${timestamp}-full-backup`;
 
 // Tables to backup
 const TABLES = [
@@ -81,7 +82,7 @@ function ensureBackupDir() {
     fs.mkdirSync(BACKUP_DIR, { recursive: true });
   }
 
-  const timestampDir = path.join(BACKUP_DIR, timestamp);
+  const timestampDir = path.join(BACKUP_DIR, folderName);
   if (!fs.existsSync(timestampDir)) {
     fs.mkdirSync(timestampDir, { recursive: true });
   }
@@ -118,7 +119,7 @@ async function backupDump(backupDir) {
 
   try {
     const { user, password, host, port, database } = parseDatabaseUrl();
-    const dumpFile = path.join(backupDir, `backup-${timestamp}.dump`);
+    const dumpFile = path.join(backupDir, `full-backup-${timestamp}.dump`);
 
     // Use pg_dump custom format for a compact, pg_restore-friendly backup.
     const command = `PGPASSWORD="${password}" pg_dump -h ${host} -p ${port} -U ${user} -d ${database} -F c -f "${dumpFile}"`;
@@ -191,7 +192,7 @@ async function backupJSON(backupDir) {
     }
   }
 
-  const jsonFile = path.join(backupDir, `backup-${timestamp}.json`);
+  const jsonFile = path.join(backupDir, `full-backup-${timestamp}.json`);
   fs.writeFileSync(jsonFile, JSON.stringify(backup, null, 2));
 
   const stats = fs.statSync(jsonFile);
