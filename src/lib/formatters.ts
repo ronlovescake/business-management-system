@@ -15,5 +15,6 @@ export function formatDateTime(
   locale: string = 'en-US'
 ): string {
   const date = typeof value === 'string' ? new Date(value) : value;
-  return new Intl.DateTimeFormat(locale, options).format(date);
+  const opts = { timeZone: 'Asia/Manila', ...options };
+  return new Intl.DateTimeFormat(locale, opts).format(date);
 }

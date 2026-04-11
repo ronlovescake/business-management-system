@@ -349,6 +349,9 @@ if (scheduleConfigs.length === 0) {
             allowCatchUpBeforeScheduledTime: true,
           };
 
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 5 * 60 * 1000);
+
     const response = await fetch(config.url, {
       method: 'POST',
       headers: {
@@ -356,7 +359,8 @@ if (scheduleConfigs.length === 0) {
         'x-internal-token': internalJobToken,
       },
       body: JSON.stringify(requestBody),
-    });
+      signal: controller.signal,
+    }).finally(() => clearTimeout(timeout));
 
     const payload = await response.json().catch(() => ({}));
     if (!response.ok) {
