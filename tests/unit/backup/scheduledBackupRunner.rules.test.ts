@@ -128,16 +128,19 @@ describe('Scheduled Backup Runner', () => {
   // Schedule Cadence Parsing
   // =========================================================================
   describe('parseScheduleCadence', () => {
-    it('weekly cadence with invalid dayOfWeek (returns -1) does not throw', async () => {
+    it('weekly cadence with invalid dayOfWeek throws a configuration error', async () => {
       withTime('2026-04-08T12:00:00Z');
-      // parseScheduleDayOfWeek('invalid-day') returns -1 (not in WEEKDAY_NAMES)
-      // which is not null, so it doesn't throw. The job just skips (not due).
-      const result = await runScheduledBackupJob({
-        scheduleCadence: 'weekly',
-        scheduleDayOfWeek: 'invalid-day',
-        scheduleTime: '22:00',
-      });
-      expect(result.skipped).toBe(true);
+      // parseScheduleDayOfWeek('invalid-day') returns null
+      // which triggers a ScheduledBackupConfigurationError.
+      await expect(
+        runScheduledBackupJob({
+          scheduleCadence: 'weekly',
+          scheduleDayOfWeek: 'invalid-day',
+          scheduleTime: '22:00',
+        })
+      ).rejects.toThrow(
+        'BACKUP_AUTO_DAY_OF_WEEK must be a weekday name or 0-6'
+      );
     });
 
     it('daily cadence does not require dayOfWeek', async () => {

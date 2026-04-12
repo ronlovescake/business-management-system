@@ -31,6 +31,12 @@ const SCHEDULER_PATH = resolve(
 );
 const schedulerSource = readFileSync(SCHEDULER_PATH, 'utf8');
 
+const CONFIG_SHARED_PATH = resolve(
+  __dirname,
+  '../../../src/lib/backup/schedulerConfigShared.js'
+);
+const configSource = readFileSync(CONFIG_SHARED_PATH, 'utf8');
+
 // ---------------------------------------------------------------------------
 // Helpers: evaluate scheduler functions in isolation
 // ---------------------------------------------------------------------------
@@ -637,7 +643,7 @@ describe('Backup Scheduler Sidecar — Config Rules', () => {
   });
 
   it('B12: default timezone is Asia/Manila', () => {
-    expect(schedulerSource).toContain("DEFAULT_TIMEZONE = 'Asia/Manila'");
+    expect(configSource).toContain("DEFAULT_BACKUP_TIMEZONE = 'Asia/Manila'");
   });
 
   it('B7: each config has an independent enable flag', () => {
@@ -689,24 +695,24 @@ describe('Backup Scheduler Sidecar — Config Rules', () => {
 
 describe('Backup Scheduler Sidecar — Defaults', () => {
   it('C: full backup defaults to Sunday 22:00 weekly', () => {
-    expect(schedulerSource).toContain("DEFAULT_FULL_TIME = '22:00'");
-    expect(schedulerSource).toContain("DEFAULT_FULL_CADENCE = 'weekly'");
-    expect(schedulerSource).toContain("DEFAULT_FULL_DAY_OF_WEEK = 'sunday'");
+    expect(configSource).toContain("DEFAULT_FULL_BACKUP_TIME = '22:00'");
+    expect(configSource).toContain("DEFAULT_FULL_BACKUP_CADENCE = 'weekly'");
+    expect(configSource).toContain("DEFAULT_FULL_BACKUP_DAY_OF_WEEK = 'sunday'");
   });
 
   it('C: differential backup defaults to 12:00 daily', () => {
-    expect(schedulerSource).toContain("DEFAULT_DIFF_TIME = '12:00'");
+    expect(configSource).toContain("DEFAULT_DIFFERENTIAL_BACKUP_TIME = '12:00'");
   });
 
   it('C: PITR base defaults to 01:00', () => {
-    expect(schedulerSource).toContain("DEFAULT_PITR_BASE_TIME = '01:00'");
+    expect(configSource).toContain("DEFAULT_PITR_BASE_TIME = '01:00'");
   });
 
   it('C: log pruning defaults to 03:00', () => {
-    expect(schedulerSource).toContain("DEFAULT_LOG_PRUNE_TIME = '03:00'");
+    expect(configSource).toContain("DEFAULT_LOG_PRUNE_TIME = '03:00'");
   });
 
   it('C: retention defaults to 30 days', () => {
-    expect(schedulerSource).toContain('DEFAULT_RETENTION_DAYS = 30');
+    expect(configSource).toContain('DEFAULT_BACKUP_RETENTION_DAYS = 30');
   });
 });

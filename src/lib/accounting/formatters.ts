@@ -1,3 +1,5 @@
+import { formatDateOnly } from '@/utils/dateFormatters';
+
 export type CurrencyFormatOptions = {
   minimumFractionDigits?: number;
   maximumFractionDigits?: number;
@@ -18,11 +20,5 @@ export function formatCurrencyPHP(
 }
 
 export function formatLongDateUS(date: string | Date): string {
-  const parsed = typeof date === 'string' ? new Date(date) : date;
-  return new Intl.DateTimeFormat('en-US', {
-    year: 'numeric',
-    month: 'long',
-    day: '2-digit',
-    timeZone: 'Asia/Manila',
-  }).format(parsed);
+  return formatDateOnly(date);
 }

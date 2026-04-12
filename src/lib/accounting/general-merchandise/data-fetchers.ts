@@ -7,7 +7,12 @@ import {
 import { getAccountingCutoverDate } from '@/lib/accounting/cutover';
 import { parseDate } from '@/lib/accounting/date-utils';
 import { isCancelledOrderStatus } from '@/lib/transactions/order-status';
-import { fetchWithStatusChangesFallback } from '@/lib/accounting/fetcher-helpers';
+import {
+  fetchOptionalModelRows,
+  fetchWithStatusChangesFallback,
+  findChangedAtForStatuses,
+  getCancelledAtDateFromStatusChanges,
+} from '@/lib/accounting/fetcher-helpers';
 
 const ACCOUNTING_CUTOVER = getAccountingCutoverDate('generalMerchandise');
 
@@ -210,38 +215,22 @@ export async function fetchGeneralMerchandiseApprovedExpenses(): Promise<
       }
     | undefined;
 
-  if (!expenseModel?.findMany) {
-    logger.warn(
+  return fetchOptionalModelRows<GeneralMerchandiseExpenseRow>({
+    model: expenseModel,
+    unavailableLogMessage:
       'GM Expense model is unavailable on Prisma Client; returning no approved expenses',
-      {
-        hint: 'Run `npx prisma generate` and apply the GM expenses migration to enable GM expenses.',
-      }
-    );
-    return [];
-  }
-
-  try {
-    return (await expenseModel.findMany({
-      where: {
-        status: { in: ['approved', 'paid'] },
-      },
-    })) as GeneralMerchandiseExpenseRow[];
-  } catch (error) {
-    const isMissingTable =
-      typeof error === 'object' &&
-      error !== null &&
-      'code' in error &&
-      (error as { code?: string }).code === 'P2021';
-
-    if (isMissingTable) {
-      logger.warn('GM expenses table is missing; returning no expenses', {
-        hint: 'Apply the GM expenses migration to enable General Merchandise expenses.',
-      });
-      return [];
-    }
-
-    throw error;
-  }
+    unavailableHint:
+      'Run `npx prisma generate` and apply the GM expenses migration to enable GM expenses.',
+    missingTableLogMessage: 'GM expenses table is missing; returning no expenses',
+    missingTableHint:
+      'Apply the GM expenses migration to enable General Merchandise expenses.',
+    query: async () =>
+      (await expenseModel!.findMany!({
+        where: {
+          status: { in: ['approved', 'paid'] },
+        },
+      })) as GeneralMerchandiseExpenseRow[],
+  });
 }
 
 export async function fetchGeneralMerchandiseTransactionRefunds(): Promise<
@@ -281,45 +270,41 @@ export async function fetchGeneralMerchandiseTransactionPayments(): Promise<
       }
     | undefined;
 
-  if (!transactionPayment?.findMany) {
-    logger.warn(
-      'GM TransactionPayment model is unavailable on Prisma Client; returning no payment events',
-      {
-        hint: 'Run `npx prisma generate` and apply the GM payments migration to enable payment events.',
-      }
-    );
-    return [];
-  }
-
   const hasReservationColumn = await getGmReservationColumnAvailability();
 
-  const rows = (await transactionPayment.findMany({
-    where: {
-      deletedAt: null,
-      transaction: { deletedAt: null },
-    },
-    select: {
-      id: true,
-      transactionId: true,
-      paymentDate: true,
-      amount: true,
-      method: true,
-      notes: true,
-      createdAt: true,
-      ...(hasReservationColumn ? { isReservation: true } : {}),
-      transaction: {
+  return fetchOptionalModelRows<TransactionPaymentWithTransaction>({
+    model: transactionPayment,
+    unavailableLogMessage:
+      'GM TransactionPayment model is unavailable on Prisma Client; returning no payment events',
+    unavailableHint:
+      'Run `npx prisma generate` and apply the GM payments migration to enable payment events.',
+    query: async () =>
+      (await transactionPayment!.findMany!({
+        where: {
+          deletedAt: null,
+          transaction: { deletedAt: null },
+        },
         select: {
           id: true,
-          customers: true,
-          productCode: true,
-          orderStatus: true,
+          transactionId: true,
+          paymentDate: true,
+          amount: true,
+          method: true,
+          notes: true,
+          createdAt: true,
+          ...(hasReservationColumn ? { isReservation: true } : {}),
+          transaction: {
+            select: {
+              id: true,
+              customers: true,
+              productCode: true,
+              orderStatus: true,
+            },
+          },
         },
-      },
-    },
-    orderBy: [{ paymentDate: 'asc' }, { createdAt: 'asc' }],
-  })) as TransactionPaymentWithTransaction[];
-
-  return rows;
+        orderBy: [{ paymentDate: 'asc' }, { createdAt: 'asc' }],
+      })) as TransactionPaymentWithTransaction[],
+  });
 }
 
 export async function fetchGeneralMerchandiseManualJournalLines(params: {
@@ -337,44 +322,28 @@ export async function fetchGeneralMerchandiseManualJournalLines(params: {
       }
     | undefined;
 
-  if (!journalModel?.findMany) {
-    logger.warn(
+  return fetchOptionalModelRows<ManualJournalLine>({
+    model: journalModel,
+    unavailableLogMessage:
       'GM manual journal model is unavailable on Prisma Client; returning no manual journal lines',
-      {
-        hint: 'Run `npx prisma generate` and apply the GM manual journal migration to enable manual entries.',
-      }
-    );
-    return [];
-  }
-
-  try {
-    const rows = (await journalModel.findMany({
-      where: {
-        date: {
-          gte: from,
-          ...(to ? { lte: to } : {}),
+    unavailableHint:
+      'Run `npx prisma generate` and apply the GM manual journal migration to enable manual entries.',
+    missingTableLogMessage:
+      'GM manual journal table is missing; returning no manual journal lines',
+    missingTableHint:
+      'Create/apply the GeneralMerchandiseAccountingJournalLine table to enable manual entries.',
+    errorLogMessage: 'Failed to fetch GM manual journal lines',
+    query: async () =>
+      (await journalModel!.findMany!({
+        where: {
+          date: {
+            gte: from,
+            ...(to ? { lte: to } : {}),
+          },
         },
-      },
-      orderBy: { date: 'asc' },
-    })) as ManualJournalLine[];
-
-    return rows;
-  } catch (error) {
-    const code = (error as { code?: string })?.code;
-    const message = (error as { message?: string })?.message ?? '';
-    if (code === 'P2021' || message.includes('does not exist')) {
-      logger.warn(
-        'GM manual journal table is missing; returning no manual journal lines',
-        {
-          hint: 'Create/apply the GeneralMerchandiseAccountingJournalLine table to enable manual entries.',
-        }
-      );
-      return [];
-    }
-
-    logger.error('Failed to fetch GM manual journal lines', { error });
-    throw error;
-  }
+        orderBy: { date: 'asc' },
+      })) as ManualJournalLine[],
+  });
 }
 
 export function getPaidAtDate(tx: {
@@ -389,12 +358,10 @@ export function getPaidAtDate(tx: {
     return packedAt;
   }
 
-  const paidStatusChangedAt =
-    tx.statusChanges?.find((status) =>
-      (PAID_STATUSES as readonly string[]).includes(
-        (status.newStatus ?? '').trim()
-      )
-    )?.changedAt ?? null;
+  const paidStatusChangedAt = findChangedAtForStatuses(
+    tx.statusChanges,
+    PAID_STATUSES
+  );
 
   const orderAt = parseDate(tx.orderDate ?? null);
 
@@ -407,23 +374,7 @@ export function getCancelledAtDate(tx: {
   orderStatus?: string | null;
   updatedAt?: Date;
 }): Date | null {
-  if (!tx.statusChanges || tx.statusChanges.length === 0) {
-    return tx.updatedAt ?? null;
-  }
-
-  const forfeited = tx.statusChanges.find(
-    (status) => (status.newStatus ?? '').trim() === 'Forfeited'
-  );
-
-  if (forfeited?.changedAt) {
-    return forfeited.changedAt;
-  }
-
-  const cancelled = tx.statusChanges.find(
-    (status) => (status.newStatus ?? '').trim() === 'Cancelled'
-  );
-
-  return cancelled?.changedAt ?? tx.updatedAt ?? null;
+  return getCancelledAtDateFromStatusChanges(tx);
 }
 
 export function isWithinDateRange(

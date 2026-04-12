@@ -1,12 +1,9 @@
+import { formatDateOnly } from '@/utils/dateFormatters';
+
 export type PayrollStatus = 'pending' | 'approved' | 'paid';
 
 export function formatPayrollDate(dateString: string) {
-  return new Date(dateString).toLocaleDateString('en-US', {
-    year: 'numeric',
-    month: 'long',
-    day: '2-digit',
-    timeZone: 'Asia/Manila',
-  });
+  return formatDateOnly(dateString);
 }
 
 export function formatPayrollCurrency(amount: number) {

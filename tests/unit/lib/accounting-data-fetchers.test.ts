@@ -22,7 +22,7 @@ describe('accounting data-fetchers - getPaidAtDate', () => {
     const tx = {
       orderDate: '2025-12-07',
       statusChanges: [
-        { newStatus: 'shipped', changedAt: new Date('2026-01-14') },
+        { newStatus: 'Shipped', changedAt: new Date('2026-01-14') },
       ],
     } as Parameters<typeof getPaidAtDate>[0];
 
@@ -35,8 +35,8 @@ describe('accounting data-fetchers - getPaidAtDate', () => {
     const tx = {
       orderDate: null,
       statusChanges: [
-        { newStatus: 'shipped', changedAt: new Date('2026-01-10') },
-        { newStatus: 'shipped', changedAt: new Date('2026-01-11') },
+        { newStatus: 'Shipped', changedAt: new Date('2026-01-10') },
+        { newStatus: 'Shipped', changedAt: new Date('2026-01-11') },
       ],
     } as Parameters<typeof getPaidAtDate>[0];
 
@@ -49,7 +49,7 @@ describe('accounting data-fetchers - getPaidAtDate', () => {
     const tx = {
       orderDate: '2026-01-20',
       statusChanges: [
-        { newStatus: 'shipped', changedAt: new Date('2026-02-10') },
+        { newStatus: 'Shipped', changedAt: new Date('2026-02-10') },
       ],
     } as Parameters<typeof getPaidAtDate>[0];
 

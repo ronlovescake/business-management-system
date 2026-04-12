@@ -1,6 +1,23 @@
 #!/usr/bin/env node
 /* eslint-disable no-console */
 
+const {
+  DEFAULT_BACKUP_RETENTION_DAYS,
+  DEFAULT_BACKUP_TIMEZONE,
+  DEFAULT_DIFFERENTIAL_BACKUP_TIME,
+  DEFAULT_FULL_BACKUP_CADENCE,
+  DEFAULT_FULL_BACKUP_DAY_OF_WEEK,
+  DEFAULT_FULL_BACKUP_TIME,
+  DEFAULT_LOG_PRUNE_TIME,
+  DEFAULT_PITR_BASE_TIME,
+  WEEKDAY_NAMES,
+  parseBooleanFlag,
+  parseRetentionDays,
+  parseScheduleCadence: sharedParseScheduleCadence,
+  parseScheduleDayOfWeek: sharedParseScheduleDayOfWeek,
+  parseScheduleTime: sharedParseScheduleTime,
+} = require('../src/lib/backup/schedulerConfigShared');
+
 const DEFAULT_URL = 'http://app:5000/api/internal/backup/run';
 const DEFAULT_PITR_BASE_URL = 'http://app:5000/api/internal/backup/pitr/run';
 const DEFAULT_LOG_PRUNE_URL =
@@ -11,59 +28,39 @@ const DEFAULT_TRUCKING_EMPLOYEE_AUTOMATION_URL =
   'http://app:5000/api/internal/trucking/employee-automation/run-due';
 const DEFAULT_GM_EMPLOYEE_AUTOMATION_URL =
   'http://app:5000/api/internal/general-merchandise/employee-automation/run-due';
-const DEFAULT_PITR_BASE_TIME = '01:00';
-const DEFAULT_FULL_TIME = '22:00';
-const DEFAULT_FULL_CADENCE = 'weekly';
-const DEFAULT_FULL_DAY_OF_WEEK = 'sunday';
-const DEFAULT_DIFF_TIME = '12:00';
-const DEFAULT_LOG_PRUNE_TIME = '03:00';
-const DEFAULT_TIMEZONE = 'Asia/Manila';
-const DEFAULT_RETENTION_DAYS = 30;
 const CHECK_INTERVAL_MS = 60 * 1000;
-const WEEKDAY_NAMES = [
-  'sunday',
-  'monday',
-  'tuesday',
-  'wednesday',
-  'thursday',
-  'friday',
-  'saturday',
-];
 
-const fullEnabled =
-  String(process.env.BACKUP_AUTO_ENABLED || 'false')
-    .trim()
-    .toLowerCase() === 'true';
-const differentialEnabled =
-  String(process.env.BACKUP_DIFF_AUTO_ENABLED || 'false')
-    .trim()
-    .toLowerCase() === 'true';
-const pitrBaseEnabled =
-  String(process.env.PITR_BASE_AUTO_ENABLED || 'false')
-    .trim()
-    .toLowerCase() === 'true';
-const logPruneEnabled =
-  String(process.env.LOG_PRUNE_AUTO_ENABLED || 'false')
-    .trim()
-    .toLowerCase() === 'true';
-const clothingEmployeeAutomationEnabled =
-  String(process.env.EMPLOYEE_AUTOMATION_CLOTHING_ENABLED || 'true')
-    .trim()
-    .toLowerCase() === 'true';
-const truckingEmployeeAutomationEnabled =
-  String(process.env.EMPLOYEE_AUTOMATION_TRUCKING_ENABLED || 'true')
-    .trim()
-    .toLowerCase() === 'true';
-const generalMerchandiseEmployeeAutomationEnabled =
-  String(process.env.EMPLOYEE_AUTOMATION_GENERAL_MERCHANDISE_ENABLED || 'true')
-    .trim()
-    .toLowerCase() === 'true';
+const fullEnabled = parseBooleanFlag(process.env.BACKUP_AUTO_ENABLED, false);
+const differentialEnabled = parseBooleanFlag(
+  process.env.BACKUP_DIFF_AUTO_ENABLED,
+  false
+);
+const pitrBaseEnabled = parseBooleanFlag(
+  process.env.PITR_BASE_AUTO_ENABLED,
+  false
+);
+const logPruneEnabled = parseBooleanFlag(
+  process.env.LOG_PRUNE_AUTO_ENABLED,
+  false
+);
+const clothingEmployeeAutomationEnabled = parseBooleanFlag(
+  process.env.EMPLOYEE_AUTOMATION_CLOTHING_ENABLED,
+  true
+);
+const truckingEmployeeAutomationEnabled = parseBooleanFlag(
+  process.env.EMPLOYEE_AUTOMATION_TRUCKING_ENABLED,
+  true
+);
+const generalMerchandiseEmployeeAutomationEnabled = parseBooleanFlag(
+  process.env.EMPLOYEE_AUTOMATION_GENERAL_MERCHANDISE_ENABLED,
+  true
+);
 const runUrl = process.env.BACKUP_AUTO_URL || DEFAULT_URL;
 const pitrBaseUrl = process.env.PITR_BASE_AUTO_URL || DEFAULT_PITR_BASE_URL;
-const timeZone = process.env.BACKUP_AUTO_TIMEZONE || DEFAULT_TIMEZONE;
-const retentionDays = Math.max(
-  1,
-  Number(process.env.BACKUP_RETENTION_DAYS || DEFAULT_RETENTION_DAYS)
+const timeZone = process.env.BACKUP_AUTO_TIMEZONE || DEFAULT_BACKUP_TIMEZONE;
+const retentionDays = parseRetentionDays(
+  process.env.BACKUP_RETENTION_DAYS,
+  DEFAULT_BACKUP_RETENTION_DAYS
 );
 const scheduleConfigs = [
   {
@@ -79,10 +76,11 @@ const scheduleConfigs = [
     label: 'full dump',
     enabled: fullEnabled,
     url: runUrl,
-    scheduleTime: process.env.BACKUP_AUTO_TIME || DEFAULT_FULL_TIME,
-    scheduleCadence: process.env.BACKUP_AUTO_CADENCE || DEFAULT_FULL_CADENCE,
+    scheduleTime: process.env.BACKUP_AUTO_TIME || DEFAULT_FULL_BACKUP_TIME,
+    scheduleCadence:
+      process.env.BACKUP_AUTO_CADENCE || DEFAULT_FULL_BACKUP_CADENCE,
     scheduleDayOfWeek:
-      process.env.BACKUP_AUTO_DAY_OF_WEEK || DEFAULT_FULL_DAY_OF_WEEK,
+      process.env.BACKUP_AUTO_DAY_OF_WEEK || DEFAULT_FULL_BACKUP_DAY_OF_WEEK,
     payload: {
       strategy: 'full',
       format: 'dump',
@@ -94,7 +92,8 @@ const scheduleConfigs = [
     label: 'differential backup',
     enabled: differentialEnabled,
     url: runUrl,
-    scheduleTime: process.env.BACKUP_DIFF_AUTO_TIME || DEFAULT_DIFF_TIME,
+    scheduleTime:
+      process.env.BACKUP_DIFF_AUTO_TIME || DEFAULT_DIFFERENTIAL_BACKUP_TIME,
     scheduleCadence: 'daily',
     payload: {
       strategy: 'differential',
@@ -163,19 +162,10 @@ if (scheduleConfigs.length === 0) {
     ])
   );
 
-  function parseScheduleTime(label, value) {
-    const [scheduledHour, scheduledMinute] = value
-      .split(':')
-      .map((part) => Number(part));
+  function parseScheduleTimeOrExit(label, value) {
+    const parsed = sharedParseScheduleTime(value);
 
-    if (
-      !Number.isInteger(scheduledHour) ||
-      !Number.isInteger(scheduledMinute) ||
-      scheduledHour < 0 ||
-      scheduledHour > 23 ||
-      scheduledMinute < 0 ||
-      scheduledMinute > 59
-    ) {
+    if (!parsed) {
       console.error(
         `[backup-scheduler] ${label} schedule time must be HH:MM in 24-hour format`
       );
@@ -183,18 +173,16 @@ if (scheduleConfigs.length === 0) {
     }
 
     return {
-      scheduledHour,
-      scheduledMinute,
+      scheduledHour: parsed.hour,
+      scheduledMinute: parsed.minute,
     };
   }
 
-  function parseScheduleCadence(label, value) {
-    const normalized = String(value || 'daily')
-      .trim()
-      .toLowerCase();
+  function parseScheduleCadenceOrExit(label, value) {
+    const parsed = sharedParseScheduleCadence(value || 'daily');
 
-    if (normalized === 'daily' || normalized === 'weekly') {
-      return normalized;
+    if (parsed) {
+      return parsed;
     }
 
     console.error(
@@ -203,19 +191,11 @@ if (scheduleConfigs.length === 0) {
     process.exit(1);
   }
 
-  function parseScheduleDayOfWeek(label, value) {
-    const normalized = String(value || '')
-      .trim()
-      .toLowerCase();
-    const numeric = Number(normalized);
+  function parseScheduleDayOfWeekOrExit(label, value) {
+    const parsed = sharedParseScheduleDayOfWeek(value);
 
-    if (Number.isInteger(numeric) && numeric >= 0 && numeric <= 6) {
-      return numeric;
-    }
-
-    const dayIndex = WEEKDAY_NAMES.indexOf(normalized);
-    if (dayIndex >= 0) {
-      return dayIndex;
+    if (parsed !== null) {
+      return parsed;
     }
 
     console.error(
@@ -246,14 +226,17 @@ if (scheduleConfigs.length === 0) {
         : {
             ...config,
             periodStrategy: 'scheduled',
-            ...parseScheduleTime(config.label, config.scheduleTime),
-            scheduleCadence: parseScheduleCadence(
+            ...parseScheduleTimeOrExit(config.label, config.scheduleTime),
+            scheduleCadence: parseScheduleCadenceOrExit(
               config.label,
               config.scheduleCadence || 'daily'
             ),
             scheduleDayOfWeek:
               (config.scheduleCadence || 'daily') === 'weekly'
-                ? parseScheduleDayOfWeek(config.label, config.scheduleDayOfWeek)
+                ? parseScheduleDayOfWeekOrExit(
+                    config.label,
+                    config.scheduleDayOfWeek
+                  )
                 : null,
           },
     ])

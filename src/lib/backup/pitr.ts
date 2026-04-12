@@ -6,6 +6,12 @@ import { prisma } from '@/lib/db';
 import { getDatabaseUrl } from '@/lib/env';
 import { logger } from '@/lib/logger';
 import { getBackupDirectory } from '@/lib/backup-storage';
+import {
+  DEFAULT_BACKUP_TIMEZONE,
+  DEFAULT_PITR_BASE_TIME,
+  parseBooleanFlag,
+  parseScheduleTime,
+} from '@/lib/backup/schedulerConfig';
 
 export interface PitrBaseBackupFile {
   name: string;
@@ -239,57 +245,6 @@ function readBaseBackupManifest(folderPath: string) {
   return safeReadJson<PitrBaseBackupManifest>(
     path.join(folderPath, 'MANIFEST.json')
   );
-}
-
-function parseBoolean(value: unknown, fallback: boolean) {
-  if (typeof value === 'boolean') {
-    return value;
-  }
-
-  if (typeof value === 'string') {
-    const normalized = value.trim().toLowerCase();
-    if (normalized === 'true' || normalized === '1' || normalized === 'yes') {
-      return true;
-    }
-
-    if (normalized === 'false' || normalized === '0' || normalized === 'no') {
-      return false;
-    }
-  }
-
-  return fallback;
-}
-
-function parseScheduleTime(value: unknown) {
-  if (typeof value !== 'string') {
-    return null;
-  }
-
-  const trimmed = value.trim();
-  if (!/^\d{2}:\d{2}$/.test(trimmed)) {
-    return null;
-  }
-
-  const [hourValue, minuteValue] = trimmed.split(':');
-  const hour = Number(hourValue);
-  const minute = Number(minuteValue);
-
-  if (
-    !Number.isInteger(hour) ||
-    !Number.isInteger(minute) ||
-    hour < 0 ||
-    hour > 23 ||
-    minute < 0 ||
-    minute > 59
-  ) {
-    return null;
-  }
-
-  return {
-    hour,
-    minute,
-    raw: trimmed,
-  };
 }
 
 function buildDateKey(date: Date, timeZone: string) {
@@ -623,7 +578,7 @@ export async function getPitrStatus() {
     schedule: {
       enabled: process.env.PITR_BASE_AUTO_ENABLED === 'true',
       time: process.env.PITR_BASE_AUTO_TIME || null,
-      timeZone: process.env.BACKUP_AUTO_TIMEZONE || 'Asia/Manila',
+      timeZone: process.env.BACKUP_AUTO_TIMEZONE || DEFAULT_BACKUP_TIMEZONE,
     },
     baseBackupCount: baseBackups.length,
     latestBaseBackup,
@@ -753,15 +708,15 @@ export async function runScheduledPitrBaseBackup(
   const timeZone =
     typeof body.timeZone === 'string' && body.timeZone.trim().length > 0
       ? body.timeZone.trim()
-      : process.env.BACKUP_AUTO_TIMEZONE || 'Asia/Manila';
+      : process.env.BACKUP_AUTO_TIMEZONE || DEFAULT_BACKUP_TIMEZONE;
   const parsedScheduleTime = parseScheduleTime(
-    body.scheduleTime ?? process.env.PITR_BASE_AUTO_TIME ?? '01:00'
+    body.scheduleTime ?? process.env.PITR_BASE_AUTO_TIME ?? DEFAULT_PITR_BASE_TIME
   );
-  const allowCatchUpBeforeScheduledTime = parseBoolean(
+  const allowCatchUpBeforeScheduledTime = parseBooleanFlag(
     body.allowCatchUpBeforeScheduledTime,
     true
   );
-  const skipIfAlreadyCompletedToday = parseBoolean(
+  const skipIfAlreadyCompletedToday = parseBooleanFlag(
     body.skipIfAlreadyCompletedToday,
     true
   );

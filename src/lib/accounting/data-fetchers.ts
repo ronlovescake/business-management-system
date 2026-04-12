@@ -3,14 +3,18 @@
  */
 
 import { prisma } from '@/lib/db';
-import { logger } from '@/lib/logger';
 import {
   ACCOUNTS_RECEIVABLE_STATUSES,
   PAID_STATUSES,
 } from '@/lib/accounting/constants';
 import { parseDate } from '@/lib/accounting/date-utils';
 import { isCancelledOrderStatus } from '@/lib/transactions/order-status';
-import { fetchWithStatusChangesFallback } from '@/lib/accounting/fetcher-helpers';
+import {
+  fetchOptionalModelRows,
+  fetchWithStatusChangesFallback,
+  findChangedAtForStatuses,
+  getCancelledAtDateFromStatusChanges,
+} from '@/lib/accounting/fetcher-helpers';
 
 type TransactionWithStatusChanges = Awaited<
   ReturnType<typeof prisma.transaction.findMany>
@@ -180,38 +184,32 @@ export async function fetchTransactionPayments(): Promise<
       }
     | undefined;
 
-  if (!transactionPayment?.findMany) {
-    // This usually means the DB/schema was updated but Prisma Client wasn't regenerated yet.
-    // Fail open so accounting pages still work using legacy transaction payment fields.
-    logger.warn(
+  return fetchOptionalModelRows<TransactionPaymentWithTransaction>({
+    model: transactionPayment,
+    unavailableLogMessage:
       'TransactionPayment model is unavailable on Prisma Client; returning no payment events',
-      {
-        hint: 'Run `npx prisma generate` and apply the payments migration to enable payment events.',
-      }
-    );
-    return [];
-  }
-
-  const rows = (await transactionPayment.findMany({
-    where: {
-      deletedAt: null,
-      transaction: { deletedAt: null },
-    },
-    include: {
-      transaction: {
-        select: {
-          id: true,
-          customers: true,
-          productCode: true,
-          orderDate: true,
-          orderStatus: true,
+    unavailableHint:
+      'Run `npx prisma generate` and apply the payments migration to enable payment events.',
+    query: async () =>
+      (await transactionPayment!.findMany!({
+        where: {
+          deletedAt: null,
+          transaction: { deletedAt: null },
         },
-      },
-    },
-    orderBy: [{ paymentDate: 'asc' }, { createdAt: 'asc' }],
-  })) as TransactionPaymentWithTransaction[];
-
-  return rows;
+        include: {
+          transaction: {
+            select: {
+              id: true,
+              customers: true,
+              productCode: true,
+              orderDate: true,
+              orderStatus: true,
+            },
+          },
+        },
+        orderBy: [{ paymentDate: 'asc' }, { createdAt: 'asc' }],
+      })) as TransactionPaymentWithTransaction[],
+  });
 }
 
 export async function fetchManualJournalLines(params: {
@@ -226,42 +224,27 @@ export async function fetchManualJournalLines(params: {
       }
     | undefined;
 
-  if (!journalModel?.findMany) {
-    logger.warn(
+  return fetchOptionalModelRows<ManualJournalLine>({
+    model: journalModel,
+    unavailableLogMessage:
       'Manual journal model is unavailable on Prisma Client; returning no manual journal lines',
-      {
-        hint: 'Run `npx prisma generate` and apply the manual journal migration to enable manual entries.',
-      }
-    );
-    return [];
-  }
-
-  try {
-    const rows = (await journalModel.findMany({
-      where: {
-        date: {
-          gte: from,
-          ...(to ? { lte: to } : {}),
+    unavailableHint:
+      'Run `npx prisma generate` and apply the manual journal migration to enable manual entries.',
+    missingTableLogMessage:
+      'Manual journal table is missing; returning no manual journal lines',
+    missingTableHint:
+      'Create/apply the ClothingAccountingJournalLine table to enable manual entries.',
+    query: async () =>
+      (await journalModel!.findMany!({
+        where: {
+          date: {
+            gte: from,
+            ...(to ? { lte: to } : {}),
+          },
         },
-      },
-      orderBy: { date: 'asc' },
-    })) as ManualJournalLine[];
-
-    return rows;
-  } catch (error) {
-    const code = (error as { code?: string })?.code;
-    const message = (error as { message?: string })?.message ?? '';
-    if (code === 'P2021' || message.includes('does not exist')) {
-      logger.warn(
-        'Manual journal table is missing; returning no manual journal lines',
-        {
-          hint: 'Create/apply the ClothingAccountingJournalLine table to enable manual entries.',
-        }
-      );
-      return [];
-    }
-    throw error;
-  }
+        orderBy: { date: 'asc' },
+      })) as ManualJournalLine[],
+  });
 }
 
 export function getPaidAtDate(
@@ -270,9 +253,10 @@ export function getPaidAtDate(
   }
 ): Date | null {
   const packedDate = parseDate(transaction.packedDate);
-
-  // Status changes are sorted ascending in fetchers; first is the earliest paid timestamp.
-  const paidStatusChangedAt = transaction.statusChanges?.[0]?.changedAt ?? null;
+  const paidStatusChangedAt = findChangedAtForStatuses(
+    transaction.statusChanges,
+    PAID_STATUSES
+  );
   const orderDate = parseDate(transaction.orderDate);
 
   // Cutover policy: recognition is based on completion, not order date.
@@ -285,23 +269,7 @@ export function getCancelledAtDate(tx: {
   orderStatus?: string | null;
   updatedAt?: Date;
 }): Date | null {
-  if (!tx.statusChanges || tx.statusChanges.length === 0) {
-    return tx.updatedAt ?? null;
-  }
-
-  const forfeited = tx.statusChanges.find(
-    (status) => (status.newStatus ?? '').trim() === 'Forfeited'
-  );
-
-  if (forfeited?.changedAt) {
-    return forfeited.changedAt;
-  }
-
-  const cancelled = tx.statusChanges.find(
-    (status) => (status.newStatus ?? '').trim() === 'Cancelled'
-  );
-
-  return cancelled?.changedAt ?? tx.updatedAt ?? null;
+  return getCancelledAtDateFromStatusChanges(tx);
 }
 
 export function isWithinDateRange(

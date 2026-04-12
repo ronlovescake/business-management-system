@@ -3,6 +3,21 @@ import path from 'path';
 
 import { getBackupDirectory } from '@/lib/backup-storage';
 import { pruneExpiredBackups } from '@/lib/backup/backupRetention';
+import {
+  DEFAULT_BACKUP_RETENTION_DAYS,
+  DEFAULT_BACKUP_TIMEZONE,
+  DEFAULT_DIFFERENTIAL_BACKUP_TIME,
+  DEFAULT_FULL_BACKUP_CADENCE,
+  DEFAULT_FULL_BACKUP_DAY_OF_WEEK,
+  DEFAULT_FULL_BACKUP_TIME,
+  WEEKDAY_NAMES,
+  parseBooleanFlag,
+  parseRetentionDays,
+  parseScheduleCadence,
+  parseScheduleDayOfWeek,
+  parseScheduleTime,
+  type ScheduleCadence,
+} from '@/lib/backup/schedulerConfig';
 import { createBackupJob } from '@/app/api/backup/route';
 import { writeFileAtomic } from '@/app/api/backup/backupRouteFileOps';
 import {
@@ -13,21 +28,6 @@ import {
   type BackupSchedulerMetadata,
   type BackupStrategy,
 } from '@/app/api/backup/backupRouteUtils';
-
-type ScheduleCadence = 'daily' | 'weekly';
-
-const WEEKDAY_NAMES = [
-  'sunday',
-  'monday',
-  'tuesday',
-  'wednesday',
-  'thursday',
-  'friday',
-  'saturday',
-] as const;
-
-const WEEKLY_FULL_DEFAULT_TIME = '22:00';
-const DAILY_DIFF_DEFAULT_TIME = '12:00';
 
 export type SchedulerRequestBody = {
   strategy?: BackupStrategy;
@@ -46,40 +46,6 @@ export class ScheduledBackupConfigurationError extends Error {
     super(message);
     this.name = 'ScheduledBackupConfigurationError';
   }
-}
-
-function parseRetentionDays(value: unknown) {
-  const parsed =
-    typeof value === 'number'
-      ? value
-      : typeof value === 'string'
-        ? Number(value)
-        : Number.NaN;
-
-  if (!Number.isFinite(parsed) || parsed < 1) {
-    const envValue = Number(process.env.BACKUP_RETENTION_DAYS || 30);
-    return Number.isFinite(envValue) && envValue > 0 ? envValue : 30;
-  }
-
-  return Math.floor(parsed);
-}
-
-function parseBoolean(value: unknown, fallback: boolean) {
-  if (typeof value === 'boolean') {
-    return value;
-  }
-
-  if (typeof value === 'string') {
-    const normalized = value.trim().toLowerCase();
-    if (normalized === 'true' || normalized === '1' || normalized === 'yes') {
-      return true;
-    }
-    if (normalized === 'false' || normalized === '0' || normalized === 'no') {
-      return false;
-    }
-  }
-
-  return fallback;
 }
 
 function buildDateKey(date: Date, timeZone: string) {
@@ -111,69 +77,7 @@ function getZonedWeekdayIndex(date: Date, timeZone: string) {
     .format(date)
     .toLowerCase();
 
-  return WEEKDAY_NAMES.indexOf(
-    weekdayName as (typeof WEEKDAY_NAMES)[number]
-  );
-}
-
-function parseScheduleCadence(
-  value: unknown,
-  fallback: ScheduleCadence
-): ScheduleCadence {
-  if (typeof value !== 'string') {
-    return fallback;
-  }
-
-  const normalized = value.trim().toLowerCase();
-  return normalized === 'weekly' ? 'weekly' : normalized === 'daily' ? 'daily' : fallback;
-}
-
-function parseScheduleDayOfWeek(value: unknown) {
-  if (typeof value === 'number' && Number.isInteger(value)) {
-    return value >= 0 && value <= 6 ? value : null;
-  }
-
-  if (typeof value !== 'string') {
-    return null;
-  }
-
-  const normalized = value.trim().toLowerCase();
-  const numeric = Number(normalized);
-  if (Number.isInteger(numeric)) {
-    return numeric >= 0 && numeric <= 6 ? numeric : null;
-  }
-
-  return WEEKDAY_NAMES.indexOf(
-    normalized as (typeof WEEKDAY_NAMES)[number]
-  );
-}
-
-function parseScheduleTime(value: unknown) {
-  if (typeof value !== 'string') {
-    return null;
-  }
-
-  const trimmed = value.trim();
-  if (!/^\d{2}:\d{2}$/.test(trimmed)) {
-    return null;
-  }
-
-  const [hourValue, minuteValue] = trimmed.split(':');
-  const hour = Number(hourValue);
-  const minute = Number(minuteValue);
-
-  if (
-    !Number.isInteger(hour) ||
-    !Number.isInteger(minute) ||
-    hour < 0 ||
-    hour > 23 ||
-    minute < 0 ||
-    minute > 59
-  ) {
-    return null;
-  }
-
-  return { hour, minute, raw: trimmed };
+  return WEEKDAY_NAMES.indexOf(weekdayName);
 }
 
 function getZonedCurrentMinutes(date: Date, timeZone: string) {
@@ -377,40 +281,47 @@ async function persistSchedulerMetadata(
 }
 
 export async function runScheduledBackupJob(body: SchedulerRequestBody = {}) {
-  const retentionDays = parseRetentionDays(body.retentionDays);
+  const retentionDays = parseRetentionDays(
+    body.retentionDays,
+    parseRetentionDays(
+      process.env.BACKUP_RETENTION_DAYS,
+      DEFAULT_BACKUP_RETENTION_DAYS
+    )
+  );
   const strategy: BackupStrategy = isValidStrategy(body.strategy)
     ? body.strategy
     : 'full';
   const timeZone =
     typeof body.timeZone === 'string' && body.timeZone.trim().length > 0
       ? body.timeZone.trim()
-      : process.env.BACKUP_AUTO_TIMEZONE || 'Asia/Manila';
+      : process.env.BACKUP_AUTO_TIMEZONE || DEFAULT_BACKUP_TIMEZONE;
   const defaultScheduleTime =
     strategy === 'differential'
-      ? process.env.BACKUP_DIFF_AUTO_TIME || DAILY_DIFF_DEFAULT_TIME
-      : process.env.BACKUP_AUTO_TIME || WEEKLY_FULL_DEFAULT_TIME;
+      ? process.env.BACKUP_DIFF_AUTO_TIME || DEFAULT_DIFFERENTIAL_BACKUP_TIME
+      : process.env.BACKUP_AUTO_TIME || DEFAULT_FULL_BACKUP_TIME;
   const parsedScheduleTime = parseScheduleTime(
     body.scheduleTime ?? defaultScheduleTime
   );
-  const scheduleCadence = parseScheduleCadence(
-    body.scheduleCadence,
+  const defaultScheduleCadence: ScheduleCadence =
     strategy === 'full'
-      ? parseScheduleCadence(process.env.BACKUP_AUTO_CADENCE, 'weekly')
-      : 'daily'
-  );
+      ? parseScheduleCadence(process.env.BACKUP_AUTO_CADENCE) ??
+        DEFAULT_FULL_BACKUP_CADENCE
+      : 'daily';
+  const scheduleCadence =
+    parseScheduleCadence(body.scheduleCadence) ?? defaultScheduleCadence;
   const scheduleDayOfWeek =
     scheduleCadence === 'weekly'
       ? parseScheduleDayOfWeek(
           body.scheduleDayOfWeek ??
             process.env.BACKUP_AUTO_DAY_OF_WEEK ??
-            'sunday'
+            DEFAULT_FULL_BACKUP_DAY_OF_WEEK
         )
       : null;
-  const allowCatchUpBeforeScheduledTime = parseBoolean(
+  const allowCatchUpBeforeScheduledTime = parseBooleanFlag(
     body.allowCatchUpBeforeScheduledTime,
     true
   );
-  const skipIfAlreadyCompletedToday = parseBoolean(
+  const skipIfAlreadyCompletedToday = parseBooleanFlag(
     body.skipIfAlreadyCompletedToday,
     true
   );

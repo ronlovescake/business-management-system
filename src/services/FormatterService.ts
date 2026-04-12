@@ -5,6 +5,12 @@
  * Use these formatters in your modules instead of writing custom formatting logic.
  */
 
+import {
+  formatDateOnly,
+  formatDateTimeFull,
+  formatTimeOnly,
+} from '@/utils/dateFormatters';
+
 export const CURRENCY_SYMBOL = '₱';
 
 export class FormatterService {
@@ -50,26 +56,7 @@ export class FormatterService {
    * @param date - Date string, Date object, or ISO string
    */
   static formatDate(date: string | Date | null | undefined): string {
-    if (!date) {
-      return '';
-    }
-
-    try {
-      const dateObj = typeof date === 'string' ? new Date(date) : date;
-
-      if (isNaN(dateObj.getTime())) {
-        return '';
-      }
-
-      return dateObj.toLocaleDateString('en-US', {
-        month: 'long',
-        day: '2-digit',
-        year: 'numeric',
-        timeZone: 'Asia/Manila',
-      });
-    } catch {
-      return '';
-    }
+    return date ? formatDateOnly(date) : '';
   }
 
   /**
@@ -77,26 +64,7 @@ export class FormatterService {
    * @param date - Date string, Date object, or ISO string
    */
   static formatDateShort(date: string | Date | null | undefined): string {
-    if (!date) {
-      return '';
-    }
-
-    try {
-      const dateObj = typeof date === 'string' ? new Date(date) : date;
-
-      if (isNaN(dateObj.getTime())) {
-        return '';
-      }
-
-      return dateObj.toLocaleDateString('en-US', {
-        month: 'long',
-        day: '2-digit',
-        year: 'numeric',
-        timeZone: 'Asia/Manila',
-      });
-    } catch {
-      return '';
-    }
+    return date ? formatDateOnly(date) : '';
   }
 
   /**
@@ -126,51 +94,14 @@ export class FormatterService {
    * @param time - Time string or Date object
    */
   static formatTime(time: string | Date | null | undefined): string {
-    if (!time) {
-      return '';
-    }
-
-    try {
-      const dateObj = typeof time === 'string' ? new Date(time) : time;
-
-      if (isNaN(dateObj.getTime())) {
-        return '';
-      }
-
-      return dateObj.toLocaleTimeString('en-US', {
-        hour: '2-digit',
-        minute: '2-digit',
-        hour12: true,
-        timeZone: 'Asia/Manila',
-      });
-    } catch {
-      return '';
-    }
+    return time ? formatTimeOnly(time) : '';
   }
 
   /**
    * Format datetime as "April 01, 2026 · 12:00 AM" (standard format)
    */
   static formatDateTime(datetime: string | Date | null | undefined): string {
-    if (!datetime) {
-      return '';
-    }
-
-    try {
-      const dateObj =
-        typeof datetime === 'string' ? new Date(datetime) : datetime;
-
-      if (isNaN(dateObj.getTime())) {
-        return '';
-      }
-
-      const datePart = this.formatDateShort(dateObj);
-      const timePart = this.formatTime(dateObj);
-
-      return `${datePart} \u00B7 ${timePart}`;
-    } catch {
-      return '';
-    }
+    return datetime ? formatDateTimeFull(datetime) : '';
   }
 
   /**
