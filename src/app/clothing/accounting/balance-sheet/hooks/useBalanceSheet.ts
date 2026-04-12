@@ -101,13 +101,15 @@ function toDisplayDate(iso: string): string {
     return new Date().toLocaleDateString('en-US', {
       year: 'numeric',
       month: 'long',
-      day: 'numeric',
+      day: '2-digit',
+      timeZone: 'Asia/Manila',
     });
   }
   return parsed.toLocaleDateString('en-US', {
     year: 'numeric',
     month: 'long',
-    day: 'numeric',
+    day: '2-digit',
+    timeZone: 'Asia/Manila',
   });
 }
 

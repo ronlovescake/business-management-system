@@ -5,6 +5,7 @@ import { Prisma, type TruckingEmployee } from '@prisma/client';
 import { prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
 import { sanitizers } from '@/lib/security/sanitize';
+import { getCurrentDateISO, toISODate } from '@/utils/date';
 
 export const dynamic = 'force-dynamic';
 
@@ -290,8 +291,8 @@ export async function PUT(
       const cutoffDateStr = employee.employmentEndDate
         ? typeof employee.employmentEndDate === 'string'
           ? employee.employmentEndDate
-          : new Date(employee.employmentEndDate).toISOString().slice(0, 10)
-        : new Date().toISOString().slice(0, 10);
+          : toISODate(employee.employmentEndDate) || getCurrentDateISO()
+        : getCurrentDateISO();
 
       try {
         const result = await prisma.truckingSchedule.updateMany({

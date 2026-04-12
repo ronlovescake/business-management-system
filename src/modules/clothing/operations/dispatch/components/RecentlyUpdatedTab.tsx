@@ -45,7 +45,7 @@ function RecentlyUpdatedTabComponent({
     try {
       const date = new Date(String(rawShipTime));
       if (!isNaN(date.getTime())) {
-        return formatDate(date, 'MMMM D, YYYY h:mm A');
+        return formatDate(date, 'MMMM DD, YYYY \u00B7 hh:mm A');
       }
     } catch (error) {
       // If parsing fails, use the raw value

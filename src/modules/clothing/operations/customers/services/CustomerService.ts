@@ -11,6 +11,7 @@ import { api } from '@/lib/api/client';
 import { buildApiPath } from '@/lib/api/paths';
 import { ensureArray } from '@/lib/api/normalize';
 import { logger } from '@/lib/logger';
+import { getCurrentDateISO } from '@/utils/date';
 
 type CustomerExportApiCustomer = {
   id: number;
@@ -148,7 +149,7 @@ class CustomerService {
    */
   static formToCustomerData(form: CustomerFormData): CustomerData {
     return {
-      Date: new Date().toISOString().slice(0, 10),
+      Date: getCurrentDateISO(),
       'Customer Name': form.customerName.trim(),
       'Phone Number': form.phoneNumber.trim(),
       Address: form.address.trim(),

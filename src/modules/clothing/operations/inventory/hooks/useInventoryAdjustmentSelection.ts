@@ -4,6 +4,7 @@ import {
   useCallback,
   useEffect,
 } from 'react';
+import { getCurrentDateISO } from '@/utils/date';
 
 type AdjustmentBucket =
   | 'damaged_hold'
@@ -102,7 +103,7 @@ export function useInventoryAdjustmentSelection({
       setNotes(getLatestBucketNote(defaultProductCode, 'damaged_hold'));
     }
 
-    setPostingDate(new Date().toISOString().slice(0, 10));
+    setPostingDate(getCurrentDateISO());
     setTransferToProduct('');
     setTransferQty(0);
     openAdjustmentModal();
@@ -127,7 +128,7 @@ export function useInventoryAdjustmentSelection({
 
       setSelectedProduct(code);
       setSearchQuery(code);
-      setPostingDate(new Date().toISOString().slice(0, 10));
+      setPostingDate(getCurrentDateISO());
       setTransferToProduct('');
       setTransferQty(0);
       setNotes(getLatestBucketNote(code, 'damaged_hold'));

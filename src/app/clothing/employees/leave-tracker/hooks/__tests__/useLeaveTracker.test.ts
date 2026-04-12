@@ -27,20 +27,21 @@ describe('Date Formatting', () => {
   const formatDate = (date: string | Date): string => {
     const d = new Date(date);
     return d.toLocaleDateString('en-US', {
-      month: 'short',
-      day: 'numeric',
+      month: 'long',
+      day: '2-digit',
       year: 'numeric',
+      timeZone: 'Asia/Manila',
     });
   };
 
   it('should format date correctly', () => {
-    expect(formatDate('2024-01-15')).toMatch(/Jan 15, 2024/);
-    expect(formatDate('2024-12-25')).toMatch(/Dec 25, 2024/);
+    expect(formatDate('2024-01-15')).toMatch(/January 15, 2024/);
+    expect(formatDate('2024-12-25')).toMatch(/December 25, 2024/);
   });
 
   it('should handle different months', () => {
-    expect(formatDate('2024-06-01')).toMatch(/Jun 1, 2024/);
-    expect(formatDate('2024-09-30')).toMatch(/Sep 30, 2024/);
+    expect(formatDate('2024-06-01')).toMatch(/June 01, 2024/);
+    expect(formatDate('2024-09-30')).toMatch(/September 30, 2024/);
   });
 });
 
@@ -53,10 +54,10 @@ describe('Date Range Formatting', () => {
     const start = new Date(startDate);
     const end = new Date(endDate);
 
-    const startMonth = start.toLocaleDateString('en-US', { month: 'short' });
-    const endMonth = end.toLocaleDateString('en-US', { month: 'short' });
-    const startDay = start.getDate();
-    const endDay = end.getDate();
+    const startMonth = start.toLocaleDateString('en-US', { month: 'long' });
+    const endMonth = end.toLocaleDateString('en-US', { month: 'long' });
+    const startDay = String(start.getDate()).padStart(2, '0');
+    const endDay = String(end.getDate()).padStart(2, '0');
     const year = end.getFullYear();
 
     // Same day
@@ -82,17 +83,17 @@ describe('Date Range Formatting', () => {
 
   it('should format single day range', () => {
     const result = formatDateRange('2024-01-15', '2024-01-15');
-    expect(result).toMatch(/Jan 15, 2024/);
+    expect(result).toMatch(/January 15, 2024/);
   });
 
   it('should format same month range', () => {
     const result = formatDateRange('2024-01-15', '2024-01-20');
-    expect(result).toMatch(/Jan 15 - 20, 2024/);
+    expect(result).toMatch(/January 15 - 20, 2024/);
   });
 
   it('should format different month range', () => {
     const result = formatDateRange('2024-01-25', '2024-02-05');
-    expect(result).toMatch(/Jan 25 - Feb 5, 2024/);
+    expect(result).toMatch(/January 25 - February 05, 2024/);
   });
 });
 

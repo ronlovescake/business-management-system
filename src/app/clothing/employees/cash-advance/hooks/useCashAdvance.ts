@@ -478,7 +478,7 @@ export function useCashAdvance(
 
   // Utility Functions
   const formatDate = (dateString: string) =>
-    formatDisplayDate(dateString, 'MMM D, YYYY');
+    formatDisplayDate(dateString);
 
   const formatCurrency = (amount: number) =>
     FormatterService.formatCurrency(amount);

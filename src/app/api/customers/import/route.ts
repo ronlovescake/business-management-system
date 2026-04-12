@@ -4,6 +4,7 @@ import { withErrorHandler } from '@/core/api/middleware';
 import { prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
 import { readUploadedText } from '@/lib/files/readUploadedText';
+import { getCurrentDateISO } from '@/utils/date';
 
 type CsvRow = Record<string, string>;
 type UploadFileLike = {
@@ -193,7 +194,7 @@ async function upsertCustomer(
 
   const newCustomer = await prisma.customer.create({
     data: {
-      date: row['Date'] || new Date().toISOString().slice(0, 10),
+      date: row['Date'] || getCurrentDateISO(),
       customerName: row['Customer Name'],
       phoneNumber: row['Phone Number'] || '',
       address: row['Address'] || '',

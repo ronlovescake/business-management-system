@@ -47,8 +47,9 @@ const pesoFormatter = new Intl.NumberFormat('en-PH', {
 const formatDate = (value: string) =>
   new Date(value).toLocaleDateString('en-US', {
     year: 'numeric',
-    month: 'short',
-    day: 'numeric',
+    month: 'long',
+    day: '2-digit',
+    timeZone: 'Asia/Manila',
   });
 
 export default function ProfitabilityPage() {

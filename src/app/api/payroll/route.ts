@@ -1,5 +1,6 @@
 import { prisma } from '@/lib/db';
 import { syncPayrollDeductions } from '@/lib/payroll/deductions';
+import { getCurrentDateISO } from '@/utils/date';
 import { expenseService } from '@/modules/clothing/ledger/api';
 import {
   createPayrollRouteHandlers,
@@ -10,7 +11,7 @@ async function syncExpenseFromPayroll(
   payroll: PayrollRouteRecord,
   processedBy?: string | null
 ): Promise<void> {
-  const paidDate = payroll.paidDate || new Date().toISOString().split('T')[0];
+  const paidDate = payroll.paidDate || getCurrentDateISO();
   const parsedDate = new Date(paidDate);
   const expenseDate = Number.isNaN(parsedDate.getTime())
     ? new Date()

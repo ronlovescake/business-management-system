@@ -19,6 +19,7 @@ import {
   StandardDataTable,
   StandardTableContainer,
 } from '@/components/tables/StandardDataTable';
+import { getCurrentDateISO } from '@/utils/date';
 import { useInventoryPage } from '../hooks/useInventoryPage';
 import {
   useInventoryDisplayData,
@@ -90,9 +91,7 @@ export function InventoryPage({ apiBasePath }: InventoryPageProps) {
   const [editModalOpened, editModalHandlers] = useDisclosure(false);
 
   const [selectedProduct, setSelectedProduct] = useState<string>('');
-  const [postingDate, setPostingDate] = useState<string>(
-    new Date().toISOString().slice(0, 10)
-  );
+  const [postingDate, setPostingDate] = useState<string>(getCurrentDateISO());
   const [bucketQuantities, setBucketQuantities] = useState<
     Record<AdjustmentBucket, number | ''>
   >({
@@ -109,14 +108,13 @@ export function InventoryPage({ apiBasePath }: InventoryPageProps) {
 
   const [supplierShortProduct, setSupplierShortProduct] = useState<string>('');
   const [supplierShortPostingDate, setSupplierShortPostingDate] =
-    useState<string>(new Date().toISOString().slice(0, 10));
+    useState<string>(getCurrentDateISO());
   const [supplierShortQty, setSupplierShortQty] = useState<number | ''>(1);
   const [supplierShortNotes, setSupplierShortNotes] = useState('');
 
   const [additionalsProduct, setAdditionalsProduct] = useState<string>('');
-  const [additionalsPostingDate, setAdditionalsPostingDate] = useState<string>(
-    new Date().toISOString().slice(0, 10)
-  );
+  const [additionalsPostingDate, setAdditionalsPostingDate] =
+    useState<string>(getCurrentDateISO());
   const [additionalsQty, setAdditionalsQty] = useState<number | ''>(1);
   const [additionalsNotes, setAdditionalsNotes] = useState('');
 

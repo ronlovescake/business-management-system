@@ -110,7 +110,7 @@ export function useAttendance(apiBasePath?: string) {
   } = useAttendanceFiltering(records, searchQuery, statusFilter, yearFilter);
 
   const formatDate = (dateString: string) =>
-    formatDisplayDate(dateString, 'MMM D, YYYY');
+    formatDisplayDate(dateString);
 
   const formatTimeRange = (timeIn: string, timeOut: string) => {
     if (timeIn === '00:00' && timeOut === '00:00') {

@@ -46,7 +46,7 @@ export class FormatterService {
   }
 
   /**
-   * Format a date as "Month Day, Year" (e.g. "October 12, 2025")
+   * Format a date as "April 01, 2026" (standard format)
    * @param date - Date string, Date object, or ISO string
    */
   static formatDate(date: string | Date | null | undefined): string {
@@ -63,8 +63,9 @@ export class FormatterService {
 
       return dateObj.toLocaleDateString('en-US', {
         month: 'long',
-        day: 'numeric',
+        day: '2-digit',
         year: 'numeric',
+        timeZone: 'Asia/Manila',
       });
     } catch {
       return '';
@@ -72,7 +73,7 @@ export class FormatterService {
   }
 
   /**
-   * Format a date as "Mon Day, Year" (e.g. "Oct 12, 2025")
+   * Format a date as "April 01, 2026" (standard format)
    * @param date - Date string, Date object, or ISO string
    */
   static formatDateShort(date: string | Date | null | undefined): string {
@@ -88,8 +89,8 @@ export class FormatterService {
       }
 
       return dateObj.toLocaleDateString('en-US', {
-        month: 'short',
-        day: 'numeric',
+        month: 'long',
+        day: '2-digit',
         year: 'numeric',
         timeZone: 'Asia/Manila',
       });
@@ -121,7 +122,7 @@ export class FormatterService {
   }
 
   /**
-   * Format time as "HH:MM AM/PM"
+   * Format time as "12:00 AM" (standard format)
    * @param time - Time string or Date object
    */
   static formatTime(time: string | Date | null | undefined): string {
@@ -137,9 +138,10 @@ export class FormatterService {
       }
 
       return dateObj.toLocaleTimeString('en-US', {
-        hour: 'numeric',
+        hour: '2-digit',
         minute: '2-digit',
         hour12: true,
+        timeZone: 'Asia/Manila',
       });
     } catch {
       return '';
@@ -147,7 +149,7 @@ export class FormatterService {
   }
 
   /**
-   * Format datetime as "Mon Day, Year HH:MM AM/PM"
+   * Format datetime as "April 01, 2026 · 12:00 AM" (standard format)
    */
   static formatDateTime(datetime: string | Date | null | undefined): string {
     if (!datetime) {
@@ -165,7 +167,7 @@ export class FormatterService {
       const datePart = this.formatDateShort(dateObj);
       const timePart = this.formatTime(dateObj);
 
-      return `${datePart} ${timePart}`;
+      return `${datePart} \u00B7 ${timePart}`;
     } catch {
       return '';
     }

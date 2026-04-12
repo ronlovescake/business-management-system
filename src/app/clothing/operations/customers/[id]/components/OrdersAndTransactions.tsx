@@ -22,6 +22,7 @@ import { api, ApiError } from '@/lib/api/client';
 import { buildApiPath } from '@/lib/api/paths';
 import { queryKeys } from '@/lib/queryKeys';
 import { logger } from '@/lib/logger';
+import { getCurrentDateISO } from '@/utils/date';
 import {
   isCancelledOrderStatus,
   normalizeOrderStatus,
@@ -60,9 +61,7 @@ export const OrdersAndTransactions = memo(function OrdersAndTransactions({
   const [refundTransactionId, setRefundTransactionId] = useState<string | null>(
     null
   );
-  const [refundDate, setRefundDate] = useState<string>(
-    new Date().toISOString().slice(0, 10)
-  );
+  const [refundDate, setRefundDate] = useState<string>(getCurrentDateISO());
   const [refundAmount, setRefundAmount] = useState<number>(0);
   const [refundReason, setRefundReason] = useState<string>('');
   const [returnedQuantity, setReturnedQuantity] = useState<number | null>(null);
@@ -179,7 +178,7 @@ export const OrdersAndTransactions = memo(function OrdersAndTransactions({
 
       setRefundModalOpen(false);
       setRefundTransactionId(null);
-      setRefundDate(new Date().toISOString().slice(0, 10));
+      setRefundDate(getCurrentDateISO());
       setRefundAmount(0);
       setRefundReason('');
       setReturnedQuantity(null);

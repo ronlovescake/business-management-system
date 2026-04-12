@@ -6,18 +6,14 @@ import {
   DataTable,
   type TableColumn,
 } from '@/components/shared/PageTemplates/DataTable';
+import { formatDateOnly } from '@/utils/dateFormatters';
 import type {
   VehicleAssignmentRecord,
   VehicleAssignmentStatus,
   VehicleAssignmentSummary,
 } from '../types/vehicleAssignments.types';
 
-const formatDate = (value: string) =>
-  new Date(value).toLocaleDateString('en-US', {
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric',
-  });
+const formatDate = (value: string) => formatDateOnly(value);
 
 interface VehicleAssignmentsTableProps {
   data: VehicleAssignmentRecord[];

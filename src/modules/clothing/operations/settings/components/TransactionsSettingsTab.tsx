@@ -353,12 +353,13 @@ export function TransactionsSettingsTab() {
             <Text size="xs" c="dimmed" ta="right">
               Last updated:{' '}
               {formatDateTime(settings.updatedAt, {
-                month: 'short',
-                day: 'numeric',
+                month: 'long',
+                day: '2-digit',
                 year: 'numeric',
-                hour: 'numeric',
+                hour: '2-digit',
                 minute: '2-digit',
                 hour12: true,
+                timeZone: 'Asia/Manila',
               })}
             </Text>
           )}

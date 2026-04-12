@@ -101,7 +101,7 @@ export default function useLeaveTracker(apiBasePath?: string) {
 
   // Utility functions
   const formatDate = useCallback((date: string | Date): string => {
-    return dayjs(date).tz(TIMEZONE).format('MMM DD, YYYY');
+    return dayjs(date).tz(TIMEZONE).format('MMMM DD, YYYY');
   }, []);
 
   const formatDateRange = (startDate: string, endDate: string): string => {
@@ -109,11 +109,11 @@ export default function useLeaveTracker(apiBasePath?: string) {
     const end = dayjs(endDate).tz(TIMEZONE);
 
     if (start.isSame(end, 'day')) {
-      return start.format('MMM DD, YYYY');
+      return start.format('MMMM DD, YYYY');
     } else if (start.isSame(end, 'month')) {
-      return `${start.format('MMM DD')} - ${end.format('DD, YYYY')}`;
+      return `${start.format('MMMM DD')} - ${end.format('DD, YYYY')}`;
     } else {
-      return `${start.format('MMM DD')} - ${end.format('MMM DD, YYYY')}`;
+      return `${start.format('MMMM DD')} - ${end.format('MMMM DD, YYYY')}`;
     }
   };
 

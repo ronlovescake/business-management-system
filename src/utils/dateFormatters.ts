@@ -1,62 +1,98 @@
 /**
  * Centralized date/time formatting utilities
  * All formatters use Asia/Manila timezone by default
+ *
+ * STANDARD FORMAT: "April 01, 2026 · 12:00 AM"
+ * - Date: full month, zero-padded day, 4-digit year
+ * - Separator: " · " (middle dot U+00B7)
+ * - Time: zero-padded 12-hour, minutes, AM/PM
+ * - Always Asia/Manila timezone
+ *
+ * All new modules/pages MUST use these formatters.
+ * Do NOT create inline date formatters — import from here instead.
  */
 
 const TIMEZONE = 'Asia/Manila';
 const LOCALE = 'en-US';
 
+/** Middle dot separator used between date and time parts */
+export const DATE_TIME_SEPARATOR = ' \u00B7 ';
+
 /**
- * Format date as "Nov 05, 2025"
+ * Format date as "April 01, 2026"
  */
 export const dateFormatter = new Intl.DateTimeFormat(LOCALE, {
-  month: 'short',
+  month: 'long',
   day: '2-digit',
   year: 'numeric',
   timeZone: TIMEZONE,
 });
 
 /**
- * Format time as "07:30:00 PM"
+ * Format time as "12:00 AM"
  */
 export const timeFormatter = new Intl.DateTimeFormat(LOCALE, {
   hour: '2-digit',
   minute: '2-digit',
-  second: '2-digit',
+  hour12: true,
   timeZone: TIMEZONE,
 });
 
 /**
- * Format time without seconds as "7:30 PM"
+ * Format date as "April 01, 2026" (same as dateFormatter — kept for backward compat)
  */
-export const timeFormatterShort = new Intl.DateTimeFormat(LOCALE, {
-  hour: 'numeric',
-  minute: '2-digit',
-  timeZone: TIMEZONE,
-});
+export const dateFormatterShort = dateFormatter;
 
 /**
- * Format date as "Nov 5, 2025"
+ * Format time without seconds as "12:00 AM" (same as timeFormatter — kept for backward compat)
  */
-export const dateFormatterShort = new Intl.DateTimeFormat(LOCALE, {
-  month: 'short',
-  day: 'numeric',
-  year: 'numeric',
-  timeZone: TIMEZONE,
-});
+export const timeFormatterShort = timeFormatter;
 
 /**
- * Format full date and time as "Nov 05, 2025, 07:30:00 PM"
+ * Format full date and time as "April 01, 2026 · 12:00 AM"
+ *
+ * NOTE: Intl.DateTimeFormat doesn't support custom separators,
+ * so this formats date and time separately and joins with " · ".
+ * Use `formatDateTimeFull()` for the standard combined format.
  */
-export const dateTimeFormatter = new Intl.DateTimeFormat(LOCALE, {
-  month: 'short',
-  day: '2-digit',
-  year: 'numeric',
-  hour: '2-digit',
-  minute: '2-digit',
-  second: '2-digit',
-  timeZone: TIMEZONE,
-});
+export const dateTimeFormatter = {
+  format(date: Date): string {
+    return `${dateFormatter.format(date)}${DATE_TIME_SEPARATOR}${timeFormatter.format(date)}`;
+  },
+};
+
+/**
+ * Format a date+time as "April 01, 2026 · 12:00 AM"
+ */
+export function formatDateTimeFull(date: Date | string): string {
+  const parsed = typeof date === 'string' ? new Date(date) : date;
+  if (Number.isNaN(parsed.getTime())) {
+    return '';
+  }
+  return `${dateFormatter.format(parsed)}${DATE_TIME_SEPARATOR}${timeFormatter.format(parsed)}`;
+}
+
+/**
+ * Format a date as "April 01, 2026"
+ */
+export function formatDateOnly(date: Date | string): string {
+  const parsed = typeof date === 'string' ? new Date(date) : date;
+  if (Number.isNaN(parsed.getTime())) {
+    return '';
+  }
+  return dateFormatter.format(parsed);
+}
+
+/**
+ * Format a time as "12:00 AM"
+ */
+export function formatTimeOnly(date: Date | string): string {
+  const parsed = typeof date === 'string' ? new Date(date) : date;
+  if (Number.isNaN(parsed.getTime())) {
+    return '';
+  }
+  return timeFormatter.format(parsed);
+}
 
 /**
  * Helper function to format date parts separately
@@ -97,7 +133,7 @@ export function formatTimeString(time: string): string {
 
   const date = new Date();
   date.setHours(hours, minutes, 0, 0);
-  return timeFormatterShort.format(date);
+  return timeFormatter.format(date);
 }
 
 /**

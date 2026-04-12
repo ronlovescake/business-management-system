@@ -228,20 +228,21 @@ describe('Date Formatting', () => {
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
     return new Intl.DateTimeFormat('en-US', {
-      month: 'short',
-      day: 'numeric',
+      month: 'long',
+      day: '2-digit',
       year: 'numeric',
+      timeZone: 'Asia/Manila',
     }).format(date);
   };
 
   it('should format date correctly', () => {
-    expect(formatDate('2024-01-15')).toMatch(/Jan 15, 2024/);
-    expect(formatDate('2024-12-25')).toMatch(/Dec 25, 2024/);
+    expect(formatDate('2024-01-15')).toMatch(/January 15, 2024/);
+    expect(formatDate('2024-12-25')).toMatch(/December 25, 2024/);
   });
 
   it('should handle different months', () => {
-    expect(formatDate('2024-06-01')).toMatch(/Jun 1, 2024/);
-    expect(formatDate('2024-09-30')).toMatch(/Sep 30, 2024/);
+    expect(formatDate('2024-06-01')).toMatch(/June 01, 2024/);
+    expect(formatDate('2024-09-30')).toMatch(/September 30, 2024/);
   });
 });
 

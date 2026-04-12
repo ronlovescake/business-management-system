@@ -869,7 +869,7 @@ export function useThirteenthMonthPay(apiBasePath?: string) {
   };
 
   const formatDate = (dateString?: string): string =>
-    dateString ? formatDisplayDate(dateString, 'MMM D, YYYY') : 'N/A';
+    dateString ? formatDisplayDate(dateString) : 'N/A';
 
   const getStatusColor = (status: string): string => {
     switch (status) {

@@ -12,7 +12,7 @@ const MAX_LIMIT = 500;
 // Database stores Manila time but PostgreSQL returns it with Z marker
 // Use UTC timezone to display the timestamp as-is without conversion
 const DATE_FORMATTER = new Intl.DateTimeFormat('en-US', {
-  month: 'short',
+  month: 'long',
   day: '2-digit',
   year: 'numeric',
   timeZone: 'UTC',
@@ -21,7 +21,6 @@ const DATE_FORMATTER = new Intl.DateTimeFormat('en-US', {
 const TIME_FORMATTER = new Intl.DateTimeFormat('en-US', {
   hour: '2-digit',
   minute: '2-digit',
-  second: '2-digit',
   hour12: true,
   timeZone: 'UTC',
 });

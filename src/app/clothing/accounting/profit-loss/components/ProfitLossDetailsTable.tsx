@@ -22,10 +22,11 @@ function formatShortDate(value: string): string {
     return value;
   }
 
-  return d.toLocaleDateString('en-PH', {
+  return d.toLocaleDateString('en-US', {
     year: 'numeric',
-    month: 'short',
+    month: 'long',
     day: '2-digit',
+    timeZone: 'Asia/Manila',
   });
 }
 

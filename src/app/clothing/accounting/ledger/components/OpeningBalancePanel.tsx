@@ -51,10 +51,10 @@ export function OpeningBalancePanel({
     v.toLocaleString('en-PH', { style: 'currency', currency: 'PHP' }),
   formatDate = (d) =>
     new Date(d).toLocaleDateString('en-US', {
-      weekday: 'long',
       year: 'numeric',
       month: 'long',
-      day: 'numeric',
+      day: '2-digit',
+      timeZone: 'Asia/Manila',
     }),
   onEditEntry,
   onDeleteEntry,

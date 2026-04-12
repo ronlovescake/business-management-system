@@ -3,6 +3,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { showNotification, hideNotification } from '@mantine/notifications';
 import { queryKeys } from '@/lib/queryKeys';
 import { logger } from '@/lib/logger';
+import { getCurrentDateISO } from '@/utils/date';
 import { CustomerService } from '../services/CustomerService';
 import type { CustomerData } from '../types/customer.types';
 
@@ -89,7 +90,7 @@ export function useCustomersCSV({
     try {
       const dataToExport =
         filteredCustomers.length > 0 ? filteredCustomers : customers;
-      const timestamp = new Date().toISOString().slice(0, 10);
+      const timestamp = getCurrentDateISO();
       const filename = `customers-export-${timestamp}.csv`;
 
       CustomerService.exportToCSV(dataToExport, filename);
@@ -112,7 +113,7 @@ export function useCustomersCSV({
   // CSV export with additional info (numbered columns format)
   const handleExportDetailedCSV = async () => {
     try {
-      const timestamp = new Date().toISOString().slice(0, 10);
+      const timestamp = getCurrentDateISO();
       const filename = `customers-detailed-${timestamp}.csv`;
 
       const result = await CustomerService.exportToCSVDetailed(
@@ -149,7 +150,7 @@ export function useCustomersCSV({
   // CSV export with duplicate rows format (for analysis)
   const handleExportAnalysisCSV = async () => {
     try {
-      const timestamp = new Date().toISOString().slice(0, 10);
+      const timestamp = getCurrentDateISO();
       const filename = `customers-analysis-${timestamp}.csv`;
 
       await CustomerService.exportToCSVDuplicateRows(filename, apiBasePath);

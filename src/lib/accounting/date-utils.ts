@@ -91,10 +91,11 @@ export function buildPeriodLabel(from: Date | null, to: Date | null): string {
   }
 
   const format = (date: Date) =>
-    date.toLocaleDateString('en-PH', {
-      month: 'short',
-      day: 'numeric',
+    date.toLocaleDateString('en-US', {
+      month: 'long',
+      day: '2-digit',
       year: 'numeric',
+      timeZone: 'Asia/Manila',
     });
 
   if (from && to) {

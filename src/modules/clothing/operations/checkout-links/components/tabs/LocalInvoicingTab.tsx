@@ -28,9 +28,10 @@ export function LocalInvoicingTab({
 }: LocalInvoicingTabProps) {
   const invoiceDateSelectData = useMemo(() => {
     const formatter = new Intl.DateTimeFormat('en-US', {
-      month: 'short',
-      day: 'numeric',
+      month: 'long',
+      day: '2-digit',
       year: 'numeric',
+      timeZone: 'Asia/Manila',
     });
 
     const formattedOptions = invoiceDateOptions.map((value) => {

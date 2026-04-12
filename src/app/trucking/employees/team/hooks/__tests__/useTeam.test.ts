@@ -96,14 +96,15 @@ describe('Date Formatting', () => {
     }
     return new Intl.DateTimeFormat('en-US', {
       year: 'numeric',
-      month: 'short',
-      day: 'numeric',
+      month: 'long',
+      day: '2-digit',
+      timeZone: 'Asia/Manila',
     }).format(date);
   };
 
   it('should format valid ISO date', () => {
     const result = formatDate('2024-01-15');
-    expect(result).toMatch(/Jan 15, 2024/);
+    expect(result).toMatch(/January 15, 2024/);
   });
 
   it('should handle null date', () => {
@@ -127,8 +128,8 @@ describe('Date Formatting', () => {
   });
 
   it('should format different date formats', () => {
-    expect(formatDate('2024-12-25')).toMatch(/Dec 25, 2024/);
-    expect(formatDate('2024-06-01')).toMatch(/Jun 1, 2024/);
+    expect(formatDate('2024-12-25')).toMatch(/December 25, 2024/);
+    expect(formatDate('2024-06-01')).toMatch(/June 01, 2024/);
   });
 });
 

@@ -141,11 +141,11 @@ export function useEmployeeDashboard(apiBasePath?: string) {
     }
 
     if (data.range.from === data.range.to) {
-      return dayjs(data.range.from).tz().format('MMMM D, YYYY');
+      return dayjs(data.range.from).tz().format('MMMM DD, YYYY');
     }
 
-    const start = dayjs(data.range.from).tz().format('MMM D, YYYY');
-    const end = dayjs(data.range.to).tz().format('MMM D, YYYY');
+    const start = dayjs(data.range.from).tz().format('MMMM DD, YYYY');
+    const end = dayjs(data.range.to).tz().format('MMMM DD, YYYY');
     return `${start} – ${end}`;
   }, [data]);
 

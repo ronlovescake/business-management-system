@@ -2,6 +2,7 @@ import type { Prisma } from '@prisma/client';
 import type { PayrollInput } from '@/lib/validations/payroll.validation';
 import { prisma } from '@/lib/db';
 import { syncTruckingPayrollDeductions } from '@/lib/payroll/trucking/deductions';
+import { getCurrentDateISO, toISODate } from '@/utils/date';
 import {
   createPayrollRouteHandlers,
   type PayrollRouteRecord,
@@ -18,13 +19,13 @@ const truckingPrisma: TruckingPayrollClient = prisma;
 
 const toDateOnly = (value?: string | null): string => {
   if (value) {
-    const parsed = new Date(value);
-    if (!Number.isNaN(parsed.getTime())) {
-      return parsed.toISOString().slice(0, 10);
+    const normalized = toISODate(value);
+    if (normalized) {
+      return normalized;
     }
   }
 
-  return new Date().toISOString().slice(0, 10);
+  return getCurrentDateISO();
 };
 
 const buildPayrollExpensePayload = (

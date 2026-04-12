@@ -14,12 +14,18 @@ const formatCurrency = (value: number) =>
     maximumFractionDigits: 2,
   }).format(value);
 
-const formatDate = (value: string) =>
-  new Date(value).toLocaleDateString('en-US', {
-    month: 'short',
-    day: 'numeric',
+const formatDate = (value: string) => {
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) {
+    return '';
+  }
+  return parsed.toLocaleDateString('en-US', {
+    month: 'long',
+    day: '2-digit',
     year: 'numeric',
+    timeZone: 'Asia/Manila',
   });
+};
 
 const baseColumns: TableColumn<TemplateRecord>[] = [
   { key: 'date', label: 'Date', render: (item) => formatDate(item.date) },

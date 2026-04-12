@@ -42,12 +42,9 @@ const format = requestedFormat === 'sql' ? 'dump' : requestedFormat;
 // Backup directory
 const BACKUP_DIR = path.resolve(process.cwd(), 'backups');
 
-// Generate timestamp in Manila timezone (UTC+8)
+// Generate a filesystem-safe UTC timestamp for backup folders/manifests.
 const getManilaTimestamp = () => {
-  const now = new Date();
-  // Add 8 hours to UTC to get Manila time
-  const manilaTime = new Date(now.getTime() + 8 * 60 * 60 * 1000);
-  return manilaTime.toISOString().replace(/[:.]/g, '-').slice(0, -5);
+  return new Date().toISOString().replace(/[:.]/g, '-').slice(0, -5);
 };
 
 const timestamp = getManilaTimestamp();
@@ -153,12 +150,10 @@ async function backupJSON(backupDir) {
   console.log('\n📋 Creating JSON backup...');
 
   const now = new Date();
-  // Add 8 hours to UTC to get Manila time
-  const manilaTime = new Date(now.getTime() + 8 * 60 * 60 * 1000);
 
   const backup = {
     metadata: {
-      createdAt: manilaTime.toISOString(),
+      createdAt: now.toISOString(),
       environment: envFile,
       database: parseDatabaseUrl().database,
       format: 'json',
@@ -273,11 +268,9 @@ async function backupCSV(backupDir) {
  */
 function createManifest(backupDir, files) {
   const now = new Date();
-  // Add 8 hours to UTC to get Manila time
-  const manilaTime = new Date(now.getTime() + 8 * 60 * 60 * 1000);
 
   const manifest = {
-    timestamp: manilaTime.toISOString(),
+    timestamp: now.toISOString(),
     environment: envFile,
     database: parseDatabaseUrl().database,
     format: format,

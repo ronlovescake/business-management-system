@@ -18,9 +18,10 @@ export const formatPayPeriodDisplay = (
     }
 
     return date.toLocaleDateString('en-US', {
-      month: 'short',
-      day: 'numeric',
+      month: 'long',
+      day: '2-digit',
       year: 'numeric',
+      timeZone: 'Asia/Manila',
     });
   };
 

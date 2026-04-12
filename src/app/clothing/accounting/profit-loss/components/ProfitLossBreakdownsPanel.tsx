@@ -55,17 +55,17 @@ const VIEW_OPTIONS: Array<{ value: BreakdownView; label: string }> = [
 const formatBucketLabel = (view: BreakdownView, value: Dayjs) => {
   switch (view) {
     case 'daily':
-      return value.format('MMM D, YYYY');
+      return value.format('MMMM DD, YYYY');
     case 'weekly':
-      return `Week of ${value.format('MMM D, YYYY')}`;
+      return `Week of ${value.format('MMMM DD, YYYY')}`;
     case 'monthly':
-      return value.format('MMM YYYY');
+      return value.format('MMMM YYYY');
     case 'quarterly':
-      return value.format('MMM YYYY');
+      return value.format('MMMM YYYY');
     case 'yearly':
       return value.format('YYYY');
     default:
-      return value.format('MMM D, YYYY');
+      return value.format('MMMM DD, YYYY');
   }
 };
 

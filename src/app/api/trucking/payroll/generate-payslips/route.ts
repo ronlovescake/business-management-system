@@ -145,9 +145,10 @@ function formatDate(value: string | Date | null | undefined): string {
   }
 
   return date.toLocaleDateString('en-US', {
-    month: 'short',
-    day: 'numeric',
+    month: 'long',
+    day: '2-digit',
     year: 'numeric',
+    timeZone: 'Asia/Manila',
   });
 }
 
@@ -174,11 +175,13 @@ async function buildPayslipContext(
   return {
     companyName: COMPANY_NAME,
     logoData: getLogoBase64(),
-    generatedAt: `${formatDate(generatedAtDate)} ${generatedAtDate.toLocaleTimeString(
-      'en-PH',
+    generatedAt: `${formatDate(generatedAtDate)} \u00B7 ${generatedAtDate.toLocaleTimeString(
+      'en-US',
       {
         hour: '2-digit',
         minute: '2-digit',
+        hour12: true,
+        timeZone: 'Asia/Manila',
       }
     )}`,
     employeeName: record.employeeName,

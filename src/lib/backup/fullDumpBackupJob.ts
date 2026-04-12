@@ -11,6 +11,7 @@ import {
   writeFileAtomic,
 } from '@/app/api/backup/backupRouteFileOps';
 import {
+  buildBackupFolderTimestamp,
   describeFiles,
   type BackupManifestFile,
 } from '@/app/api/backup/backupRouteUtils';
@@ -53,11 +54,6 @@ function parseDatabaseUrl() {
     port: parsed.port || '5432',
     database,
   };
-}
-
-function buildBackupTimestamp(now = new Date()) {
-  const manilaTime = new Date(now.getTime() + 8 * 60 * 60 * 1000);
-  return manilaTime.toISOString().replace(/[:.]/g, '-').slice(0, -5);
 }
 
 function ensureBackupDir(timestamp: string) {
@@ -159,7 +155,7 @@ export async function createFullDumpBackup() {
   let backupDirForCleanup: string | null = null;
 
   try {
-    const timestamp = buildBackupTimestamp();
+    const timestamp = buildBackupFolderTimestamp();
     const folderName = `${timestamp}-full-backup`;
     const backupDir = ensureBackupDir(folderName);
     backupDirForCleanup = backupDir;

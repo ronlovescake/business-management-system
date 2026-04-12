@@ -1,6 +1,7 @@
 import type { PayrollInput } from '@/lib/validations/payroll.validation';
 import { prisma } from '@/lib/db';
 import { syncPayrollDeductionsGeneralMerchandise } from '@/lib/payroll/deductionsGeneralMerchandise';
+import { getCurrentDateISO } from '@/utils/date';
 import {
   createPayrollRouteHandlers,
   type PayrollRouteRecord,
@@ -100,7 +101,7 @@ async function syncExpenseFromPayroll(
   payroll: PayrollRouteRecord,
   processedBy?: string | null
 ): Promise<void> {
-  const paidDate = payroll.paidDate || new Date().toISOString().split('T')[0];
+  const paidDate = payroll.paidDate || getCurrentDateISO();
   const parsedDate = new Date(paidDate);
   const expenseDate = Number.isNaN(parsedDate.getTime())
     ? new Date()

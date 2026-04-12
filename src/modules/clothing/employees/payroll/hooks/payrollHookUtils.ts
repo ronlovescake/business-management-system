@@ -208,8 +208,9 @@ export const derivePayPeriods = (payrolls: Payroll[]): string[] => {
 export const formatPayrollDate = (dateString: string) =>
   new Date(dateString).toLocaleDateString('en-US', {
     year: 'numeric',
-    month: 'short',
-    day: 'numeric',
+    month: 'long',
+    day: '2-digit',
+    timeZone: 'Asia/Manila',
   });
 
 export const formatPayrollCurrency = (amount: number) =>

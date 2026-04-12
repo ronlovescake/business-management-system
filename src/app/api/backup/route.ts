@@ -28,6 +28,7 @@ import {
   writeWorkbookToFile,
 } from './backupRouteFileOps';
 import {
+  buildBackupFolderTimestamp,
   describeFiles,
   findLatestBackupByStrategy,
   parseTimestampToDate,
@@ -666,11 +667,7 @@ export async function createBackupJob({
       strategy === 'log' ? 'json' : normalizeBackupFormat(format);
 
     const now = new Date();
-    const manilaTime = new Date(now.getTime() + 8 * 60 * 60 * 1000);
-    const timestamp = manilaTime
-      .toISOString()
-      .replace(/[:.]/g, '-')
-      .slice(0, -5);
+    const timestamp = buildBackupFolderTimestamp(now);
     const folderName = `${timestamp}-${strategy}-backup`;
     const backupDir = ensureBackupDir(folderName);
     backupDirForCleanup = backupDir;
@@ -751,12 +748,12 @@ export async function createBackupJob({
               differentialSince?.toISOString() ??
               logSince?.toISOString() ??
               null,
-            until: manilaTime.toISOString(),
+            until: now.toISOString(),
           };
 
     if (requestedFormat === 'json' || requestedFormat === 'all') {
       const metadata = {
-        createdAt: manilaTime.toISOString(),
+        createdAt: now.toISOString(),
         database: parseDatabaseUrl().database,
         format: 'json',
         version: '1.1',
@@ -1074,7 +1071,7 @@ export async function createBackupJob({
     const integrityVerified = await verifyFileChecksums(files, fileChecksums);
 
     const manifest: BackupManifestFile = {
-      timestamp: manilaTime.toISOString(),
+      timestamp: now.toISOString(),
       database: parseDatabaseUrl().database,
       format: requestedFormat,
       strategy,

@@ -640,7 +640,7 @@ export function useHouseholdExpenses() {
     });
 
     const csvContent = buildCsvContent(headers, rows);
-    const filename = `household-expenses-${new Date().toISOString().split('T')[0]}.csv`;
+    const filename = `household-expenses-${getCurrentDateISO()}.csv`;
     downloadCsvFile(filename, csvContent);
 
     showNotification({
@@ -651,7 +651,7 @@ export function useHouseholdExpenses() {
   };
 
   const handleDownloadTemplate = () => {
-    const filename = `household-expenses-template-${new Date().toISOString().split('T')[0]}.csv`;
+    const filename = `household-expenses-template-${getCurrentDateISO()}.csv`;
     downloadCsvTemplateFile(filename, [
       'date',
       'amount',

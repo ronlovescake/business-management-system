@@ -117,7 +117,8 @@ export function SalaryTimeline({
     return new Date(dateString).toLocaleDateString('en-US', {
       year: 'numeric',
       month: 'long',
-      day: 'numeric',
+      day: '2-digit',
+      timeZone: 'Asia/Manila',
     });
   };
 

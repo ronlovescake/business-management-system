@@ -26,6 +26,8 @@ export interface BackupManifest {
     trigger: 'manual' | 'scheduled';
     triggeredAt: string;
     scheduleTime?: string;
+    scheduleCadence?: 'daily' | 'weekly';
+    scheduleDayOfWeek?: string;
     timeZone?: string;
     scheduledDateKey?: string;
     catchUp?: boolean;
@@ -450,10 +452,12 @@ export const formatBackupTimestamp = (timestamp: string) => {
     }
     return formatDateTime(date, {
       year: 'numeric',
-      month: 'short',
+      month: 'long',
       day: '2-digit',
       hour: '2-digit',
       minute: '2-digit',
+      hour12: true,
+      timeZone: 'Asia/Manila',
     });
   } catch {
     return timestamp;

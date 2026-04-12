@@ -1,4 +1,5 @@
 import { logger } from '@/lib/logger';
+import { getCurrentDateISO } from '@/utils/date';
 
 type LeaveRequestCreateLike = {
   employeeId: string;
@@ -133,7 +134,7 @@ export class LeaveRequestServiceBase<
         numberOfDays: item.numberOfDays || 0,
         reason: item.reason,
         status: item.status,
-        appliedDate: item.appliedDate || new Date().toISOString().split('T')[0],
+        appliedDate: item.appliedDate || getCurrentDateISO(),
         approvedBy: item.approvedBy || null,
         notes: item.notes || null,
       }));

@@ -60,6 +60,10 @@ export type BackupFileDescriptor = {
   size: number;
 };
 
+export function buildBackupFolderTimestamp(date: Date = new Date()) {
+  return date.toISOString().replace(/[:.]/g, '-').slice(0, -5);
+}
+
 export function sanitizeTimestamp(timestamp: string) {
   const bare = timestamp.replace(/-(full|differential|log)-backup$/, '');
   if (/^\d{4}-\d{2}-\d{2}T\d{2}-\d{2}-\d{2}$/.test(bare)) {

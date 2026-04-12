@@ -23,14 +23,14 @@ describe('formatDateTime', () => {
       date,
       {
         year: 'numeric',
-        month: 'short',
+        month: 'long',
         day: '2-digit',
         timeZone: 'UTC',
       },
       'en-US'
     );
 
-    expect(formatted).toBe('Feb 04, 2026');
+    expect(formatted).toBe('February 04, 2026');
   });
 
   it('accepts ISO string input', () => {

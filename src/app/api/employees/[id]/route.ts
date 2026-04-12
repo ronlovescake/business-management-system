@@ -6,6 +6,7 @@ import { HTTP_STATUS } from '@/shared/constants/api';
 import { prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
 import { sanitizers } from '@/lib/security/sanitize';
+import { getCurrentDateISO, toISODate } from '@/utils/date';
 
 export const dynamic = 'force-dynamic';
 
@@ -299,8 +300,8 @@ export const PUT = withErrorHandler<RouteContext>(
         const cutoffDateStr = employee.employmentEndDate
           ? typeof employee.employmentEndDate === 'string'
             ? employee.employmentEndDate
-            : new Date(employee.employmentEndDate).toISOString().slice(0, 10)
-          : new Date().toISOString().slice(0, 10);
+            : toISODate(employee.employmentEndDate) || getCurrentDateISO()
+          : getCurrentDateISO();
 
         try {
           const result = await prisma.schedule.updateMany({

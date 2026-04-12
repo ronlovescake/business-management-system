@@ -3,8 +3,9 @@ export type PayrollStatus = 'pending' | 'approved' | 'paid';
 export function formatPayrollDate(dateString: string) {
   return new Date(dateString).toLocaleDateString('en-US', {
     year: 'numeric',
-    month: 'short',
-    day: 'numeric',
+    month: 'long',
+    day: '2-digit',
+    timeZone: 'Asia/Manila',
   });
 }
 

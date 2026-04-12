@@ -19,7 +19,12 @@ function ProfileMetaComponent({ profile }: ProfileMetaProps) {
           <Group gap="xs">
             <IconCalendar size={16} />
             <Text size="sm" c="dimmed">
-              Member since {new Date(profile.createdAt).toLocaleDateString()}
+              Member since {new Date(profile.createdAt).toLocaleDateString('en-US', {
+                month: 'long',
+                day: '2-digit',
+                year: 'numeric',
+                timeZone: 'Asia/Manila',
+              })}
             </Text>
           </Group>
           {profile.lastLoginAt && (

@@ -491,8 +491,18 @@ export function useVersionHistory<T extends IdentifiableRecord>(
       const date = new Date(v.timestamp);
       return [
         v.timestamp,
-        date.toLocaleDateString(),
-        date.toLocaleTimeString(),
+        date.toLocaleDateString('en-US', {
+          month: 'long',
+          day: '2-digit',
+          year: 'numeric',
+          timeZone: 'Asia/Manila',
+        }),
+        date.toLocaleTimeString('en-US', {
+          hour: '2-digit',
+          minute: '2-digit',
+          hour12: true,
+          timeZone: 'Asia/Manila',
+        }),
         v.changeType,
         v.description,
         v.changeCount,

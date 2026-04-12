@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { showNotification } from '@mantine/notifications';
 import { showCustomAlert } from '@/lib/alerts';
+import { getCurrentDateISO } from '@/utils/date';
 import type { TripRecord } from '../components/TripsTable';
 import { useTripsDashboardData } from './useTripsDashboardData';
 import type { NewTripPayload } from './tripsDashboardTypes';
@@ -71,7 +72,7 @@ export function useTripsDashboard() {
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.download = `trips-${new Date().toISOString().slice(0, 10)}.csv`;
+    link.download = `trips-${getCurrentDateISO()}.csv`;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);

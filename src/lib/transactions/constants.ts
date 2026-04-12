@@ -20,20 +20,28 @@ export const DUE_DATE_FILTER_OPTIONS = [
 
 export const MAX_PLACEHOLDER_ROWS = 20;
 
-export const MANILA_TIME_FORMATTER = new Intl.DateTimeFormat('en-US', {
-  timeZone: 'Asia/Manila',
-  month: 'short',
-  day: 'numeric',
-  year: 'numeric',
-  hour: 'numeric',
-  minute: '2-digit',
-  hour12: true,
-});
+export const MANILA_TIME_FORMATTER = {
+  format(date: Date): string {
+    const datePart = new Intl.DateTimeFormat('en-US', {
+      timeZone: 'Asia/Manila',
+      month: 'long',
+      day: '2-digit',
+      year: 'numeric',
+    }).format(date);
+    const timePart = new Intl.DateTimeFormat('en-US', {
+      timeZone: 'Asia/Manila',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: true,
+    }).format(date);
+    return `${datePart} \u00B7 ${timePart}`;
+  },
+};
 
 export const MANILA_DATE_FORMATTER = new Intl.DateTimeFormat('en-US', {
   timeZone: 'Asia/Manila',
-  month: 'short',
-  day: 'numeric',
+  month: 'long',
+  day: '2-digit',
   year: 'numeric',
 });
 

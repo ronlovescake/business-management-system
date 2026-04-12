@@ -3,8 +3,8 @@ import type { TransactionData } from '../types/transaction.types';
 export const formatTodayInManila = (): string => {
   const now = new Date();
   return now.toLocaleDateString('en-US', {
-    month: 'short',
-    day: 'numeric',
+    month: 'long',
+    day: '2-digit',
     year: 'numeric',
     timeZone: 'Asia/Manila',
   });

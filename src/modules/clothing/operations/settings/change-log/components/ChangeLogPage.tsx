@@ -49,10 +49,23 @@ const ACTION_COLOR_MAP: Record<string, string> = {
   restore: 'teal',
 };
 
-const TIMESTAMP_FORMATTER = new Intl.DateTimeFormat(undefined, {
-  dateStyle: 'medium',
-  timeStyle: 'short',
-});
+const TIMESTAMP_FORMATTER = {
+  format(date: Date) {
+    const d = new Intl.DateTimeFormat('en-US', {
+      month: 'long',
+      day: '2-digit',
+      year: 'numeric',
+      timeZone: 'Asia/Manila',
+    }).format(date);
+    const t = new Intl.DateTimeFormat('en-US', {
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: true,
+      timeZone: 'Asia/Manila',
+    }).format(date);
+    return `${d} \u00B7 ${t}`;
+  },
+};
 
 const CUSTOMER_METADATA_KEYS = [
   'customerName',
@@ -71,15 +84,18 @@ const PRODUCT_METADATA_KEYS = [
   'item_code',
 ];
 
-const SUMMARY_DATE_FORMATTER = new Intl.DateTimeFormat(undefined, {
+const SUMMARY_DATE_FORMATTER = new Intl.DateTimeFormat('en-US', {
   year: 'numeric',
-  month: 'short',
-  day: 'numeric',
+  month: 'long',
+  day: '2-digit',
+  timeZone: 'Asia/Manila',
 });
 
-const SUMMARY_TIME_FORMATTER = new Intl.DateTimeFormat(undefined, {
-  hour: 'numeric',
+const SUMMARY_TIME_FORMATTER = new Intl.DateTimeFormat('en-US', {
+  hour: '2-digit',
   minute: '2-digit',
+  hour12: true,
+  timeZone: 'Asia/Manila',
 });
 
 const SUMMARY_GRID_TEMPLATE =

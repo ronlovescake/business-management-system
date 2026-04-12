@@ -162,7 +162,12 @@ export function UsersTable({
                   </Table.Td>
                   <Table.Td>
                     <Text size="sm">
-                      {new Date(user.createdAt).toLocaleDateString()}
+                      {new Date(user.createdAt).toLocaleDateString('en-US', {
+                        month: 'long',
+                        day: '2-digit',
+                        year: 'numeric',
+                        timeZone: 'Asia/Manila',
+                      })}
                     </Text>
                   </Table.Td>
                   <Table.Td>

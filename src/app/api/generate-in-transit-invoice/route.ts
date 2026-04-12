@@ -169,8 +169,9 @@ export async function POST(request: NextRequest) {
       const now = new Date();
       const invoiceDate = now.toLocaleDateString('en-US', {
         month: 'long',
-        day: 'numeric',
+        day: '2-digit',
         year: 'numeric',
+        timeZone: 'Asia/Manila',
       });
 
       for (const [customerName, customerTransactions] of Array.from(

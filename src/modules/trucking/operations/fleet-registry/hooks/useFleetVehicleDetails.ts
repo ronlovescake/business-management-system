@@ -2,14 +2,10 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { statusColors } from '../data/fleetRegistryData';
+import { formatDateOnly } from '@/utils/dateFormatters';
 import type { FleetRegistryRecord } from '../types/fleetRegistry.types';
 
-const formatDate = (value: string) =>
-  new Date(value).toLocaleDateString('en-US', {
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric',
-  });
+const formatDate = (value: string) => formatDateOnly(value);
 
 export type VehicleDetailsSectionId =
   | 'identification'

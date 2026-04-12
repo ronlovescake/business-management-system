@@ -6,6 +6,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api/client';
 import { buildApiPath } from '@/lib/api/paths';
 import { queryKeys } from '@/lib/queryKeys';
+import { getCurrentDateISO } from '@/utils/date';
 import { useInvoiceCustomerLookup } from './useInvoiceCustomerLookup';
 import {
   calculateInvoiceWeights,
@@ -814,7 +815,7 @@ export const useCheckoutLinksPage = ({
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.download = `checkout-links-${new Date().toISOString().slice(0, 10)}.csv`;
+    link.download = `checkout-links-${getCurrentDateISO()}.csv`;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
