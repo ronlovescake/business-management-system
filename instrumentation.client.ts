@@ -1,26 +1,27 @@
-import * as Sentry from '@sentry/nextjs';
-import { env } from './src/lib/env';
-
 let initialized = false;
 
-export function register(): void {
-  if (initialized || !env.NEXT_PUBLIC_SENTRY_DSN) {
+export function register(): Promise<void> | void {
+  const sentryDsn = process.env.NEXT_PUBLIC_SENTRY_DSN?.trim();
+
+  if (initialized || !sentryDsn) {
     return;
   }
 
   initialized = true;
 
-  Sentry.init({
-    dsn: env.NEXT_PUBLIC_SENTRY_DSN,
-    tracesSampleRate: 1,
-    debug: false,
-    replaysOnErrorSampleRate: 1.0,
-    replaysSessionSampleRate: 0.1,
-    integrations: [
-      Sentry.replayIntegration({
-        maskAllText: true,
-        blockAllMedia: true,
-      }),
-    ],
+  return import('@sentry/nextjs').then((Sentry) => {
+    Sentry.init({
+      dsn: sentryDsn,
+      tracesSampleRate: 1,
+      debug: false,
+      replaysOnErrorSampleRate: 1.0,
+      replaysSessionSampleRate: 0.1,
+      integrations: [
+        Sentry.replayIntegration({
+          maskAllText: true,
+          blockAllMedia: true,
+        }),
+      ],
+    });
   });
 }

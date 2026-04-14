@@ -1,6 +1,5 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
-import { getToken } from 'next-auth/jwt';
 
 // Define route access control
 const routePermissions: Record<string, string[]> = {
@@ -96,6 +95,7 @@ export async function middleware(req: NextRequest) {
   }
 
   // Check if user is authenticated
+  const { getToken } = await import('next-auth/jwt');
   const token = await getToken({ req, secret: process.env.NEXTAUTH_SECRET });
 
   if (!token) {
