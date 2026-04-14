@@ -3,16 +3,65 @@
 
 const fs = require('fs');
 const path = require('path');
-const dotenv = require('dotenv');
+
+function decodeQuotedValue(value) {
+  return value
+    .replace(/\\n/g, '\n')
+    .replace(/\\r/g, '\r')
+    .replace(/\\t/g, '\t')
+    .replace(/\\"/g, '"')
+    .replace(/\\\\/g, '\\');
+}
+
+function loadEnvFile(filePath) {
+  if (!fs.existsSync(filePath)) {
+    return;
+  }
+
+  const content = fs.readFileSync(filePath, 'utf8');
+  const lines = content.split(/\r?\n/);
+
+  for (const rawLine of lines) {
+    const line = rawLine.trim();
+    if (!line || line.startsWith('#')) {
+      continue;
+    }
+
+    const normalizedLine = line.startsWith('export ')
+      ? line.slice('export '.length)
+      : line;
+    const separatorIndex = normalizedLine.indexOf('=');
+
+    if (separatorIndex <= 0) {
+      continue;
+    }
+
+    const key = normalizedLine.slice(0, separatorIndex).trim();
+    if (!key || Object.prototype.hasOwnProperty.call(process.env, key)) {
+      continue;
+    }
+
+    let value = normalizedLine.slice(separatorIndex + 1).trim();
+    if (
+      (value.startsWith('"') && value.endsWith('"')) ||
+      (value.startsWith("'") && value.endsWith("'"))
+    ) {
+      value = value.slice(1, -1);
+      if (normalizedLine[separatorIndex + 1] === '"') {
+        value = decodeQuotedValue(value);
+      }
+    }
+
+    process.env[key] = value;
+  }
+}
 
 const projectRoot = process.cwd();
 const envFiles = ['.env.local', '.env'];
 
 for (const file of envFiles) {
   const filePath = path.join(projectRoot, file);
-  if (fs.existsSync(filePath)) {
-    dotenv.config({ path: filePath, override: false });
-  }
+  loadEnvFile(filePath);
 }
 
 const errors = [];
