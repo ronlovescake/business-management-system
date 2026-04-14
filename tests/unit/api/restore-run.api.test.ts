@@ -8,7 +8,7 @@ const {
   mockReadRestoreJobStatus,
   mockReadRestoreRunnerHeartbeat,
   mockRequireBackupRestoreAdmin,
-  mockResolveFullDumpRestoreTarget,
+  mockResolveOperatorManagedRestoreTarget,
   mockWriteRestoreJobStatus,
   mockIsValidTimestampFolderName,
 } = vi.hoisted(() => ({
@@ -18,7 +18,7 @@ const {
   mockReadRestoreJobStatus: vi.fn(),
   mockReadRestoreRunnerHeartbeat: vi.fn(),
   mockRequireBackupRestoreAdmin: vi.fn().mockResolvedValue(null),
-  mockResolveFullDumpRestoreTarget: vi.fn(),
+  mockResolveOperatorManagedRestoreTarget: vi.fn(),
   mockWriteRestoreJobStatus: vi.fn(),
   mockIsValidTimestampFolderName: vi.fn().mockReturnValue(true),
 }));
@@ -29,7 +29,7 @@ vi.mock('@/lib/backup/restoreJobState', () => ({
   isRestoreRunnerAvailable: mockIsRestoreRunnerAvailable,
   readRestoreJobStatus: mockReadRestoreJobStatus,
   readRestoreRunnerHeartbeat: mockReadRestoreRunnerHeartbeat,
-  resolveFullDumpRestoreTarget: mockResolveFullDumpRestoreTarget,
+  resolveOperatorManagedRestoreTarget: mockResolveOperatorManagedRestoreTarget,
   writeRestoreJobStatus: mockWriteRestoreJobStatus,
 }));
 
@@ -51,6 +51,8 @@ const ACTIVE_STATUS = {
   scope: 'full-dump' as const,
   phase: 'running' as const,
   backupFolder: '2026-04-04T02-00-00',
+  baselineBackupFolder: '2026-04-04T02-00-00',
+  targetStrategy: 'full' as const,
   dumpArtifactPath: '2026-04-04T02-00-00/backup.dump',
   dumpFileName: 'backup.dump',
   manifestTimestamp: '2026-04-04T02:00:00.000Z',
@@ -70,11 +72,14 @@ describe('Restore run API', () => {
     mockReadRestoreJobStatus.mockReturnValue(null);
     mockIsRestoreRunnerAvailable.mockReturnValue(true);
     mockIsRestoreJobActive.mockReturnValue(false);
-    mockResolveFullDumpRestoreTarget.mockReturnValue({
+    mockResolveOperatorManagedRestoreTarget.mockReturnValue({
+      scope: 'full-dump',
       folder: '2026-04-04T02-00-00',
       manifest: {
         timestamp: '2026-04-04T02:00:00.000Z',
       },
+      targetStrategy: 'full',
+      baselineFolder: '2026-04-04T02-00-00',
       dumpFileName: 'backup-2026-04-04T02-00-00.dump',
       dumpArtifactPath: '2026-04-04T02-00-00/backup-2026-04-04T02-00-00.dump',
       dumpAbsolutePath:
@@ -85,6 +90,8 @@ describe('Restore run API', () => {
       scope: 'full-dump',
       phase: 'pending',
       backupFolder: '2026-04-04T02-00-00',
+      baselineBackupFolder: '2026-04-04T02-00-00',
+      targetStrategy: 'full',
       dumpArtifactPath: '2026-04-04T02-00-00/backup-2026-04-04T02-00-00.dump',
       dumpFileName: 'backup-2026-04-04T02-00-00.dump',
       manifestTimestamp: '2026-04-04T02:00:00.000Z',
@@ -189,10 +196,56 @@ describe('Restore run API', () => {
 
     expect(response.status).toBe(202);
     expect(payload.success).toBe(true);
-    expect(mockResolveFullDumpRestoreTarget).toHaveBeenCalledWith(
+    expect(mockResolveOperatorManagedRestoreTarget).toHaveBeenCalledWith(
       '2026-04-04T02-00-00'
     );
     expect(mockWriteRestoreJobStatus).toHaveBeenCalledTimes(1);
     expect(payload.status.phase).toBe('pending');
+  });
+
+  it('accepts a valid replay-chain restore job submission', async () => {
+    mockResolveOperatorManagedRestoreTarget.mockReturnValueOnce({
+      scope: 'replay-chain',
+      folder: '2026-04-05T02-00-00',
+      manifest: {
+        timestamp: '2026-04-05T02:00:00.000Z',
+      },
+      targetStrategy: 'differential',
+      baselineFolder: '2026-04-04T02-00-00',
+      dumpFileName: 'backup-2026-04-04T02-00-00.dump',
+      dumpArtifactPath: '2026-04-04T02-00-00/backup-2026-04-04T02-00-00.dump',
+      dumpAbsolutePath:
+        '/backups/2026-04-04T02-00-00/backup-2026-04-04T02-00-00.dump',
+    });
+    mockBuildPendingRestoreJobStatus.mockReturnValueOnce({
+      id: 'job-3',
+      scope: 'replay-chain',
+      phase: 'pending',
+      backupFolder: '2026-04-05T02-00-00',
+      baselineBackupFolder: '2026-04-04T02-00-00',
+      targetStrategy: 'differential',
+      dumpArtifactPath: '2026-04-04T02-00-00/backup-2026-04-04T02-00-00.dump',
+      dumpFileName: 'backup-2026-04-04T02-00-00.dump',
+      manifestTimestamp: '2026-04-05T02:00:00.000Z',
+      requestedAt: '2026-04-05T03:10:00.000Z',
+      updatedAt: '2026-04-05T03:10:00.000Z',
+      message: 'Restore request accepted.',
+    });
+
+    const response = await POST(
+      new NextRequest('http://localhost/api/restore/run', {
+        method: 'POST',
+        body: JSON.stringify({
+          timestamp: '2026-04-05T02-00-00',
+          confirmationText: 'RESTORE 2026-04-05T02-00-00',
+        }),
+      })
+    );
+    const payload = await response.json();
+
+    expect(response.status).toBe(202);
+    expect(payload.success).toBe(true);
+    expect(payload.message).toContain('backup chain is replayed');
+    expect(payload.status.scope).toBe('replay-chain');
   });
 });

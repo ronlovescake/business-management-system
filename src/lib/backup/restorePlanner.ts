@@ -115,6 +115,7 @@ function buildStep(entry: PlannedCatalogEntry): RestorePlanStep {
   }
 
   const jsonArtifact = getJsonArtifact(manifest) ?? manifest.files[0];
+  const supported = !!jsonArtifact?.path;
   return {
     folder: entry.entry.folder,
     timestamp: manifest.timestamp,
@@ -124,13 +125,14 @@ function buildStep(entry: PlannedCatalogEntry): RestorePlanStep {
       strategy === 'differential'
         ? 'apply-differential-json'
         : 'apply-log-json',
-    supported: false,
+    supported,
     artifactName: jsonArtifact?.name,
     artifactPath: jsonArtifact?.path,
-    reason:
-      strategy === 'differential'
-        ? 'Differential replay planning is available, but replay execution is not implemented yet.'
-        : 'Log replay planning is available, but replay execution is not implemented yet.',
+    reason: supported
+      ? undefined
+      : strategy === 'differential'
+        ? 'Differential restore requires a JSON replay artifact in the manifest.'
+        : 'Log restore requires a JSON replay artifact in the manifest.',
   };
 }
 
@@ -387,26 +389,18 @@ export function planRestoreFromCatalog(
   const steps = plannedChain.map(buildStep);
   const requiresReplayEngine = steps.some((step) => !step.supported);
 
-  if (targetStrategy !== 'full') {
-    warnings.push(
-      'Phase 3 planning can calculate the required backup chain, but Phase 2A disaster recovery still executes only full PostgreSQL dump restores. Differential and log replay remain future work.'
-    );
-  }
-
   const disasterRecoveryReady =
     errors.length === 0 &&
-    steps.length === 1 &&
+    steps.length > 0 &&
     steps[0]?.action === 'restore-full-dump' &&
-    steps[0]?.supported === true;
+    steps.every((step) => step.supported);
 
   const status: RestorePlanStatus =
     errors.length > 0
       ? 'invalid'
-      : requiresReplayEngine
-        ? 'advisory'
-        : disasterRecoveryReady
-          ? 'ready'
-          : 'invalid';
+      : disasterRecoveryReady
+        ? 'ready'
+        : 'advisory';
 
   return {
     status,

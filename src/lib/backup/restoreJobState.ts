@@ -8,8 +8,10 @@ import { getBackupDirectory } from '@/lib/backup-storage';
 import { writeFileAtomic } from '@/app/api/backup/backupRouteFileOps';
 import {
   readManifest,
+  type BackupStrategy,
   type BackupManifestFile,
 } from '@/app/api/backup/backupRouteUtils';
+import { planRestoreChain } from '@/lib/backup/restorePlanner';
 
 const RESTORE_JOBS_DIRECTORY = '_restore-jobs';
 const RESTORE_STATUS_FILE = 'status.json';
@@ -18,12 +20,15 @@ const RESTORE_JOBS_DIRECTORY_MODE = 0o777;
 const RESTORE_STATE_FILE_MODE = 0o666;
 
 export type RestoreJobPhase = 'pending' | 'running' | 'succeeded' | 'failed';
+export type RestoreJobScope = 'full-dump' | 'replay-chain';
 
 export interface RestoreJobStatus {
   id: string;
-  scope: 'full-dump';
+  scope: RestoreJobScope;
   phase: RestoreJobPhase;
   backupFolder: string;
+  baselineBackupFolder: string;
+  targetStrategy: BackupStrategy;
   dumpArtifactPath: string;
   dumpFileName: string;
   manifestTimestamp: string;
@@ -44,9 +49,15 @@ export interface RestoreRunnerHeartbeat {
 export interface FullDumpRestoreTarget {
   folder: string;
   manifest: BackupManifestFile;
+  targetStrategy: BackupStrategy;
+  baselineFolder: string;
   dumpFileName: string;
   dumpArtifactPath: string;
   dumpAbsolutePath: string;
+}
+
+export interface OperatorManagedRestoreTarget extends FullDumpRestoreTarget {
+  scope: RestoreJobScope;
 }
 
 function getRestoreJobsDirectory(backupDir = getBackupDirectory()) {
@@ -195,16 +206,21 @@ export function buildPendingRestoreJobStatus(target: FullDumpRestoreTarget) {
 
   return {
     id: randomUUID(),
-    scope: 'full-dump',
+    scope:
+      target.targetStrategy === 'full' ? 'full-dump' : 'replay-chain',
     phase: 'pending',
     backupFolder: target.folder,
+    baselineBackupFolder: target.baselineFolder,
+    targetStrategy: target.targetStrategy,
     dumpArtifactPath: target.dumpArtifactPath,
     dumpFileName: target.dumpFileName,
     manifestTimestamp: target.manifest.timestamp,
     requestedAt,
     updatedAt: requestedAt,
     message:
-      'Restore request accepted. The restore runner will stop the app and replace the Docker database.',
+      target.targetStrategy === 'full'
+        ? 'Restore request accepted. The restore runner will stop the app and replace the Docker database.'
+        : 'Restore request accepted. The restore runner will restore the baseline dump, replay the planned backup chain, and then start the app again.',
   } satisfies RestoreJobStatus;
 }
 
@@ -242,8 +258,59 @@ export function resolveFullDumpRestoreTarget(
   return {
     folder,
     manifest,
+    targetStrategy: 'full',
+    baselineFolder: folder,
     dumpFileName: dumpFile.name,
     dumpArtifactPath: dumpFile.path,
     dumpAbsolutePath,
   } satisfies FullDumpRestoreTarget;
+}
+
+export function resolveOperatorManagedRestoreTarget(
+  folder: string,
+  backupDir = getBackupDirectory()
+) {
+  const plan = planRestoreChain({ folder }, backupDir);
+
+  if (!plan.disasterRecoveryReady) {
+    const detail = [...plan.errors, ...plan.warnings].filter(Boolean).join('; ');
+    throw new Error(
+      detail ||
+        'This backup does not have a restorable operator-managed restore chain.'
+    );
+  }
+
+  const baselineStep = plan.steps.find(
+    (step) => step.action === 'restore-full-dump'
+  );
+
+  if (!baselineStep?.artifactPath || !baselineStep.artifactName) {
+    throw new Error('Restore plan does not include a PostgreSQL dump baseline.');
+  }
+
+  const manifest = readManifest(backupDir, plan.targetFolder);
+  if (!manifest) {
+    throw new Error(`Backup manifest not found for ${plan.targetFolder}`);
+  }
+
+  const dumpAbsolutePath = path.resolve(backupDir, baselineStep.artifactPath);
+  const resolvedBackupDir = path.resolve(backupDir);
+  if (!dumpAbsolutePath.startsWith(`${resolvedBackupDir}${path.sep}`)) {
+    throw new Error('Resolved dump path escaped the backup directory.');
+  }
+
+  if (!fs.existsSync(dumpAbsolutePath)) {
+    throw new Error(`Dump file not found: ${baselineStep.artifactName}`);
+  }
+
+  return {
+    scope: plan.targetStrategy === 'full' ? 'full-dump' : 'replay-chain',
+    folder: plan.targetFolder,
+    manifest,
+    targetStrategy: plan.targetStrategy,
+    baselineFolder: baselineStep.folder,
+    dumpFileName: baselineStep.artifactName,
+    dumpArtifactPath: baselineStep.artifactPath,
+    dumpAbsolutePath,
+  } satisfies OperatorManagedRestoreTarget;
 }

@@ -83,7 +83,7 @@ describe('restore planner', () => {
     ]);
   });
 
-  it('builds an advisory chain for a differential backup', () => {
+  it('builds a ready chain for a differential backup', () => {
     const full = buildEntry({
       folder: '2026-04-01T02-00-00',
       timestamp: '2026-04-01T02:00:00.000Z',
@@ -102,13 +102,14 @@ describe('restore planner', () => {
       folder: differential.folder,
     });
 
-    expect(plan.status).toBe('advisory');
+    expect(plan.status).toBe('ready');
     expect(plan.chainFolders).toEqual([full.folder, differential.folder]);
-    expect(plan.requiresReplayEngine).toBe(true);
+    expect(plan.requiresReplayEngine).toBe(false);
+    expect(plan.disasterRecoveryReady).toBe(true);
     expect(plan.steps[1]).toEqual(
       expect.objectContaining({
         action: 'apply-differential-json',
-        supported: false,
+        supported: true,
       })
     );
   });
@@ -148,7 +149,9 @@ describe('restore planner', () => {
       folder: log2.folder,
     });
 
-    expect(plan.status).toBe('advisory');
+    expect(plan.status).toBe('ready');
+    expect(plan.requiresReplayEngine).toBe(false);
+    expect(plan.disasterRecoveryReady).toBe(true);
     expect(plan.chainFolders).toEqual([
       full.folder,
       differential.folder,

@@ -80,6 +80,7 @@ data_root="${BMS_DATA_ROOT:-${HOME}/business-management-system-data}"
 backup_dir="${BACKUP_DIR:-${data_root}/backup}"
 target_db="${POSTGRES_DB:-business_management}"
 target_user="${POSTGRES_USER:-postgres}"
+skip_app_start="${SKIP_APP_START:-false}"
 
 dump_arg="${1:-}"
 confirm_arg="${2:-}"
@@ -175,5 +176,9 @@ docker_db_exec pg_restore \
   --no-privileges \
   "$container_dump_path"
 
-start_app_service
-echo "Restore completed into Docker database '${target_db}'."
+if [[ "$skip_app_start" == "true" || "$skip_app_start" == "1" ]]; then
+  echo "Restore completed into Docker database '${target_db}'. App remains stopped."
+else
+  start_app_service
+  echo "Restore completed into Docker database '${target_db}'."
+fi

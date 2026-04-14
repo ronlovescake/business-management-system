@@ -32,7 +32,7 @@
 | 6 | Only `.dump` files are accepted for DR restore | The restore target resolver requires a manifest entry whose selected artifact ends in `.dump`, and the restore script re-validates that requirement before execution. |
 | 7 | Manifest strategy must be `full` for supported DR restore | Both restore-target resolution and the restore script reject backups whose manifest strategy is not `full`. |
 | 8 | Manifest must explicitly reference the selected dump | Restore-target resolution requires the manifest to name the selected `.dump` artifact before the job can be queued. |
-| 9 | Dump checksum verification is enforced by the restore execution script before replacement begins | The UI submission step queues a validated full-dump target, then `scripts/docker/restore-dump-into-docker.sh` runs `validate-dump-backup.js`, which computes SHA-256 and rejects the restore if the dump checksum differs from the manifest value. |
+| 9 | Baseline dump checksum verification is enforced before replacement begins | The UI submission step queues an operator-managed restore target, then `scripts/docker/restore-dump-into-docker.sh` validates the planned full-dump baseline with `validate-dump-backup.js` before the Docker database is replaced. |
 | 10 | JSON / CSV / XLSX artifacts are inspection exports only | The restore modal and docs consistently treat JSON, CSV, and XLSX artifacts as browse/export material, not supported DR restore inputs. |
 
 ---
@@ -46,7 +46,7 @@
 | 13 | Restore requires typed destructive confirmation | The confirmation text must exactly equal `RESTORE <timestamp>` or the request is rejected. |
 | 14 | UI restore is rejected when the runner is offline | If the restore-runner heartbeat is stale or absent, the submission endpoint returns a `503` with a specific offline error. |
 | 15 | Only one restore job may be active at a time | If the current status file shows `pending` or `running`, a new restore request is rejected with conflict semantics. |
-| 16 | Only full-dump backups can be queued from the UI | `resolveFullDumpRestoreTarget` rejects non-full strategies for UI restore submission. |
+| 16 | UI restore can queue replay-capable chains when the planner resolves a valid baseline | `resolveOperatorManagedRestoreTarget` allows differential/log targets only when the restore planner finds a valid full-dump baseline and every replay step has an executable artifact. |
 | 17 | Backup folder path is bounded to the backup root | Restore target resolution rejects dump paths that escape the configured backup directory. |
 
 ---
@@ -88,6 +88,7 @@
 | 34 | Restore planner is shown before execution | The modal displays the restore chain and planner readiness so the operator can review what will be restored. |
 | 35 | Restore job status persists after the app comes back | Because status is file-backed in the shared backup directory, the UI can read the latest completed or failed job after restart. |
 | 36 | UI restore warns that the app may become unavailable | The restore confirmation text and modal copy explicitly warn the operator that the app will go offline while the database is replaced. |
+| 38 | Replay-capable restores keep the app offline until chain replay completes | When the queued target is differential or log based, the restore-runner restores the baseline dump, runs `restore:replay` in a one-off app container, and only then starts the app again. |
 | 37 | Restore-runner startup is now documented in the modal when offline | The restore tab includes the command to start `restore-runner` when the runner is unavailable. |
 
 ---
@@ -96,9 +97,9 @@
 
 | # | Logic | Explanation |
 | --- | --- | --- |
-| 38 | Successful restore does not imply zero downtime | The current design intentionally trades temporary downtime for a simpler and safer replace-the-database restore flow. |
-| 39 | UI restore depends on the sidecar runner being started separately | `restore-runner` is not part of the default app startup path and must be available for UI restore to work. |
-| 40 | Restore correctness depends on the platform file / volume contract | The runner, status files, dump artifacts, manifest, and Docker-level backup mount all have to align for the workflow to succeed. |
+| 39 | Successful restore does not imply zero downtime | The current design intentionally trades temporary downtime for a simpler and safer replace-the-database restore flow. |
+| 40 | UI restore depends on the sidecar runner being started separately | `restore-runner` is not part of the default app startup path and must be available for UI restore to work. |
+| 41 | Restore correctness depends on the platform file / volume contract | The runner, status files, dump artifacts, manifest, replay artifacts, and Docker-level backup mount all have to align for the workflow to succeed. |
 
 ---
 

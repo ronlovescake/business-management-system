@@ -62,6 +62,12 @@ describe('Restore Runner Sidecar — Source Contracts', () => {
     expect(runnerSource).toContain("'--confirm'");
   });
 
+  it('D25: replay-chain restores invoke restore:replay before bringing app back', () => {
+    expect(runnerSource).toContain("status.scope === 'replay-chain'");
+    expect(runnerSource).toContain("'restore:replay'");
+    expect(runnerSource).toContain("['up', '-d', 'app']");
+  });
+
   it('D26: uses a running flag to prevent concurrent restores', () => {
     expect(runnerSource).toContain('let running = false');
     expect(runnerSource).toContain('if (running)');

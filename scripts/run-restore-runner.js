@@ -75,6 +75,55 @@ const composeFilePath =
 const composeEnvFile =
   process.env.COMPOSE_ENV_FILE || resolveMountedSource(RUNNER_ENV_FILE);
 
+function buildDockerComposeArgs(args) {
+  const composeArgs = ['compose'];
+
+  if (composeFilePath) {
+    composeArgs.push('-f', composeFilePath);
+  }
+
+  if (composeEnvFile) {
+    composeArgs.push('--env-file', composeEnvFile);
+  }
+
+  if (composeProjectName) {
+    composeArgs.push('-p', composeProjectName);
+  }
+
+  return composeArgs.concat(args);
+}
+
+function executeDockerCompose(args) {
+  return new Promise((resolve, reject) => {
+    const child = spawn('docker', buildDockerComposeArgs(args), {
+      env: process.env,
+    });
+
+    let output = '';
+
+    const appendOutput = (chunk) => {
+      output += chunk.toString();
+      if (output.length > 12000) {
+        output = output.slice(-12000);
+      }
+    };
+
+    child.stdout.on('data', appendOutput);
+    child.stderr.on('data', appendOutput);
+    child.on('error', reject);
+    child.on('close', (code) => {
+      if (code === 0) {
+        resolve(output);
+        return;
+      }
+
+      reject(
+        new Error(output || `Docker Compose command failed with exit code ${code}`)
+      );
+    });
+  });
+}
+
 function ensureJobsDirectory() {
   if (!fs.existsSync(jobsDirectory)) {
     fs.mkdirSync(jobsDirectory, {
@@ -169,6 +218,7 @@ function executeRestore(status) {
         env: {
           ...process.env,
           ENV_FILE,
+          ...(status.scope === 'replay-chain' ? { SKIP_APP_START: 'true' } : {}),
           ...(composeFilePath ? { COMPOSE_FILE_PATH: composeFilePath } : {}),
           ...(composeEnvFile ? { COMPOSE_ENV_FILE: composeEnvFile } : {}),
           ...(composeProjectName
@@ -203,6 +253,25 @@ function executeRestore(status) {
   });
 }
 
+function executeReplay(status) {
+  return executeDockerCompose([
+    'run',
+    '--rm',
+    '--no-deps',
+    'app',
+    'npm',
+    'run',
+    'restore:replay',
+    '--',
+    '--folder',
+    status.backupFolder,
+  ]);
+}
+
+function startAppService() {
+  return executeDockerCompose(['up', '-d', 'app']);
+}
+
 async function tick() {
   writeHeartbeat();
 
@@ -217,32 +286,51 @@ async function tick() {
 
   running = true;
 
-  writeStatus({
+  const runningStatus = {
     ...status,
     phase: 'running',
     startedAt: new Date().toISOString(),
     message:
-      'Restore runner started the validated full-dump restore. The app will be unavailable until the restore completes.',
+      status.scope === 'replay-chain'
+        ? 'Restore runner started the baseline restore and replay workflow. The app will remain unavailable until the restore chain completes.'
+        : 'Restore runner started the validated full-dump restore. The app will be unavailable until the restore completes.',
     error: undefined,
-  });
+  };
+
+  writeStatus(runningStatus);
 
   try {
     await executeRestore(status);
+    if (status.scope === 'replay-chain') {
+      writeStatus({
+        ...runningStatus,
+        message:
+          'Baseline restore completed. Replaying the planned backup chain before bringing the app back online.',
+        error: undefined,
+      });
+      await executeReplay(status);
+      await startAppService();
+    }
+
     writeStatus({
-      ...status,
+      ...runningStatus,
       phase: 'succeeded',
-      startedAt: status.startedAt || new Date().toISOString(),
       finishedAt: new Date().toISOString(),
-      message: 'Restore completed successfully and the app was started again.',
+      message:
+        status.scope === 'replay-chain'
+          ? 'Restore and replay completed successfully. The app was started again.'
+          : 'Restore completed successfully and the app was started again.',
       error: undefined,
     });
   } catch (error) {
     writeStatus({
-      ...status,
+      ...runningStatus,
       phase: 'failed',
-      startedAt: status.startedAt || new Date().toISOString(),
       finishedAt: new Date().toISOString(),
-      message: 'Restore failed. Review the error before retrying.',
+      message:
+        status.scope === 'replay-chain'
+          ? 'Restore or replay failed. Review the error before retrying; the app may still be offline.'
+          : 'Restore failed. Review the error before retrying.',
       error: error instanceof Error ? error.message : 'Restore command failed',
     });
   } finally {

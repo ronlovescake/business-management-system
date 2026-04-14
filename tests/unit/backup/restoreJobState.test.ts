@@ -5,6 +5,7 @@ import path from 'path';
 import { afterEach, describe, expect, it } from 'vitest';
 
 import {
+  resolveOperatorManagedRestoreTarget,
   resolveFullDumpRestoreTarget,
   writeRestoreJobStatus,
   writeRestoreRunnerHeartbeat,
@@ -125,6 +126,64 @@ describe('resolveFullDumpRestoreTarget', () => {
   });
 });
 
+describe('resolveOperatorManagedRestoreTarget', () => {
+  it('accepts a differential backup with a valid baseline chain', () => {
+    const backupRoot = createTempBackupDir();
+    writeBackupFixture({
+      backupRoot,
+      folder: '2026-04-04T04-14-13',
+      strategy: 'full',
+      format: 'all',
+      includeDump: true,
+    });
+    writeBackupFixture({
+      backupRoot,
+      folder: '2026-04-05T04-14-13',
+      strategy: 'differential',
+      format: 'json',
+      includeDump: false,
+    });
+
+    const differentialManifestPath = path.join(
+      backupRoot,
+      '2026-04-05T04-14-13',
+      'MANIFEST.json'
+    );
+    fs.writeFileSync(
+      differentialManifestPath,
+      JSON.stringify({
+        timestamp: '2026-04-05T04:14:13.952Z',
+        database: 'business_management',
+        format: 'json',
+        strategy: 'differential',
+        baseFolder: '2026-04-04T04-14-13',
+        baseTimestamp: '2026-04-04T04:14:13.952Z',
+        changeWindow: {
+          since: '2026-04-04T04:14:13.952Z',
+          until: '2026-04-05T04:14:13.952Z',
+        },
+        files: [
+          {
+            name: 'backup-2026-04-05T04-14-13.json',
+            size: 100,
+            path: '2026-04-05T04-14-13/backup-2026-04-05T04-14-13.json',
+          },
+        ],
+      })
+    );
+
+    const result = resolveOperatorManagedRestoreTarget(
+      '2026-04-05T04-14-13',
+      backupRoot
+    );
+
+    expect(result.scope).toBe('replay-chain');
+    expect(result.folder).toBe('2026-04-05T04-14-13');
+    expect(result.baselineFolder).toBe('2026-04-04T04-14-13');
+    expect(result.dumpFileName).toBe('backup-2026-04-04T04-14-13.dump');
+  });
+});
+
 describe('restore job state permissions', () => {
   it('writes shared-writable restore state files and directory', async () => {
     const backupRoot = createTempBackupDir();
@@ -135,6 +194,8 @@ describe('restore job state permissions', () => {
         scope: 'full-dump',
         phase: 'pending',
         backupFolder: '2026-04-04T04-14-13',
+        baselineBackupFolder: '2026-04-04T04-14-13',
+        targetStrategy: 'full',
         dumpArtifactPath: '2026-04-04T04-14-13/backup-2026-04-04T04-14-13.dump',
         dumpFileName: 'backup-2026-04-04T04-14-13.dump',
         manifestTimestamp: '2026-04-04T04:14:13.952Z',

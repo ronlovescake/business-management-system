@@ -8,7 +8,7 @@ import {
   isRestoreRunnerAvailable,
   readRestoreJobStatus,
   readRestoreRunnerHeartbeat,
-  resolveFullDumpRestoreTarget,
+  resolveOperatorManagedRestoreTarget,
   writeRestoreJobStatus,
 } from '@/lib/backup/restoreJobState';
 import {
@@ -102,7 +102,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const target = resolveFullDumpRestoreTarget(timestamp);
+    const target = resolveOperatorManagedRestoreTarget(timestamp);
     const nextStatus = await writeRestoreJobStatus(
       buildPendingRestoreJobStatus(target)
     );
@@ -111,7 +111,9 @@ export async function POST(request: NextRequest) {
       {
         success: true,
         message:
-          'Restore job accepted. The application will become temporarily unavailable while the Docker database is replaced.',
+          target.scope === 'full-dump'
+            ? 'Restore job accepted. The application will become temporarily unavailable while the Docker database is replaced.'
+            : 'Restore job accepted. The application will become temporarily unavailable while the baseline dump is restored and the backup chain is replayed.',
         runnerAvailable,
         runnerHeartbeatAt: heartbeat?.updatedAt ?? null,
         status: nextStatus,

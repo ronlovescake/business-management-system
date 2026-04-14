@@ -167,9 +167,11 @@ export interface BackupChangePreview {
 
 export interface RestoreJobStatus {
   id: string;
-  scope: 'full-dump';
+  scope: 'full-dump' | 'replay-chain';
   phase: RestoreJobPhase;
   backupFolder: string;
+  baselineBackupFolder: string;
+  targetStrategy: BackupStrategy;
   dumpArtifactPath: string;
   dumpFileName: string;
   manifestTimestamp: string;

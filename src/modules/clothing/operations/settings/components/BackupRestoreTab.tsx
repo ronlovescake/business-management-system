@@ -288,9 +288,11 @@ export function BackupRestoreTab() {
     return getSelectedTableDetails(previewData, activeTableName);
   }, [previewData, activeTableName]);
 
-  const selectedDumpFileName = useMemo(
-    () => selectedBackup?.files.find((file) => file.endsWith('.dump')) ?? null,
-    [selectedBackup]
+  const restoreBaselineDumpFileName = useMemo(
+    () =>
+      restorePlan?.steps.find((step) => step.action === 'restore-full-dump')
+        ?.artifactName ?? null,
+    [restorePlan]
   );
 
   const summaryComparisonTableOptions = useMemo(() => {
@@ -333,16 +335,18 @@ export function BackupRestoreTab() {
   }, [summaryComparison, summaryComparisonSelectedRows, summaryComparisonType]);
 
   const restoreDisabledReason = useMemo(() => {
-    if (!selectedDumpFileName) {
-      return 'This backup does not include a PostgreSQL dump artifact.';
-    }
-
     if (restorePlanLoading) {
       return 'Restore planning is still loading.';
     }
 
+    if (!restoreBaselineDumpFileName) {
+      return 'This restore plan does not include a PostgreSQL dump baseline.';
+    }
+
     if (!restorePlan?.disasterRecoveryReady) {
-      return 'Only full PostgreSQL dump backups are currently restorable from the UI.';
+      return restorePlan?.status === 'invalid'
+        ? 'This backup has a broken restore chain.'
+        : 'This backup is missing one or more executable restore artifacts.';
     }
 
     if (!restoreRunnerAvailable) {
@@ -364,8 +368,8 @@ export function BackupRestoreTab() {
     restorePlan,
     restorePlanLoading,
     restoreRunnerAvailable,
+    restoreBaselineDumpFileName,
     selectedBackup?.timestamp,
-    selectedDumpFileName,
   ]);
 
   const { strategySchedule } = useBackupSchedule(backups);
@@ -493,7 +497,7 @@ export function BackupRestoreTab() {
         restoreJobLoading={restoreJobLoading}
         restoreSubmitting={restoreSubmitting}
         selectedBackupTimestamp={selectedBackup?.timestamp ?? null}
-        selectedDumpFileName={selectedDumpFileName}
+        selectedDumpFileName={restoreBaselineDumpFileName}
         restoreDisabledReason={restoreDisabledReason}
         selectedTableName={selectedTableName}
         selectedTableDetails={selectedTableDetails}

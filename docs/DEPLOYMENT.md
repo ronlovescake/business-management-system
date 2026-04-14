@@ -304,13 +304,15 @@ How the UI restore works:
   backup's saved row counts against the live database so you can see table-level
   count drift before restoring
 - the browser submits a restore job only after a typed confirmation
-- the `restore-runner` sidecar performs the same
-  `docker:restore:docker-db` workflow under the hood
+- the `restore-runner` sidecar restores the planned full-dump baseline and,
+  when needed, replays the planned differential/log JSON chain before bringing
+  the app back
 - the app becomes temporarily unavailable while the restore is running because
-  the database is being replaced
+  the database is being replaced and any required replay steps are applied
 
-This UI path is intentionally limited to full PostgreSQL dump restores. It does
-not enable browser-driven differential or log replay into production.
+This UI path now supports operator-managed restore chains as long as the
+planner can resolve a valid full-dump baseline and every planned replay step
+has an executable JSON artifact.
 
 Use direct verification when you have already restored a dump into a safe target
 and want to compare the database state against the manifest:

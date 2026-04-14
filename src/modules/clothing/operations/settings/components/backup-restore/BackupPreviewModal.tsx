@@ -557,9 +557,9 @@ export const BackupPreviewModal = ({
                   </Text>
                   <Text size="sm">
                     {restorePlan.status === 'ready'
-                      ? 'This target is immediately restorable under the current dump-only DR contract.'
+                      ? 'This target is executable through the operator-managed restore workflow.'
                       : restorePlan.status === 'advisory'
-                        ? 'This target has a structurally valid chain, but replay steps still depend on the future differential/log executor.'
+                        ? 'This target has a structurally valid chain, but one or more restore steps are missing executable artifacts.'
                         : 'This target has a broken restore chain and should not be relied on until the underlying backup gap is fixed.'}
                   </Text>
                 </Card>
@@ -945,32 +945,34 @@ export const BackupPreviewModal = ({
                 title="Disaster-Recovery Restore Is Operator Managed"
               >
                 UI restore is available only through the dedicated
-                restore-runner. It still performs the same validated full-dump
-                Docker restore and will temporarily take the app offline while
-                the database is replaced.
+                restore-runner. It restores the planned full-dump baseline,
+                replays any required differential or log JSON steps, and keeps
+                the app offline until the database is ready again.
               </Alert>
               <Card withBorder padding="md" radius="md">
                 <Stack gap="sm">
                   <Text fw={600}>Supported Phase 2A workflow</Text>
                   <Text size="sm">
-                    1. Review the selected dump and restore chain below.
+                    1. Review the planned baseline dump and restore chain below.
                   </Text>
                   <Text size="sm">
                     2. Submit the restore job from this modal.
                   </Text>
                   <Text size="sm">
-                    3. The restore-runner validates the manifest and checksum,
-                    stops the app, replaces the Docker database, and starts the
-                    app again.
+                    3. The restore-runner validates the baseline dump,
+                    replaces the Docker database, replays any planned chain
+                    steps, and starts the app again.
                   </Text>
                   <Text size="sm" c="dimmed">
-                    Selected dump:{' '}
+                    Baseline dump:{' '}
                     <strong>
                       {selectedDumpFileName || 'No dump available'}
                     </strong>
                   </Text>
                   <Text size="sm" c="dimmed">
-                    JSON, CSV, and XLSX artifacts remain inspection/export only.
+                    Planned JSON replay artifacts are applied automatically when
+                    required; CSV and XLSX artifacts remain inspection/export
+                    only.
                   </Text>
                 </Stack>
               </Card>
@@ -1043,7 +1045,14 @@ export const BackupPreviewModal = ({
                           Backup folder: {restoreJobStatus.backupFolder}
                         </Text>
                         <Text size="xs" c="dimmed">
-                          Dump: {restoreJobStatus.dumpFileName}
+                          Baseline dump: {restoreJobStatus.dumpFileName}
+                        </Text>
+                        <Text size="xs" c="dimmed">
+                          Strategy: {restoreJobStatus.targetStrategy}
+                          {restoreJobStatus.baselineBackupFolder !==
+                          restoreJobStatus.backupFolder
+                            ? ` via baseline ${restoreJobStatus.baselineBackupFolder}`
+                            : ''}
                         </Text>
                         {restoreJobStatus.message ? (
                           <Text size="xs" c="dimmed">

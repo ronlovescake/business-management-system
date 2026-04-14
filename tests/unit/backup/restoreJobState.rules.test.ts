@@ -17,6 +17,7 @@ import {
   isRestoreJobActive,
   isRestoreRunnerAvailable,
   buildPendingRestoreJobStatus,
+  resolveOperatorManagedRestoreTarget,
   resolveFullDumpRestoreTarget,
   type RestoreJobPhase,
   type RestoreRunnerHeartbeat,
@@ -114,6 +115,45 @@ describe('Rule #7: Manifest strategy must be full', () => {
     expect(() => resolveFullDumpRestoreTarget(folder, root)).toThrow(
       /only full/i
     );
+  });
+});
+
+describe('Rule #7B: Operator-managed restore can target a replay chain', () => {
+  it('accepts a differential backup when the planner can resolve a full baseline', () => {
+    const root = tempBackupRoot();
+    const fullFolder = '2026-04-08T05-10-57';
+    const differentialFolder = '2026-04-09T05-10-57';
+
+    writeManifestAndDump(root, fullFolder);
+
+    const differentialPath = path.join(root, differentialFolder);
+    fs.mkdirSync(differentialPath, { recursive: true });
+    fs.writeFileSync(path.join(differentialPath, `backup-${differentialFolder}.json`), '{}');
+    fs.writeFileSync(
+      path.join(differentialPath, 'MANIFEST.json'),
+      JSON.stringify({
+        timestamp: '2026-04-09T05:10:57Z',
+        strategy: 'differential',
+        format: 'json',
+        baseFolder: fullFolder,
+        baseTimestamp: '2026-04-08T05:10:57Z',
+        changeWindow: {
+          since: '2026-04-08T05:10:57Z',
+          until: '2026-04-09T05:10:57Z',
+        },
+        files: [
+          {
+            name: `backup-${differentialFolder}.json`,
+            size: 100,
+            path: `${differentialFolder}/backup-${differentialFolder}.json`,
+          },
+        ],
+      })
+    );
+
+    const target = resolveOperatorManagedRestoreTarget(differentialFolder, root);
+    expect(target.scope).toBe('replay-chain');
+    expect(target.baselineFolder).toBe(fullFolder);
   });
 });
 
@@ -233,6 +273,8 @@ describe('Rule #22: Pending restore status is created before execution', () => {
         strategy: 'full',
         files: [],
       },
+      targetStrategy: 'full',
+      baselineFolder: '2026-04-08T05-10-57',
       dumpFileName: 'backup-2026-04-08T05-10-57.dump',
       dumpArtifactPath: '2026-04-08T05-10-57/backup-2026-04-08T05-10-57.dump',
       dumpAbsolutePath: '/backups/2026-04-08T05-10-57/backup-2026-04-08T05-10-57.dump',
@@ -245,5 +287,30 @@ describe('Rule #22: Pending restore status is created before execution', () => {
     expect(status.backupFolder).toBe('2026-04-08T05-10-57');
     expect(status.id).toBeTruthy(); // UUID generated
     expect(status.requestedAt).toBeTruthy();
+  });
+
+  it('marks a replay-chain restore when the target strategy is differential', () => {
+    const target: FullDumpRestoreTarget = {
+      folder: '2026-04-09T05-10-57',
+      manifest: {
+        timestamp: '2026-04-09T05:10:57.261Z',
+        database: 'business_management',
+        format: 'json',
+        strategy: 'differential',
+        files: [],
+      },
+      targetStrategy: 'differential',
+      baselineFolder: '2026-04-08T05-10-57',
+      dumpFileName: 'backup-2026-04-08T05-10-57.dump',
+      dumpArtifactPath: '2026-04-08T05-10-57/backup-2026-04-08T05-10-57.dump',
+      dumpAbsolutePath: '/backups/2026-04-08T05-10-57/backup-2026-04-08T05-10-57.dump',
+    };
+
+    const status = buildPendingRestoreJobStatus(target);
+
+    expect(status.scope).toBe('replay-chain');
+    expect(status.backupFolder).toBe('2026-04-09T05-10-57');
+    expect(status.baselineBackupFolder).toBe('2026-04-08T05-10-57');
+    expect(status.targetStrategy).toBe('differential');
   });
 });
