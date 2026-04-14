@@ -1,0 +1,2 @@
+ALTER TABLE IF EXISTS public.split_batch_components
+ADD COLUMN IF NOT EXISTS "componentPrice" DOUBLE PRECISION NOT NULL DEFAULT 0;
