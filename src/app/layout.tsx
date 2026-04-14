@@ -15,6 +15,9 @@ export const metadata: Metadata = {
   description: 'Czarlie & Ron Business Management Application',
 };
 
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+
 export default function RootLayout({
   children,
 }: {

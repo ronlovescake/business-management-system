@@ -126,12 +126,29 @@ function queryDbColumns(dockerStack) {
 
   let stdout;
   if (dockerStack) {
-    const containerMap = {
-      production: 'business-management-production-db-1',
-      dev: 'business-management-system-dev-db-1',
-      test: 'business-management-development-test-postgres-test-1',
+    const explicitContainer = process.env.BMS_DOCKER_DB_CONTAINER;
+    const containerCandidates = {
+      production: [
+        'business-management-production-db-1',
+        'business-management-system-dev-db-1',
+      ],
+      dev: ['business-management-system-dev-db-1'],
+      test: ['business-management-development-test-postgres-test-1'],
     };
-    const container = containerMap[dockerStack] || dockerStack;
+    const runningContainers = new Set(
+      execSync("docker ps --format '{{.Names}}'", {
+        encoding: 'utf8',
+        timeout: 30000,
+      })
+        .split('\n')
+        .map((name) => name.trim())
+        .filter(Boolean)
+    );
+    const candidates = explicitContainer
+      ? [explicitContainer]
+      : containerCandidates[dockerStack] || [dockerStack];
+    const container =
+      candidates.find((name) => runningContainers.has(name)) || candidates[0];
     stdout = execSync(
       `docker exec ${container} psql -U postgres -d business_management -t -A -c "${sql.replace(/"/g, '\\"')}"`,
       { encoding: 'utf8', timeout: 30000 }

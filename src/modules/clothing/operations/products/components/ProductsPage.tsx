@@ -45,6 +45,14 @@ const MixAndMatchTab = dynamic(
   { ssr: false, loading: TabLoader }
 );
 
+const SplitTab = dynamic(
+  () =>
+    import('./SplitTab').then((mod) => ({
+      default: mod.SplitTab,
+    })),
+  { ssr: false, loading: TabLoader }
+);
+
 interface ProductsPageProps {
   apiBasePath?: string;
 }
@@ -70,6 +78,7 @@ export function ProductsPage({ apiBasePath }: ProductsPageProps) {
               <Tabs.Tab value="shipping-calculator">
                 Shipping Fee Calculator
               </Tabs.Tab>
+              <Tabs.Tab value="split">Split</Tabs.Tab>
             </Tabs.List>
 
             <Tabs.Panel value="products" pt="md">
@@ -86,6 +95,10 @@ export function ProductsPage({ apiBasePath }: ProductsPageProps) {
 
             <Tabs.Panel value="shipping-calculator" pt="md">
               <ShippingFeeCalculator apiBasePath={apiBasePath} />
+            </Tabs.Panel>
+
+            <Tabs.Panel value="split" pt="md">
+              <SplitTab apiBasePath={apiBasePath} />
             </Tabs.Panel>
           </Tabs>
         </Stack>

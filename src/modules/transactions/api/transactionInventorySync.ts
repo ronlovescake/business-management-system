@@ -8,6 +8,7 @@ import {
 } from '@/lib/inventory/movements';
 import { allocateByAvailability } from '@/modules/clothing/operations/products/lib/mixAndMatchAllocation';
 import { MIX_AND_MATCH_NAME_PREFIX } from '@/lib/inventory/mixAndMatchTag';
+import { findSplitBatchByChildSkuTx } from '@/lib/inventory/splitLookup';
 import type { TransactionUpdateRecord } from './sanitizers';
 import {
   computeRemainingBalance,
@@ -27,6 +28,7 @@ import {
   setAutoMovementActive,
   setAutoMovementInactive,
   setAutoMovementsInactiveByPrefix,
+  type AutoMovementRecord,
 } from './movementStateHelpers';
 import { TransactionValidationError } from './referenceValidation';
 
@@ -56,6 +58,293 @@ type TransactionForInventorySync = Pick<
   | 'orderStatus'
   | 'adjustment'
 >;
+
+type ExistingAutoMovements = {
+  reserve: AutoMovementRecord | null;
+  sale: AutoMovementRecord | null;
+};
+
+type AutoMovementNotes = {
+  reserve: string;
+  sale: string;
+  mixReservePrefix: string;
+  mixSalePrefix: string;
+};
+
+type DerivedMovementState = {
+  postingDate: string | null;
+  reserved: boolean;
+  fulfilled: boolean;
+};
+
+function buildAutoMovementNotes(transactionId: number): AutoMovementNotes {
+  return {
+    reserve: buildAutoReserveMovementNote(transactionId),
+    sale: buildAutoSaleMovementNote(transactionId),
+    mixReservePrefix: buildAutoMixReserveMovementPrefix(transactionId),
+    mixSalePrefix: buildAutoMixSaleMovementPrefix(transactionId),
+  };
+}
+
+async function findExistingAutoMovements(
+  client: TransactionClientLike,
+  notes: Pick<AutoMovementNotes, 'reserve' | 'sale'>
+): Promise<ExistingAutoMovements> {
+  const [reserve, sale] = await Promise.all([
+    findLatestAutoMovement(client, notes.reserve),
+    findLatestAutoMovement(client, notes.sale),
+  ]);
+
+  return { reserve, sale };
+}
+
+async function deactivateAllAutoMovements(
+  client: TransactionClientLike,
+  notes: AutoMovementNotes
+) {
+  await Promise.all([
+    setAutoMovementInactive({ client, note: notes.reserve }),
+    setAutoMovementInactive({ client, note: notes.sale }),
+    setAutoMovementsInactiveByPrefix({
+      client,
+      notePrefix: notes.mixReservePrefix,
+    }),
+    setAutoMovementsInactiveByPrefix({
+      client,
+      notePrefix: notes.mixSalePrefix,
+    }),
+  ]);
+}
+
+async function deactivateMixAutoMovements(
+  client: TransactionClientLike,
+  notes: Pick<AutoMovementNotes, 'mixReservePrefix' | 'mixSalePrefix'>
+) {
+  await Promise.all([
+    setAutoMovementsInactiveByPrefix({
+      client,
+      notePrefix: notes.mixReservePrefix,
+    }),
+    setAutoMovementsInactiveByPrefix({
+      client,
+      notePrefix: notes.mixSalePrefix,
+    }),
+  ]);
+}
+
+function deriveMovementState(
+  transaction: TransactionForInventorySync
+): DerivedMovementState {
+  const postingDate = transaction.packedDate ?? transaction.orderDate ?? null;
+  const reserved = isReservedStatus(transaction.orderStatus);
+  const paidAmount = transaction.adjustment ?? 0;
+
+  const remaining = computeRemainingBalance({
+    lineTotal: transaction.lineTotal,
+    quantity: transaction.quantity,
+    unitPrice: transaction.unitPrice,
+    discount: transaction.discount,
+    adjustment: transaction.adjustment,
+  });
+  const fullyPaid = remaining <= 0.01;
+
+  const treatedAsFulfilledBecausePaidAndPrepared =
+    (transaction.orderStatus ?? '').trim().toLowerCase() === 'prepared' &&
+    paidAmount > 0 &&
+    fullyPaid;
+
+  return {
+    postingDate,
+    reserved,
+    fulfilled:
+      isFulfilledStatus(transaction.orderStatus) ||
+      treatedAsFulfilledBecausePaidAndPrepared,
+  };
+}
+
+function getMixComponentCodes(mixAndMatch: MixAndMatchDefinition): string[] {
+  return Array.from(
+    new Set(
+      mixAndMatch.components
+        .map((component) => component.componentProductCode.trim())
+        .filter(Boolean)
+    )
+  );
+}
+
+function buildAllocatedByCode(
+  allocation: Array<{ key: string; allocated: number }>
+) {
+  const allocatedByCode = new Map<string, number>();
+  allocation.forEach((item) => {
+    allocatedByCode.set(item.key.toLowerCase(), Math.max(item.allocated, 0));
+  });
+
+  return allocatedByCode;
+}
+
+async function syncSimpleReserveAndSaleMovements(params: {
+  client: TransactionClientLike;
+  existingReserve: AutoMovementRecord | null;
+  existingSale: AutoMovementRecord | null;
+  productCode: string;
+  quantity: number;
+  postingDate: string | null;
+  reserveNote: string;
+  saleNote: string;
+  reserved: boolean;
+  fulfilled: boolean;
+}) {
+  const {
+    client,
+    existingReserve,
+    existingSale,
+    productCode,
+    quantity,
+    postingDate,
+    reserveNote,
+    saleNote,
+    reserved,
+    fulfilled,
+  } = params;
+
+  const shouldKeepReserveActive =
+    reserved ||
+    (fulfilled && Boolean(existingReserve && !existingReserve.deletedAt));
+
+  if (shouldKeepReserveActive) {
+    await setAutoMovementActive({
+      client,
+      existing: existingReserve,
+      productCode,
+      quantity,
+      fromBucket: 'sellable',
+      toBucket: 'reserved',
+      postingDate,
+      note: reserveNote,
+    });
+  } else {
+    await setAutoMovementInactive({ client, note: reserveNote });
+  }
+
+  if (fulfilled) {
+    await setAutoMovementActive({
+      client,
+      existing: existingSale,
+      productCode,
+      quantity,
+      fromBucket: shouldKeepReserveActive ? 'reserved' : 'sellable',
+      toBucket: 'sold',
+      postingDate,
+      note: saleNote,
+    });
+  } else {
+    await setAutoMovementInactive({ client, note: saleNote });
+  }
+}
+
+async function syncAllocatedComponentMovements(params: {
+  client: TransactionClientLike;
+  transactionId: number;
+  componentCode: string;
+  allocated: number;
+  postingDate: string | null;
+  reserved: boolean;
+  fulfilled: boolean;
+}) {
+  const {
+    client,
+    transactionId,
+    componentCode,
+    allocated,
+    postingDate,
+    reserved,
+    fulfilled,
+  } = params;
+
+  const reserveNote = buildAutoMixReserveMovementNote(transactionId, componentCode);
+  const saleNote = buildAutoMixSaleMovementNote(transactionId, componentCode);
+  const existingMovements = await findExistingAutoMovements(client, {
+    reserve: reserveNote,
+    sale: saleNote,
+  });
+
+  await syncSimpleReserveAndSaleMovements({
+    client,
+    existingReserve: existingMovements.reserve,
+    existingSale: existingMovements.sale,
+    productCode: componentCode,
+    quantity: allocated,
+    postingDate,
+    reserveNote,
+    saleNote,
+    reserved,
+    fulfilled,
+  });
+}
+
+async function syncMixAndMatchMovements(params: {
+  client: TransactionClientLike;
+  transaction: TransactionForInventorySync;
+  mixAndMatch: MixAndMatchDefinition;
+  notes: AutoMovementNotes;
+  state: DerivedMovementState;
+}) {
+  const { client, transaction, mixAndMatch, notes, state } = params;
+
+  await Promise.all([
+    setAutoMovementInactive({ client, note: notes.reserve }),
+    setAutoMovementInactive({ client, note: notes.sale }),
+  ]);
+
+  const componentCodes = getMixComponentCodes(mixAndMatch);
+  if (componentCodes.length === 0) {
+    await deactivateMixAutoMovements(client, notes);
+    return;
+  }
+
+  const availabilityByCode = await getMovementAdjustedAvailabilityByProduct(
+    client,
+    componentCodes
+  );
+
+  const allocatedByCode = buildAllocatedByCode(
+    allocateByAvailability(
+      componentCodes.map((code) => ({
+        key: code,
+        available: availabilityByCode.get(code.toLowerCase()) ?? 0,
+      })),
+      transaction.quantity ?? 0
+    )
+  );
+
+  await deactivateMixAutoMovements(client, notes);
+
+  for (const componentCode of componentCodes) {
+    const allocated = allocatedByCode.get(componentCode.toLowerCase()) ?? 0;
+    if (allocated <= 0) {
+      continue;
+    }
+
+    await syncAllocatedComponentMovements({
+      client,
+      transactionId: transaction.id,
+      componentCode,
+      allocated,
+      postingDate: state.postingDate,
+      reserved: state.reserved,
+      fulfilled: state.fulfilled,
+    });
+  }
+}
+
+async function resolveSimpleMovementProductCode(
+  client: TransactionClientLike,
+  productCode: string
+) {
+  const splitChild = await findSplitBatchByChildSkuTx(client, productCode);
+  return splitChild?.parentSku ?? productCode;
+}
 
 export function assertCanSetPaidStatus(params: {
   nextStatus: string | null | undefined;
@@ -269,220 +558,47 @@ export async function syncInventoryMovementsForTransaction(
   const productCode = normalizeProductCode(transaction.productCode);
   const quantity = transaction.quantity ?? 0;
 
-  const reserveNote = buildAutoReserveMovementNote(transaction.id);
-  const saleNote = buildAutoSaleMovementNote(transaction.id);
-  const mixReservePrefix = buildAutoMixReserveMovementPrefix(transaction.id);
-  const mixSalePrefix = buildAutoMixSaleMovementPrefix(transaction.id);
-
-  const [existingReserve, existingSale] = await Promise.all([
-    findLatestAutoMovement(client, reserveNote),
-    findLatestAutoMovement(client, saleNote),
-  ]);
+  const notes = buildAutoMovementNotes(transaction.id);
+  const existingMovements = await findExistingAutoMovements(client, notes);
 
   if (!productCode || quantity <= 0) {
-    await Promise.all([
-      setAutoMovementInactive({ client, note: reserveNote }),
-      setAutoMovementInactive({ client, note: saleNote }),
-      setAutoMovementsInactiveByPrefix({
-        client,
-        notePrefix: mixReservePrefix,
-      }),
-      setAutoMovementsInactiveByPrefix({
-        client,
-        notePrefix: mixSalePrefix,
-      }),
-    ]);
+    await deactivateAllAutoMovements(client, notes);
     return;
   }
 
-  const postingDate = transaction.packedDate ?? transaction.orderDate ?? null;
-  const reserved = isReservedStatus(transaction.orderStatus);
-  const paidAmount = transaction.adjustment ?? 0;
-
-  const remaining = computeRemainingBalance({
-    lineTotal: transaction.lineTotal,
-    quantity: transaction.quantity,
-    unitPrice: transaction.unitPrice,
-    discount: transaction.discount,
-    adjustment: transaction.adjustment,
-  });
-  const fullyPaid = remaining <= 0.01;
-
-  const treatedAsFulfilledBecausePaidAndPrepared =
-    (transaction.orderStatus ?? '').trim().toLowerCase() === 'prepared' &&
-    paidAmount > 0 &&
-    fullyPaid;
-
-  const fulfilled =
-    isFulfilledStatus(transaction.orderStatus) ||
-    treatedAsFulfilledBecausePaidAndPrepared;
+  const movementState = deriveMovementState(transaction);
 
   const mixAndMatch = await findMixAndMatchBySku(client, productCode);
-  const isMixAndMatch = Boolean(mixAndMatch?.components?.length);
-
-  if (isMixAndMatch) {
-    await Promise.all([
-      setAutoMovementInactive({ client, note: reserveNote }),
-      setAutoMovementInactive({ client, note: saleNote }),
-    ]);
-
-    const componentCodes = Array.from(
-      new Set(
-        (mixAndMatch?.components ?? [])
-          .map((component) => component.componentProductCode.trim())
-          .filter(Boolean)
-      )
-    );
-
-    if (componentCodes.length === 0) {
-      await Promise.all([
-        setAutoMovementsInactiveByPrefix({
-          client,
-          notePrefix: mixReservePrefix,
-        }),
-        setAutoMovementsInactiveByPrefix({
-          client,
-          notePrefix: mixSalePrefix,
-        }),
-      ]);
-      return;
-    }
-
-    const availabilityByCode = await getMovementAdjustedAvailabilityByProduct(
+  if (mixAndMatch?.components?.length) {
+    await syncMixAndMatchMovements({
       client,
-      componentCodes
-    );
-
-    const allocation = allocateByAvailability(
-      componentCodes.map((code) => ({
-        key: code,
-        available: availabilityByCode.get(code.toLowerCase()) ?? 0,
-      })),
-      quantity
-    );
-
-    const allocatedByCode = new Map<string, number>();
-    allocation.forEach((item) => {
-      allocatedByCode.set(item.key.toLowerCase(), Math.max(item.allocated, 0));
+      transaction,
+      mixAndMatch,
+      notes,
+      state: movementState,
     });
-
-    await Promise.all([
-      setAutoMovementsInactiveByPrefix({
-        client,
-        notePrefix: mixReservePrefix,
-      }),
-      setAutoMovementsInactiveByPrefix({
-        client,
-        notePrefix: mixSalePrefix,
-      }),
-    ]);
-
-    for (const componentCode of componentCodes) {
-      const allocated = allocatedByCode.get(componentCode.toLowerCase()) ?? 0;
-      if (allocated <= 0) {
-        continue;
-      }
-
-      const reserveNoteForComponent = buildAutoMixReserveMovementNote(
-        transaction.id,
-        componentCode
-      );
-      const saleNoteForComponent = buildAutoMixSaleMovementNote(
-        transaction.id,
-        componentCode
-      );
-
-      const [existingComponentReserve, existingComponentSale] =
-        await Promise.all([
-          findLatestAutoMovement(client, reserveNoteForComponent),
-          findLatestAutoMovement(client, saleNoteForComponent),
-        ]);
-
-      const shouldKeepReserveActive =
-        reserved ||
-        (fulfilled &&
-          Boolean(
-            existingComponentReserve && !existingComponentReserve.deletedAt
-          ));
-
-      if (shouldKeepReserveActive) {
-        await setAutoMovementActive({
-          client,
-          existing: existingComponentReserve,
-          productCode: componentCode,
-          quantity: allocated,
-          fromBucket: 'sellable',
-          toBucket: 'reserved',
-          postingDate,
-          note: reserveNoteForComponent,
-        });
-      } else {
-        await setAutoMovementInactive({
-          client,
-          note: reserveNoteForComponent,
-        });
-      }
-
-      if (fulfilled) {
-        await setAutoMovementActive({
-          client,
-          existing: existingComponentSale,
-          productCode: componentCode,
-          quantity: allocated,
-          fromBucket: shouldKeepReserveActive ? 'reserved' : 'sellable',
-          toBucket: 'sold',
-          postingDate,
-          note: saleNoteForComponent,
-        });
-      } else {
-        await setAutoMovementInactive({
-          client,
-          note: saleNoteForComponent,
-        });
-      }
-    }
-
     return;
   }
 
-  await Promise.all([
-    setAutoMovementsInactiveByPrefix({ client, notePrefix: mixReservePrefix }),
-    setAutoMovementsInactiveByPrefix({ client, notePrefix: mixSalePrefix }),
-  ]);
+  const simpleMovementProductCode = await resolveSimpleMovementProductCode(
+    client,
+    productCode
+  );
 
-  const shouldKeepReserveActive =
-    reserved ||
-    (fulfilled && Boolean(existingReserve && !existingReserve.deletedAt));
+  await deactivateMixAutoMovements(client, notes);
 
-  if (shouldKeepReserveActive) {
-    await setAutoMovementActive({
-      client,
-      existing: existingReserve,
-      productCode,
-      quantity,
-      fromBucket: 'sellable',
-      toBucket: 'reserved',
-      postingDate,
-      note: reserveNote,
-    });
-  } else {
-    await setAutoMovementInactive({ client, note: reserveNote });
-  }
-
-  if (fulfilled) {
-    await setAutoMovementActive({
-      client,
-      existing: existingSale,
-      productCode,
-      quantity,
-      fromBucket: shouldKeepReserveActive ? 'reserved' : 'sellable',
-      toBucket: 'sold',
-      postingDate,
-      note: saleNote,
-    });
-  } else {
-    await setAutoMovementInactive({ client, note: saleNote });
-  }
+  await syncSimpleReserveAndSaleMovements({
+    client,
+    existingReserve: existingMovements.reserve,
+    existingSale: existingMovements.sale,
+    productCode: simpleMovementProductCode,
+    quantity,
+    postingDate: movementState.postingDate,
+    reserveNote: notes.reserve,
+    saleNote: notes.sale,
+    reserved: movementState.reserved,
+    fulfilled: movementState.fulfilled,
+  });
 }
 
 function isPaidStatus(status: string | null | undefined) {

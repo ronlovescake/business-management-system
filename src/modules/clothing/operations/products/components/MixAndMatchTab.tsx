@@ -125,27 +125,9 @@ export function MixAndMatchTab({ apiBasePath }: MixAndMatchTabProps) {
   const [editingMixAndMatchId, setEditingMixAndMatchId] = useState<
     number | null
   >(null);
-  const [rows, setRows] = useState<MixAndMatchRow[]>([]);
   const [form, setForm] = useState<MixAndMatchFormState>(
     createEmptyMixAndMatchForm()
   );
-
-  const filteredRows = useMemo(() => {
-    if (!searchQuery.trim()) {
-      return rows;
-    }
-
-    const query = searchQuery.trim().toLowerCase();
-    return rows.filter((row) => {
-      const codes = row.productCodes.join(' ').toLowerCase();
-      return (
-        row.postingDate.toLowerCase().includes(query) ||
-        row.mixAndMatchName.toLowerCase().includes(query) ||
-        row.mixAndMatchSku.toLowerCase().includes(query) ||
-        codes.includes(query)
-      );
-    });
-  }, [rows, searchQuery]);
 
   const productsQueryKey = useMemo(
     () => [...queryKeys.products.lists(), apiBasePath ?? 'default'],
@@ -176,21 +158,36 @@ export function MixAndMatchTab({ apiBasePath }: MixAndMatchTabProps) {
     staleTime: 30 * 1000,
   });
 
-  useEffect(() => {
-    setRows(
-      mixAndMatchRows.map((row) => ({
-        id: row.id,
-        postingDate: row.postingDate,
-        mixAndMatchName: row.mixAndMatchName,
-        mixAndMatchSku: row.mixAndMatchSku,
-        price: Number(row.price) || 0,
-        productCodes: row.components.map((component) => component.productCode),
-        includedQuantities: row.components.map(
-          (component) => component.includedQuantity
-        ),
-      }))
-    );
+  const rows = useMemo<MixAndMatchRow[]>(() => {
+    return mixAndMatchRows.map((row) => ({
+      id: row.id,
+      postingDate: row.postingDate,
+      mixAndMatchName: row.mixAndMatchName,
+      mixAndMatchSku: row.mixAndMatchSku,
+      price: Number(row.price) || 0,
+      productCodes: row.components.map((component) => component.productCode),
+      includedQuantities: row.components.map(
+        (component) => component.includedQuantity
+      ),
+    }));
   }, [mixAndMatchRows]);
+
+  const filteredRows = useMemo(() => {
+    if (!searchQuery.trim()) {
+      return rows;
+    }
+
+    const query = searchQuery.trim().toLowerCase();
+    return rows.filter((row) => {
+      const codes = row.productCodes.join(' ').toLowerCase();
+      return (
+        row.postingDate.toLowerCase().includes(query) ||
+        row.mixAndMatchName.toLowerCase().includes(query) ||
+        row.mixAndMatchSku.toLowerCase().includes(query) ||
+        codes.includes(query)
+      );
+    });
+  }, [rows, searchQuery]);
 
   const { data: movements = [] } = useQuery<InventoryMovementFromAPI[]>({
     queryKey: ['inventory-movements', apiBasePath ?? 'default'],

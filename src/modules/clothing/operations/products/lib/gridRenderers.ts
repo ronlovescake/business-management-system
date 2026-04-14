@@ -93,3 +93,41 @@ export const clippedTextRenderer = (
   td.style.textOverflow = 'ellipsis';
   td.style.overflow = 'hidden';
 };
+
+/**
+ * Creates a renderer for the Product Code column that shows a [SPLIT] badge
+ * when the product code is a split-child SKU.
+ */
+export function createSplitBadgeRenderer(splitChildSkus: Set<string>) {
+  return (
+    instance: unknown,
+    td: HTMLTableCellElement,
+    row: number,
+    col: number,
+    prop: string | number,
+    value: unknown,
+    cellProperties: unknown
+  ) => {
+    const textRenderer = getHandsontableTextRenderer();
+    if (textRenderer) {
+      textRenderer(instance, td, row, col, prop, value, cellProperties);
+    } else {
+      td.textContent =
+        value !== null && value !== undefined ? String(value) : '';
+    }
+
+    const code = typeof value === 'string' ? value.trim().toLowerCase() : '';
+    if (code && splitChildSkus.has(code)) {
+      const badge = document.createElement('span');
+      badge.textContent = ' [SPLIT]';
+      badge.style.color = '#7c3aed';
+      badge.style.fontWeight = '600';
+      badge.style.fontSize = '0.75em';
+      td.appendChild(badge);
+    }
+
+    td.style.whiteSpace = 'nowrap';
+    td.style.textOverflow = 'ellipsis';
+    td.style.overflow = 'hidden';
+  };
+}

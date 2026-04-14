@@ -237,11 +237,26 @@ export function useTransactionsData({
         },
         staleTime: 30 * 1000,
       },
+      // Query 5: Split batches so split child SKUs can inherit parent shipment metadata
+      {
+        queryKey: ['split-batches', resolvedApiBasePath],
+        queryFn: async () => {
+          try {
+            return await fetchArray<Record<string, unknown>>(
+              buildApiPath(apiBasePath, '/split-batches')
+            );
+          } catch (error) {
+            logger.error('Error loading split batches:', error);
+            return [];
+          }
+        },
+        staleTime: 30 * 1000,
+      },
     ],
   });
 
   // Destructure query results to avoid complex dependencies
-  const [customersQuery, pricesQuery, productsQuery, shipmentsQuery] =
+  const [customersQuery, pricesQuery, productsQuery, shipmentsQuery, splitBatchesQuery] =
     lookupQueries;
 
   // Extract data with proper memoization
@@ -260,6 +275,10 @@ export function useTransactionsData({
   const shipmentsQueryData = useMemo(
     () => shipmentsQuery.data || [],
     [shipmentsQuery.data]
+  );
+  const splitBatchesQueryData = useMemo(
+    () => splitBatchesQuery.data || [],
+    [splitBatchesQuery.data]
   );
 
   // Compute customer names from API + transactions
@@ -388,6 +407,67 @@ export function useTransactionsData({
             }
           });
 
+          const productMetadataByCode = new Map<
+            string,
+            { shipmentCode: string; shipmentStatus: string }
+          >();
+
+          productsQueryData.forEach((product) => {
+            const productCode = String(
+              product.productCode || product['Product Code'] || ''
+            ).trim();
+            if (!productCode) {
+              return;
+            }
+
+            productMetadataByCode.set(productCode.toLowerCase(), {
+              shipmentCode: String(
+                product.shipmentCode || product['Shipment Code'] || ''
+              ).trim(),
+              shipmentStatus: String(
+                product.shipmentStatus || product['Shipment Status'] || ''
+              ).trim(),
+            });
+          });
+
+          splitBatchesQueryData.forEach((batch) => {
+            const parentSku = String(batch['splitSku'] || '').trim();
+            if (!parentSku) {
+              return;
+            }
+
+            const parentMetadata = productMetadataByCode.get(
+              parentSku.toLowerCase()
+            );
+            if (!parentMetadata) {
+              return;
+            }
+
+            const components = Array.isArray(batch.components)
+              ? (batch.components as Array<Record<string, unknown>>)
+              : [];
+
+            components.forEach((component) => {
+              const componentSku = String(
+                component.componentSku || component['componentSku'] || ''
+              ).trim();
+              if (!componentSku) {
+                return;
+              }
+
+              if (parentMetadata.shipmentCode) {
+                shipmentMapping[componentSku] = parentMetadata.shipmentCode;
+              }
+
+              const resolvedStatus =
+                shipmentCodeToStatus[parentMetadata.shipmentCode] ||
+                parentMetadata.shipmentStatus;
+              if (resolvedStatus) {
+                statusMapping[componentSku] = resolvedStatus;
+              }
+            });
+          });
+
           if (Object.keys(statusMapping).length > 0) {
             logger.log(
               `✅ Loaded product-to-shipment mappings: ${Object.keys(statusMapping).length} products mapped`
@@ -403,10 +483,11 @@ export function useTransactionsData({
           metadata: {
             products: productsQueryData.length,
             shipments: shipmentsQueryData.length,
+            splitBatches: splitBatchesQueryData.length,
           },
         }
       ),
-    [productsQueryData, shipmentsQueryData]
+    [productsQueryData, shipmentsQueryData, splitBatchesQueryData]
   );
 
   // ============================================================================

@@ -141,9 +141,20 @@ export function PricesPage({ apiBasePath }: PricesPageProps) {
       }
 
       try {
-        const products = await api.get<Array<Record<string, unknown>>>(
-          buildApiPath(apiBasePath, '/products')
-        );
+        const [products, bundles, mixAndMatchRows, splitBatches] = await Promise.all([
+          api.get<Array<Record<string, unknown>>>(
+            buildApiPath(apiBasePath, '/products')
+          ),
+          api.get<Array<Record<string, unknown>>>(
+            buildApiPath(apiBasePath, '/bundles')
+          ),
+          api.get<Array<Record<string, unknown>>>(
+            buildApiPath(apiBasePath, '/mix-and-match')
+          ),
+          api.get<Array<Record<string, unknown>>>(
+            buildApiPath(apiBasePath, '/split-batches')
+          ),
+        ]);
 
         const product = products.find((p) => {
           const rawCode =
@@ -151,11 +162,41 @@ export function PricesPage({ apiBasePath }: PricesPageProps) {
           return normalizeProductCode(rawCode) === normalizedTarget;
         });
 
-        const rawActualPrice = product?.['Actual Price'];
+        const bundle = bundles.find((b) => {
+          const rawCode = typeof b['bundleSku'] === 'string' ? b['bundleSku'] : '';
+          return normalizeProductCode(rawCode) === normalizedTarget;
+        });
+
+        const mixAndMatch = mixAndMatchRows.find((row) => {
+          const rawCode =
+            typeof row['mixAndMatchSku'] === 'string' ? row['mixAndMatchSku'] : '';
+          return normalizeProductCode(rawCode) === normalizedTarget;
+        });
+
+        const splitComponent = splitBatches
+          .flatMap((batch) =>
+            Array.isArray(batch.components)
+              ? (batch.components as Array<Record<string, unknown>>)
+              : []
+          )
+          .find((component) => {
+            const rawCode =
+              typeof component['componentSku'] === 'string'
+                ? component['componentSku']
+                : '';
+            return normalizeProductCode(rawCode) === normalizedTarget;
+          });
+
+        const resolvedPrice =
+          splitComponent?.['componentPrice'] ??
+          product?.['Actual Price'] ??
+          bundle?.['price'] ??
+          mixAndMatch?.['price'];
+
         const numericActualPrice =
-          typeof rawActualPrice === 'number'
-            ? rawActualPrice
-            : Number(rawActualPrice);
+          typeof resolvedPrice === 'number'
+            ? resolvedPrice
+            : Number(resolvedPrice);
 
         if (!Number.isFinite(numericActualPrice) || numericActualPrice <= 0) {
           return null;
@@ -163,7 +204,7 @@ export function PricesPage({ apiBasePath }: PricesPageProps) {
 
         return numericActualPrice;
       } catch (error) {
-        logger.error('Failed to load product actual price', {
+        logger.error('Failed to load product/composite actual price', {
           productCode,
           error,
         });

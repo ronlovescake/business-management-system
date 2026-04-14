@@ -4,6 +4,7 @@ import type {
   ProductFromAPI,
   BundleBatchFromAPI,
   MixAndMatchBatchFromAPI,
+  SplitBatchFromAPI,
   TransactionFromAPI,
   InventoryMovementFromAPI,
 } from '../types';
@@ -13,6 +14,10 @@ import {
 } from '@/lib/inventory/movements';
 import { isFulfilledStatus, isReservedStatus } from '@/lib/inventory/statuses';
 import { isCancelledOrderStatus } from '@/lib/transactions/order-status';
+import {
+  buildSplitBatchMaps,
+  summarizeSplitChildAllocations,
+} from '@/lib/inventory/splitAllocation';
 
 export function extractApiData<T>(payload: unknown): T[] {
   if (Array.isArray(payload)) {
@@ -36,7 +41,8 @@ export function buildInventoryItems(
   transactions: TransactionFromAPI[],
   bundles: BundleBatchFromAPI[] = [],
   movements: InventoryMovementFromAPI[] = [],
-  mixAndMatchBatches: MixAndMatchBatchFromAPI[] = []
+  mixAndMatchBatches: MixAndMatchBatchFromAPI[] = [],
+  splitBatches: SplitBatchFromAPI[] = []
 ): InventoryItem[] {
   const ADDITIONALS_NOTE_PREFIX = 'additionals';
   const TRANSFER_NOTE_PREFIX = 'transfer';
@@ -68,6 +74,8 @@ export function buildInventoryItems(
   // (We intentionally ignore them here to avoid surfacing confusing “reserved qty” logic.)
   void bundles;
 
+  const { splitParentByChildSku } = buildSplitBatchMaps(splitBatches);
+
   // ============================================================================
   // ⚠️ OPERATIONAL SALES (INVENTORY VIEW)
   // ============================================================================
@@ -80,9 +88,12 @@ export function buildInventoryItems(
     const quantity = transaction.Quantity || 0;
     const unitPrice = transaction['Unit Price'] || 0;
     const normalizedProductCode = normalizeProductCode(productCode);
-
     const isCancelled = isCancelledOrderStatus(orderStatus);
     if (isCancelled || !normalizedProductCode) {
+      return;
+    }
+
+    if (splitParentByChildSku.has(normalizedProductCode)) {
       return;
     }
 
@@ -93,12 +104,8 @@ export function buildInventoryItems(
     const shouldCountAsReserved = !soldOrderStatuses.has(normalizedOrderStatus);
 
     if (shouldCountAsReserved) {
-      const currentCommitted =
-        committedQtyByProduct.get(normalizedProductCode) || 0;
-      committedQtyByProduct.set(
-        normalizedProductCode,
-        currentCommitted + quantity
-      );
+      const currentCommitted = committedQtyByProduct.get(normalizedProductCode) || 0;
+      committedQtyByProduct.set(normalizedProductCode, currentCommitted + quantity);
     }
 
     if (soldOrderStatuses.has(normalizedOrderStatus)) {
@@ -110,11 +117,55 @@ export function buildInventoryItems(
     // This inventory view treats sellable availability as the source of truth.
 
     if (shouldCountAsRevenue) {
-      const currentTotalSales =
-        totalSalesByProduct.get(normalizedProductCode) || 0;
+      const currentTotalSales = totalSalesByProduct.get(normalizedProductCode) || 0;
       totalSalesByProduct.set(
         normalizedProductCode,
         currentTotalSales + unitPrice * quantity
+      );
+    }
+  });
+
+  const splitAllocations = summarizeSplitChildAllocations({
+    splitBatches,
+    transactions: transactions.map((transaction) => ({
+      productCode: transaction['Product Code'],
+      quantity: transaction.Quantity,
+      orderStatus: transaction['Order Status'],
+      unitPrice: transaction['Unit Price'],
+    })),
+    isSoldStatus: (status) =>
+      soldOrderStatuses.has((status ?? '').trim().toLowerCase()),
+    isReservedStatus: (status) => {
+      const normalizedStatus = (status ?? '').trim().toLowerCase();
+      return (
+        !soldOrderStatuses.has(normalizedStatus) &&
+        isReservedStatus(status)
+      );
+    },
+    isRevenueStatus: (status) =>
+      isReservedStatus(status) || isFulfilledStatus(status),
+  });
+
+  splitAllocations.forEach((allocation, parentSku) => {
+    if (allocation.reservedOpenedSets > 0) {
+      committedQtyByProduct.set(
+        parentSku,
+        (committedQtyByProduct.get(parentSku) ?? 0) +
+          allocation.reservedOpenedSets
+      );
+    }
+
+    if (allocation.soldOpenedSets > 0) {
+      soldQtyByProduct.set(
+        parentSku,
+        (soldQtyByProduct.get(parentSku) ?? 0) + allocation.soldOpenedSets
+      );
+    }
+
+    if (allocation.childRevenue > 0) {
+      totalSalesByProduct.set(
+        parentSku,
+        (totalSalesByProduct.get(parentSku) ?? 0) + allocation.childRevenue
       );
     }
   });

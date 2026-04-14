@@ -169,7 +169,15 @@ const sentryWebpackPluginOptions = {
 
 const isTurbopackDev =
   process.env.TURBOPACK === '1' && process.env.NODE_ENV !== 'production';
-const enableSentry = !isTurbopackDev && process.env.NEXT_DISABLE_SENTRY !== '1';
+const hasSentryBuildCredentials = [
+  process.env.SENTRY_ORG,
+  process.env.SENTRY_PROJECT,
+  process.env.SENTRY_AUTH_TOKEN,
+].every((value) => typeof value === 'string' && value.trim().length > 0);
+const enableSentry =
+  !isTurbopackDev &&
+  process.env.NEXT_DISABLE_SENTRY !== '1' &&
+  hasSentryBuildCredentials;
 
 // Make sure adding Sentry options is the last code to run before exporting
 module.exports = enableSentry

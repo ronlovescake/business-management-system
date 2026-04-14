@@ -82,6 +82,18 @@ export async function validateReferences(
           select: { bundleSku: true },
         });
 
+  const existingSplitSkus =
+    uniqueProducts.length === 0
+      ? []
+      : await prisma.splitBatchComponent.findMany({
+          where: {
+            OR: uniqueProducts.map((code) => ({
+              componentSku: { equals: code, mode: 'insensitive' as const },
+            })),
+          },
+          select: { componentSku: true },
+        });
+
   const existingProductCodeSet = new Set<string>();
   existingProducts
     .map((product) => product.productCode)
@@ -90,6 +102,11 @@ export async function validateReferences(
 
   existingBundleSkus
     .map((bundle) => bundle.bundleSku)
+    .filter((code): code is string => Boolean(code))
+    .forEach((code) => existingProductCodeSet.add(code.toLowerCase()));
+
+  existingSplitSkus
+    .map((component) => component.componentSku)
     .filter((code): code is string => Boolean(code))
     .forEach((code) => existingProductCodeSet.add(code.toLowerCase()));
 

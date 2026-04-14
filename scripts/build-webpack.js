@@ -20,7 +20,7 @@ env.NEXT_FORCE_WEBPACK_BUILDS = '1';
 // Disable Next.js font optimization to avoid build-time network fetches.
 env.NEXT_DISABLE_FONT_OPTIMIZATION = '1';
 
-const child = spawn('next', ['build'], {
+const child = spawn('next', ['build', '--experimental-app-only'], {
   stdio: 'inherit',
   env,
   shell: false,

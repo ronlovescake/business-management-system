@@ -46,6 +46,22 @@ export interface MixAndMatchBatchFromAPI {
   components: MixAndMatchComponentFromAPI[];
 }
 
+export interface SplitComponentFromAPI {
+  id?: number;
+  componentLabel: string;
+  componentSku: string;
+  componentPrice: number;
+  includedQuantity: number;
+}
+
+export interface SplitBatchFromAPI {
+  id: number;
+  postingDate: string;
+  splitName: string;
+  splitSku: string;
+  components: SplitComponentFromAPI[];
+}
+
 export type InventoryBucket =
   | 'sellable'
   | 'damaged_hold'

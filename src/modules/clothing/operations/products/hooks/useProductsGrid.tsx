@@ -20,8 +20,12 @@ import type { ProductData } from '../types/product.types';
 import {
   PRODUCT_COLUMN_KEYS,
   clippedTextRenderer,
+  createSplitBadgeRenderer,
   displayOptionalNumber,
 } from '../lib/gridRenderers';
+import { useQuery } from '@tanstack/react-query';
+import { buildApiPath } from '@/lib/api/paths';
+import type { SplitBatchFromAPI } from '@/modules/clothing/operations/inventory/types';
 
 type LastClick = {
   row: number;
@@ -103,6 +107,33 @@ export function useProductsGrid({
   } = useProductsData(apiBasePath);
 
   const productForm = useProductForm();
+
+  const { data: splitBatches = [] } = useQuery<SplitBatchFromAPI[]>({
+    queryKey: ['split-batches', apiBasePath ?? 'default'],
+    queryFn: async () => {
+      const response = await fetch(
+        buildApiPath(apiBasePath, '/split-batches')
+      );
+      if (!response.ok) {
+        return [];
+      }
+      return (await response.json()) as SplitBatchFromAPI[];
+    },
+    staleTime: 30 * 1000,
+  });
+
+  const splitChildSkus = useMemo(() => {
+    const skus = new Set<string>();
+    splitBatches.forEach((batch) => {
+      batch.components.forEach((c) => {
+        const normalized = c.componentSku.trim().toLowerCase();
+        if (normalized) {
+          skus.add(normalized);
+        }
+      });
+    });
+    return skus;
+  }, [splitBatches]);
 
   const [addProductOpen, setAddProductOpen] = useState(false);
   const [gridHeight, setGridHeight] = useState(600);
@@ -254,6 +285,7 @@ export function useProductsGrid({
         type: 'text',
         readOnly: true,
         className: 'htLeft',
+        renderer: createSplitBadgeRenderer(splitChildSkus),
       },
       {
         data: 11,
@@ -450,7 +482,7 @@ export function useProductsGrid({
         readOnly: true,
       },
     ],
-    [isEditMode]
+    [isEditMode, splitChildSkus]
   );
 
   const handleAfterChange = useCallback(

@@ -4,6 +4,7 @@ import type {
   InventoryMovementFromAPI,
   MixAndMatchBatchFromAPI,
   ProductFromAPI,
+  SplitBatchFromAPI,
   TransactionFromAPI,
 } from '../../types';
 
@@ -467,6 +468,135 @@ describe('buildInventoryItems', () => {
 
     expect(sleeveless?.sellableOnHand).toBe(0);
     expect(ruffledComponent?.sellableOnHand).toBe(10);
+  });
+
+  it('rolls split-child transaction demand up to the parent SKU', () => {
+    const products: ProductFromAPI[] = [
+      {
+        id: 'p-parent',
+        'Product Code': 'A2PCS-031926',
+        Quantity: 10,
+        COGS: 0,
+        'Actual Price': 120,
+        'Shipment Code': 'SHIP-1',
+        'Shipment Status': 'Delivered',
+      },
+    ];
+
+    const transactions: TransactionFromAPI[] = [
+      {
+        id: 't-split-1',
+        'Product Code': 'TOP-031926',
+        Quantity: 2,
+        'Unit Price': 100,
+        'Order Status': 'Warehouse',
+      },
+    ];
+
+    const splitBatches: SplitBatchFromAPI[] = [
+      {
+        id: 1,
+        postingDate: '2026-04-14',
+        splitName: 'Anko 2-PC Set',
+        splitSku: 'A2PCS-031926',
+        components: [
+          {
+            id: 1,
+            componentLabel: 'Top',
+            componentSku: 'TOP-031926',
+            componentPrice: 100,
+            includedQuantity: 1,
+          },
+        ],
+      },
+    ];
+
+    const items = buildInventoryItems(
+      products,
+      transactions,
+      [],
+      [],
+      [],
+      splitBatches
+    );
+
+    const parent = items.find((item) => item.productCode === 'A2PCS-031926');
+
+    expect(parent).toBeDefined();
+    expect(parent?.reservedOnHand).toBe(2);
+    expect(parent?.sellableOnHand).toBe(8);
+    expect(parent?.totalSales).toBe(200);
+  });
+
+  it('reuses loose sibling pieces before opening another set', () => {
+    const products: ProductFromAPI[] = [
+      {
+        id: 'p-parent',
+        'Product Code': 'A2PCS-031926',
+        Quantity: 328,
+        COGS: 0,
+        'Actual Price': 120,
+        'Shipment Code': 'SHIP-1',
+        'Shipment Status': 'Delivered',
+      },
+    ];
+
+    const transactions: TransactionFromAPI[] = [
+      {
+        id: 't-top',
+        'Product Code': 'TOP-031926',
+        Quantity: 300,
+        'Unit Price': 100,
+        'Order Status': 'Warehouse',
+      },
+      {
+        id: 't-bottom',
+        'Product Code': 'BOTTOM-031926',
+        Quantity: 300,
+        'Unit Price': 100,
+        'Order Status': 'Warehouse',
+      },
+    ];
+
+    const splitBatches: SplitBatchFromAPI[] = [
+      {
+        id: 1,
+        postingDate: '2026-04-14',
+        splitName: 'Anko 2-PC Set',
+        splitSku: 'A2PCS-031926',
+        components: [
+          {
+            id: 1,
+            componentLabel: 'Top',
+            componentSku: 'TOP-031926',
+            componentPrice: 100,
+            includedQuantity: 1,
+          },
+          {
+            id: 2,
+            componentLabel: 'Bottom',
+            componentSku: 'BOTTOM-031926',
+            componentPrice: 100,
+            includedQuantity: 1,
+          },
+        ],
+      },
+    ];
+
+    const items = buildInventoryItems(
+      products,
+      transactions,
+      [],
+      [],
+      [],
+      splitBatches
+    );
+
+    const parent = items.find((item) => item.productCode === 'A2PCS-031926');
+
+    expect(parent).toBeDefined();
+    expect(parent?.reservedOnHand).toBe(300);
+    expect(parent?.sellableOnHand).toBe(28);
   });
 
   it('keeps Additionals separate from Supplier Short', () => {

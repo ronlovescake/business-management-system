@@ -1,6 +1,15 @@
 .git
 .github
 .next
+!.next/
+!.next/BUILD_ID
+!.next/*.json
+!.next/server/
+!.next/server/**
+!.next/static/
+!.next/static/**
+.next/cache
+.next/trace
 node_modules
 docs
 tests

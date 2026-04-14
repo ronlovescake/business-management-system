@@ -359,16 +359,20 @@ export const LogisticsCostsTab = memo(function LogisticsCostsTab({
 
   const shipmentOptions = useMemo(
     () =>
-      shipments
-        .map((s) => {
-          const code = (s['Shipment Code'] ?? '').trim();
-          return {
-            value: code,
-            label: code,
-          };
-        })
-        .filter((opt) => opt.value)
-        .sort((a, b) => a.value.localeCompare(b.value)),
+      Array.from(
+        new Map(
+          shipments
+            .map((s) => {
+              const code = (s['Shipment Code'] ?? '').trim();
+              return {
+                value: code,
+                label: code,
+              };
+            })
+            .filter((opt) => opt.value)
+            .map((opt) => [opt.value, opt])
+        ).values()
+      ).sort((a, b) => a.value.localeCompare(b.value)),
     [shipments]
   );
 

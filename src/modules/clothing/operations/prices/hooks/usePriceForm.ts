@@ -41,6 +41,11 @@ export function usePriceForm(apiBasePath?: string) {
         buildApiPath(apiBasePath, '/mix-and-match')
       );
 
+      // Fetch split batches so split child SKUs can also be priced
+      const splitBatches = await api.get<Array<Record<string, unknown>>>(
+        buildApiPath(apiBasePath, '/split-batches')
+      );
+
       // Fetch existing prices to filter out product codes that already have prices
       const prices = await api.get<PriceData[]>(
         buildApiPath(apiBasePath, '/prices')
@@ -81,8 +86,31 @@ export function usePriceForm(apiBasePath?: string) {
             .filter((code) => !existingProductCodes.has(code))
         : [];
 
+      const splitCodes = Array.isArray(splitBatches)
+        ? splitBatches
+            .flatMap((batch) => {
+              const components = Array.isArray(batch.components)
+                ? (batch.components as Array<Record<string, unknown>>)
+                : [];
+
+              return components.map((component) => {
+                const code =
+                  component['componentSku'] ??
+                  (component as Record<string, unknown>).componentSku;
+                return typeof code === 'string' ? code.trim() : '';
+              });
+            })
+            .filter((code) => code.length > 0)
+            .filter((code) => !existingProductCodes.has(code))
+        : [];
+
       const codes = Array.from(
-        new Set([...productCodes, ...bundleCodes, ...mixAndMatchCodes])
+        new Set([
+          ...productCodes,
+          ...bundleCodes,
+          ...mixAndMatchCodes,
+          ...splitCodes,
+        ])
       ).sort((a, b) => a.localeCompare(b));
 
       setProductCodeOptions(codes);
@@ -126,7 +154,7 @@ export function usePriceForm(apiBasePath?: string) {
       }
 
       try {
-        const [products, bundles, mixAndMatchRows] = await Promise.all([
+        const [products, bundles, mixAndMatchRows, splitBatches] = await Promise.all([
           api.get<Array<Record<string, unknown>>>(
             buildApiPath(apiBasePath, '/products')
           ),
@@ -135,6 +163,9 @@ export function usePriceForm(apiBasePath?: string) {
           ),
           api.get<Array<Record<string, unknown>>>(
             buildApiPath(apiBasePath, '/mix-and-match')
+          ),
+          api.get<Array<Record<string, unknown>>>(
+            buildApiPath(apiBasePath, '/split-batches')
           ),
         ]);
 
@@ -153,7 +184,17 @@ export function usePriceForm(apiBasePath?: string) {
             )
           : undefined;
 
+        const splitComponent = Array.isArray(splitBatches)
+          ? splitBatches.flatMap((batch) => {
+              const components = Array.isArray(batch.components)
+                ? (batch.components as Array<Record<string, unknown>>)
+                : [];
+              return components;
+            }).find((component) => component['componentSku'] === productCode.trim())
+          : undefined;
+
         const resolvedPrice =
+          splitComponent?.['componentPrice'] ??
           product?.['Actual Price'] ??
           bundle?.['price'] ??
           mixAndMatch?.['price'];
@@ -205,7 +246,7 @@ export function usePriceForm(apiBasePath?: string) {
           });
         } else {
           logger.warn(
-            `Product/bundle not found or has no price: ${productCode}`
+            `Product/composite SKU not found or has no price: ${productCode}`
           );
         }
       } catch (error) {

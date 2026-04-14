@@ -274,6 +274,8 @@ export const DUMP_ONLY_BACKUP_MODELS = [
   'AdditionalCustomerInfo',
   'BundleBatch',
   'BundleBatchComponent',
+  'SplitBatch',
+  'SplitBatchComponent',
   'InventoryMovement',
   'PaymentCard',
   'ShippingFeeCalculatorState',

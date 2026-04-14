@@ -14,6 +14,7 @@ import type {
   InventoryTotals,
   BundleBatchFromAPI,
   MixAndMatchBatchFromAPI,
+  SplitBatchFromAPI,
   ProductFromAPI,
   TransactionFromAPI,
   InventoryMovementFromAPI,
@@ -51,6 +52,7 @@ export const useInventoryPage = (apiBasePath?: string) => {
   const [mixAndMatchBatches, setMixAndMatchBatches] = useState<
     MixAndMatchBatchFromAPI[]
   >([]);
+  const [splitBatches, setSplitBatches] = useState<SplitBatchFromAPI[]>([]);
   const [movements, setMovements] = useState<InventoryMovementFromAPI[]>([]);
 
   const fetchInventoryData = useCallback(async () => {
@@ -62,12 +64,14 @@ export const useInventoryPage = (apiBasePath?: string) => {
         transactionsResponse,
         bundlesResponse,
         mixAndMatchResponse,
+        splitBatchesResponse,
         movementsResponse,
       ] = await Promise.all([
         fetch(buildApiPath(apiBasePath, '/products')),
         fetch(buildApiPath(apiBasePath, '/transactions')),
         fetch(buildApiPath(apiBasePath, '/bundles')),
         fetch(buildApiPath(apiBasePath, '/mix-and-match')),
+        fetch(buildApiPath(apiBasePath, '/split-batches')),
         fetch(buildApiPath(apiBasePath, '/inventory/movements')),
       ]);
 
@@ -101,17 +105,25 @@ export const useInventoryPage = (apiBasePath?: string) => {
         );
       }
 
+      if (!splitBatchesResponse.ok) {
+        throw new Error(
+          `Failed to fetch split batches: ${splitBatchesResponse.statusText}`
+        );
+      }
+
       const [
         productsPayload,
         transactionsPayload,
         bundlesPayload,
         mixAndMatchPayload,
+        splitBatchesPayload,
         movementsPayload,
       ] = await Promise.all([
         productsResponse.json(),
         transactionsResponse.json(),
         bundlesResponse.json(),
         mixAndMatchResponse.json(),
+        splitBatchesResponse.json(),
         movementsResponse.json(),
       ]);
 
@@ -121,6 +133,8 @@ export const useInventoryPage = (apiBasePath?: string) => {
       const parsedBundles = extractApiData<BundleBatchFromAPI>(bundlesPayload);
       const parsedMixAndMatchBatches =
         extractApiData<MixAndMatchBatchFromAPI>(mixAndMatchPayload);
+      const parsedSplitBatches =
+        extractApiData<SplitBatchFromAPI>(splitBatchesPayload);
       const parsedMovements =
         extractApiData<InventoryMovementFromAPI>(movementsPayload);
 
@@ -142,6 +156,7 @@ export const useInventoryPage = (apiBasePath?: string) => {
       setTransactions(parsedTransactions);
       setBundles(parsedBundles);
       setMixAndMatchBatches(parsedMixAndMatchBatches);
+      setSplitBatches(parsedSplitBatches);
     } catch (error) {
       logger.error('Failed to load inventory data:', error);
       showNotification({
@@ -164,9 +179,10 @@ export const useInventoryPage = (apiBasePath?: string) => {
       transactions,
       bundles,
       movements,
-      mixAndMatchBatches
+      mixAndMatchBatches,
+      splitBatches
     );
-  }, [products, transactions, bundles, movements, mixAndMatchBatches]);
+  }, [products, transactions, bundles, movements, mixAndMatchBatches, splitBatches]);
 
   const sellableOnHandByCode = useMemo(() => {
     const map = new Map<string, number>();

@@ -38,7 +38,7 @@ RUN npx playwright install --with-deps chromium
 COPY . .
 
 RUN npm run db:generate \
- && npm run build \
+ && if [ -f .next/BUILD_ID ]; then echo "Using prebuilt Next.js artifacts from build context"; else npm run build; fi \
  && mkdir -p /ms-playwright \
  && chown -R node:node /ms-playwright /app/node_modules/.prisma /app/node_modules/@prisma
 

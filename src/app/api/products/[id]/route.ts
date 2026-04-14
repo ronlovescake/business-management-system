@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { prisma } from '@/lib/db';
+import { findSplitBatchByChildSku } from '@/lib/inventory/splitLookup';
 import { logger } from '@/lib/logger';
 import { sanitizers } from '@/lib/security/sanitize';
 import { mapToDTO } from '@/modules/products/api/dto';
@@ -28,6 +29,12 @@ export async function PUT(
     });
 
     const productData = await request.json();
+    const existingProductCode = (existingProduct?.productCode ?? '').trim();
+    const splitChild = existingProductCode
+      ? await findSplitBatchByChildSku(existingProductCode)
+      : null;
+    const sanitizedProductCode =
+      sanitizers.productCode(productData['Product Code']) || null;
 
     // Sanitize and update the product in the database
     const updatedProduct = await prisma.product.update({
@@ -37,8 +44,11 @@ export async function PUT(
         shipmentCode:
           sanitizers.productCode(productData['Shipment Code']) || null,
         cvNumber: sanitizers.name(productData['CV Number']) || null,
-        productCode:
-          sanitizers.productCode(productData['Product Code']) || null,
+        // Split child SKUs are defined by the split batch and must remain stable
+        // when users edit product fields like price in the Products table.
+        productCode: splitChild
+          ? existingProductCode || sanitizedProductCode
+          : sanitizedProductCode,
 
         // Sanitize text fields
         product: sanitizers.name(productData['Product']) || null,
