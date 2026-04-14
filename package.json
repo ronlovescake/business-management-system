@@ -51,7 +51,7 @@
     "db:migrate": "prisma migrate dev",
     "db:deploy": "prisma migrate deploy",
     "db:check-drift": "node scripts/check-schema-drift.js",
-    "db:check-drift:production": "BMS_DOCKER_DB_CONTAINER=business-management-system-dev-db-1 node scripts/check-schema-drift.js --docker production",
+    "db:check-drift:production": "node scripts/check-schema-drift.js --docker production",
     "db:check-drift:dev": "node scripts/check-schema-drift.js --docker dev",
     "db:seed:auth": "node prisma/seeds/auth-users.js",
     "docker:bootstrap": "npm run db:deploy && npm run db:seed:auth",
