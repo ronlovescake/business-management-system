@@ -522,13 +522,27 @@ export function useBackupRestorePreviewController({
     }
 
     const expectedConfirmation = `RESTORE ${selectedBackup.timestamp}`;
-    const dumpFileName =
-      selectedBackup.files.find((file) => file.endsWith('.dump')) ?? null;
+    const baselineDumpStep =
+      restorePlan?.steps.find((step) => step.action === 'restore-full-dump') ??
+      null;
+    const dumpFileName = baselineDumpStep?.artifactName ?? null;
 
     if (!dumpFileName) {
       showNotification({
         title: 'Restore unavailable',
-        message: 'This backup does not include a PostgreSQL dump artifact.',
+        message: 'This restore plan does not include a PostgreSQL dump baseline.',
+        color: 'red',
+      });
+      return;
+    }
+
+    if (!restorePlan?.disasterRecoveryReady) {
+      showNotification({
+        title: 'Restore unavailable',
+        message:
+          restorePlan?.status === 'invalid'
+            ? 'This backup has a broken restore chain.'
+            : 'This backup is missing one or more executable restore artifacts.',
         color: 'red',
       });
       return;
@@ -541,7 +555,7 @@ export function useBackupRestorePreviewController({
       html: `
         <div style="text-align: left; font-size: 15px; line-height: 1.5;">
           <p><strong>Backup:</strong> ${formatBackupTimestamp(selectedBackup.timestamp)}</p>
-          <p><strong>Dump file:</strong> ${dumpFileName}</p>
+          <p><strong>Baseline dump:</strong> ${dumpFileName}</p>
           <p style="margin-top: 12px; color: #c92a2a;"><strong>This will stop the app and replace the current Docker database.</strong></p>
           <p>The browser may become temporarily unavailable until the restore completes.</p>
           <p style="margin-top: 12px;">Type <strong>${expectedConfirmation}</strong> to continue.</p>
@@ -625,7 +639,7 @@ export function useBackupRestorePreviewController({
       setRestoreSubmitting(false);
       void fetchRestoreRunnerStatus();
     }
-  }, [fetchRestoreRunnerStatus, selectedBackup]);
+  }, [fetchRestoreRunnerStatus, restorePlan, selectedBackup]);
 
   const handleOpenBackupChangePreview = useCallback(
     async (table: string) => {
