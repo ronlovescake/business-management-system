@@ -7,6 +7,7 @@ import { HotTable } from '@handsontable/react';
 import { registerAllModules } from 'handsontable/registry';
 import 'handsontable/styles/handsontable.min.css';
 import 'handsontable/styles/ht-theme-horizon.min.css';
+import { TransitReclassModal } from '@/modules/clothing/operations/shipments/components/TransitReclassModal';
 import { useProductsGrid } from '../hooks';
 import { ProductsGridControls } from './ProductsGridControls';
 import { ProductsGridFooter } from './ProductsGridFooter';
@@ -51,7 +52,13 @@ export const ProductsGrid = memo(function ProductsGrid({
     productForm,
     selectedShipmentCode,
     selectedProductCode,
+    transitReclassDisabledReason,
     handleTransitBuildUp,
+    handleTransitReclass,
+    transitReclassOpened,
+    transitReclassShipment,
+    closeTransitReclassModal,
+    handleSubmitTransitReclass,
   } = useProductsGrid({ apiBasePath });
 
   return (
@@ -151,6 +158,8 @@ export const ProductsGrid = memo(function ProductsGrid({
           selectedShipmentCode={selectedShipmentCode}
           selectedProductCode={selectedProductCode}
           onTransitBuildUp={handleTransitBuildUp}
+          onTransitReclass={handleTransitReclass}
+          transitReclassDisabledReason={transitReclassDisabledReason}
         />
 
         <AddProductModal
@@ -161,6 +170,14 @@ export const ProductsGrid = memo(function ProductsGrid({
           calculations={productForm.calculations}
           onSubmit={handleSubmitProduct}
           isEditMode={productForm.isEditMode}
+        />
+
+        <TransitReclassModal
+          opened={transitReclassOpened}
+          onClose={closeTransitReclassModal}
+          shipment={transitReclassShipment}
+          apiBasePath={apiBasePath}
+          onSubmit={handleSubmitTransitReclass}
         />
 
         <div

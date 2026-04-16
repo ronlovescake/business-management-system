@@ -1,5 +1,5 @@
 import { describe, expect, it, beforeEach, vi } from 'vitest';
-import { POST } from '@/app/api/shipments/[id]/transit-build/route';
+import { GET, POST } from '@/app/api/shipments/[id]/transit-build/route';
 import { mockNextRequest, getTestApiUrl } from '@/core/testing/test-helpers';
 
 const mockPrisma = vi.hoisted(() => ({
@@ -259,5 +259,49 @@ describe('POST /api/shipments/[id]/transit-build', () => {
     expect(body.success).toBe(true);
     expect(body.data.expectedTotalAmount).toBe(115);
     expect(body.data.entries[0].amount).toBe(115);
+  });
+
+  it('uses product transit build totals as the reclass basis in GET', async () => {
+    mockPrisma.shipment.findUnique.mockResolvedValue({
+      id: 1,
+      shipmentCode: 'KPC-001',
+    });
+
+    mockPrisma.clothingInventoryTransitBuildEntry.findMany.mockResolvedValue([
+      {
+        id: 'tb-1',
+        postingDate: new Date('2026-01-14T00:00:00.000Z'),
+        amount: 100,
+        debitAccount: 'Inventory in Transit',
+        creditAccount: 'Cash',
+        idempotencyKey: 'PRODUCT_TRANSIT_BUILD:1:GRAND_TOTAL',
+        notes: null,
+      },
+    ]);
+
+    mockPrisma.product.findMany.mockResolvedValue([
+      {
+        cogs: 115,
+        grandTotal: 100,
+        forwardersFee: 10,
+        lalamove: 5,
+        packagingCost: 0,
+      },
+    ]);
+
+    const request = mockNextRequest({
+      method: 'GET',
+      url: getTestApiUrl('/api/shipments/1/transit-build'),
+    });
+
+    const context: { params: { id: string } } = { params: { id: '1' } };
+
+    const response = await GET(request, context);
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body.success).toBe(true);
+    expect(body.data.totalAmount).toBe(100);
+    expect(body.data.expectedTotalAmount).toBe(100);
   });
 });

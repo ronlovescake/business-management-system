@@ -36,7 +36,6 @@ import { useShipmentForm } from '../hooks/useShipmentForm';
 import { AddShipmentModal } from './AddShipmentModal';
 import { EditShipmentModal } from './EditShipmentModal';
 import { TransitBuildModal } from './TransitBuildModal';
-import { TransitReclassModal } from './TransitReclassModal';
 import { ShipmentsDashboard } from './ShipmentsDashboard';
 import { PickupForm } from './PickupForm';
 import { LogisticsCostsTab } from './LogisticsCostsTab';
@@ -64,11 +63,6 @@ export const ShipmentsPage = memo(function ShipmentsPage({
   const [transitBuildShipment, setTransitBuildShipment] =
     useState<ShipmentData | null>(null);
 
-  const [transitReclassOpened, setTransitReclassOpened] =
-    useState<boolean>(false);
-  const [transitReclassShipment, setTransitReclassShipment] =
-    useState<ShipmentData | null>(null);
-
   // ==========================================================================
   // HOOKS
   // ==========================================================================
@@ -87,7 +81,6 @@ export const ShipmentsPage = memo(function ShipmentsPage({
     addShipment,
     updateShipment,
     createTransitBuildEntry,
-    createTransitReclassEntries,
   } = useShipmentsData({ apiBasePath });
 
   const {
@@ -267,33 +260,6 @@ export const ShipmentsPage = memo(function ShipmentsPage({
     return await createTransitBuildEntry(transitBuildShipment.id, input);
   };
 
-  const handleOpenTransitReclass = () => {
-    if (!editingShipment) {
-      return;
-    }
-
-    const status = (editingShipment['Shipment Status'] ?? '').toString().trim();
-    if (status.toLowerCase() !== 'delivered') {
-      return;
-    }
-
-    setTransitReclassShipment(editingShipment);
-    setTransitReclassOpened(true);
-    closeEditModal();
-  };
-
-  const handleSubmitTransitReclass = async (input: {
-    postingDate: Date;
-    selectedIdempotencyKeys: string[];
-    notes?: string;
-  }): Promise<boolean> => {
-    if (!transitReclassShipment) {
-      return false;
-    }
-
-    return await createTransitReclassEntries(transitReclassShipment.id, input);
-  };
-
   const transitBuildDisabledReason = useMemo(() => {
     if (!editingShipment) {
       return 'No shipment selected.';
@@ -302,29 +268,6 @@ export const ShipmentsPage = memo(function ShipmentsPage({
     const shipmentCode = (editingShipment['Shipment Code'] ?? '').toString();
     if (!shipmentCode.trim()) {
       return 'Add a Shipment Code before creating a transit build-up entry.';
-    }
-
-    const linkedProductCount = Number(editingShipment.linkedProductCount ?? 0);
-    if (Number.isFinite(linkedProductCount) && linkedProductCount <= 0) {
-      return 'Link at least one Product to this Shipment Code on the Products page first.';
-    }
-
-    return undefined;
-  }, [editingShipment]);
-
-  const transitReclassDisabledReason = useMemo(() => {
-    if (!editingShipment) {
-      return 'No shipment selected.';
-    }
-
-    const status = (editingShipment['Shipment Status'] ?? '').toString().trim();
-    if (status.toLowerCase() !== 'delivered') {
-      return 'Shipment must be Delivered before reclassing.';
-    }
-
-    const shipmentCode = (editingShipment['Shipment Code'] ?? '').toString();
-    if (!shipmentCode.trim()) {
-      return 'Add a Shipment Code before reclassing.';
     }
 
     const linkedProductCount = Number(editingShipment.linkedProductCount ?? 0);
@@ -460,9 +403,6 @@ export const ShipmentsPage = memo(function ShipmentsPage({
             onOpenTransitBuild={handleOpenTransitBuild}
             transitBuildDisabled={Boolean(transitBuildDisabledReason)}
             transitBuildDisabledReason={transitBuildDisabledReason}
-            onOpenTransitReclass={handleOpenTransitReclass}
-            transitReclassDisabled={Boolean(transitReclassDisabledReason)}
-            transitReclassDisabledReason={transitReclassDisabledReason}
           />
 
           <TransitBuildModal
@@ -473,17 +413,6 @@ export const ShipmentsPage = memo(function ShipmentsPage({
             }}
             shipment={transitBuildShipment}
             onSubmit={handleSubmitTransitBuild}
-          />
-
-          <TransitReclassModal
-            opened={transitReclassOpened}
-            onClose={() => {
-              setTransitReclassOpened(false);
-              setTransitReclassShipment(null);
-            }}
-            shipment={transitReclassShipment}
-            apiBasePath={apiBasePath}
-            onSubmit={handleSubmitTransitReclass}
           />
         </Tabs.Panel>
 

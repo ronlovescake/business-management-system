@@ -10,7 +10,11 @@ import {
   Textarea,
   NumberInput,
   Select,
-  Divider,
+  Paper,
+  SimpleGrid,
+  ThemeIcon,
+  Table,
+  Badge,
 } from '@mantine/core';
 import { DateInput } from '@mantine/dates';
 import {
@@ -18,12 +22,13 @@ import {
   IconPencil,
   IconRefresh,
   IconTrash,
+  IconArrowsExchange,
 } from '@tabler/icons-react';
 import { showNotification } from '@mantine/notifications';
 import type { ShipmentData } from '../types/shipment.types';
 import { ShipmentService } from '../services/ShipmentService';
 import { COMMON_DATE_INPUT_PROPS } from '@/lib/dateInputConfig';
-import { showConfirm } from '@/lib/alerts';
+import { showConfirm, showCustomAlert } from '@/lib/alerts';
 import { UniversalModal } from '@/components/modals/UniversalModal';
 
 type TransitBuildEntry = {
@@ -35,6 +40,30 @@ type TransitBuildEntry = {
   idempotencyKey: string;
   notes: string | null;
 };
+
+const formatPhpAmount = (value: number) =>
+  new Intl.NumberFormat('en-PH', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(Number(value ?? 0));
+
+const escapeHtml = (value: unknown) =>
+  (value ?? '').toString().replace(/[&<>"']/g, (character) => {
+    switch (character) {
+      case '&':
+        return '&amp;';
+      case '<':
+        return '&lt;';
+      case '>':
+        return '&gt;';
+      case '"':
+        return '&quot;';
+      case "'":
+        return '&#39;';
+      default:
+        return character;
+    }
+  });
 
 interface TransitReclassModalProps {
   opened: boolean;
@@ -185,7 +214,7 @@ export function TransitReclassModal({
 
     const confirmed = await showConfirm({
       title: 'Delete Transit Build-Up Entry',
-      message: `Delete this entry (${entry.creditAccount} • ₱${Number(entry.amount ?? 0).toFixed(2)})? This is a soft delete and will remove it from selection for reclass.`,
+      message: `Delete this entry (${entry.creditAccount} • ₱${formatPhpAmount(Number(entry.amount ?? 0))})? This is a soft delete and will remove it from selection for reclass.`,
       confirmButtonText: 'Delete',
       cancelButtonText: 'Cancel',
       type: 'warning',
@@ -262,6 +291,50 @@ export function TransitReclassModal({
       return;
     }
 
+    const selectedCount = entries.filter((entry) =>
+      selectedKeys.has(entry.idempotencyKey)
+    ).length;
+
+    const promptResult = await showCustomAlert({
+      title: `Confirm Reclass • ${shipmentCode || 'Shipment'}`,
+      icon: 'question',
+      width: '44rem',
+      showCancelButton: true,
+      confirmButtonText: 'Create Reclass Entry',
+      cancelButtonText: 'Cancel',
+      focusCancel: true,
+      html: `
+        <div style="text-align: left;">
+          <div style="border: 1px solid #dee2e6; border-radius: 10px; overflow: hidden;">
+            <table style="width: 100%; border-collapse: collapse; font-size: 14px;">
+              <tbody>
+                <tr>
+                  <td style="padding: 10px 12px; background: #f8f9fa; font-weight: 600; width: 42%;">Posting Date</td>
+                  <td style="padding: 10px 12px;">${escapeHtml(postingDate.toISOString().slice(0, 10))}</td>
+                </tr>
+                <tr>
+                  <td style="padding: 10px 12px; background: #f8f9fa; font-weight: 600;">Selected Entries</td>
+                  <td style="padding: 10px 12px;">${escapeHtml(selectedCount)}</td>
+                </tr>
+                <tr>
+                  <td style="padding: 10px 12px; background: #f8f9fa; font-weight: 600;">Expected Reclass Total</td>
+                  <td style="padding: 10px 12px;">₱${escapeHtml(formatPhpAmount(expectedTotalAmount))}</td>
+                </tr>
+                <tr>
+                  <td style="padding: 10px 12px; background: #f8f9fa; font-weight: 700;">Selected Build-Up Total</td>
+                  <td style="padding: 10px 12px; font-weight: 700;">₱${escapeHtml(formatPhpAmount(selectedTotal))}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      `,
+    });
+
+    if (!promptResult.isConfirmed) {
+      return;
+    }
+
     const ok = await onSubmit({
       postingDate,
       selectedIdempotencyKeys: Array.from(selectedKeys),
@@ -290,105 +363,188 @@ export function TransitReclassModal({
             : 'Reclass to Stock on Hand'
         }
         centered
-        size="lg"
+        size="72rem"
       >
-        <Stack gap="md">
-          <Text size="sm" c="dimmed">
-            Creates: Dr Stock on Hand / Cr Inventory in Transit (per product).
-          </Text>
+        <Stack gap="lg">
+          <Stack align="center" gap="xs">
+            <ThemeIcon size={72} radius="xl" variant="light" color="blue">
+              <IconArrowsExchange size={36} />
+            </ThemeIcon>
 
-          <Group justify="space-between" align="flex-start">
-            <Text size="sm" c={mismatch ? 'red' : 'dimmed'}>
-              Expected shipment total: ₱
-              {Number(expectedTotalAmount ?? 0).toFixed(2)}
+            <Text size="sm" c="dimmed" ta="center" maw={760}>
+              Creates: Dr Stock on Hand / Cr Inventory in Transit (per product).
+              Select which active transit build-up entries should be included in
+              this reclass.
             </Text>
-            <Text size="sm" c={mismatch ? 'red' : 'dimmed'}>
-              Selected build-up total: ₱{Number(selectedTotal ?? 0).toFixed(2)}
-            </Text>
-          </Group>
+          </Stack>
 
-          <Divider />
-
-          <Group justify="space-between">
-            <Text fw={600}>Transit build-up entries</Text>
-            <Button
-              variant="subtle"
-              leftSection={<IconRefresh size={16} />}
-              onClick={() => void refresh()}
-              loading={loading}
+          <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="md">
+            <Paper
+              withBorder
+              radius="md"
+              p="md"
+              style={{
+                background: mismatch ? '#fff5f5' : '#f8fbff',
+                borderColor: mismatch ? '#ffc9c9' : '#d0ebff',
+              }}
             >
-              Refresh
-            </Button>
-          </Group>
+              <Text size="xs" tt="uppercase" fw={700} c="dimmed">
+                Expected Reclass Total
+              </Text>
+              <Text size="xl" fw={700} c={mismatch ? 'red' : 'dark'}>
+                ₱{formatPhpAmount(Number(expectedTotalAmount ?? 0))}
+              </Text>
+            </Paper>
 
-          {entries.length === 0 ? (
-            <Text size="sm" c="dimmed">
-              No transit build-up entries found for this shipment.
-            </Text>
-          ) : (
-            <Stack gap={6}>
-              {entries.map((entry) => (
-                <Group
-                  key={entry.idempotencyKey}
-                  justify="space-between"
-                  align="flex-start"
-                  wrap="nowrap"
-                  gap="sm"
+            <Paper
+              withBorder
+              radius="md"
+              p="md"
+              style={{
+                background: mismatch ? '#fff5f5' : '#f8fbff',
+                borderColor: mismatch ? '#ffc9c9' : '#d0ebff',
+              }}
+            >
+              <Text size="xs" tt="uppercase" fw={700} c="dimmed">
+                Selected Build-Up Total
+              </Text>
+              <Text size="xl" fw={700} c={mismatch ? 'red' : 'dark'}>
+                ₱{formatPhpAmount(Number(selectedTotal ?? 0))}
+              </Text>
+            </Paper>
+          </SimpleGrid>
+
+          <Paper withBorder radius="md" p="md">
+            <Stack gap="md">
+              <Group justify="space-between" align="center">
+                <div>
+                  <Text fw={700}>Transit build-up entries</Text>
+                  <Text size="sm" c="dimmed">
+                    Review the active transit build-up lines before creating the
+                    stock-on-hand reclass.
+                  </Text>
+                </div>
+
+                <Button
+                  variant="subtle"
+                  leftSection={<IconRefresh size={16} />}
+                  onClick={() => void refresh()}
+                  loading={loading}
                 >
-                  <Checkbox
-                    checked={selectedKeys.has(entry.idempotencyKey)}
-                    onChange={(e) =>
-                      toggleKey(entry.idempotencyKey, e.currentTarget.checked)
-                    }
-                    label={`${entry.creditAccount} • ₱${Number(entry.amount ?? 0).toFixed(2)}`}
-                    description={`Posting date: ${entry.postingDate.slice(0, 10)} • ${entry.debitAccount} → ${entry.creditAccount}`}
-                  />
+                  Refresh
+                </Button>
+              </Group>
 
-                  <Group gap="xs" wrap="nowrap">
-                    <Button
-                      size="xs"
-                      variant="subtle"
-                      leftSection={<IconPencil size={14} />}
-                      onClick={() => openEdit(entry)}
-                    >
-                      Edit
-                    </Button>
-                    <Button
-                      size="xs"
-                      variant="subtle"
-                      color="red"
-                      leftSection={<IconTrash size={14} />}
-                      loading={deleteLoadingId === entry.id}
-                      onClick={() => void deleteEntry(entry)}
-                    >
-                      Delete
-                    </Button>
-                  </Group>
-                </Group>
-              ))}
+              {entries.length === 0 ? (
+                <Text size="sm" c="dimmed">
+                  No transit build-up entries found for this shipment.
+                </Text>
+              ) : (
+                <div
+                  style={{
+                    border: '1px solid #e9ecef',
+                    borderRadius: 10,
+                    overflow: 'hidden',
+                  }}
+                >
+                  <Table striped highlightOnHover withTableBorder={false}>
+                    <Table.Thead style={{ background: '#f8f9fa' }}>
+                      <Table.Tr>
+                        <Table.Th style={{ width: '10rem' }}>Include</Table.Th>
+                        <Table.Th>Credit Account</Table.Th>
+                        <Table.Th>Posting Date</Table.Th>
+                        <Table.Th ta="right">Amount</Table.Th>
+                        <Table.Th style={{ width: '12rem' }}>Actions</Table.Th>
+                      </Table.Tr>
+                    </Table.Thead>
+                    <Table.Tbody>
+                      {entries.map((entry) => (
+                        <Table.Tr key={entry.idempotencyKey}>
+                          <Table.Td>
+                            <Checkbox
+                              checked={selectedKeys.has(entry.idempotencyKey)}
+                              onChange={(e) =>
+                                toggleKey(
+                                  entry.idempotencyKey,
+                                  e.currentTarget.checked
+                                )
+                              }
+                              label="Use"
+                            />
+                          </Table.Td>
+                          <Table.Td>
+                            <Stack gap={4}>
+                              <Text fw={600}>{entry.creditAccount}</Text>
+                              <Badge
+                                variant="light"
+                                color="gray"
+                                w="fit-content"
+                              >
+                                {entry.debitAccount} → {entry.creditAccount}
+                              </Badge>
+                            </Stack>
+                          </Table.Td>
+                          <Table.Td>
+                            <Text>{entry.postingDate.slice(0, 10)}</Text>
+                          </Table.Td>
+                          <Table.Td ta="right">
+                            <Text fw={600}>
+                              ₱{formatPhpAmount(Number(entry.amount ?? 0))}
+                            </Text>
+                          </Table.Td>
+                          <Table.Td>
+                            <Group gap="xs" wrap="nowrap">
+                              <Button
+                                size="xs"
+                                variant="subtle"
+                                leftSection={<IconPencil size={14} />}
+                                onClick={() => openEdit(entry)}
+                              >
+                                Edit
+                              </Button>
+                              <Button
+                                size="xs"
+                                variant="subtle"
+                                color="red"
+                                leftSection={<IconTrash size={14} />}
+                                loading={deleteLoadingId === entry.id}
+                                onClick={() => void deleteEntry(entry)}
+                              >
+                                Delete
+                              </Button>
+                            </Group>
+                          </Table.Td>
+                        </Table.Tr>
+                      ))}
+                    </Table.Tbody>
+                  </Table>
+                </div>
+              )}
             </Stack>
-          )}
+          </Paper>
 
-          <Divider />
+          <Paper withBorder radius="md" p="md">
+            <Stack gap="md">
+              <DateInput
+                label="Posting Date"
+                placeholder="Select posting date"
+                required
+                {...COMMON_DATE_INPUT_PROPS}
+                value={postingDate}
+                onChange={setPostingDate}
+              />
 
-          <DateInput
-            label="Posting Date"
-            placeholder="Select posting date"
-            required
-            {...COMMON_DATE_INPUT_PROPS}
-            value={postingDate}
-            onChange={setPostingDate}
-          />
+              <Textarea
+                label="Notes (optional)"
+                placeholder="Optional memo"
+                rows={4}
+                value={notes}
+                onChange={(e) => setNotes(e.currentTarget.value)}
+              />
+            </Stack>
+          </Paper>
 
-          <Textarea
-            label="Notes (optional)"
-            placeholder="Optional memo"
-            rows={3}
-            value={notes}
-            onChange={(e) => setNotes(e.currentTarget.value)}
-          />
-
-          <Group justify="flex-end" mt="sm">
+          <Group justify="center" mt="xs">
             <Button variant="outline" onClick={onClose}>
               Cancel
             </Button>

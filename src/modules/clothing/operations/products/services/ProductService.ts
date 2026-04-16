@@ -23,11 +23,12 @@ import type {
   ProductStatistics,
   CSVImportResult,
   ProductValidationResult,
-  ShipmentData,
+  ShipmentData as ProductShipmentData,
   ProductCalculationInputs,
   ProductCalculationResults,
   ColumnAlignment,
 } from '../types/product.types';
+import type { ShipmentData as OperationsShipmentData } from '@/modules/clothing/operations/shipments/types/shipment.types';
 import { getCurrentDateISO } from '@/utils/date';
 import {
   TRANSACTION_FEE_RATE,
@@ -708,12 +709,12 @@ export class ProductService {
       const products = ensureArray<ProductData>(productResponse);
 
       // Fetch shipments for lookup
-      let shipments: ShipmentData[] = [];
+      let shipments: ProductShipmentData[] = [];
       try {
         const shipmentResponse = await api.get<
-          ShipmentData[] | ApiResponse<ShipmentData[]>
+          ProductShipmentData[] | ApiResponse<ProductShipmentData[]>
         >(buildApiPath(apiBasePath, '/shipments'));
-        shipments = ensureArray<ShipmentData>(shipmentResponse);
+        shipments = ensureArray<ProductShipmentData>(shipmentResponse);
       } catch (error) {
         // Continue without shipment data if API fails
         logger.warn(
@@ -811,13 +812,13 @@ export class ProductService {
   static async lookupShipment(
     shipmentCode: string,
     apiBasePath?: string
-  ): Promise<ShipmentData | null> {
+  ): Promise<OperationsShipmentData | null> {
     if (!shipmentCode.trim()) {
       return null;
     }
 
     try {
-      const shipments = await api.get<ShipmentData[]>(
+      const shipments = await api.get<OperationsShipmentData[]>(
         buildApiPath(apiBasePath, '/shipments')
       );
       return shipments.find((s) => s['Shipment Code'] === shipmentCode) || null;

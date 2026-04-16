@@ -14,6 +14,7 @@ import { DateInput } from '@mantine/dates';
 import { IconCurrencyPeso, IconBuildingBank } from '@tabler/icons-react';
 import { useForm } from '@mantine/form';
 import type { ShipmentData } from '../types/shipment.types';
+import { showCustomAlert } from '@/lib/alerts';
 import { COMMON_DATE_INPUT_PROPS } from '@/lib/dateInputConfig';
 import { UniversalModal } from '@/components/modals/UniversalModal';
 
@@ -28,6 +29,30 @@ type TransitBuildFormValues = {
   courierEstimate: number;
   notes: string;
 };
+
+const formatPhpAmount = (value: number) =>
+  new Intl.NumberFormat('en-PH', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(Number(value ?? 0));
+
+const escapeHtml = (value: unknown) =>
+  (value ?? '').toString().replace(/[&<>"']/g, (character) => {
+    switch (character) {
+      case '&':
+        return '&amp;';
+      case '<':
+        return '&lt;';
+      case '>':
+        return '&gt;';
+      case '"':
+        return '&quot;';
+      case "'":
+        return '&#39;';
+      default:
+        return character;
+    }
+  });
 
 interface TransitBuildModalProps {
   opened: boolean;
@@ -142,6 +167,58 @@ export function TransitBuildModal({
         'paidAmount',
         'Enter at least one amount (paid/supplier/forwarder/courier).'
       );
+      return;
+    }
+
+    const promptResult = await showCustomAlert({
+      title: `Confirm Transit Build-Up • ${shipmentCode || 'Shipment'}`,
+      icon: 'question',
+      width: '44rem',
+      showCancelButton: true,
+      confirmButtonText: 'Create Transit Build-Up',
+      cancelButtonText: 'Cancel',
+      focusCancel: true,
+      html: `
+        <div style="text-align: left;">
+          <div style="border: 1px solid #dee2e6; border-radius: 10px; overflow: hidden;">
+            <table style="width: 100%; border-collapse: collapse; font-size: 14px;">
+              <tbody>
+                <tr>
+                  <td style="padding: 10px 12px; background: #f8f9fa; font-weight: 600; width: 42%;">Posting Date</td>
+                  <td style="padding: 10px 12px;">${escapeHtml(postingDate.toISOString().slice(0, 10))}</td>
+                </tr>
+                <tr>
+                  <td style="padding: 10px 12px; background: #f8f9fa; font-weight: 600;">Paid From</td>
+                  <td style="padding: 10px 12px;">${escapeHtml(paidAccount)}</td>
+                </tr>
+                <tr>
+                  <td style="padding: 10px 12px; background: #f8f9fa; font-weight: 600;">Paid Amount</td>
+                  <td style="padding: 10px 12px;">₱${escapeHtml(formatPhpAmount(paidAmount))}</td>
+                </tr>
+                <tr>
+                  <td style="padding: 10px 12px; background: #f8f9fa; font-weight: 600;">Supplier Balance</td>
+                  <td style="padding: 10px 12px;">₱${escapeHtml(formatPhpAmount(supplierEstimate))}</td>
+                </tr>
+                <tr>
+                  <td style="padding: 10px 12px; background: #f8f9fa; font-weight: 600;">Forwarder Estimate</td>
+                  <td style="padding: 10px 12px;">₱${escapeHtml(formatPhpAmount(forwarderEstimate))}</td>
+                </tr>
+                <tr>
+                  <td style="padding: 10px 12px; background: #f8f9fa; font-weight: 600;">Courier Estimate</td>
+                  <td style="padding: 10px 12px;">₱${escapeHtml(formatPhpAmount(courierEstimate))}</td>
+                </tr>
+                <tr>
+                  <td style="padding: 10px 12px; background: #f8f9fa; font-weight: 700;">Total Build-Up</td>
+                  <td style="padding: 10px 12px; font-weight: 700;">₱${escapeHtml(formatPhpAmount(paidAmount + supplierEstimate + forwarderEstimate + courierEstimate))}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      `,
+    });
+
+    if (!promptResult.isConfirmed) {
       return;
     }
 

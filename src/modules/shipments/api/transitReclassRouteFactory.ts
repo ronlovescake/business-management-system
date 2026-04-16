@@ -3,7 +3,12 @@ import { ApiResponse } from '@/core/api';
 import { withErrorHandler } from '@/core/api/middleware';
 import { parseDate } from '@/lib/accounting/date-utils';
 import { sanitizers } from '@/lib/security/sanitize';
-import { parseShipmentId, computeExpectedAmount } from './shipmentUtils';
+import {
+  parseShipmentId,
+  computeExpectedAmount,
+  getTransitBuildEntrySource,
+  parseProductIdFromTransitBuildKey,
+} from './shipmentUtils';
 
 const ACCOUNTING_CUTOVER = new Date(Date.UTC(2026, 0, 1));
 
@@ -32,6 +37,7 @@ export interface TransitReclassDelegates {
   productModel: {
     findMany: (args: any) => Promise<
       Array<{
+        id?: number;
         productCode?: string | null;
         cogs: unknown;
         grandTotal: unknown;
@@ -162,9 +168,36 @@ export function createTransitReclassRoutes(delegates: TransitReclassDelegates) {
         });
       }
 
+      const transitBuildSources = new Set(
+        transitBuildEntries.map((row) =>
+          getTransitBuildEntrySource(row.idempotencyKey)
+        )
+      );
+
+      if (transitBuildSources.has('unknown')) {
+        return ApiResponse.badRequest(
+          'Transit build-up entries use an unsupported source format',
+          {
+            shipmentCode,
+            hint: 'Recreate the transit build-up entries using the current workflow before reclassing.',
+          }
+        );
+      }
+
+      if (transitBuildSources.size > 1) {
+        return ApiResponse.badRequest(
+          'Transit build-up entries mix different source flows',
+          {
+            shipmentCode,
+            hint: 'Select only one transit build-up source flow at a time before reclassing.',
+          }
+        );
+      }
+
       const products = await delegates.productModel.findMany({
         where: { shipmentCode, deletedAt: null, productCode: { not: null } },
         select: {
+          id: true,
           productCode: true,
           cogs: true,
           grandTotal: true,
@@ -181,37 +214,88 @@ export function createTransitReclassRoutes(delegates: TransitReclassDelegates) {
         });
       }
 
-      const valuedProducts = products
-        .map((p) => {
-          const productCode = (p.productCode ?? '').trim();
-          if (!productCode) {
-            return null;
+      const sourceFlow = transitBuildSources.has('product')
+        ? 'product'
+        : 'shipment';
+
+      let valuedProducts: Array<{ productCode: string; amount: number }> = [];
+      let expectedTotalAmount = 0;
+
+      if (sourceFlow === 'product') {
+        const productCodeById = new Map<number, string>();
+        products.forEach((product) => {
+          const productId = Number(product.id ?? 0);
+          const productCode = (product.productCode ?? '').trim();
+          if (productId > 0 && productCode) {
+            productCodeById.set(productId, productCode);
+          }
+        });
+
+        const amountByProductCode = new Map<string, number>();
+        for (const entry of transitBuildEntries) {
+          const productId = parseProductIdFromTransitBuildKey(
+            entry.idempotencyKey
+          );
+          const productCode = productId ? productCodeById.get(productId) : null;
+
+          if (!productId || !productCode) {
+            return ApiResponse.badRequest(
+              'Transit build-up entry is missing a linked product',
+              {
+                shipmentCode,
+                idempotencyKey: entry.idempotencyKey,
+                hint: 'Ensure each product transit build-up entry still points to an active Product Code before reclassing.',
+              }
+            );
           }
 
-          const amount = computeExpectedAmount([p]);
-          if (!Number.isFinite(amount) || amount <= 0) {
-            return null;
-          }
+          const nextAmount =
+            Number(amountByProductCode.get(productCode) ?? 0) +
+            Number(entry.amount ?? 0);
+          amountByProductCode.set(productCode, nextAmount);
+        }
 
-          return { productCode, amount };
-        })
-        .filter(Boolean) as Array<{ productCode: string; amount: number }>;
+        valuedProducts = Array.from(amountByProductCode.entries())
+          .map(([productCode, amount]) => ({ productCode, amount }))
+          .filter((row) => Number.isFinite(row.amount) && row.amount > 0);
 
-      const expectedTotalAmount = valuedProducts.reduce(
-        (sum, row) => sum + row.amount,
-        0
-      );
-
-      if (toCents(expectedTotalAmount) !== toCents(selectedTransitTotal)) {
-        return ApiResponse.badRequest(
-          'Transit build-up total does not match product valuation total',
-          {
-            shipmentCode,
-            expectedTotalAmount: `₱${expectedTotalAmount.toFixed(2)} (sum of linked Product COGS/derived COGS)`,
-            selectedTransitTotalAmount: `₱${selectedTransitTotal.toFixed(2)}`,
-            hint: 'Ensure your transit build-up entries exactly match the linked products total before reclassing.',
-          }
+        expectedTotalAmount = valuedProducts.reduce(
+          (sum, row) => sum + row.amount,
+          0
         );
+      } else {
+        valuedProducts = products
+          .map((p) => {
+            const productCode = (p.productCode ?? '').trim();
+            if (!productCode) {
+              return null;
+            }
+
+            const amount = computeExpectedAmount([p]);
+            if (!Number.isFinite(amount) || amount <= 0) {
+              return null;
+            }
+
+            return { productCode, amount };
+          })
+          .filter(Boolean) as Array<{ productCode: string; amount: number }>;
+
+        expectedTotalAmount = valuedProducts.reduce(
+          (sum, row) => sum + row.amount,
+          0
+        );
+
+        if (toCents(expectedTotalAmount) !== toCents(selectedTransitTotal)) {
+          return ApiResponse.badRequest(
+            'Transit build-up total does not match product valuation total',
+            {
+              shipmentCode,
+              expectedTotalAmount: `₱${expectedTotalAmount.toFixed(2)} (sum of linked Product COGS/derived COGS)`,
+              selectedTransitTotalAmount: `₱${selectedTransitTotal.toFixed(2)}`,
+              hint: 'Ensure your transit build-up entries exactly match the linked products total before reclassing.',
+            }
+          );
+        }
       }
 
       const existingReclassEntries = await delegates.reclassModel.findMany({

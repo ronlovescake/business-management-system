@@ -13,9 +13,12 @@ import { IconCheck } from '@tabler/icons-react';
 import type { CellChange, ChangeSource } from 'handsontable/common';
 import { useCtrlFFocus } from '@/hooks/useCtrlFFocus';
 import { showCustomAlert } from '@/lib/alerts';
+import { ApiError } from '@/lib/api/client';
+import { logger } from '@/lib/logger';
 import { calculateProductFinancials } from '@/lib/productCalculations';
 import { useProductsData } from './useProductsData';
 import { useProductForm } from './useProductForm';
+import { ProductService } from '../services/ProductService';
 import type { ProductData } from '../types/product.types';
 import {
   PRODUCT_COLUMN_KEYS,
@@ -26,6 +29,8 @@ import {
 import { useQuery } from '@tanstack/react-query';
 import { buildApiPath } from '@/lib/api/paths';
 import type { SplitBatchFromAPI } from '@/modules/clothing/operations/inventory/types';
+import { ShipmentService } from '@/modules/clothing/operations/shipments/services/ShipmentService';
+import type { ShipmentData as OperationsShipmentData } from '@/modules/clothing/operations/shipments/types/shipment.types';
 
 type LastClick = {
   row: number;
@@ -83,7 +88,17 @@ interface UseProductsGridResult {
   isLoading: boolean;
   selectedShipmentCode: string | null;
   selectedProductCode: string | null;
+  transitReclassDisabledReason?: string;
   handleTransitBuildUp: () => Promise<void>;
+  handleTransitReclass: () => Promise<void>;
+  transitReclassOpened: boolean;
+  transitReclassShipment: OperationsShipmentData | null;
+  closeTransitReclassModal: () => void;
+  handleSubmitTransitReclass: (input: {
+    postingDate: Date;
+    selectedIdempotencyKeys: string[];
+    notes?: string;
+  }) => Promise<boolean>;
 }
 
 interface UseProductsGridParams {
@@ -111,9 +126,7 @@ export function useProductsGrid({
   const { data: splitBatches = [] } = useQuery<SplitBatchFromAPI[]>({
     queryKey: ['split-batches', apiBasePath ?? 'default'],
     queryFn: async () => {
-      const response = await fetch(
-        buildApiPath(apiBasePath, '/split-batches')
-      );
+      const response = await fetch(buildApiPath(apiBasePath, '/split-batches'));
       if (!response.ok) {
         return [];
       }
@@ -139,6 +152,9 @@ export function useProductsGrid({
   const [gridHeight, setGridHeight] = useState(600);
   const [isEditMode, setIsEditMode] = useState(false);
   const [selectedRow, setSelectedRow] = useState<number | null>(null);
+  const [transitReclassOpened, setTransitReclassOpened] = useState(false);
+  const [transitReclassShipment, setTransitReclassShipment] =
+    useState<OperationsShipmentData | null>(null);
   const lastClickRef = useRef<LastClick | null>(null);
 
   const selectedProduct = useMemo(() => {
@@ -162,6 +178,24 @@ export function useProductsGrid({
     const normalized = (raw ?? '').toString().trim();
     return normalized.length ? normalized : null;
   }, [selectedProduct]);
+
+  const selectedShipmentStatus = useMemo(() => {
+    const raw = selectedProduct?.['Shipment Status'];
+    const normalized = (raw ?? '').toString().trim();
+    return normalized.length ? normalized : null;
+  }, [selectedProduct]);
+
+  const transitReclassDisabledReason = useMemo(() => {
+    if (!selectedShipmentCode) {
+      return 'Select a product row with a Shipment Code first.';
+    }
+
+    if ((selectedShipmentStatus ?? '').toLowerCase() !== 'delivered') {
+      return 'Shipment must be Delivered before reclassing.';
+    }
+
+    return undefined;
+  }, [selectedShipmentCode, selectedShipmentStatus]);
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -770,6 +804,109 @@ export function useProductsGrid({
     });
   }, [apiBasePath, products, refreshProducts, selectedShipmentCode]);
 
+  const closeTransitReclassModal = useCallback(() => {
+    setTransitReclassOpened(false);
+    setTransitReclassShipment(null);
+  }, []);
+
+  const handleTransitReclass = useCallback(async () => {
+    if (transitReclassDisabledReason) {
+      showNotification({
+        title: 'Transit Reclass Unavailable',
+        message: transitReclassDisabledReason,
+        color: 'red',
+      });
+      return;
+    }
+
+    if (!selectedShipmentCode) {
+      return;
+    }
+
+    const shipment = await ProductService.lookupShipment(
+      selectedShipmentCode,
+      apiBasePath
+    );
+
+    if (!shipment?.id) {
+      showNotification({
+        title: 'Shipment Not Found',
+        message: `Unable to find shipment ${selectedShipmentCode} for reclassing.`,
+        color: 'red',
+      });
+      return;
+    }
+
+    setTransitReclassShipment(shipment);
+    setTransitReclassOpened(true);
+  }, [apiBasePath, selectedShipmentCode, transitReclassDisabledReason]);
+
+  const handleSubmitTransitReclass = useCallback(
+    async (input: {
+      postingDate: Date;
+      selectedIdempotencyKeys: string[];
+      notes?: string;
+    }): Promise<boolean> => {
+      if (!transitReclassShipment) {
+        return false;
+      }
+
+      try {
+        const result = await ShipmentService.createTransitReclassEntries(
+          transitReclassShipment.id,
+          input,
+          apiBasePath
+        );
+
+        if (result.createdCount === 0) {
+          showNotification({
+            title: 'ℹ️ Already reclassed',
+            message:
+              'Inventory reclass entries already exist for this shipment.',
+            color: 'blue',
+          });
+        } else {
+          showNotification({
+            title: '✅ Success',
+            message: 'Reclass entries created successfully!',
+            color: 'green',
+          });
+        }
+
+        await refreshProducts();
+        return true;
+      } catch (error) {
+        logger.error('Error creating transit reclass entries:', error);
+        let message =
+          'Failed to create reclass entries. Please verify transit build-up totals and try again.';
+
+        if (error instanceof ApiError && error.data) {
+          const data = error.data as {
+            error?: string;
+            details?: string;
+            validationErrors?: Record<string, string>;
+          };
+
+          const validationMessage = data.validationErrors
+            ? Object.values(data.validationErrors).find(Boolean)
+            : undefined;
+
+          message = validationMessage || data.error || data.details || message;
+        } else if (error instanceof Error && error.message) {
+          message = error.message;
+        }
+
+        showNotification({
+          title: '❌ Error',
+          message,
+          color: 'red',
+        });
+        return false;
+      }
+    },
+    [apiBasePath, refreshProducts, transitReclassShipment]
+  );
+
   const handleSubmitProduct = useCallback(async () => {
     const validation = productForm.validate();
     if (!validation.isValid) {
@@ -885,6 +1022,12 @@ export function useProductsGrid({
     isLoading,
     selectedShipmentCode,
     selectedProductCode,
+    transitReclassDisabledReason,
     handleTransitBuildUp,
+    handleTransitReclass,
+    transitReclassOpened,
+    transitReclassShipment,
+    closeTransitReclassModal,
+    handleSubmitTransitReclass,
   };
 }

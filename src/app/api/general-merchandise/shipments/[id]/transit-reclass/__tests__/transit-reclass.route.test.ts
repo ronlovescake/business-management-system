@@ -114,4 +114,63 @@ describe('POST /api/general-merchandise/shipments/[id]/transit-reclass', () => {
     expect(body.success).toBe(false);
     expect(body.error).toBe('Shipment must be Delivered before reclassing');
   });
+
+  it('reclasses product-origin transit build entries using their exact posted amounts', async () => {
+    mockPrisma.generalMerchandiseShipment.findUnique.mockResolvedValue({
+      id: 1,
+      shipmentCode: 'GM-001',
+      shipmentStatus: 'Delivered',
+    });
+
+    mockPrisma.generalMerchandiseInventoryTransitBuildEntry.findMany.mockResolvedValue(
+      [
+        {
+          id: 'tb-1',
+          idempotencyKey: 'PRODUCT_TRANSIT_BUILD:10:GRAND_TOTAL',
+          amount: 100,
+        },
+      ]
+    );
+
+    mockPrisma.generalMerchandiseProduct.findMany.mockResolvedValue([
+      {
+        id: 10,
+        productCode: 'GM-P-1',
+        cogs: 115,
+        grandTotal: 100,
+        forwardersFee: 10,
+        lalamove: 5,
+        packagingCost: 0,
+      },
+    ]);
+
+    mockPrisma.generalMerchandiseInventoryReclassEntry.findMany.mockResolvedValue(
+      []
+    );
+    mockPrisma.generalMerchandiseInventoryReclassEntry.createMany.mockResolvedValue(
+      { count: 1 }
+    );
+
+    const request = mockNextRequest({
+      method: 'POST',
+      url: getTestApiUrl(
+        '/api/general-merchandise/shipments/1/transit-reclass'
+      ),
+      body: {
+        postingDate: '2026-02-01',
+        selectedIdempotencyKeys: ['PRODUCT_TRANSIT_BUILD:10:GRAND_TOTAL'],
+      },
+    });
+
+    const context: { params: { id: string } } = { params: { id: '1' } };
+
+    const response = await POST(request, context);
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body.success).toBe(true);
+    expect(body.data.createdCount).toBe(1);
+    expect(body.data.expectedTotalAmount).toBe(100);
+    expect(body.data.selectedTransitTotalAmount).toBe(100);
+  });
 });

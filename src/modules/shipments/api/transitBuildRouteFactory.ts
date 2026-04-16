@@ -3,7 +3,11 @@ import { ApiResponse } from '@/core/api';
 import { withErrorHandler } from '@/core/api/middleware';
 import { parseDate } from '@/lib/accounting/date-utils';
 import { sanitizers } from '@/lib/security/sanitize';
-import { parseShipmentId, computeExpectedAmount } from './shipmentUtils';
+import {
+  parseShipmentId,
+  computeExpectedAmount,
+  getTransitBuildEntrySource,
+} from './shipmentUtils';
 
 const ACCOUNTING_CUTOVER = new Date(Date.UTC(2026, 0, 1));
 
@@ -142,17 +146,28 @@ export function createTransitBuildRoutes(delegates: TransitBuildDelegates) {
         },
       });
 
-      const expectedTotalAmount = computeExpectedAmount(products);
+      const totalAmount = buildEntries.reduce(
+        (sum, row) => sum + Number(row.amount ?? 0),
+        0
+      );
+      const buildEntrySources = new Set(
+        buildEntries.map((row) =>
+          getTransitBuildEntrySource(row.idempotencyKey)
+        )
+      );
+      const expectedTotalAmount =
+        buildEntries.length > 0 &&
+        buildEntrySources.size === 1 &&
+        buildEntrySources.has('product')
+          ? totalAmount
+          : computeExpectedAmount(products);
 
       return ApiResponse.success(
         {
           shipmentId: shipment.id,
           shipmentCode,
           expectedTotalAmount,
-          totalAmount: buildEntries.reduce(
-            (sum, row) => sum + Number(row.amount ?? 0),
-            0
-          ),
+          totalAmount,
           entries: buildEntries.map((row) => ({
             id: row.id,
             postingDate: row.postingDate.toISOString(),

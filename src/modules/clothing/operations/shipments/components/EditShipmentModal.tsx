@@ -31,9 +31,6 @@ interface EditShipmentModalProps {
   onOpenTransitBuild?: () => void;
   transitBuildDisabled?: boolean;
   transitBuildDisabledReason?: string;
-  onOpenTransitReclass?: () => void;
-  transitReclassDisabled?: boolean;
-  transitReclassDisabledReason?: string;
 }
 
 export const EditShipmentModal = React.memo(function EditShipmentModal({
@@ -44,9 +41,6 @@ export const EditShipmentModal = React.memo(function EditShipmentModal({
   onOpenTransitBuild,
   transitBuildDisabled,
   transitBuildDisabledReason,
-  onOpenTransitReclass,
-  transitReclassDisabled,
-  transitReclassDisabledReason,
 }: EditShipmentModalProps) {
   const handleSubmit = async (values: ShipmentFormData) => {
     await onSubmit(values);
@@ -167,29 +161,6 @@ export const EditShipmentModal = React.memo(function EditShipmentModal({
                     disabled={transitBuildDisabled}
                   >
                     Transit Build-Up
-                  </Button>
-                </span>
-              </Tooltip>
-            )}
-            {onOpenTransitReclass && (
-              <Tooltip
-                label={
-                  transitReclassDisabledReason ??
-                  'Transit Reclass is not available for this shipment.'
-                }
-                disabled={!transitReclassDisabled}
-                withArrow
-                withinPortal
-              >
-                <span>
-                  <Button
-                    type="button"
-                    variant="light"
-                    color="grape"
-                    onClick={onOpenTransitReclass}
-                    disabled={transitReclassDisabled}
-                  >
-                    Transit Reclass
                   </Button>
                 </span>
               </Tooltip>

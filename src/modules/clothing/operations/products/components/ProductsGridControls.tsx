@@ -11,6 +11,8 @@ interface ProductsGridControlsProps {
   selectedShipmentCode: string | null;
   selectedProductCode: string | null;
   onTransitBuildUp: () => void;
+  onTransitReclass: () => void;
+  transitReclassDisabledReason?: string;
 }
 
 export const ProductsGridControls = memo(function ProductsGridControls({
@@ -22,6 +24,8 @@ export const ProductsGridControls = memo(function ProductsGridControls({
   selectedShipmentCode,
   selectedProductCode,
   onTransitBuildUp,
+  onTransitReclass,
+  transitReclassDisabledReason,
 }: ProductsGridControlsProps) {
   return (
     <Group justify="space-between" align="flex-end" wrap="wrap" gap="md">
@@ -51,6 +55,23 @@ export const ProductsGridControls = memo(function ProductsGridControls({
           }
         >
           Transit Build-Up
+        </Button>
+        <Button
+          variant="filled"
+          color="grape"
+          size="sm"
+          radius="sm"
+          disabled={Boolean(transitReclassDisabledReason)}
+          onClick={onTransitReclass}
+          title={
+            transitReclassDisabledReason
+              ? transitReclassDisabledReason
+              : selectedShipmentCode
+                ? `Reclass ${selectedShipmentCode}${selectedProductCode ? ` (${selectedProductCode})` : ''} from Inventory in Transit to Stock on Hand`
+                : 'Select a delivered product row with a Shipment Code first'
+          }
+        >
+          Reclass to Stock on Hand
         </Button>
         <Button
           leftSection={

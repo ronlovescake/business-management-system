@@ -163,6 +163,38 @@ export interface ProductCostFields {
   packagingCost: unknown;
 }
 
+export const PRODUCT_TRANSIT_BUILD_PREFIX = 'PRODUCT_TRANSIT_BUILD:';
+export const SHIPMENT_TRANSIT_BUILD_PREFIX = 'SHIPMENT_TRANSIT_BUILD:';
+
+export function getTransitBuildEntrySource(
+  idempotencyKey: string
+): 'product' | 'shipment' | 'unknown' {
+  const normalized = (idempotencyKey ?? '').trim();
+
+  if (normalized.startsWith(PRODUCT_TRANSIT_BUILD_PREFIX)) {
+    return 'product';
+  }
+
+  if (normalized.startsWith(SHIPMENT_TRANSIT_BUILD_PREFIX)) {
+    return 'shipment';
+  }
+
+  return 'unknown';
+}
+
+export function parseProductIdFromTransitBuildKey(
+  idempotencyKey: string
+): number | null {
+  const normalized = (idempotencyKey ?? '').trim();
+  if (!normalized.startsWith(PRODUCT_TRANSIT_BUILD_PREFIX)) {
+    return null;
+  }
+
+  const [, rawProductId] = normalized.split(':');
+  const productId = Number(rawProductId);
+  return Number.isInteger(productId) && productId > 0 ? productId : null;
+}
+
 export function computeExpectedAmount(products: ProductCostFields[]): number {
   return products.reduce((sum, product) => {
     const rawCogs = Number(product.cogs ?? 0);
