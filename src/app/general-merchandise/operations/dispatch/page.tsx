@@ -9,7 +9,7 @@ import type { Metadata } from 'next';
 import { DispatchRoutePage } from '@/app/operations/dispatch/_shared/DispatchRoutePage';
 import { prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
-import { renderGmOperationsPage } from '@/app/general-merchandise/operations/_shared/renderGmOperationsPage';
+import { renderOperationsPage } from '@/app/operations/_shared/renderOperationsPage';
 
 export const metadata: Metadata = {
   title: 'Dispatch',
@@ -103,7 +103,7 @@ export default async function DispatchPage() {
     // Continue with empty array - component will handle it
   }
 
-  return renderGmOperationsPage(
+  return renderOperationsPage(
     '/general-merchandise/operations/dispatch',
     <DispatchRoutePage
       serverCustomersData={serverCustomersData}

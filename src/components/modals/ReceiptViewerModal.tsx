@@ -7,7 +7,7 @@ import {
   IconDownload,
 } from '@tabler/icons-react';
 import { getIconButtonLabel } from '@/lib/accessibility';
-import { UniversalModal } from '@/components/modals/UniversalModal';
+import { UniversalModal } from './UniversalModal';
 
 interface ReceiptViewerModalProps {
   opened: boolean;
@@ -20,11 +20,6 @@ interface ReceiptViewerModalProps {
   onDownload: () => void;
 }
 
-/**
- * ReceiptViewerModal Component
- *
- * Modal for viewing and downloading receipt images with zoom controls
- */
 export const ReceiptViewerModal = memo(function ReceiptViewerModal({
   opened,
   onClose,

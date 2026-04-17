@@ -1,8 +1,8 @@
 import { EmployeesLeaveTrackerPage } from '@/app/clothing/employees/leave-tracker/page';
-import { renderGmEmployeesPage } from '@/app/general-merchandise/employees/_shared/renderGmEmployeesPage';
+import { renderOperationsPage } from '@/app/operations/_shared/renderOperationsPage';
 
 export default async function GeneralMerchandiseEmployeesLeaveTracker() {
-  return renderGmEmployeesPage(
+  return renderOperationsPage(
     '/general-merchandise/employees/leave-tracker',
     <EmployeesLeaveTrackerPage apiBasePath="/api/general-merchandise" />
   );

@@ -27,13 +27,11 @@ import {
 } from '@/lib/dateInputConfig';
 import { DateInput } from '@mantine/dates';
 import { ProductService } from '../services/ProductService';
-import type { ProductData } from '../types/product.types';
 import { buildApiPath } from '@/lib/api/paths';
 import { confirmTripleDelete } from '@/utils/confirmTripleDelete';
 import type {
   InventoryMovementFromAPI,
   MixAndMatchBatchFromAPI,
-  ProductFromAPI,
   TransactionFromAPI,
 } from '@/modules/clothing/operations/inventory/types';
 import { normalizeProductCode } from '@/lib/inventory/movements';
@@ -41,6 +39,7 @@ import {
   buildInventoryItems,
   extractApiData,
 } from '@/modules/clothing/operations/inventory/lib/inventoryTransforms';
+import { createClientId, toInventoryProduct } from '../lib/formHelpers';
 
 type MixAndMatchRow = {
   id: number;
@@ -66,18 +65,6 @@ type MixAndMatchFormState = {
   components: MixAndMatchComponentRow[];
 };
 
-function toInventoryProduct(product: ProductData): ProductFromAPI {
-  return {
-    id: String(product.id ?? ''),
-    'Product Code': product['Product Code'] ?? null,
-    Quantity: Number(product.Quantity ?? 0),
-    COGS: Number(product.COGS ?? 0),
-    'Actual Price': Number(product['Actual Price'] ?? 0),
-    'Shipment Code': product['Shipment Code'] ?? null,
-    'Shipment Status': product['Shipment Status'] ?? null,
-  };
-}
-
 async function confirmTripleDeleteMixAndMatch(
   mixAndMatchLabel: string
 ): Promise<boolean> {
@@ -90,14 +77,6 @@ async function confirmTripleDeleteMixAndMatch(
   });
 }
 
-function newClientId(): string {
-  if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) {
-    return crypto.randomUUID();
-  }
-
-  return `${Date.now()}-${Math.random().toString(16).slice(2)}`;
-}
-
 function createEmptyMixAndMatchForm(): MixAndMatchFormState {
   return {
     postingDate: formatDateForInput(new Date()),
@@ -106,7 +85,7 @@ function createEmptyMixAndMatchForm(): MixAndMatchFormState {
     price: 0,
     components: [
       {
-        clientId: newClientId(),
+        clientId: createClientId(),
         productCode: '',
         includedQuantity: 1,
       },
@@ -334,13 +313,13 @@ export function MixAndMatchTab({ apiBasePath }: MixAndMatchTabProps) {
       components:
         target.components.length > 0
           ? target.components.map((component) => ({
-              clientId: newClientId(),
+              clientId: createClientId(),
               productCode: component.productCode,
               includedQuantity: Number(component.includedQuantity) || 0,
             }))
           : [
               {
-                clientId: newClientId(),
+                clientId: createClientId(),
                 productCode: '',
                 includedQuantity: 1,
               },
@@ -356,7 +335,7 @@ export function MixAndMatchTab({ apiBasePath }: MixAndMatchTabProps) {
       ...prev,
       components: [
         ...prev.components,
-        { clientId: newClientId(), productCode: '', includedQuantity: 1 },
+        { clientId: createClientId(), productCode: '', includedQuantity: 1 },
       ],
     }));
   };

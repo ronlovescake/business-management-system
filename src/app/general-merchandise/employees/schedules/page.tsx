@@ -1,8 +1,8 @@
 import { EmployeesSchedulesPage } from '@/app/clothing/employees/schedules/page';
-import { renderGmEmployeesPage } from '@/app/general-merchandise/employees/_shared/renderGmEmployeesPage';
+import { renderOperationsPage } from '@/app/operations/_shared/renderOperationsPage';
 
 export default async function GeneralMerchandiseEmployeesSchedules() {
-  return renderGmEmployeesPage(
+  return renderOperationsPage(
     '/general-merchandise/employees/schedules',
     <EmployeesSchedulesPage apiBasePath="/api/general-merchandise" />
   );

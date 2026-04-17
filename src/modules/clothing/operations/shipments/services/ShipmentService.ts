@@ -458,51 +458,6 @@ export class ShipmentService {
     return updatedShipmentFromAPI;
   }
 
-  static async createTransitBuildEntry(
-    shipmentId: number,
-    input: {
-      postingDate: Date;
-      paidAccount: 'Cash' | 'E-Wallet';
-      paidAmount: number;
-      supplierEstimate: number;
-      forwarderEstimate: number;
-      courierEstimate: number;
-      notes?: string;
-    },
-    apiBasePath?: string
-  ): Promise<{
-    shipmentId: number;
-    shipmentCode: string;
-    postingDate: string | null;
-    totalAmount: number;
-    expectedTotalAmount: number;
-    wasDuplicate: boolean;
-    entries: Array<{
-      id: string | null;
-      amount: number;
-      debitAccount: string;
-      creditAccount: string;
-      idempotencyKey: string;
-      wasDuplicate: boolean;
-    }>;
-  }> {
-    return await api.post(
-      ShipmentService.buildPath(
-        apiBasePath,
-        `/shipments/${shipmentId}/transit-build`
-      ),
-      {
-        postingDate: this.formatDateForApi(input.postingDate),
-        paidAccount: input.paidAccount,
-        paidAmount: input.paidAmount,
-        supplierEstimate: input.supplierEstimate,
-        forwarderEstimate: input.forwarderEstimate,
-        courierEstimate: input.courierEstimate,
-        notes: input.notes,
-      }
-    );
-  }
-
   static async fetchTransitBuildEntries(
     shipmentId: number,
     apiBasePath?: string

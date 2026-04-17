@@ -8,7 +8,7 @@ import { StatsCards } from './components/StatsCards';
 import { ExpenseControls } from './components/ExpenseControls';
 import { ExpenseListTable } from './components/ExpenseListTable';
 import { AnalyticsTable } from './components/AnalyticsTable';
-import { ReceiptViewerModal } from './components/ReceiptViewerModal';
+import { ReceiptViewerModal } from '@/components/modals/ReceiptViewerModal';
 import { useExpenses } from './hooks/useExpenses';
 import { ExpensesErrorBoundary } from './components/ExpensesErrorBoundary';
 

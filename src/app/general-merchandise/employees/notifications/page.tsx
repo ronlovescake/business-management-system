@@ -1,8 +1,8 @@
 import EmployeeNotifications from '@/app/clothing/employees/notifications/page';
-import { renderGmEmployeesPage } from '@/app/general-merchandise/employees/_shared/renderGmEmployeesPage';
+import { renderOperationsPage } from '@/app/operations/_shared/renderOperationsPage';
 
 export default async function GeneralMerchandiseEmployeesNotifications() {
-  return renderGmEmployeesPage(
+  return renderOperationsPage(
     '/general-merchandise/employees/notifications',
     <EmployeeNotifications />
   );

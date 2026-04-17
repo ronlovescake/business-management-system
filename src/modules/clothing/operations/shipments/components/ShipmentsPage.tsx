@@ -35,7 +35,6 @@ import { useShipmentsData } from '../hooks/useShipmentsData';
 import { useShipmentForm } from '../hooks/useShipmentForm';
 import { AddShipmentModal } from './AddShipmentModal';
 import { EditShipmentModal } from './EditShipmentModal';
-import { TransitBuildModal } from './TransitBuildModal';
 import { ShipmentsDashboard } from './ShipmentsDashboard';
 import { PickupForm } from './PickupForm';
 import { LogisticsCostsTab } from './LogisticsCostsTab';
@@ -59,9 +58,6 @@ export const ShipmentsPage = memo(function ShipmentsPage({
   // ==========================================================================
 
   const [activeTab, setActiveTab] = useState<string>('shipments');
-  const [transitBuildOpened, setTransitBuildOpened] = useState<boolean>(false);
-  const [transitBuildShipment, setTransitBuildShipment] =
-    useState<ShipmentData | null>(null);
 
   // ==========================================================================
   // HOOKS
@@ -80,7 +76,6 @@ export const ShipmentsPage = memo(function ShipmentsPage({
     handleCSVImport,
     addShipment,
     updateShipment,
-    createTransitBuildEntry,
   } = useShipmentsData({ apiBasePath });
 
   const {
@@ -234,50 +229,6 @@ export const ShipmentsPage = memo(function ShipmentsPage({
     await handleCSVImport(file);
   };
 
-  const handleOpenTransitBuild = () => {
-    if (!editingShipment) {
-      return;
-    }
-
-    setTransitBuildShipment(editingShipment);
-    setTransitBuildOpened(true);
-    closeEditModal();
-  };
-
-  const handleSubmitTransitBuild = async (input: {
-    postingDate: Date;
-    paidAccount: 'Cash' | 'E-Wallet';
-    paidAmount: number;
-    supplierEstimate: number;
-    forwarderEstimate: number;
-    courierEstimate: number;
-    notes?: string;
-  }): Promise<boolean> => {
-    if (!transitBuildShipment) {
-      return false;
-    }
-
-    return await createTransitBuildEntry(transitBuildShipment.id, input);
-  };
-
-  const transitBuildDisabledReason = useMemo(() => {
-    if (!editingShipment) {
-      return 'No shipment selected.';
-    }
-
-    const shipmentCode = (editingShipment['Shipment Code'] ?? '').toString();
-    if (!shipmentCode.trim()) {
-      return 'Add a Shipment Code before creating a transit build-up entry.';
-    }
-
-    const linkedProductCount = Number(editingShipment.linkedProductCount ?? 0);
-    if (Number.isFinite(linkedProductCount) && linkedProductCount <= 0) {
-      return 'Link at least one Product to this Shipment Code on the Products page first.';
-    }
-
-    return undefined;
-  }, [editingShipment]);
-
   // ==========================================================================
   // LOADING STATE
   // ==========================================================================
@@ -400,19 +351,6 @@ export const ShipmentsPage = memo(function ShipmentsPage({
             onClose={closeEditModal}
             form={editShipmentForm}
             onSubmit={handleSubmitEdit}
-            onOpenTransitBuild={handleOpenTransitBuild}
-            transitBuildDisabled={Boolean(transitBuildDisabledReason)}
-            transitBuildDisabledReason={transitBuildDisabledReason}
-          />
-
-          <TransitBuildModal
-            opened={transitBuildOpened}
-            onClose={() => {
-              setTransitBuildOpened(false);
-              setTransitBuildShipment(null);
-            }}
-            shipment={transitBuildShipment}
-            onSubmit={handleSubmitTransitBuild}
           />
         </Tabs.Panel>
 

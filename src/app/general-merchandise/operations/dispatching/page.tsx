@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
 import { DispatchingRoutePage } from '@/app/operations/dispatching/_shared/DispatchingRoutePage';
-import { renderGmOperationsPage } from '@/app/general-merchandise/operations/_shared/renderGmOperationsPage';
+import { renderOperationsPage } from '@/app/operations/_shared/renderOperationsPage';
 
 export const metadata: Metadata = {
   title: 'Dispatching - General Merchandise',
@@ -8,7 +8,7 @@ export const metadata: Metadata = {
 };
 
 export default async function GeneralMerchandiseDispatchingPage() {
-  return renderGmOperationsPage(
+  return renderOperationsPage(
     '/general-merchandise/operations/dispatching',
     <DispatchingRoutePage />
   );

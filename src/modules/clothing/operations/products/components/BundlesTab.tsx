@@ -26,7 +26,6 @@ import { UniversalModal } from '@/components/modals/UniversalModal';
 import { BundleService } from '../services/BundleService';
 import { ProductService } from '../services/ProductService';
 import type { BundleBatch, CreateBundleInput } from '../types/bundle.types';
-import type { ProductData } from '../types/product.types';
 import {
   COMMON_DATE_INPUT_PROPS,
   formatDateForInput,
@@ -35,7 +34,6 @@ import {
 import { DateInput } from '@mantine/dates';
 import type {
   InventoryMovementFromAPI,
-  ProductFromAPI,
   TransactionFromAPI,
 } from '@/modules/clothing/operations/inventory/types';
 import {
@@ -44,6 +42,7 @@ import {
 } from '@/modules/clothing/operations/inventory/lib/inventoryTransforms';
 import { normalizeProductCode } from '@/lib/inventory/movements';
 import { buildApiPath } from '@/lib/api/paths';
+import { createClientId, toInventoryProduct } from '../lib/formHelpers';
 
 type BundleComponentRow = {
   clientId: string;
@@ -55,25 +54,6 @@ type BundleFormState = Omit<CreateBundleInput, 'components'> & {
   components: BundleComponentRow[];
 };
 
-function toInventoryProduct(product: ProductData): ProductFromAPI {
-  return {
-    id: String(product.id ?? ''),
-    'Product Code': product['Product Code'] ?? null,
-    Quantity: Number(product.Quantity ?? 0),
-    COGS: Number(product.COGS ?? 0),
-    'Actual Price': Number(product['Actual Price'] ?? 0),
-    'Shipment Code': product['Shipment Code'] ?? null,
-    'Shipment Status': product['Shipment Status'] ?? null,
-  };
-}
-
-function newClientId(): string {
-  if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) {
-    return crypto.randomUUID();
-  }
-  return `${Date.now()}-${Math.random().toString(16).slice(2)}`;
-}
-
 function createEmptyBundle(): BundleFormState {
   return {
     postingDate: formatDateForInput(new Date()),
@@ -82,7 +62,7 @@ function createEmptyBundle(): BundleFormState {
     quantity: 1,
     price: 0,
     components: [
-      { clientId: newClientId(), productCode: '', includedQuantity: 1 },
+      { clientId: createClientId(), productCode: '', includedQuantity: 1 },
     ],
   };
 }
@@ -346,7 +326,7 @@ export function BundlesTab({ apiBasePath }: BundlesTabProps) {
       ...prev,
       components: [
         ...prev.components,
-        { clientId: newClientId(), productCode: '', includedQuantity: 1 },
+        { clientId: createClientId(), productCode: '', includedQuantity: 1 },
       ],
     }));
   };
@@ -407,7 +387,7 @@ export function BundlesTab({ apiBasePath }: BundlesTabProps) {
       quantity: bundle.quantity,
       price: bundle.price,
       components: bundle.components.map((c) => ({
-        clientId: newClientId(),
+        clientId: createClientId(),
         productCode: c.componentProductCode,
         includedQuantity: c.includedQuantity,
       })),

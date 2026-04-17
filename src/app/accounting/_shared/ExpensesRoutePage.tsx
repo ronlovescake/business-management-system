@@ -8,7 +8,7 @@ import { StatsCards } from '@/app/clothing/accounting/components/StatsCards';
 import { ExpenseControls } from '@/app/clothing/accounting/components/ExpenseControls';
 import { ExpenseListTable } from '@/app/clothing/accounting/components/ExpenseListTable';
 import { AnalyticsTable } from '@/app/clothing/accounting/components/AnalyticsTable';
-import { ReceiptViewerModal } from '@/app/clothing/accounting/components/ReceiptViewerModal';
+import { ReceiptViewerModal } from '@/components/modals/ReceiptViewerModal';
 import { ExpensesErrorBoundary } from '@/app/clothing/accounting/components/ExpensesErrorBoundary';
 import { useExpenses } from '@/app/clothing/accounting/hooks/useExpenses';
 import { AccountingLoadErrorAlert } from '@/app/accounting/_shared/AccountingLoadErrorAlert';

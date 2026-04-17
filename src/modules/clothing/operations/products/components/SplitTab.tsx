@@ -31,7 +31,6 @@ import { confirmTripleDelete } from '@/utils/confirmTripleDelete';
 import { showCustomAlert } from '@/lib/alerts';
 import type {
   InventoryMovementFromAPI,
-  ProductFromAPI,
   SplitBatchFromAPI,
   TransactionFromAPI,
 } from '@/modules/clothing/operations/inventory/types';
@@ -42,6 +41,7 @@ import {
 import { normalizeProductCode } from '@/lib/inventory/movements';
 import { queryKeys } from '@/lib/queryKeys';
 import type { ProductData } from '../types/product.types';
+import { createClientId, toInventoryProduct } from '../lib/formHelpers';
 
 type SplitRow = {
   id: number;
@@ -69,21 +69,13 @@ type SplitFormState = {
   components: SplitComponentFormRow[];
 };
 
-function newClientId(): string {
-  if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) {
-    return crypto.randomUUID();
-  }
-
-  return `${Date.now()}-${Math.random().toString(16).slice(2)}`;
-}
-
 function createEmptySplitForm(): SplitFormState {
   return {
     postingDate: formatDateForInput(new Date()),
     splitSku: '',
     components: [
       {
-        clientId: newClientId(),
+        clientId: createClientId(),
         componentLabel: '',
         componentSku: '',
         componentPrice: 0,
@@ -91,7 +83,7 @@ function createEmptySplitForm(): SplitFormState {
         isSkuManual: false,
       },
       {
-        clientId: newClientId(),
+        clientId: createClientId(),
         componentLabel: '',
         componentSku: '',
         componentPrice: 0,
@@ -102,9 +94,7 @@ function createEmptySplitForm(): SplitFormState {
   };
 }
 
-async function confirmTripleDeleteSplit(
-  splitLabel: string
-): Promise<boolean> {
+async function confirmTripleDeleteSplit(splitLabel: string): Promise<boolean> {
   return confirmTripleDelete({
     title: 'Delete split batch?',
     warning: `This will permanently delete ${splitLabel}.`,
@@ -116,18 +106,6 @@ async function confirmTripleDeleteSplit(
 
 interface SplitTabProps {
   apiBasePath?: string;
-}
-
-function toInventoryProduct(product: ProductData): ProductFromAPI {
-  return {
-    id: String(product.id ?? ''),
-    'Product Code': product['Product Code'] ?? null,
-    Quantity: Number(product.Quantity ?? 0),
-    COGS: Number(product.COGS ?? 0),
-    'Actual Price': Number(product['Actual Price'] ?? 0),
-    'Shipment Code': product['Shipment Code'] ?? null,
-    'Shipment Status': product['Shipment Status'] ?? null,
-  };
 }
 
 function getParentOptionLabel(product: ProductData): string {
@@ -173,7 +151,9 @@ export function SplitTab({ apiBasePath }: SplitTabProps) {
     staleTime: 30 * 1000,
   });
 
-  const { data: movements = [], isLoading: movementsLoading } = useQuery<InventoryMovementFromAPI[]>({
+  const { data: movements = [], isLoading: movementsLoading } = useQuery<
+    InventoryMovementFromAPI[]
+  >({
     queryKey: ['inventory-movements', apiBasePath ?? 'default'],
     queryFn: async () => {
       const response = await fetch(
@@ -189,7 +169,9 @@ export function SplitTab({ apiBasePath }: SplitTabProps) {
     staleTime: 30 * 1000,
   });
 
-  const { data: transactions = [], isLoading: transactionsLoading } = useQuery<TransactionFromAPI[]>({
+  const { data: transactions = [], isLoading: transactionsLoading } = useQuery<
+    TransactionFromAPI[]
+  >({
     queryKey: ['transactions', apiBasePath ?? 'default'],
     queryFn: async () => {
       const response = await fetch(buildApiPath(apiBasePath, '/transactions'));
@@ -211,9 +193,7 @@ export function SplitTab({ apiBasePath }: SplitTabProps) {
   const { data: splitRows = [] } = useQuery<SplitBatchFromAPI[]>({
     queryKey: splitQueryKey,
     queryFn: async () => {
-      const response = await fetch(
-        buildApiPath(apiBasePath, '/split-batches')
-      );
+      const response = await fetch(buildApiPath(apiBasePath, '/split-batches'));
       if (!response.ok) {
         return [];
       }
@@ -313,7 +293,10 @@ export function SplitTab({ apiBasePath }: SplitTabProps) {
       }));
 
     const selectedCode = form.splitSku.trim();
-    if (selectedCode && !options.some((option) => option.value === selectedCode)) {
+    if (
+      selectedCode &&
+      !options.some((option) => option.value === selectedCode)
+    ) {
       const selectedProduct = products.find(
         (product) =>
           normalizeProductCode(product['Product Code']) ===
@@ -331,7 +314,12 @@ export function SplitTab({ apiBasePath }: SplitTabProps) {
     return Array.from(
       new Map(options.map((option) => [option.value, option])).values()
     ).sort((a, b) => a.label.localeCompare(b.label));
-  }, [form.splitSku, isParentSkuInventoryLoading, products, sellableOnHandByCode]);
+  }, [
+    form.splitSku,
+    isParentSkuInventoryLoading,
+    products,
+    sellableOnHandByCode,
+  ]);
 
   const canSubmit =
     form.postingDate.trim() &&
@@ -363,7 +351,7 @@ export function SplitTab({ apiBasePath }: SplitTabProps) {
       components:
         target.components.length > 0
           ? target.components.map((c) => ({
-              clientId: newClientId(),
+              clientId: createClientId(),
               componentLabel: c.componentLabel,
               componentSku: c.componentSku,
               componentPrice: Number(c.componentPrice) || 0,
@@ -374,7 +362,7 @@ export function SplitTab({ apiBasePath }: SplitTabProps) {
             }))
           : [
               {
-                clientId: newClientId(),
+                clientId: createClientId(),
                 componentLabel: '',
                 componentSku: '',
                 componentPrice: 0,
@@ -382,7 +370,7 @@ export function SplitTab({ apiBasePath }: SplitTabProps) {
                 isSkuManual: false,
               },
               {
-                clientId: newClientId(),
+                clientId: createClientId(),
                 componentLabel: '',
                 componentSku: '',
                 componentPrice: 0,
@@ -402,7 +390,7 @@ export function SplitTab({ apiBasePath }: SplitTabProps) {
       components: [
         ...prev.components,
         {
-          clientId: newClientId(),
+          clientId: createClientId(),
           componentLabel: '',
           componentSku: '',
           componentPrice: 0,
@@ -434,9 +422,7 @@ export function SplitTab({ apiBasePath }: SplitTabProps) {
         componentPrice: Math.max(Number(c.componentPrice) || 0, 0),
         includedQuantity: Math.max(Number(c.includedQuantity) || 1, 1),
       }))
-      .filter(
-        (c) => c.componentLabel.length > 0 && c.componentSku.length > 0
-      );
+      .filter((c) => c.componentLabel.length > 0 && c.componentSku.length > 0);
 
     saveSplitMutation.mutate({
       id: editingSplitId ?? undefined,

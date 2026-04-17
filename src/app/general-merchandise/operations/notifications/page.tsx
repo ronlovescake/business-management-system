@@ -1,8 +1,8 @@
 import { NotificationsRoutePage } from '@/app/operations/notifications/_shared/NotificationsRoutePage';
-import { renderGmOperationsPage } from '@/app/general-merchandise/operations/_shared/renderGmOperationsPage';
+import { renderOperationsPage } from '@/app/operations/_shared/renderOperationsPage';
 
 export default async function NotificationsPage() {
-  return renderGmOperationsPage(
+  return renderOperationsPage(
     '/general-merchandise/operations/notifications',
     <NotificationsRoutePage apiBasePath="/api/general-merchandise" />
   );

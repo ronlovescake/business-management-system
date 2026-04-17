@@ -1,8 +1,8 @@
 import { EmployeesTeamPage } from '@/app/clothing/employees/team/page';
-import { renderGmEmployeesPage } from '@/app/general-merchandise/employees/_shared/renderGmEmployeesPage';
+import { renderOperationsPage } from '@/app/operations/_shared/renderOperationsPage';
 
 export default async function GeneralMerchandiseEmployeesTeam() {
-  return renderGmEmployeesPage(
+  return renderOperationsPage(
     '/general-merchandise/employees/team',
     <EmployeesTeamPage
       apiBasePath="/api/general-merchandise"

@@ -11,7 +11,7 @@ import {
   Text,
   Title,
 } from '@mantine/core';
-import type { Schedule } from '@/app/trucking/employees/schedules/types';
+import type { Schedule } from '@/app/clothing/employees/schedules/types';
 
 interface SchedulesTabProps {
   isLoading: boolean;

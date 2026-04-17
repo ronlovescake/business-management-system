@@ -1,8 +1,8 @@
-import { renderGmOperationsPage } from '@/app/general-merchandise/operations/_shared/renderGmOperationsPage';
+import { renderOperationsPage } from '@/app/operations/_shared/renderOperationsPage';
 import { MessagingRoutePage } from '@/app/operations/messaging/_shared/MessagingRoutePage';
 
 export default async function GeneralMerchandiseMessagingPage() {
-  return renderGmOperationsPage(
+  return renderOperationsPage(
     '/general-merchandise/operations/messaging',
     <MessagingRoutePage />
   );

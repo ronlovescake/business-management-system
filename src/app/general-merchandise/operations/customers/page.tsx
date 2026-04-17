@@ -3,10 +3,10 @@
  * Delegates to the shared customers route wrapper
  */
 import { CustomersRoutePage } from '@/app/operations/customers/_shared/CustomersRoutePage';
-import { renderGmOperationsPage } from '@/app/general-merchandise/operations/_shared/renderGmOperationsPage';
+import { renderOperationsPage } from '@/app/operations/_shared/renderOperationsPage';
 
 export default async function Page() {
-  return renderGmOperationsPage(
+  return renderOperationsPage(
     '/general-merchandise/operations/customers',
     <CustomersRoutePage />
   );

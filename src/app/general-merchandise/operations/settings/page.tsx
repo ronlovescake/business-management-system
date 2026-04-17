@@ -5,7 +5,7 @@
 import { redirect } from 'next/navigation';
 
 import { SettingsRoutePage } from '@/app/operations/settings/_shared/SettingsRoutePage';
-import { renderGmOperationsPage } from '@/app/general-merchandise/operations/_shared/renderGmOperationsPage';
+import { renderOperationsPage } from '@/app/operations/_shared/renderOperationsPage';
 
 export default async function Settings({
   searchParams,
@@ -19,7 +19,7 @@ export default async function Settings({
     redirect('/settings?tab=backup');
   }
 
-  return renderGmOperationsPage(
+  return renderOperationsPage(
     '/general-merchandise/operations/settings',
     <SettingsRoutePage apiBasePath="/api/general-merchandise" />
   );

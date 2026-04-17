@@ -1,8 +1,8 @@
 import { EmployeeAutomationSettingsPage } from '@/app/employees/_shared/EmployeeAutomationSettingsPage';
-import { renderGmEmployeesPage } from '@/app/general-merchandise/employees/_shared/renderGmEmployeesPage';
+import { renderOperationsPage } from '@/app/operations/_shared/renderOperationsPage';
 
 export default async function GeneralMerchandiseEmployeesSettings() {
-  return renderGmEmployeesPage(
+  return renderOperationsPage(
     '/general-merchandise/employees/settings',
     <EmployeeAutomationSettingsPage apiBasePath="/api/general-merchandise" />
   );

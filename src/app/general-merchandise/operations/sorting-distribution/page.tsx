@@ -5,10 +5,10 @@
 'use client';
 
 import { SortingDistributionRoutePage } from '@/app/operations/sorting-distribution/_shared/SortingDistributionRoutePage';
-import { renderGmOperationsPage } from '@/app/general-merchandise/operations/_shared/renderGmOperationsPage';
+import { renderOperationsPage } from '@/app/operations/_shared/renderOperationsPage';
 
 export default function Page() {
-  return renderGmOperationsPage(
+  return renderOperationsPage(
     '/general-merchandise/operations/sorting-distribution',
     <SortingDistributionRoutePage apiBasePath="/api/general-merchandise" />
   );

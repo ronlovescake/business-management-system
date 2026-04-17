@@ -3,7 +3,7 @@ import { DEFAULT_MESSAGE_TEMPLATES } from '@/modules/clothing/operations/message
 import { logger } from '@/lib/logger';
 import type { MessageTemplate } from '@/modules/clothing/operations/message-templates/types';
 import { prisma } from '@/lib/db';
-import { renderGmOperationsPage } from '@/app/general-merchandise/operations/_shared/renderGmOperationsPage';
+import { renderOperationsPage } from '@/app/operations/_shared/renderOperationsPage';
 
 export const dynamic = 'force-dynamic';
 
@@ -57,7 +57,7 @@ export default async function MessageTemplatesPage() {
   const modulePath = '/general-merchandise/operations/message-templates';
   const templates = await loadTemplates();
 
-  return renderGmOperationsPage(
+  return renderOperationsPage(
     modulePath,
     <MessageTemplatesRoutePage
       templates={templates}

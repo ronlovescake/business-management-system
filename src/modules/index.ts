@@ -15,7 +15,6 @@ import { moduleRegistry } from '@/core/ModuleRegistry';
 import { dashboardModule } from './clothing/operations/dashboard';
 import { customersModule } from './clothing/operations/customers';
 import { transactionsModule } from './clothing/operations/transactions';
-// import { pickupFormModule } from './clothing/operations/pickup-form';
 import { shipmentsModule } from './clothing/operations/shipments';
 import { productsModule } from './clothing/operations/products';
 import { inventoryModule } from './clothing/operations/inventory';
@@ -76,7 +75,6 @@ import { generalMerchandiseMessageTemplatesModule } from './general-merchandise/
 moduleRegistry.register(dashboardModule); // ✅ REGISTERED!
 moduleRegistry.register(customersModule); // ✅ REGISTERED!
 moduleRegistry.register(transactionsModule); // ✅ REGISTERED!
-// moduleRegistry.register(pickupFormModule);
 moduleRegistry.register(shipmentsModule); // ✅ REGISTERED!
 moduleRegistry.register(productsModule); // ✅ REGISTERED!
 moduleRegistry.register(inventoryModule); // ✅ REGISTERED!
