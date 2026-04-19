@@ -405,7 +405,15 @@ export async function GET(
         sliced = await readTableSample(filePath, tableName, offset, limit);
       }
 
-      if (!sliced.length && (total === undefined || total === 0)) {
+      // Only 404 when the table key is genuinely absent from the backup
+      // summary. A known table with zero rows (common for differential backups
+      // where nothing changed in the window) should return an empty page, not
+      // a 404 — otherwise the client surfaces a misleading "not found" error
+      // for a perfectly valid empty result.
+      const tableKnownInSummary =
+        summary?.tables !== undefined &&
+        Object.prototype.hasOwnProperty.call(summary.tables, tableName);
+      if (!sliced.length && total === undefined && !tableKnownInSummary) {
         return NextResponse.json({ error: 'Table not found' }, { status: 404 });
       }
 

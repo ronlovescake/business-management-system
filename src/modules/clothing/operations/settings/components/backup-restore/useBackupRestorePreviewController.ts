@@ -199,8 +199,17 @@ export function useBackupRestorePreviewController({
       const payload = (await response.json()) as {
         success: boolean;
         preview?: BackupChangePreview;
+        unavailable?: { reason: string; message: string };
         error?: string;
       };
+
+      // The server returns 200 + `unavailable` for expected cases (dump-only
+      // full backups, differential strategy, non-restorable tables). Surface
+      // the friendly message via the existing error channel so callers can
+      // render it as an info notice without firing a noisy 4xx in DevTools.
+      if (response.ok && payload.success && payload.unavailable) {
+        throw new Error(payload.unavailable.message);
+      }
 
       if (!response.ok || !payload.success || !payload.preview) {
         throw new Error(
@@ -326,65 +335,65 @@ export function useBackupRestorePreviewController({
         const changesPromise = isFullBackup
           ? fetchBackupChanges(backup.timestamp)
               .then((comparison) => {
-            setBackupChanges(comparison);
-            setBackupChangesError(null);
+                setBackupChanges(comparison);
+                setBackupChangesError(null);
 
-            const preferredTable =
-              comparison.entries.find(
-                (entry) =>
-                  entry.coverage !== 'dump-only' &&
-                  entry.status !== 'missing' &&
-                  entry.backupCount <= 2000 &&
-                  entry.currentCount <= 2000 &&
-                  entry.status !== 'unchanged'
-              )?.key ??
-              comparison.entries.find(
-                (entry) =>
-                  entry.coverage !== 'dump-only' &&
-                  entry.status !== 'missing' &&
-                  entry.backupCount <= 2000 &&
-                  entry.currentCount <= 2000
-              )?.key ??
-              null;
+                const preferredTable =
+                  comparison.entries.find(
+                    (entry) =>
+                      entry.coverage !== 'dump-only' &&
+                      entry.status !== 'missing' &&
+                      entry.backupCount <= 2000 &&
+                      entry.currentCount <= 2000 &&
+                      entry.status !== 'unchanged'
+                  )?.key ??
+                  comparison.entries.find(
+                    (entry) =>
+                      entry.coverage !== 'dump-only' &&
+                      entry.status !== 'missing' &&
+                      entry.backupCount <= 2000 &&
+                      entry.currentCount <= 2000
+                  )?.key ??
+                  null;
 
-            if (!preferredTable) {
-              setSummaryComparison(null);
-              setSummaryComparisonTable(null);
-              setSummaryComparisonError(
-                'Detailed before/after comparison is available only for smaller JSON-backed tables.'
-              );
-              return;
-            }
+                if (!preferredTable) {
+                  setSummaryComparison(null);
+                  setSummaryComparisonTable(null);
+                  setSummaryComparisonError(
+                    'Detailed before/after comparison is available only for smaller JSON-backed tables.'
+                  );
+                  return;
+                }
 
-            setSummaryComparisonTable(preferredTable);
-            setSummaryComparisonLoading(true);
-            setSummaryComparisonError(null);
-            void fetchBackupChangePreview(backup.timestamp, preferredTable)
-              .then((preview) => {
-                setSummaryComparison(preview);
+                setSummaryComparisonTable(preferredTable);
+                setSummaryComparisonLoading(true);
+                setSummaryComparisonError(null);
+                void fetchBackupChangePreview(backup.timestamp, preferredTable)
+                  .then((preview) => {
+                    setSummaryComparison(preview);
+                  })
+                  .catch((error) => {
+                    setSummaryComparison(null);
+                    setSummaryComparisonError(
+                      error instanceof Error
+                        ? error.message
+                        : 'Failed to load before/after comparison'
+                    );
+                  })
+                  .finally(() => {
+                    setSummaryComparisonLoading(false);
+                  });
               })
-              .catch((error) => {
-                setSummaryComparison(null);
-                setSummaryComparisonError(
-                  error instanceof Error
-                    ? error.message
-                    : 'Failed to load before/after comparison'
+              .catch((changesError) => {
+                setBackupChangesError(
+                  changesError instanceof Error
+                    ? changesError.message
+                    : 'Failed to load backup changes'
                 );
               })
               .finally(() => {
-                setSummaryComparisonLoading(false);
-              });
-          })
-          .catch((changesError) => {
-            setBackupChangesError(
-              changesError instanceof Error
-                ? changesError.message
-                : 'Failed to load backup changes'
-            );
-          })
-          .finally(() => {
-            setBackupChangesLoading(false);
-          })
+                setBackupChangesLoading(false);
+              })
           : Promise.resolve().then(() => {
               setBackupChangesLoading(false);
               setBackupChangesError(
@@ -530,7 +539,8 @@ export function useBackupRestorePreviewController({
     if (!dumpFileName) {
       showNotification({
         title: 'Restore unavailable',
-        message: 'This restore plan does not include a PostgreSQL dump baseline.',
+        message:
+          'This restore plan does not include a PostgreSQL dump baseline.',
         color: 'red',
       });
       return;

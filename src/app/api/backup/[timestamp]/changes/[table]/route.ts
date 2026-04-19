@@ -184,14 +184,34 @@ export async function GET(
 
     return NextResponse.json({ success: true, preview });
   } catch (error) {
+    const message =
+      error instanceof Error
+        ? error.message
+        : 'Failed to build detailed change preview';
+
+    // The detailed change preview is intentionally unavailable for some
+    // backup shapes (e.g. dump-only full backups, differential strategy,
+    // or non-restorable tables). Those are *expected* outcomes, not
+    // conflicts — surface them as 200 with a typed `unavailable` payload so
+    // the client can render a friendly notice instead of a noisy 409 that
+    // pollutes the browser console and confuses operators.
+    const isUnavailable =
+      message.startsWith('Detailed change preview is currently available') ||
+      message.startsWith('This backup does not include a JSON inspection') ||
+      message.startsWith(
+        'Detailed change preview is unavailable for this table'
+      );
+
+    if (isUnavailable) {
+      return NextResponse.json({
+        success: true,
+        preview: null,
+        unavailable: { reason: 'no-json-artifact', message },
+      });
+    }
+
     return NextResponse.json(
-      {
-        success: false,
-        error:
-          error instanceof Error
-            ? error.message
-            : 'Failed to build detailed change preview',
-      },
+      { success: false, error: message },
       { status: 409 }
     );
   }
