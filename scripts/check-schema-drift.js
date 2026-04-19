@@ -31,7 +31,7 @@ const { execSync } = require('child_process');
 // ---------------------------------------------------------------------------
 const args = process.argv.slice(2);
 const dockerIdx = args.indexOf('--docker');
-const dockerStack = dockerIdx >= 0 ? (args[dockerIdx + 1] || 'production') : null;
+const dockerStack = dockerIdx >= 0 ? args[dockerIdx + 1] || 'production' : null;
 const quiet = args.includes('--quiet');
 
 const log = quiet ? () => {} : (...a) => console.log(...a);
@@ -41,8 +41,15 @@ const logErr = (...a) => console.error(...a);
 // 1. Parse schema.prisma
 // ---------------------------------------------------------------------------
 const SCALAR_TYPES = new Set([
-  'String', 'Int', 'Float', 'Decimal', 'Boolean',
-  'DateTime', 'BigInt', 'Bytes', 'Json',
+  'String',
+  'Int',
+  'Float',
+  'Decimal',
+  'Boolean',
+  'DateTime',
+  'BigInt',
+  'Bytes',
+  'Json',
 ]);
 
 function parseSchema(schemaPath) {
@@ -57,7 +64,9 @@ function parseSchema(schemaPath) {
       cur = modelMatch[1];
       models[cur] = { columns: [], schema: 'public', table: null };
     } else if (cur && line.trim() === '}') {
-      if (!models[cur].table) models[cur].table = cur;
+      if (!models[cur].table) {
+        models[cur].table = cur;
+      }
       cur = null;
     } else if (cur) {
       const mapMatch = line.match(/@@map\(["']([^"']+)["']\)/);
@@ -69,7 +78,11 @@ function parseSchema(schemaPath) {
           models[cur].schema = schemaMatch[1];
         } else {
           const trimmed = line.trim();
-          if (!trimmed || trimmed.startsWith('@@') || trimmed.startsWith('//')) {
+          if (
+            !trimmed ||
+            trimmed.startsWith('@@') ||
+            trimmed.startsWith('//')
+          ) {
             // skip
           } else {
             const fieldMatch = trimmed.match(/^(\w+)\s+(\w+[\[\]?]*)/);
@@ -92,7 +105,8 @@ function parseSchema(schemaPath) {
               // Scalar or enum field — resolve DB column name via @map()
               else if (
                 SCALAR_TYPES.has(baseType) ||
-                (!SCALAR_TYPES.has(baseType) && baseType[0] === baseType[0].toUpperCase())
+                (!SCALAR_TYPES.has(baseType) &&
+                  baseType[0] === baseType[0].toUpperCase())
               ) {
                 const colMap = trimmed.match(/@map\(["']([^"']+)["']\)/);
                 models[cur].columns.push(colMap ? colMap[1] : fieldName);
@@ -127,6 +141,29 @@ function queryDbColumns(dockerStack) {
   let stdout;
   if (dockerStack) {
     const explicitContainer = process.env.BMS_DOCKER_DB_CONTAINER;
+
+    // Derive the active container from .env.docker's COMPOSE_PROJECT_NAME so
+    // the drift check always targets the SAME stack that `npm run docker:prod`
+    // (which uses `--env-file .env.docker`) just deployed to. Without this
+    // the checker can silently query a different db when multiple bms stacks
+    // are running on the same host (dev + production side-by-side).
+    let envFileContainer = null;
+    try {
+      const envFilePath = path.resolve(__dirname, '..', '.env.docker');
+      if (fs.existsSync(envFilePath)) {
+        const envContents = fs.readFileSync(envFilePath, 'utf8');
+        const projectMatch = envContents.match(
+          /^\s*COMPOSE_PROJECT_NAME\s*=\s*(.+?)\s*$/m
+        );
+        if (projectMatch) {
+          const project = projectMatch[1].replace(/^["']|["']$/g, '');
+          envFileContainer = `${project}-db-1`;
+        }
+      }
+    } catch {
+      // best-effort; fall back to hardcoded candidates below
+    }
+
     const containerCandidates = {
       production: [
         'business-management-production-db-1',
@@ -144,11 +181,25 @@ function queryDbColumns(dockerStack) {
         .map((name) => name.trim())
         .filter(Boolean)
     );
-    const candidates = explicitContainer
-      ? [explicitContainer]
-      : containerCandidates[dockerStack] || [dockerStack];
+    let candidates;
+    if (explicitContainer) {
+      candidates = [explicitContainer];
+    } else if (
+      envFileContainer &&
+      (dockerStack === 'production' || dockerStack === 'dev')
+    ) {
+      // Prefer the .env.docker-derived container, then fall back to the
+      // hardcoded list for resilience if a developer customizes their stack.
+      candidates = [
+        envFileContainer,
+        ...(containerCandidates[dockerStack] || []),
+      ];
+    } else {
+      candidates = containerCandidates[dockerStack] || [dockerStack];
+    }
     const container =
       candidates.find((name) => runningContainers.has(name)) || candidates[0];
+    log(`Using container: ${container}`);
     stdout = execSync(
       `docker exec ${container} psql -U postgres -d business_management -t -A -c "${sql.replace(/"/g, '\\"')}"`,
       { encoding: 'utf8', timeout: 30000 }
@@ -165,7 +216,9 @@ function queryDbColumns(dockerStack) {
     }
 
     if (!process.env.DATABASE_URL) {
-      logErr('Error: DATABASE_URL not set. Use --docker <stack> or set DATABASE_URL.');
+      logErr(
+        'Error: DATABASE_URL not set. Use --docker <stack> or set DATABASE_URL.'
+      );
       process.exit(1);
     }
 
@@ -189,7 +242,9 @@ function queryDbColumns(dockerStack) {
     const [tableKey, col] = line.split('::');
     if (tableKey && col) {
       dbTables.add(tableKey);
-      if (!dbColumns[tableKey]) dbColumns[tableKey] = new Set();
+      if (!dbColumns[tableKey]) {
+        dbColumns[tableKey] = new Set();
+      }
       dbColumns[tableKey].add(col);
     }
   }
@@ -210,7 +265,11 @@ function compare(schemaModels, dbColumns, dbTables) {
       const cols = dbColumns[tableKey] || new Set();
       for (const col of info.columns) {
         if (!cols.has(col)) {
-          missingColumns.push({ table: tableKey, model: info.model, column: col });
+          missingColumns.push({
+            table: tableKey,
+            model: info.model,
+            column: col,
+          });
         }
       }
     }
@@ -228,11 +287,17 @@ const schemaModels = parseSchema(schemaPath);
 const tableCount = Object.keys(schemaModels).length;
 log(`Found ${tableCount} models in schema.prisma`);
 
-log(`Querying database columns (${dockerStack ? 'docker:' + dockerStack : 'DATABASE_URL'})...`);
+log(
+  `Querying database columns (${dockerStack ? 'docker:' + dockerStack : 'DATABASE_URL'})...`
+);
 const { dbColumns, dbTables } = queryDbColumns(dockerStack);
 log(`Found ${dbTables.size} tables in database\n`);
 
-const { missingTables, missingColumns } = compare(schemaModels, dbColumns, dbTables);
+const { missingTables, missingColumns } = compare(
+  schemaModels,
+  dbColumns,
+  dbTables
+);
 
 if (missingTables.length === 0 && missingColumns.length === 0) {
   log('✓ No schema drift detected across all ' + tableCount + ' models.');
@@ -260,7 +325,9 @@ if (missingTables.length > 0) {
 
 logErr(
   `Total: ${missingColumns.length} missing column(s), ` +
-  `${missingTables.length} missing table(s).`
+    `${missingTables.length} missing table(s).`
 );
-logErr('Fix: Create a migration to add these columns/tables, then run prisma migrate deploy.');
+logErr(
+  'Fix: Create a migration to add these columns/tables, then run prisma migrate deploy.'
+);
 process.exit(1);

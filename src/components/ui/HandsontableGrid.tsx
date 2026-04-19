@@ -2,7 +2,47 @@
 
 import React from 'react';
 import { Stack } from '@mantine/core';
-import { registerAllModules } from 'handsontable/registry';
+import {
+  registerAllCellTypes,
+  registerAllEditors,
+  registerAllRenderers,
+  registerAllValidators,
+} from 'handsontable/registry';
+import {
+  AutoColumnSize,
+  Autofill,
+  AutoRowSize,
+  BindRowsWithHeaders,
+  CollapsibleColumns,
+  ColumnSorting,
+  ColumnSummary,
+  Comments,
+  ContextMenu,
+  CopyPaste,
+  CustomBorders,
+  DragToScroll,
+  DropdownMenu,
+  ExportFile,
+  Filters,
+  HiddenColumns,
+  HiddenRows,
+  ManualColumnFreeze,
+  ManualColumnMove,
+  ManualColumnResize,
+  ManualRowMove,
+  ManualRowResize,
+  MergeCells,
+  MultiColumnSorting,
+  MultipleSelectionHandles,
+  NestedHeaders,
+  NestedRows,
+  PersistentState,
+  Search,
+  TouchScroll,
+  TrimRows,
+  UndoRedo,
+  registerPlugin,
+} from 'handsontable/plugins';
 import 'handsontable/styles/handsontable.min.css';
 import 'handsontable/styles/ht-theme-horizon.min.css';
 import '@/styles/handsontable-horizon-light.css';
@@ -25,7 +65,53 @@ export type {
   HandsontableGridProps,
 } from './handsontable-grid/types';
 
-registerAllModules();
+registerAllCellTypes();
+registerAllRenderers();
+registerAllValidators();
+registerAllEditors();
+
+// CSP / strict mode: register every Handsontable plugin EXCEPT `Formulas`.
+// The Formulas plugin compiles spreadsheet expressions via `new Function()`,
+// which violates a `script-src 'self'` CSP. This codebase does not use
+// spreadsheet formulas in any grid, so dropping the plugin removes the only
+// `eval` usage from Handsontable without any functional impact. See
+// IMPROVEMENTS_CHECKLIST.md §4.2 (STRICT_CSP) for context.
+[
+  AutoColumnSize,
+  Autofill,
+  AutoRowSize,
+  BindRowsWithHeaders,
+  CollapsibleColumns,
+  ColumnSorting,
+  ColumnSummary,
+  Comments,
+  ContextMenu,
+  CopyPaste,
+  CustomBorders,
+  DragToScroll,
+  DropdownMenu,
+  ExportFile,
+  Filters,
+  HiddenColumns,
+  HiddenRows,
+  ManualColumnFreeze,
+  ManualColumnMove,
+  ManualColumnResize,
+  ManualRowMove,
+  ManualRowResize,
+  MergeCells,
+  MultiColumnSorting,
+  MultipleSelectionHandles,
+  NestedHeaders,
+  NestedRows,
+  PersistentState,
+  Search,
+  TouchScroll,
+  TrimRows,
+  UndoRedo,
+].forEach((plugin) => {
+  registerPlugin(plugin);
+});
 
 export function HandsontableGrid<T extends object>({
   data,

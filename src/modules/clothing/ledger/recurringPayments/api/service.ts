@@ -295,9 +295,12 @@ export class ClothingRecurringPaymentService {
 
         const sourceId = draft.id;
 
-        // Prevent double-posting if something weird happens
+        // Prevent double-posting if something weird happens.
+        // Filter out soft-deleted lines (column added 2026-04-19) so re-posting
+        // after a soft delete is allowed.
         const existingLines = await tx.clothingAccountingJournalLine.findMany({
           where: {
+            deletedAt: null,
             sourceType: 'RECURRING_PAYMENT',
             sourceId,
             sourceLineKey: { in: ['debit', 'credit'] },

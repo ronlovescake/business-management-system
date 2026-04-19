@@ -16,7 +16,11 @@ export type OpeningBalanceEntry = {
 
 export type OpeningBalanceModel = {
   findMany?: (args: {
-    where: { date?: { gte?: Date; lte?: Date } };
+    where: {
+      date?: { gte?: Date; lte?: Date };
+      // Soft-delete column added 2026-04-19; reads filter `deletedAt: null`.
+      deletedAt?: null;
+    };
     orderBy: { date: 'asc' };
   }) => Promise<OpeningBalanceEntry[]>;
   create?: (args: {
@@ -31,14 +35,16 @@ export type OpeningBalanceModel = {
   }) => Promise<OpeningBalanceEntry>;
   update?: (args: {
     where: { id: string };
-    data: {
-      date: Date;
-      ref: string;
-      account: string;
-      debit: number;
-      credit: number;
-      description: string | null;
-    };
+    data:
+      | {
+          date: Date;
+          ref: string;
+          account: string;
+          debit: number;
+          credit: number;
+          description: string | null;
+        }
+      | { deletedAt: Date };
   }) => Promise<OpeningBalanceEntry>;
   delete?: (args: { where: { id: string } }) => Promise<unknown>;
 };
@@ -150,7 +156,13 @@ export function createOpeningBalanceRouteHandlers(
     const cutover = await resolveCutover(config.cutover);
     const { from, to } = parseDateRangeFromParams(req.nextUrl.searchParams);
 
-    const where: { date?: { gte?: Date; lte?: Date } } = {};
+    const where: {
+      date?: { gte?: Date; lte?: Date };
+      deletedAt?: null;
+    } = {
+      // Filter out soft-deleted opening balances (column added 2026-04-19).
+      deletedAt: null,
+    };
     if (from || to) {
       where.date = {
         ...(from ? { gte: from } : {}),
@@ -252,6 +264,17 @@ export function createOpeningBalanceRouteHandlers(
     }
 
     const model = config.getModel();
+    // Prefer soft-delete via update so the opening-balance row history is
+    // preserved (deletedAt column added 2026-04-19). Fall back to hard delete
+    // only if update is unavailable on this delegate.
+    if (model?.update) {
+      await model.update({
+        where: { id },
+        data: { deletedAt: new Date() },
+      });
+      return ApiResponse.success({ id }, 'Opening balance entry deleted');
+    }
+
     if (!model?.delete) {
       return modelUnavailable(config);
     }

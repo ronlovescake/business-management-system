@@ -221,7 +221,8 @@ export async function fetchGeneralMerchandiseApprovedExpenses(): Promise<
       'GM Expense model is unavailable on Prisma Client; returning no approved expenses',
     unavailableHint:
       'Run `npx prisma generate` and apply the GM expenses migration to enable GM expenses.',
-    missingTableLogMessage: 'GM expenses table is missing; returning no expenses',
+    missingTableLogMessage:
+      'GM expenses table is missing; returning no expenses',
     missingTableHint:
       'Apply the GM expenses migration to enable General Merchandise expenses.',
     query: async () =>
@@ -336,6 +337,8 @@ export async function fetchGeneralMerchandiseManualJournalLines(params: {
     query: async () =>
       (await journalModel!.findMany!({
         where: {
+          // Filter out soft-deleted journal lines (column added 2026-04-19).
+          deletedAt: null,
           date: {
             gte: from,
             ...(to ? { lte: to } : {}),

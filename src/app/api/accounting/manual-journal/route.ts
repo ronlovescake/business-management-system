@@ -14,7 +14,7 @@ const handlers = createManualJournalRouteHandlers(prisma, {
           findMany?: (
             args: unknown
           ) => Promise<Array<{ sourceLineKey: string }>>;
-          updateMany?: (args: unknown) => Promise<unknown>;
+          updateMany?: (args: unknown) => Promise<{ count: number }>;
           deleteMany?: (args: unknown) => Promise<{ count: number }>;
         };
       }
@@ -36,6 +36,8 @@ const handlers = createManualJournalRouteHandlers(prisma, {
     systemGenerated: false,
   }),
   inplaceLookupWhere: (sourceId) => ({
+    // Filter out soft-deleted journal lines (column added 2026-04-19).
+    deletedAt: null,
     sourceType: 'MANUAL',
     sourceId,
     systemGenerated: false,

@@ -63,7 +63,7 @@ graph TB
         %% ── Middleware ──
         subgraph MW["🔐 Middleware Layer"]
             AUTH_MW["Authentication<br/>(NextAuth JWT)"]
-            RBAC_MW["Role-Based Access<br/>USER · ADMIN · SUPER_ADMIN"]
+            RBAC_MW["Role-Based Access<br/>USER · ADMIN · SUPER_ADMIN<br/>(src/core/routePermissions.ts)"]
             INTERNAL_TOKEN["Internal Job Token<br/>(x-internal-token header)"]
         end
 
@@ -846,3 +846,43 @@ flowchart TB
     ROLE_CHECK -->|"SUPER_ADMIN"| SUPER_ROUTES["+ Settings<br/>+ User Management<br/>+ Admin Panel"]
     ROLE_CHECK -->|"Insufficient"| DENY_403["403 Forbidden"]
 ```
+
+### Route ACL source of truth
+
+The route → allowed-roles map lives in `src/core/routePermissions.ts` and is
+consumed by `src/middleware.ts` via `getRequiredRolesForPath(pathname)`,
+which uses **longest-prefix matching** (so `/clothing/employees/payroll`
+correctly resolves to the `/clothing/employees` ACL even if a shorter
+entry exists). Edit access control in that one file.
+
+A future codegen step (tracked in IMPROVEMENTS_CHECKLIST.md §2.3) will
+emit this object directly from `ModuleRegistry`. Until then, when you
+add a new module/page, update both `ModuleConfig.permissions` and the
+matching prefix in `ROUTE_PERMISSIONS`.
+
+---
+
+## Shared Route Factories
+
+To reduce duplication between the clothing and general merchandise
+domains, the codebase ships a small set of generic Prisma-delegate route
+factories:
+
+| Factory                            | Location                                                        | Use case                                                                                                            |
+| ---------------------------------- | --------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------- |
+| `createCrudRoutes`                 | `src/core/api/factory.ts`                                       | Generic service-backed CRUD with Zod validation, pagination, and the standard `ApiResponseUtil` envelope.           |
+| `createInvoiceRoutes<T>`           | `src/modules/invoices/api/invoiceRouteFactory.ts`               | Invoice list/create/update/bulk-update for clothing (`prisma.invoice`) and GM (`prisma.generalMerchandiseInvoice`). |
+| `createTransitBuildRoutes<T>`      | `src/modules/shipments/api/transitBuildRouteFactory.ts`         | Transit-build endpoints for both shipment domains.                                                                  |
+| `createManualJournalRouteHandlers` | `src/modules/shared/ledger/manual-journal/api/routeAdapter.ts`  | Manual journal posting / lookup.                                                                                    |
+| `OpeningBalanceModel` adapter      | `src/modules/shared/ledger/opening-balance/api/routeAdapter.ts` | Opening balance read/write across both domains.                                                                     |
+
+The invoice and transit-build factories are now generic over their
+delegate (`<T extends MinimalDelegate>`) so internal call sites are
+checked against the **concrete** Prisma model that the consumer passes
+in, not against a loose `any`-shaped interface.
+
+For pagination and the standard response envelope, all new routes
+should use `parsePaginationParams` + `paginatedResponse` from
+`src/lib/api/pagination.ts` and wrap their handlers with
+`withApiLogging` from `src/lib/api/withApiLogging.ts`. The module
+generator (`scripts/generate-module.js`) scaffolds this for you.

@@ -24,7 +24,7 @@ It is intended to replace early scaffold-era understanding with source-backed ru
 - API routes: 235
 - Domain-heavy module: `src/modules/clothing/**`
 
-Reference: `docs/REPO_SIDEMAP_DEEP_SCAN_2026-02-20.md`
+Reference: `docs/reports/archive/REPO_SIDEMAP_DEEP_SCAN_2026-02-20.md`
 
 ---
 

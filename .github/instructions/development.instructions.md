@@ -1,6 +1,6 @@
 ---
-applyTo: "**"
-description: "Repository-wide developer instructions for the Business Management System. Use for architecture, workflow, safety, testing, schema, and documentation decisions anywhere in this repo."
+applyTo: '**'
+description: 'Repository-wide developer instructions for the Business Management System. Use for architecture, workflow, safety, testing, schema, and documentation decisions anywhere in this repo.'
 ---
 
 # Business Management System Developer Instructions
@@ -119,5 +119,6 @@ npm run test:hardening
 - Documentation hub: `docs/README.md`
 - Contributor workflow: `CONTRIBUTING.md`
 - Business-domain index: `docs/BUSINESS_LOGIC_INDEX.md`
-- Verified architecture summary: `docs/REPO_VERIFIED_EXEC_SUMMARY_2026-03-29.md`
-- Full validated repo analysis: `Repo-Wide Analysis — Business Management System.md`
+- Verified architecture summary: `docs/reports/archive/REPO_VERIFIED_EXEC_SUMMARY_2026-03-29.md`
+- Repo-wide improvement checklist: `IMPROVEMENTS_CHECKLIST.md`
+- Full validated repo analysis: archived under `archives/root-scratch-2026-04-19/`

@@ -237,6 +237,8 @@ export async function fetchManualJournalLines(params: {
     query: async () =>
       (await journalModel!.findMany!({
         where: {
+          // Filter out soft-deleted journal lines (column added 2026-04-19).
+          deletedAt: null,
           date: {
             gte: from,
             ...(to ? { lte: to } : {}),

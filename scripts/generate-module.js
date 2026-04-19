@@ -213,18 +213,37 @@ writeFileIfMissing(
   path.join(moduleBasePath, 'api', 'route.ts'),
   `import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
+import {
+  paginatedResponse,
+  paginationFor,
+} from '@/lib/api/pagination';
 import { create${modulePascal}Schema } from './schemas';
 import { ${moduleCamel}Service } from '../services';
 
-export async function GET(_request: NextRequest) {
+export async function GET(request: NextRequest) {
+  const { take, skip, limit } = paginationFor(request);
   const rows = await ${moduleCamel}Service.list();
-  return NextResponse.json({ success: true, data: rows });
+  // TODO: push limit/offset into the service so the DB does the slicing.
+  const slice = rows.slice(skip, skip + take);
+  return NextResponse.json(
+    paginatedResponse(slice, { total: rows.length, limit, offset: skip })
+  );
 }
 
 export async function POST(request: NextRequest) {
   const body = await request.json();
-  const parsed = create${modulePascal}Schema.parse(body);
-  const created = await ${moduleCamel}Service.create(parsed);
+  const parsed = create${modulePascal}Schema.safeParse(body);
+  if (!parsed.success) {
+    return NextResponse.json(
+      {
+        success: false,
+        error: 'Validation failed',
+        validationErrors: parsed.error.flatten().fieldErrors,
+      },
+      { status: 400 }
+    );
+  }
+  const created = await ${moduleCamel}Service.create(parsed.data);
   return NextResponse.json({ success: true, data: created }, { status: 201 });
 }
 `

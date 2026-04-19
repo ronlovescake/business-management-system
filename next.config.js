@@ -33,6 +33,39 @@ const nextConfig = {
 
   // Security headers for XSS protection
   async headers() {
+    // CSP promotion gate. Default (STRICT_CSP unset / false): the loose
+    // legacy policy is enforced, the strict policy ships only as
+    // Report-Only — preserving backward compatibility while violations
+    // are gathered. When STRICT_CSP=true (set in production once the
+    // report stream is clean), the strict policy is enforced and the
+    // legacy policy ships as Report-Only so we can detect any regression.
+    const strictCsp = process.env.STRICT_CSP === 'true';
+
+    const looseCspValue = [
+      "default-src 'self'",
+      "script-src 'self' 'unsafe-eval' 'unsafe-inline'", // Required for Next.js and Mantine
+      "style-src 'self' 'unsafe-inline'", // Required for Mantine
+      "img-src 'self' data: blob: https:",
+      "font-src 'self' data:",
+      "connect-src 'self'",
+      "frame-ancestors 'self'",
+      "base-uri 'self'",
+      "form-action 'self'",
+    ].join('; ');
+
+    const strictCspValue = [
+      "default-src 'self'",
+      "script-src 'self'",
+      "style-src 'self' 'unsafe-inline'",
+      "img-src 'self' data: blob: https:",
+      "font-src 'self' data:",
+      "connect-src 'self'",
+      "frame-ancestors 'self'",
+      "base-uri 'self'",
+      "form-action 'self'",
+      'report-uri /api/security/csp-report',
+    ].join('; ');
+
     return [
       {
         source: '/:path*',
@@ -65,20 +98,16 @@ const nextConfig = {
             key: 'Permissions-Policy',
             value: 'camera=(), microphone=(), geolocation=()',
           },
-          // Content Security Policy
+          // Enforced policy (whichever one STRICT_CSP selects).
           {
             key: 'Content-Security-Policy',
-            value: [
-              "default-src 'self'",
-              "script-src 'self' 'unsafe-eval' 'unsafe-inline'", // Required for Next.js and Mantine
-              "style-src 'self' 'unsafe-inline'", // Required for Mantine
-              "img-src 'self' data: blob: https:",
-              "font-src 'self' data:",
-              "connect-src 'self'",
-              "frame-ancestors 'self'",
-              "base-uri 'self'",
-              "form-action 'self'",
-            ].join('; '),
+            value: strictCsp ? strictCspValue : looseCspValue,
+          },
+          // The other policy ships as Report-Only so violations are
+          // surfaced via /api/security/csp-report without blocking.
+          {
+            key: 'Content-Security-Policy-Report-Only',
+            value: strictCsp ? looseCspValue : strictCspValue,
           },
         ],
       },

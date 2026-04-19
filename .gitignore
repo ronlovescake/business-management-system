@@ -57,6 +57,7 @@ snapshots/
 !prisma/migrations/20260411130000_fix_remaining_schema_drift/migration.sql
 !prisma/migrations/20260414170000_add_split_batch_tables/migration.sql
 !prisma/migrations/20260414183000_add_split_component_prices/migration.sql
+!prisma/migrations/20260419120000_add_accounting_softdelete_and_indexes/migration.sql
 !prisma/manual/20260116_create_clothing_recurring_payments.sql
 !prisma/manual/20260116_reconcile_prisma_drift.sql
 !archives/migration-scripts/20260318_backfill_missing_shipment_jt0012625740989.sql

@@ -45,16 +45,24 @@ type TransitBuildPatchRequestBody = {
   notes?: string | null;
 };
 
+/**
+ * Structural minimum the transit-build delegates must satisfy. Each domain
+ * (clothing, general merchandise) passes its concrete Prisma delegates
+ * through the generic `T` parameter on `createTransitBuildRoutes`, so the
+ * body is type-checked against those concrete methods. The `any` here is
+ * deliberately confined to the *minimum* — the actual call sites get full
+ * Prisma typing.
+ */
 /* eslint-disable @typescript-eslint/no-explicit-any */
 export interface TransitBuildDelegates {
   shipmentModel: {
-    findUnique: (args: any) => Promise<{
+    findUnique: (...args: any[]) => Promise<{
       id: number;
       shipmentCode: string | null;
     } | null>;
   };
   productModel: {
-    findMany: (args: any) => Promise<
+    findMany: (...args: any[]) => Promise<
       Array<{
         cogs: unknown;
         grandTotal: unknown;
@@ -65,12 +73,12 @@ export interface TransitBuildDelegates {
     >;
   };
   transitBuildModel: {
-    findMany: (args: any) => Promise<Array<any>>;
-    findFirst: (args: any) => Promise<any>;
-    findUnique: (args: any) => Promise<any>;
-    create: (args: any) => Promise<any>;
-    update: (args: any) => Promise<any>;
-    upsert: (args: any) => Promise<any>;
+    findMany: (...args: any[]) => Promise<Array<any>>;
+    findFirst: (...args: any[]) => Promise<any>;
+    findUnique: (...args: any[]) => Promise<any>;
+    create: (...args: any[]) => Promise<any>;
+    update: (...args: any[]) => Promise<any>;
+    upsert: (...args: any[]) => Promise<any>;
   };
   /** Prisma $transaction for split mode. */
   $transaction: (operations: Array<any>) => Promise<Array<any>>;
@@ -81,7 +89,9 @@ export interface TransitBuildDelegates {
   >;
 }
 
-export function createTransitBuildRoutes(delegates: TransitBuildDelegates) {
+export function createTransitBuildRoutes<T extends TransitBuildDelegates>(
+  delegates: T
+) {
   const GET = withErrorHandler<RouteContext>(
     async (_request: NextRequest, context) => {
       const idResult = parseShipmentId(context);

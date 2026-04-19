@@ -96,14 +96,20 @@ Authentication uses NextAuth credentials.
 
 - Auth configuration lives in `src/lib/auth/auth.ts`
 - Route protection lives in `src/middleware.ts`
+- The route → allowed-roles map lives in `src/core/routePermissions.ts`
+  (single source of truth, longest-prefix matching, edge-runtime safe).
+  Edit access control there.
 
 When you add or change protected behavior, review all three layers together:
 
-1. Middleware access rules
+1. Middleware access rules (the prefix entry in `src/core/routePermissions.ts`)
 2. Server-side permission checks
 3. Permission-driven UI behavior
 
-`BYPASS_AUTH_FOR_TESTS=true` is only for test scenarios. Do not rely on it for normal development or design decisions.
+`BYPASS_AUTH_FOR_TESTS=true` is only for test scenarios — read it via
+`isAuthBypassed()` from `src/lib/auth/bypass.ts`. Do not rely on it for
+normal development or design decisions; it is guarded against running
+in production.
 
 ## 7. Database Safety
 
@@ -136,7 +142,27 @@ New modules should line up with:
 - route registration
 - navigation metadata
 - business and workspace context
-- permissions
+- permissions (add the prefix entry in `src/core/routePermissions.ts`)
+
+### Shared route factories
+
+Before writing a route by hand, check whether one of the shared
+factories already covers your case:
+
+- `createCrudRoutes` in `src/core/api/factory.ts` — generic CRUD,
+  Zod-validated, paginated, standard envelope.
+- `createInvoiceRoutes<T>` in `src/modules/invoices/api/invoiceRouteFactory.ts`
+  and `createTransitBuildRoutes<T>` in
+  `src/modules/shipments/api/transitBuildRouteFactory.ts` — both are
+  generic over the concrete Prisma delegate.
+- `createManualJournalRouteHandlers` and the `OpeningBalanceModel`
+  adapter in `src/modules/shared/ledger/**` for ledger flows.
+
+For pagination and the standard response envelope, use
+`parsePaginationParams` + `paginatedResponse` from
+`src/lib/api/pagination.ts` and wrap handlers with `withApiLogging`
+from `src/lib/api/withApiLogging.ts`. The module generator scaffolds
+this for you.
 
 ## 9. Validation Workflow
 
@@ -211,5 +237,5 @@ If you are authorized to commit, write commit messages that explain what changed
 - `CONTRIBUTING.md`: contributor workflow and coding standards
 - `docs/README.md`: documentation hub
 - `docs/BUSINESS_LOGIC_INDEX.md`: business-domain shortcuts
-- `docs/REPO_VERIFIED_EXEC_SUMMARY_2026-03-29.md`: concise architecture summary
-- `Repo-Wide Analysis — Business Management System.md`: full repo analysis
+- `docs/reports/archive/REPO_VERIFIED_EXEC_SUMMARY_2026-03-29.md`: concise architecture summary (archived 2026-04-19)
+- `IMPROVEMENTS_CHECKLIST.md`: tracked repo-wide improvements

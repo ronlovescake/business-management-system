@@ -4,11 +4,8 @@
  */
 
 import { getCurrentUser } from './session';
+import { isAuthBypassed } from './bypass';
 import { prisma } from '@/lib/db';
-
-function isAuthBypassed() {
-  return (process.env.BYPASS_AUTH_FOR_TESTS ?? '').toLowerCase() === 'true';
-}
 
 /**
  * Check if the current user has access to a specific module path

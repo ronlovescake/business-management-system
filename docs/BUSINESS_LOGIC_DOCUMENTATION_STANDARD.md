@@ -29,7 +29,7 @@ Files such as [docs/BUSINESS_LOGIC_INDEX.md](./BUSINESS_LOGIC_INDEX.md) should a
 
 ### 2. Coverage Layer
 
-Files such as [docs/BUSINESS_LOGIC_COVERAGE_AUDIT_2026-04-08.md](./BUSINESS_LOGIC_COVERAGE_AUDIT_2026-04-08.md) should answer:
+Files such as [docs/reports/archive/BUSINESS_LOGIC_COVERAGE_AUDIT_2026-04-08.md](./reports/archive/BUSINESS_LOGIC_COVERAGE_AUDIT_2026-04-08.md) should answer:
 
 - which product surfaces are documented in detail
 - which are only covered at overview level
@@ -80,9 +80,9 @@ Preferred format:
 
 ## A — Section Title
 
-| # | Logic | Explanation |
-|---|-------|-------------|
-| 1 | Rule | Why / source / caveat |
+| #   | Logic | Explanation           |
+| --- | ----- | --------------------- |
+| 1   | Rule  | Why / source / caveat |
 ```
 
 ---
@@ -124,4 +124,74 @@ Use these folders by default:
 2. If a new module or route family is introduced, it must be added to the index and coverage audit.
 3. If a workflow is intentionally placeholder-only, the doc must keep that explicit.
 4. If a shared service drives multiple domains, each domain doc should still describe its route-level operator experience.
-5. The docs should reflect what the codebase is supposed to do as embodied by the current implementation and explicitly documented intended states, not unwritten assumptions.
+
+---
+
+## API Contract Standard
+
+All HTTP route handlers under `src/app/api/**` should follow the conventions
+below. New module documentation (any `*-overview.md` or surface-level doc that
+calls out endpoints) should reference this section instead of redescribing it.
+
+### Response envelope
+
+Every JSON response uses this envelope, defined in `src/types/api.ts`:
+
+```ts
+interface ApiResponse<T> {
+  success: boolean;
+  data?: T;
+  error?: string; // human-readable summary
+  message?: string; // optional additional context
+}
+```
+
+Error responses also set the appropriate HTTP status (4xx for client errors,
+5xx for server errors). Prefer `src/lib/api/response.ts` and
+`src/lib/api/normalize.ts` helpers over hand-rolled `NextResponse.json(...)`
+calls so the envelope stays consistent.
+
+### Pagination
+
+List endpoints accept the standard query params and respond with the
+`PaginatedResponse<T>` shape defined in `src/types/api.ts`:
+
+| Param    | Default | Max   | Notes                           |
+| -------- | ------- | ----- | ------------------------------- |
+| `limit`  | `50`    | `500` | Page size; clamped server-side. |
+| `offset` | `0`     | n/a   | Zero-based offset.              |
+
+Response shape:
+
+```ts
+{
+  success: true,
+  data: T[],
+  pagination: { page, limit, total, pages }
+}
+```
+
+Endpoints that return a single record or a small fixed set are exempt.
+
+### Validation
+
+Every `POST`, `PUT`, and `PATCH` route MUST validate its body with a Zod
+schema before touching the database. On a validation failure return HTTP 400
+with field-level details in the envelope's `error` and (where helpful)
+`validationErrors` fields.
+
+### Logging and errors
+
+Wrap handlers with the logging helper exported from `src/lib/api/` (see the
+API logging wrapper introduced in `IMPROVEMENTS_CHECKLIST.md` \u00a710) so every
+request emits a structured log line and uncaught errors are normalized to the
+envelope and forwarded to Sentry with module/domain context.
+
+### Documentation expectation
+
+When a business-logic doc lists API routes, prefer one of:
+
+1. A short table referencing the standard (no need to restate the envelope), or
+2. A pointer to this section.
+
+Only describe deviations from the standard explicitly, with the rationale. 5. The docs should reflect what the codebase is supposed to do as embodied by the current implementation and explicitly documented intended states, not unwritten assumptions.

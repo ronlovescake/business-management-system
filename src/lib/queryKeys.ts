@@ -305,3 +305,61 @@ export const queryKeys = {
  * Helper type to extract query key types
  */
 export type QueryKey = typeof queryKeys;
+
+/* -------------------------------------------------------------------------- */
+/* Per-domain cache policy                                                    */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Per-domain React Query cache policy.
+ *
+ * The global defaults live in `src/lib/query-client.tsx` (`staleTime: 60s`,
+ * `gcTime: 10m`, no refetch on window focus). Override them per query by
+ * spreading the matching policy below into your `useQuery` options:
+ *
+ * ```ts
+ * useQuery({
+ *   queryKey: queryKeys.products.list(filters),
+ *   queryFn: fetchProducts,
+ *   ...cachePolicy.products,
+ * });
+ * ```
+ *
+ * Tuning rationale:
+ * - **Reference data** (employees, customers, products): rarely changes
+ *   during a session; long staleTime, long gcTime.
+ * - **Operational data** (transactions, shipments, payments): refresh more
+ *   often because they change as the user works.
+ * - **Reporting data** (accounting reports, dashboards): cache aggressively
+ *   because the underlying queries are expensive.
+ * - **Realtime-ish** (notifications, change log): short staleTime so the UI
+ *   stays current.
+ *
+ * Tracked in IMPROVEMENTS_CHECKLIST.md §6.2.
+ */
+export const cachePolicy = {
+  // Reference data
+  customers: { staleTime: 5 * 60 * 1000, gcTime: 30 * 60 * 1000 },
+  products: { staleTime: 5 * 60 * 1000, gcTime: 30 * 60 * 1000 },
+  bundles: { staleTime: 5 * 60 * 1000, gcTime: 30 * 60 * 1000 },
+  employees: { staleTime: 5 * 60 * 1000, gcTime: 30 * 60 * 1000 },
+  prices: { staleTime: 5 * 60 * 1000, gcTime: 30 * 60 * 1000 },
+
+  // Operational data (changes during a working session)
+  transactions: { staleTime: 30 * 1000, gcTime: 5 * 60 * 1000 },
+  shipments: { staleTime: 30 * 1000, gcTime: 5 * 60 * 1000 },
+  payments: { staleTime: 30 * 1000, gcTime: 5 * 60 * 1000 },
+  attendance: { staleTime: 30 * 1000, gcTime: 5 * 60 * 1000 },
+
+  // Reporting / aggregations (expensive queries; cache aggressively)
+  accounting: { staleTime: 5 * 60 * 1000, gcTime: 30 * 60 * 1000 },
+  dashboards: { staleTime: 5 * 60 * 1000, gcTime: 30 * 60 * 1000 },
+  reports: { staleTime: 10 * 60 * 1000, gcTime: 60 * 60 * 1000 },
+
+  // Realtime-ish (keep UI fresh)
+  notifications: { staleTime: 10 * 1000, gcTime: 60 * 1000 },
+  changeLog: { staleTime: 10 * 1000, gcTime: 60 * 1000 },
+  messaging: { staleTime: 10 * 1000, gcTime: 60 * 1000 },
+} as const;
+
+export type CachePolicyDomain = keyof typeof cachePolicy;

@@ -50,11 +50,11 @@ For the latest contributor quick-start commands, documentation entry points, and
 4. **Set up database**
 
    ```bash
-  npm run db:generate
-  npm run db:push
+   npm run db:generate
+   npm run db:push
    ```
 
-  Use `npx prisma migrate dev` only when you are intentionally creating or updating a migration in a safe local environment.
+Use `npx prisma migrate dev` only when you are intentionally creating or updating a migration in a safe local environment.
 
 5. **Run development server**
 
@@ -120,8 +120,8 @@ For the latest contributor quick-start commands, documentation entry points, and
 1. **Run all checks**
 
    ```bash
-  npm run guardrails:check
-  npm run ci:quality
+   npm run guardrails:check
+   npm run ci:quality
    ```
 
 2. **Update documentation**
@@ -825,7 +825,8 @@ Additional repo-specific references:
 
 - [README.md](README.md)
 - [docs/README.md](docs/README.md)
-- [docs/REPO_VERIFIED_EXEC_SUMMARY_2026-03-29.md](docs/REPO_VERIFIED_EXEC_SUMMARY_2026-03-29.md)
+- [docs/reports/archive/REPO_VERIFIED_EXEC_SUMMARY_2026-03-29.md](docs/reports/archive/REPO_VERIFIED_EXEC_SUMMARY_2026-03-29.md) (archived 2026-04-19)
+- [IMPROVEMENTS_CHECKLIST.md](IMPROVEMENTS_CHECKLIST.md)
 
 ---
 

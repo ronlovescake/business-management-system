@@ -5,11 +5,11 @@ async function main() {
   const records = await prisma.sortingDistribution.findMany({
     where: { deletedAt: null },
     orderBy: { rowNumber: 'asc' },
-    take: 10
+    take: 10,
   });
-  
+
   console.log('Total records found:', records.length);
-  
+
   if (records.length > 0) {
     console.log('\nFirst 3 records:');
     records.slice(0, 3).forEach((r, i) => {

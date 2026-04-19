@@ -4,23 +4,36 @@ import { logger } from '@/lib/logger';
 import { ApiResponseUtil } from '@/core/api/response';
 
 /**
- * Prisma delegate for the invoice model.
- * Each domain binds its own invoice model (e.g. prisma.invoice, prisma.generalMerchandiseInvoice).
+ * Structural minimum the invoice delegate must satisfy. We accept any
+ * concrete Prisma delegate (clothing `prisma.invoice`, GM
+ * `prisma.generalMerchandiseInvoice`, etc.) because their actual generated
+ * `*Args` types use Prisma's `SelectSubset` generic and cannot be expressed
+ * as a single non-generic interface. Callers consume the factory through a
+ * generic `T` so the body is checked against the *concrete* delegate's
+ * signatures rather than this loose minimum.
  */
 /* eslint-disable @typescript-eslint/no-explicit-any */
-export interface InvoiceModelDelegate {
-  findMany: (args: any) => Promise<unknown[]>;
-  createMany: (args: any) => Promise<{ count: number }>;
-  update: (args: any) => Promise<unknown>;
-  updateMany: (args: any) => Promise<unknown>;
+export interface MinimalInvoiceDelegate {
+  findMany: (...args: any[]) => Promise<unknown[]>;
+  createMany: (...args: any[]) => Promise<{ count: number }>;
+  update: (...args: any[]) => Promise<unknown>;
+  updateMany: (...args: any[]) => Promise<unknown>;
 }
 
-export interface InvoiceRouteConfig {
-  invoiceModel: InvoiceModelDelegate;
+/**
+ * Backwards-compatible alias. Prefer `MinimalInvoiceDelegate` in new code.
+ * @deprecated kept so external imports continue to compile.
+ */
+export type InvoiceModelDelegate = MinimalInvoiceDelegate;
+
+export interface InvoiceRouteConfig<T extends MinimalInvoiceDelegate> {
+  invoiceModel: T;
   domainLabel?: string;
 }
 
-export function createInvoiceRoutes(config: InvoiceRouteConfig) {
+export function createInvoiceRoutes<T extends MinimalInvoiceDelegate>(
+  config: InvoiceRouteConfig<T>
+) {
   const { invoiceModel, domainLabel } = config;
   const label = domainLabel ? `${domainLabel} ` : '';
 

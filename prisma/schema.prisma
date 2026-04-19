@@ -271,6 +271,9 @@ model Shipment {
 
   @@index([shipmentCode])
   @@index([shipmentStatus])
+  // Composite index added 2026-04-19 per IMPROVEMENTS_CHECKLIST.md §2:
+  // accelerates status-filtered date queries (dashboards / shipment reports).
+  @@index([shipmentStatus, dateCreated])
   @@map("shipments")
   @@schema("public")
 }
@@ -411,6 +414,9 @@ model Transaction {
   @@index([orderStatus, deletedAt])
   @@index([productCode, deletedAt])
   @@index([orderDate, deletedAt])
+  // Composite index added 2026-04-19 per IMPROVEMENTS_CHECKLIST.md §2:
+  // accelerates per-product status filtering on the transactions list/report.
+  @@index([productCode, orderStatus])
   @@map("transactions")
   @@schema("public")
 }
@@ -625,6 +631,9 @@ model Expense {
   @@index([status, date])
   @@index([employeeName, status])
   @@index([category, status])
+  // Composite index added 2026-04-19 per IMPROVEMENTS_CHECKLIST.md §2:
+  // accelerates per-employee expense lookups by date range (payroll/reports).
+  @@index([employeeName, date])
   @@map("expenses")
   @@schema("public")
 }
@@ -639,10 +648,15 @@ model ClothingAccountingOpeningBalance {
   debit       Float    @default(0)
   credit      Float    @default(0)
   description String?  @db.VarChar(1000)
+  // Soft-delete column added 2026-04-19 per IMPROVEMENTS_CHECKLIST.md §1.
+  // Queries should filter `deletedAt: null` to preserve audit trail. Tracked
+  // for full query rollout.
+  deletedAt   DateTime? @db.Timestamptz(6)
 
   @@index([date])
   @@index([account])
   @@index([ref])
+  @@index([deletedAt])
   @@map("ClothingAccountingOpeningBalance")
   @@schema("public")
 }
@@ -709,6 +723,9 @@ model ClothingAccountingJournalLine {
   sourceId        String?  @db.VarChar(100)
   sourceLineKey   String   @db.VarChar(150)
   systemGenerated Boolean  @default(true)
+  // Soft-delete column added 2026-04-19 per IMPROVEMENTS_CHECKLIST.md §1.
+  // Queries should filter `deletedAt: null` to preserve the audit trail.
+  deletedAt       DateTime? @db.Timestamptz(6)
 
   @@unique([sourceType, sourceId, sourceLineKey])
   @@index([date])
@@ -716,6 +733,7 @@ model ClothingAccountingJournalLine {
   @@index([ref])
   @@index([sourceType])
   @@index([sourceId])
+  @@index([deletedAt])
   @@map("clothing_accounting_journal_lines")
   @@schema("public")
 }
@@ -2993,10 +3011,13 @@ model GeneralMerchandiseAccountingOpeningBalance {
   debit       Float    @default(0)
   credit      Float    @default(0)
   description String?  @db.VarChar(1000)
+  // Soft-delete column added 2026-04-19 per IMPROVEMENTS_CHECKLIST.md §1.
+  deletedAt   DateTime? @db.Timestamptz(6)
 
   @@index([date])
   @@index([account])
   @@index([ref])
+  @@index([deletedAt])
   @@map("accounting_opening_balance")
   @@schema("general_merchandise")
 }
@@ -3015,6 +3036,8 @@ model GeneralMerchandiseAccountingJournalLine {
   sourceId        String?  @db.VarChar(100)
   sourceLineKey   String   @db.VarChar(150)
   systemGenerated Boolean  @default(true)
+  // Soft-delete column added 2026-04-19 per IMPROVEMENTS_CHECKLIST.md §1.
+  deletedAt       DateTime? @db.Timestamptz(6)
 
   @@unique([sourceType, sourceId, sourceLineKey])
   @@index([date])
@@ -3022,6 +3045,7 @@ model GeneralMerchandiseAccountingJournalLine {
   @@index([ref])
   @@index([sourceType])
   @@index([sourceId])
+  @@index([deletedAt])
   @@map("accounting_journal_lines")
   @@schema("general_merchandise")
 }

@@ -113,7 +113,7 @@ This index is the shortest path to the domain and workspace logic documents with
 ## Documentation Standards
 
 - [Business Logic Documentation Standard](./BUSINESS_LOGIC_DOCUMENTATION_STANDARD.md)
-- [Business Logic Coverage Audit (2026-04-08)](./BUSINESS_LOGIC_COVERAGE_AUDIT_2026-04-08.md)
+- [Business Logic Coverage Audit (2026-04-08)](./reports/archive/BUSINESS_LOGIC_COVERAGE_AUDIT_2026-04-08.md) (archived 2026-04-19)
 
 ## Coverage Gap Notes
 

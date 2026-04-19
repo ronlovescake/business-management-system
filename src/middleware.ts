@@ -1,69 +1,9 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
+import { isAuthBypassed } from '@/lib/auth/bypass';
+import { getRequiredRolesForPath } from '@/core/routePermissions';
 
-// Define route access control
-const routePermissions: Record<string, string[]> = {
-  // Public routes - no authentication required
-  '/login': ['*'],
-
-  // Operations routes - All authenticated users
-  '/clothing/operations': ['USER', 'ADMIN', 'SUPER_ADMIN'],
-  '/clothing/operations/customers': ['USER', 'ADMIN', 'SUPER_ADMIN'],
-  '/clothing/operations/dispatch': ['USER', 'ADMIN', 'SUPER_ADMIN'],
-  '/clothing/operations/transactions': ['USER', 'ADMIN', 'SUPER_ADMIN'],
-  '/clothing/operations/sorting': ['USER', 'ADMIN', 'SUPER_ADMIN'],
-
-  // General Merchandise operations routes - All authenticated users
-  '/general-merchandise/operations': ['USER', 'ADMIN', 'SUPER_ADMIN'],
-  '/general-merchandise/operations/customers': ['USER', 'ADMIN', 'SUPER_ADMIN'],
-  '/general-merchandise/operations/dispatch': ['USER', 'ADMIN', 'SUPER_ADMIN'],
-  '/general-merchandise/operations/transactions': [
-    'USER',
-    'ADMIN',
-    'SUPER_ADMIN',
-  ],
-  '/general-merchandise/operations/sorting': ['USER', 'ADMIN', 'SUPER_ADMIN'],
-
-  // Employees routes - Admin and Super Admin only
-  '/clothing/employees': ['ADMIN', 'SUPER_ADMIN'],
-  '/clothing/employees/management': ['ADMIN', 'SUPER_ADMIN'],
-  '/clothing/employees/attendance': ['ADMIN', 'SUPER_ADMIN'],
-  '/clothing/employees/schedule': ['ADMIN', 'SUPER_ADMIN'],
-  '/clothing/employees/payroll': ['ADMIN', 'SUPER_ADMIN'],
-  '/clothing/employees/leave-requests': ['ADMIN', 'SUPER_ADMIN'],
-  '/clothing/employees/cash-advances': ['ADMIN', 'SUPER_ADMIN'],
-  '/clothing/employees/thirteenth-month': ['ADMIN', 'SUPER_ADMIN'],
-  '/clothing/employees/expenses': ['ADMIN', 'SUPER_ADMIN'],
-  '/clothing/accounting': ['ADMIN', 'SUPER_ADMIN'],
-  '/clothing/ledger': ['ADMIN', 'SUPER_ADMIN'],
-
-  // General Merchandise employees/accounting routes - Admin and Super Admin only
-  '/general-merchandise/employees': ['ADMIN', 'SUPER_ADMIN'],
-  '/general-merchandise/employees/management': ['ADMIN', 'SUPER_ADMIN'],
-  '/general-merchandise/employees/attendance': ['ADMIN', 'SUPER_ADMIN'],
-  '/general-merchandise/employees/schedule': ['ADMIN', 'SUPER_ADMIN'],
-  '/general-merchandise/employees/payroll': ['ADMIN', 'SUPER_ADMIN'],
-  '/general-merchandise/employees/leave-requests': ['ADMIN', 'SUPER_ADMIN'],
-  '/general-merchandise/employees/cash-advances': ['ADMIN', 'SUPER_ADMIN'],
-  '/general-merchandise/employees/thirteenth-month': ['ADMIN', 'SUPER_ADMIN'],
-  '/general-merchandise/employees/expenses': ['ADMIN', 'SUPER_ADMIN'],
-  '/general-merchandise/accounting': ['ADMIN', 'SUPER_ADMIN'],
-  '/general-merchandise/ledger': ['ADMIN', 'SUPER_ADMIN'],
-
-  // Settings/Admin routes - Super Admin only
-  '/settings': ['SUPER_ADMIN'],
-  '/clothing/settings': ['SUPER_ADMIN'],
-  '/clothing/users': ['SUPER_ADMIN'],
-
-  // Personal finance - all authenticated users
-  '/personal': ['USER', 'ADMIN', 'SUPER_ADMIN'],
-
-  // Profile route - All authenticated users
-  '/profile': ['USER', 'ADMIN', 'SUPER_ADMIN'],
-};
-
-const shouldBypassAuth =
-  (process.env.BYPASS_AUTH_FOR_TESTS ?? '').toLowerCase() === 'true';
+const shouldBypassAuth = isAuthBypassed();
 
 export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
@@ -89,6 +29,7 @@ export async function middleware(req: NextRequest) {
     pathname === '/login' ||
     pathname === '/' ||
     pathname === '/api/health' ||
+    pathname === '/api/security/csp-report' ||
     pathname.startsWith('/api/auth')
   ) {
     return NextResponse.next();
@@ -114,19 +55,18 @@ export async function middleware(req: NextRequest) {
     ? '/general-merchandise/operations'
     : '/clothing/operations';
 
-  // Find matching route permission
-  for (const [route, allowedRoles] of Object.entries(routePermissions)) {
-    if (pathname.startsWith(route) && !allowedRoles.includes('*')) {
-      if (!allowedRoles.includes(userRole)) {
-        if (pathname.startsWith('/api/')) {
-          return new NextResponse(
-            JSON.stringify({ error: 'Insufficient permissions' }),
-            { status: 403, headers: { 'content-type': 'application/json' } }
-          );
-        }
-        // Redirect to unauthorized page or home
-        return NextResponse.redirect(new URL(unauthorizedRedirect, req.url));
+  // Find matching route permission (longest-prefix match for correctness;
+  // see src/core/routePermissions.ts).
+  const allowedRoles = getRequiredRolesForPath(pathname);
+  if (allowedRoles && !allowedRoles.includes('*')) {
+    if (!allowedRoles.includes(userRole as 'USER' | 'ADMIN' | 'SUPER_ADMIN')) {
+      if (pathname.startsWith('/api/')) {
+        return new NextResponse(
+          JSON.stringify({ error: 'Insufficient permissions' }),
+          { status: 403, headers: { 'content-type': 'application/json' } }
+        );
       }
+      return NextResponse.redirect(new URL(unauthorizedRedirect, req.url));
     }
   }
 

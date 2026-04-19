@@ -107,6 +107,8 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
   const openingBalanceRows = openingBalanceModel?.findMany
     ? ((await openingBalanceModel.findMany({
         where: {
+          // Filter out soft-deleted opening balances (column added 2026-04-19).
+          deletedAt: null,
           date: {
             gte: effectiveFrom,
             ...(effectiveTo ? { lte: effectiveTo } : {}),

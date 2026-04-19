@@ -34,15 +34,17 @@ type ManualJournalModel = {
   }) => Promise<Array<{ sourceLineKey: string }>>;
   updateMany?: (args: {
     where: Record<string, unknown>;
-    data: {
-      date: Date;
-      ref: string;
-      account: string;
-      debit: number;
-      credit: number;
-      description: string | null;
-    };
-  }) => Promise<unknown>;
+    data:
+      | {
+          date: Date;
+          ref: string;
+          account: string;
+          debit: number;
+          credit: number;
+          description: string | null;
+        }
+      | { deletedAt: Date };
+  }) => Promise<{ count: number }>;
   deleteMany?: (args: {
     where: Record<string, unknown>;
   }) => Promise<{ count: number }>;
@@ -443,16 +445,28 @@ export function createManualJournalRouteHandlers(
 
     try {
       const model = requireModel(prismaClient, config.getModel);
-      if (!model.deleteMany) {
+      // Prefer soft-delete via updateMany so the journal line history is
+      // preserved (deletedAt column added 2026-04-19). Fall back to a hard
+      // deleteMany only if updateMany is unavailable on this delegate.
+      if (model.updateMany) {
+        const result = await model.updateMany({
+          where: { ...config.deleteWhere(sourceId), deletedAt: null },
+          data: { deletedAt: new Date() },
+        });
+
+        if (config.deleteMissingReturnsNotFound && !result.count) {
+          return ApiResponse.notFound('Manual journal entry');
+        }
+      } else if (model.deleteMany) {
+        const result = await model.deleteMany({
+          where: config.deleteWhere(sourceId),
+        });
+
+        if (config.deleteMissingReturnsNotFound && !result.count) {
+          return ApiResponse.notFound('Manual journal entry');
+        }
+      } else {
         return missingTableResponse(config.missingTableResponseDetail);
-      }
-
-      const result = await model.deleteMany({
-        where: config.deleteWhere(sourceId),
-      });
-
-      if (config.deleteMissingReturnsNotFound && !result.count) {
-        return ApiResponse.notFound('Manual journal entry');
       }
     } catch (error) {
       if (isMissingTableError(error)) {

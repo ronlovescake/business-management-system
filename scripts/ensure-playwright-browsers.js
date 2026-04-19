@@ -3,6 +3,21 @@
 const fs = require('fs');
 const { spawnSync } = require('child_process');
 
+// Production runtime images (per §10.2 of IMPROVEMENTS_CHECKLIST.md) do NOT
+// ship Playwright browsers — Playwright is an E2E-only dependency. The
+// `prestart` hook still fires `npm start` though, so we need an explicit
+// opt-out for those environments. Set SKIP_PLAYWRIGHT_INSTALL=1 in the
+// production Docker runtime to make this script a no-op.
+if (
+  process.env.SKIP_PLAYWRIGHT_INSTALL === '1' ||
+  process.env.SKIP_PLAYWRIGHT_INSTALL === 'true'
+) {
+  console.log(
+    '[ensure-playwright-browsers] SKIP_PLAYWRIGHT_INSTALL set; skipping browser check.'
+  );
+  process.exit(0);
+}
+
 process.env.PLAYWRIGHT_BROWSERS_PATH =
   process.env.PLAYWRIGHT_BROWSERS_PATH || '0';
 

@@ -1,0 +1,111 @@
+name: Backup/Restore Smoke
+
+# Lightweight CI smoke check for the backup pipeline. Spins up a throwaway
+# Postgres, applies the Prisma schema, runs the backup schema-coverage audit,
+# then performs a pg_dump → fresh-DB pg_restore round-trip and asserts that
+# the restored database has the same table set. This catches regressions in
+# the backup tooling without requiring real production data.
+
+on:
+  push:
+    branches: [main, develop]
+    paths:
+      - 'prisma/schema.prisma'
+      - 'scripts/backup-*'
+      - 'scripts/backup-database.js'
+      - 'scripts/backup-schema-coverage-audit.ts'
+      - 'scripts/docker/restore-*.sh'
+      - '.github/workflows/backup-restore-smoke.yml'
+  pull_request:
+    branches: [main, develop]
+    paths:
+      - 'prisma/schema.prisma'
+      - 'scripts/backup-*'
+      - 'scripts/backup-database.js'
+      - 'scripts/backup-schema-coverage-audit.ts'
+      - 'scripts/docker/restore-*.sh'
+      - '.github/workflows/backup-restore-smoke.yml'
+  workflow_dispatch: {}
+
+jobs:
+  smoke:
+    timeout-minutes: 20
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_USER: bmsuser
+          POSTGRES_PASSWORD: bmspass
+          POSTGRES_DB: bms_smoke
+        ports:
+          - 5435:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      DATABASE_URL: postgresql://bmsuser:bmspass@localhost:5435/bms_smoke
+      PGHOST: localhost
+      PGPORT: '5435'
+      PGUSER: bmsuser
+      PGPASSWORD: bmspass
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install postgresql-client (pg_dump / pg_restore)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends postgresql-client
+
+      - name: Generate Prisma client
+        run: npm run db:generate
+
+      - name: Apply schema to throwaway DB
+        run: npx prisma db push --skip-generate --accept-data-loss
+
+      - name: Backup schema coverage audit
+        run: npm run backup:audit
+
+      - name: pg_dump (custom format)
+        run: |
+          mkdir -p .smoke-backup
+          pg_dump -Fc -f .smoke-backup/dump.bin "$DATABASE_URL"
+          ls -lh .smoke-backup/dump.bin
+
+      - name: Restore into a fresh database
+        run: |
+          psql "postgresql://bmsuser:bmspass@localhost:5435/postgres" \
+            -c "DROP DATABASE IF EXISTS bms_smoke_restore;"
+          psql "postgresql://bmsuser:bmspass@localhost:5435/postgres" \
+            -c "CREATE DATABASE bms_smoke_restore OWNER bmsuser;"
+          pg_restore --no-owner --no-acl \
+            -d "postgresql://bmsuser:bmspass@localhost:5435/bms_smoke_restore" \
+            .smoke-backup/dump.bin
+
+      - name: Compare table sets between source and restored DBs
+        run: |
+          src_tables=$(psql -At "$DATABASE_URL" \
+            -c "select schemaname || '.' || tablename from pg_tables where schemaname not in ('pg_catalog','information_schema') order by 1;")
+          dst_tables=$(psql -At "postgresql://bmsuser:bmspass@localhost:5435/bms_smoke_restore" \
+            -c "select schemaname || '.' || tablename from pg_tables where schemaname not in ('pg_catalog','information_schema') order by 1;")
+          if [ "$src_tables" != "$dst_tables" ]; then
+            echo "::error::Table set mismatch after restore"
+            diff <(echo "$src_tables") <(echo "$dst_tables") || true
+            exit 1
+          fi
+          echo "Table sets match. Restore round-trip OK."

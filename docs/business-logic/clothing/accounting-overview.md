@@ -33,3 +33,53 @@ This overview indexes the business logic documentation files for the **Clothing 
 - **P&L formulas**: `Gross Profit = Revenue - COGS`; `Net Profit = Revenue - All Expenses (including COGS)`.
 - **Expense source filtering**: Expenses with `sourceType === 'PRODUCT'` or `'SHIPMENT'` are excluded from operational expense views (shown only in source-specific contexts).
 - **Period options (all modules)**: All Time, This Month, Last Month, This Year, Last Year, Last 30 Days, Last 90 Days.
+
+---
+
+## Soft-delete semantics (added 2026-04-19)
+
+The four accounting persistence models now carry a nullable `deletedAt`
+column with an index on the column:
+
+- `ClothingAccountingJournalLine`
+- `ClothingAccountingOpeningBalance`
+- `GeneralMerchandiseAccountingJournalLine`
+- `GeneralMerchandiseAccountingOpeningBalance`
+
+Read paths in this domain (ledger view, balance sheet, manual journal
+in-place lookup, recurring-payments existing-line guard) filter
+`deletedAt: null`, so a soft-deleted row is invisible to:
+
+- the running-balance computation,
+- the opening-balance read used by the balance sheet, and
+- the "do we already have a posting for this period?" guard used by
+  recurring payments.
+
+DELETE handlers now perform a **soft delete** (updated 2026-04-19,
+IMPROVEMENTS_CHECKLIST.md §1.2 follow-up). Specifically:
+
+- The manual-journal DELETE route adapter
+  (`src/modules/shared/ledger/manual-journal/api/routeAdapter.ts`) calls
+  `updateMany({ where, data: { deletedAt: new Date() } })` when the
+  Prisma delegate exposes `updateMany`, falling back to `deleteMany`
+  only for delegates that do not.
+- The opening-balance DELETE route adapter
+  (`src/modules/shared/ledger/opening-balance/api/routeAdapter.ts`)
+  calls `update({ where: { id }, data: { deletedAt: new Date() } })`
+  when the delegate exposes `update`, falling back to `delete`
+  otherwise.
+
+Lifecycle: a delete request **tombstones** the row (sets `deletedAt`)
+rather than removing it. All read paths listed above filter
+`deletedAt: null`, so the row immediately disappears from the running
+balance, balance-sheet opening totals, manual-journal lookups, and the
+recurring-payments existing-line guard — but the underlying record
+remains queryable for audit/restore. Hard deletion is no longer the
+default behavior on these four accounting models.
+
+> **Float → Decimal precision**: tracked separately under
+> IMPROVEMENTS_CHECKLIST.md §1.1. Until that migration lands, monetary
+> values in this module are stored as `Float` and any user-facing
+> rounding behavior described in the per-page docs (e.g. 2-decimal
+> display, balance-sheet sign convention) reflects the current
+> floating-point representation.

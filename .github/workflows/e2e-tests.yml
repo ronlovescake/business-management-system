@@ -80,8 +80,24 @@ jobs:
         env:
           DATABASE_URL: postgresql://testuser:testpass@localhost:5433/business_management_test
 
+      - name: Cache Playwright browsers
+        id: playwright-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          # Bust on package-lock changes to pick up new Playwright versions.
+          key: ${{ runner.os }}-playwright-${{ hashFiles('package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-playwright-
+
       - name: Install Playwright Browsers
-        run: npx playwright install --with-deps chromium
+        # If the cache hit, only re-run system deps; otherwise full install.
+        run: |
+          if [ "${{ steps.playwright-cache.outputs.cache-hit }}" = "true" ]; then
+            npx playwright install-deps chromium
+          else
+            npx playwright install --with-deps chromium
+          fi
 
       - name: Run E2E tests
         run: npm run test:e2e:chromium -- --workers=1

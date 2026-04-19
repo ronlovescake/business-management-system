@@ -29,7 +29,7 @@ This repository serves multiple business domains in one app, with domain-parity 
 
 Detailed side-map and hotspot scan:
 
-- `docs/REPO_SIDEMAP_DEEP_SCAN_2026-02-20.md`
+- `docs/reports/archive/REPO_SIDEMAP_DEEP_SCAN_2026-02-20.md` (archived 2026-04-19)
 
 ## Local Development
 
@@ -262,8 +262,8 @@ npm run accounting:transactions:sanitycheck
 - Documentation hub: `docs/README.md`
 - Developer onboarding guide: `docs/DEVELOPER_ONBOARDING.md`
 - Contributor guide: `CONTRIBUTING.md`
-- Repo-verified executive summary: `docs/REPO_VERIFIED_EXEC_SUMMARY_2026-03-29.md`
-- Full repo-wide analysis: `Repo-Wide Analysis — Business Management System.md`
+- Repo-verified executive summary: `docs/reports/archive/REPO_VERIFIED_EXEC_SUMMARY_2026-03-29.md`
+- Repo-wide improvement checklist: `IMPROVEMENTS_CHECKLIST.md`
 - Business logic index: `docs/BUSINESS_LOGIC_INDEX.md`
 - Debugging guide: `docs/DEBUGGING.md`
 - Deployment guide: `docs/DEPLOYMENT.md`
@@ -271,7 +271,5 @@ npm run accounting:transactions:sanitycheck
 - Operational workflow and accounting policy: `docs/OPERATIONAL_WORKFLOW_AND_ACCOUNTING_POLICY.md`
 - Inventory ledger controls: `docs/inventory-ledger-controls.md`
 - Historical docs index: `docs/HISTORICAL_INDEX.md`
-- Repo side-map deep scan: `docs/REPO_SIDEMAP_DEEP_SCAN_2026-02-20.md`
-- Repository logic + computation map: `docs/REPOSITORY_LOGIC_AND_COMPUTATION_MAP_2026-02-20.md`
-- Repository sitemap tree + diagram: `docs/REPOSITORY_SITEMAP_TREE_DIAGRAM_2026-02-20.md`
+- Archived structural reports: `docs/reports/archive/`
 - Engineering policy: `.github/instructions/development.instructions.md`
