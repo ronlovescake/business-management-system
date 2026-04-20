@@ -50,10 +50,14 @@ WORKDIR /app
 
 ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
-# Playwright browsers are E2E-only and intentionally NOT shipped in the runtime
-# image. This skips the `prestart` browser check that would otherwise try to
-# install Chromium at container start. See §10.2 in IMPROVEMENTS_CHECKLIST.md.
+# Playwright Chromium is required at runtime for server-side PDF generation
+# (invoices, packing lists, distribution slips, payslips). Browsers are
+# baked into the runtime image at /ms-playwright (matches the value set in
+# docker-compose.yml). The prestart hook is short-circuited via
+# SKIP_PLAYWRIGHT_INSTALL=1 because the install already happened at build
+# time below.
 ENV SKIP_PLAYWRIGHT_INSTALL=1
+ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
 
 # postgres-client-16 is required at runtime by backup/restore scripts
 # (scripts/backup-database.js, scripts/docker/*.sh) which shell out to
@@ -83,6 +87,16 @@ COPY --from=builder --chown=node:node /app/settings ./settings
 # Handlebars/HTML templates used at runtime for PDF generation
 # (packing lists, invoices, payslips, distributions).
 COPY --from=builder --chown=node:node /app/templates ./templates
+
+# Install Playwright Chromium into the predictable /ms-playwright path used
+# by docker-compose.yml. --with-deps installs the system libraries
+# (libnss3, libatk1.0-0, etc.) required by Chromium on bookworm. Done as
+# root before USER node so apt-get can install system packages; the browser
+# tree is then made world-readable so the unprivileged runtime user can
+# launch chrome.
+RUN mkdir -p /ms-playwright \
+ && npx --yes playwright install --with-deps chromium \
+ && chmod -R a+rX /ms-playwright
 
 USER node
 
