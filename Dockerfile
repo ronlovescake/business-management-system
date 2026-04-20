@@ -80,6 +80,9 @@ COPY --from=builder --chown=node:node /app/next.config.js ./next.config.js
 # Scripts and settings are needed at runtime for backup/restore and config.
 COPY --from=builder --chown=node:node /app/scripts ./scripts
 COPY --from=builder --chown=node:node /app/settings ./settings
+# Handlebars/HTML templates used at runtime for PDF generation
+# (packing lists, invoices, payslips, distributions).
+COPY --from=builder --chown=node:node /app/templates ./templates
 
 USER node
 
