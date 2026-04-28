@@ -10,8 +10,13 @@ import {
   DEFAULT_BACKUP_TIMEZONE,
   DEFAULT_PITR_BASE_TIME,
   parseBooleanFlag,
+  parseRetentionDays,
   parseScheduleTime,
 } from '@/lib/backup/schedulerConfig';
+import {
+  PITR_BASE_BACKUP_RETENTION_DAYS as DEFAULT_PITR_BASE_BACKUP_RETENTION_DAYS,
+  WAL_ARCHIVE_RETENTION_DAYS as DEFAULT_WAL_ARCHIVE_RETENTION_DAYS,
+} from '@/constants/limits';
 
 export interface PitrBaseBackupFile {
   name: string;
@@ -81,6 +86,20 @@ export interface PitrStatusSnapshot {
   restoreCommandPreview: string | null;
 }
 
+export interface PitrPruneResult {
+  baseBackupRetentionDays: number;
+  walRetentionDays: number;
+  baseBackupCutoff: string;
+  effectiveWalCutoff: string;
+  anchorBaseBackupFolder: string | null;
+  prunedBaseBackupFolders: string[];
+  skippedBaseBackupFolders: string[];
+  prunedWalFileCount: number;
+  prunedWalBytes: number;
+  skippedWalFileCount: number;
+  skippedWalBytes: number;
+}
+
 class PitrConfigurationError extends Error {
   statusCode: number;
 
@@ -140,7 +159,10 @@ export type ScheduledPitrRequestBody = {
 };
 
 function formatTimestampFolder(date: Date) {
-  return date.toISOString().replace(/\.\d{3}Z$/, '').replace(/:/g, '-');
+  return date
+    .toISOString()
+    .replace(/\.\d{3}Z$/, '')
+    .replace(/:/g, '-');
 }
 
 function normalizeRelativePath(filePath: string) {
@@ -180,6 +202,19 @@ function getPitrWalArchiveDirectory() {
 
 function getBaseBackupLockPath() {
   return path.join(getPitrBaseBackupDirectory(), BASE_BACKUP_LOCK_FILE);
+}
+
+function getPitrRetentionConfiguration() {
+  return {
+    baseBackupRetentionDays: parseRetentionDays(
+      process.env.PITR_BASE_BACKUP_RETENTION_DAYS,
+      DEFAULT_PITR_BASE_BACKUP_RETENTION_DAYS
+    ),
+    walRetentionDays: parseRetentionDays(
+      process.env.WAL_ARCHIVE_RETENTION_DAYS,
+      DEFAULT_WAL_ARCHIVE_RETENTION_DAYS
+    ),
+  };
 }
 
 function parseDatabaseUrl() {
@@ -345,8 +380,8 @@ function listBaseBackups() {
         !entry.name.startsWith('.') &&
         !entry.name.endsWith('.tmp')
     )
-    .map((entry) =>
-      readBaseBackupManifest(path.join(baseRoot, entry.name)) ?? null
+    .map(
+      (entry) => readBaseBackupManifest(path.join(baseRoot, entry.name)) ?? null
     )
     .filter((entry): entry is PitrBaseBackupManifest => entry !== null)
     .sort((left, right) => right.folder.localeCompare(left.folder));
@@ -395,13 +430,18 @@ async function queryShowSetting(setting: string) {
 
 async function queryRuntimeStatus(): Promise<PitrRuntimeStatus> {
   try {
-    const [archiveMode, archiveCommand, archiveTimeout, walLevel, archiverRows] =
-      await Promise.all([
-        queryShowSetting('archive_mode'),
-        queryShowSetting('archive_command'),
-        queryShowSetting('archive_timeout'),
-        queryShowSetting('wal_level'),
-        prisma.$queryRawUnsafe<PgStatArchiverRow[]>(`
+    const [
+      archiveMode,
+      archiveCommand,
+      archiveTimeout,
+      walLevel,
+      archiverRows,
+    ] = await Promise.all([
+      queryShowSetting('archive_mode'),
+      queryShowSetting('archive_command'),
+      queryShowSetting('archive_timeout'),
+      queryShowSetting('wal_level'),
+      prisma.$queryRawUnsafe<PgStatArchiverRow[]>(`
           SELECT
             archived_count,
             failed_count,
@@ -412,7 +452,7 @@ async function queryRuntimeStatus(): Promise<PitrRuntimeStatus> {
             stats_reset
           FROM pg_stat_archiver
         `),
-      ]);
+    ]);
 
     const archiver = archiverRows?.[0] ?? {};
     return {
@@ -554,7 +594,11 @@ export function getPitrWalFiles() {
     .map((entry) => {
       const filePath = path.join(walRoot, entry.name);
       const stats = fs.statSync(filePath);
-      return { name: entry.name, size: stats.size, mtime: stats.mtime.toISOString() };
+      return {
+        name: entry.name,
+        size: stats.size,
+        mtime: stats.mtime.toISOString(),
+      };
     })
     .sort((left, right) => right.name.localeCompare(left.name));
 
@@ -702,6 +746,141 @@ export async function createPitrBaseBackup(
   }
 }
 
+export function pruneExpiredPitrArtifacts(now = new Date()): PitrPruneResult {
+  const { baseBackupRetentionDays, walRetentionDays } =
+    getPitrRetentionConfiguration();
+  const dayMs = 24 * 60 * 60 * 1000;
+  const baseBackupCutoffDate = new Date(
+    now.getTime() - baseBackupRetentionDays * dayMs
+  );
+  const requestedWalCutoffDate = new Date(
+    now.getTime() - walRetentionDays * dayMs
+  );
+  const baseBackupsAscending = [...listBaseBackups()]
+    .map((manifest) => ({
+      manifest,
+      date: parseTimestampToDate(manifest.timestamp),
+    }))
+    .filter(
+      (
+        entry
+      ): entry is {
+        manifest: PitrBaseBackupManifest;
+        date: Date;
+      } => entry.date !== null
+    )
+    .sort((left, right) => left.date.getTime() - right.date.getTime());
+
+  let anchorBaseBackupFolder: string | null = null;
+  for (const entry of baseBackupsAscending) {
+    if (entry.date < baseBackupCutoffDate) {
+      anchorBaseBackupFolder = entry.manifest.folder;
+      continue;
+    }
+
+    break;
+  }
+
+  const retainedBaseBackupFolders = new Set<string>();
+  for (const entry of baseBackupsAscending) {
+    if (entry.date >= baseBackupCutoffDate) {
+      retainedBaseBackupFolders.add(entry.manifest.folder);
+    }
+  }
+
+  if (anchorBaseBackupFolder) {
+    retainedBaseBackupFolders.add(anchorBaseBackupFolder);
+  }
+
+  const prunedBaseBackupFolders: string[] = [];
+  const skippedBaseBackupFolders: string[] = [];
+
+  for (const entry of baseBackupsAscending) {
+    if (retainedBaseBackupFolders.has(entry.manifest.folder)) {
+      continue;
+    }
+
+    const targetPath = path.join(
+      getPitrBaseBackupDirectory(),
+      entry.manifest.folder
+    );
+
+    try {
+      fs.rmSync(targetPath, { recursive: true, force: true });
+      prunedBaseBackupFolders.push(entry.manifest.folder);
+    } catch (error) {
+      logger.warn('Failed to prune expired PITR base backup', {
+        folder: entry.manifest.folder,
+        error,
+      });
+      skippedBaseBackupFolders.push(entry.manifest.folder);
+    }
+  }
+
+  const retainedBaseBackupsAscending = baseBackupsAscending.filter((entry) =>
+    retainedBaseBackupFolders.has(entry.manifest.folder)
+  );
+  const oldestRetainedBaseBackupDate =
+    retainedBaseBackupsAscending[0]?.date ?? null;
+  const effectiveWalCutoffDate =
+    oldestRetainedBaseBackupDate ?? requestedWalCutoffDate;
+  const walRoot = getPitrWalArchiveDirectory();
+  let prunedWalFileCount = 0;
+  let prunedWalBytes = 0;
+  let skippedWalFileCount = 0;
+  let skippedWalBytes = 0;
+
+  if (fs.existsSync(walRoot)) {
+    const walEntries = fs
+      .readdirSync(walRoot, { withFileTypes: true })
+      .filter((entry) => entry.isFile())
+      .map((entry) => {
+        const filePath = path.join(walRoot, entry.name);
+        const stats = fs.statSync(filePath);
+        return {
+          name: entry.name,
+          path: filePath,
+          size: stats.size,
+          mtime: stats.mtime,
+        };
+      })
+      .sort((left, right) => left.mtime.getTime() - right.mtime.getTime());
+
+    for (const entry of walEntries) {
+      if (entry.mtime >= effectiveWalCutoffDate) {
+        continue;
+      }
+
+      try {
+        fs.rmSync(entry.path, { force: true });
+        prunedWalFileCount += 1;
+        prunedWalBytes += entry.size;
+      } catch (error) {
+        logger.warn('Failed to prune expired PITR WAL archive file', {
+          file: entry.name,
+          error,
+        });
+        skippedWalFileCount += 1;
+        skippedWalBytes += entry.size;
+      }
+    }
+  }
+
+  return {
+    baseBackupRetentionDays,
+    walRetentionDays,
+    baseBackupCutoff: baseBackupCutoffDate.toISOString(),
+    effectiveWalCutoff: effectiveWalCutoffDate.toISOString(),
+    anchorBaseBackupFolder,
+    prunedBaseBackupFolders,
+    skippedBaseBackupFolders,
+    prunedWalFileCount,
+    prunedWalBytes,
+    skippedWalFileCount,
+    skippedWalBytes,
+  };
+}
+
 export async function runScheduledPitrBaseBackup(
   body: ScheduledPitrRequestBody = {}
 ) {
@@ -710,7 +889,9 @@ export async function runScheduledPitrBaseBackup(
       ? body.timeZone.trim()
       : process.env.BACKUP_AUTO_TIMEZONE || DEFAULT_BACKUP_TIMEZONE;
   const parsedScheduleTime = parseScheduleTime(
-    body.scheduleTime ?? process.env.PITR_BASE_AUTO_TIME ?? DEFAULT_PITR_BASE_TIME
+    body.scheduleTime ??
+      process.env.PITR_BASE_AUTO_TIME ??
+      DEFAULT_PITR_BASE_TIME
   );
   const allowCatchUpBeforeScheduledTime = parseBooleanFlag(
     body.allowCatchUpBeforeScheduledTime,
@@ -745,7 +926,9 @@ export async function runScheduledPitrBaseBackup(
   const scheduledMinutes =
     parsedScheduleTime.hour * 60 + parsedScheduleTime.minute;
   const latestBackup = listBaseBackups()[0] ?? null;
-  const latestCompletedAt = parseTimestampToDate(latestBackup?.timestamp ?? null);
+  const latestCompletedAt = parseTimestampToDate(
+    latestBackup?.timestamp ?? null
+  );
   const missedScheduledDates = buildMissedDateKeys(
     latestCompletedAt,
     now,
@@ -755,12 +938,14 @@ export async function runScheduledPitrBaseBackup(
   if (skipIfAlreadyCompletedToday) {
     const existingBackup = findExistingBaseBackupForToday(timeZone);
     if (existingBackup) {
+      const prune = pruneExpiredPitrArtifacts(now);
       return {
         success: true,
         skipped: true,
         reason:
           'A scheduled PITR base backup already exists for the current scheduled day',
         baseBackup: existingBackup,
+        prune,
       };
     }
   }
@@ -791,10 +976,17 @@ export async function runScheduledPitrBaseBackup(
   const baseBackup = await createPitrBaseBackup({
     scheduler,
   });
+  const prune = pruneExpiredPitrArtifacts(now);
+
+  logger.info('Completed scheduled PITR base backup and retention pass', {
+    baseBackupFolder: baseBackup.folder,
+    prune,
+  });
 
   return {
     success: true,
     baseBackup,
+    prune,
   };
 }
 

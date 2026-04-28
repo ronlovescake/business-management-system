@@ -4,6 +4,7 @@ import {
   createPitrBaseBackup,
   getPitrStatus,
   isPitrErrorWithStatusCode,
+  pruneExpiredPitrArtifacts,
 } from '@/lib/backup/pitr';
 import { logger } from '@/lib/logger';
 
@@ -45,12 +46,14 @@ export async function POST() {
         triggeredAt: new Date().toISOString(),
       },
     });
+    const prune = pruneExpiredPitrArtifacts();
     const status = await getPitrStatus();
 
     return NextResponse.json({
       success: true,
       message: 'PITR base backup created successfully.',
       baseBackup,
+      prune,
       status,
     });
   } catch (error) {

@@ -10,15 +10,15 @@ or a restore decision under pressure.
 
 ## What Each Recovery Mechanism Solves
 
-| Mechanism | Best Use | Does It Replace Live DB? | Current Support |
-| --- | --- | --- | --- |
-| Soft delete | Recover a record that was hidden, not physically removed | No | Available where the workflow already uses soft delete |
-| Change log | Find who changed what, when, and which business identifiers were involved | No | Available |
-| Audit log | Inspect before/after snapshots for Prisma-mediated writes | No | Available |
-| Full dump restore | Recover the entire database to an exact dump snapshot | Yes | Supported production DR path |
-| Differential/log chain drill | Rehearse replay into a temporary database | No | Drill-only |
-| PostgreSQL PITR | Recover the live database to a time between base backup and WAL archive end | Yes | Supported production path |
-| Scratch restore for row extraction | Restore safely, inspect, then copy specific rows back into live DB | No | Partial groundwork only; not yet a first-class operator workflow |
+| Mechanism                          | Best Use                                                                    | Does It Replace Live DB? | Current Support                                                  |
+| ---------------------------------- | --------------------------------------------------------------------------- | ------------------------ | ---------------------------------------------------------------- |
+| Soft delete                        | Recover a record that was hidden, not physically removed                    | No                       | Available where the workflow already uses soft delete            |
+| Change log                         | Find who changed what, when, and which business identifiers were involved   | No                       | Available                                                        |
+| Audit log                          | Inspect before/after snapshots for Prisma-mediated writes                   | No                       | Available                                                        |
+| Full dump restore                  | Recover the entire database to an exact dump snapshot                       | Yes                      | Supported production DR path                                     |
+| Differential/log chain drill       | Rehearse replay into a temporary database                                   | No                       | Drill-only                                                       |
+| PostgreSQL PITR                    | Recover the live database to a time between base backup and WAL archive end | Yes                      | Supported production path                                        |
+| Scratch restore for row extraction | Restore safely, inspect, then copy specific rows back into live DB          | No                       | Partial groundwork only; not yet a first-class operator workflow |
 
 ## Decision Tree
 
@@ -117,13 +117,13 @@ This replaces the live PostgreSQL data directory with the selected base backup a
 
 ## When To Use In-Place PITR Versus Scratch Restore
 
-| Criterion | In-Place PITR | Scratch Restore |
-| --- | --- | --- |
-| Scope of data loss | Entire database state at a point in time | One or a few specific rows or a small object graph |
-| Side effects | Reverts all changes since the target time — including unrelated writes | No side effects on live data; surgical row reintroduction |
-| Operator confidence in target time | High — you know the exact cutoff | Low or medium — you need to inspect before committing |
-| Urgency | High — the system is unusable | Medium — individual records are missing but business continues |
-| Current support | Fully supported production path | Drill-only; productization is in progress |
+| Criterion                          | In-Place PITR                                                          | Scratch Restore                                                |
+| ---------------------------------- | ---------------------------------------------------------------------- | -------------------------------------------------------------- |
+| Scope of data loss                 | Entire database state at a point in time                               | One or a few specific rows or a small object graph             |
+| Side effects                       | Reverts all changes since the target time — including unrelated writes | No side effects on live data; surgical row reintroduction      |
+| Operator confidence in target time | High — you know the exact cutoff                                       | Low or medium — you need to inspect before committing          |
+| Urgency                            | High — the system is unusable                                          | Medium — individual records are missing but business continues |
+| Current support                    | Fully supported production path                                        | Drill-only; productization is in progress                      |
 
 **Rule:** Prefer scratch restore whenever the incident can be resolved by recovering specific rows
 and the drill workflows cover the required backup format. Use in-place PITR only when the scope of
@@ -230,28 +230,28 @@ explicitly by:
 
 ### Log coverage by domain
 
-| Domain | change_log | audit_log | Notes |
-| --- | --- | --- | --- |
-| Clothing — transactions (CRUD, import) | ✅ explicit | ✅ Prisma middleware | Import events include row count and empty/template split |
-| Clothing — products (CRUD, bulk import, bulk update) | ❌ not explicit | ✅ Prisma middleware | Bulk operations are audited at the row level; no summary change_log entry |
-| Clothing — customers (CRUD) | ❌ not explicit | ✅ Prisma middleware | |
-| Clothing — shipments (CRUD, cascade) | ❌ not explicit | ✅ Prisma middleware | `$executeRaw` for `operations_notifications` only; shipment entity writes use ORM |
-| Clothing — inventory movements | ❌ not explicit | ✅ Prisma middleware | |
-| Clothing — accounting (expenses, manual journal) | ✅ explicit | ✅ Prisma middleware | |
-| Clothing — payroll (generate, sync LWOP) | ❌ not explicit | ✅ Prisma middleware | |
-| GM — transactions, expenses | ✅ explicit (shared base) | ✅ Prisma middleware | |
-| GM — products, customers, shipments | ❌ not explicit | ✅ Prisma middleware | Same gap as clothing side |
-| Trucking — trips, invoices, fleet | ❌ not explicit | ✅ Prisma middleware | |
-| Backup / restore route | ❌ no app-level change_log | ❌ AuditLog skips system tables | Backup events are recorded in backup manifests on disk, not in the DB |
-| Household — accounts, income, expenses | ❌ not explicit | ✅ Prisma middleware | |
+| Domain                                               | change_log                 | audit_log                       | Notes                                                                             |
+| ---------------------------------------------------- | -------------------------- | ------------------------------- | --------------------------------------------------------------------------------- |
+| Clothing — transactions (CRUD, import)               | ✅ explicit                | ✅ Prisma middleware            | Import events include row count and empty/template split                          |
+| Clothing — products (CRUD, bulk import, bulk update) | ❌ not explicit            | ✅ Prisma middleware            | Bulk operations are audited at the row level; no summary change_log entry         |
+| Clothing — customers (CRUD)                          | ❌ not explicit            | ✅ Prisma middleware            |                                                                                   |
+| Clothing — shipments (CRUD, cascade)                 | ❌ not explicit            | ✅ Prisma middleware            | `$executeRaw` for `operations_notifications` only; shipment entity writes use ORM |
+| Clothing — inventory movements                       | ❌ not explicit            | ✅ Prisma middleware            |                                                                                   |
+| Clothing — accounting (expenses, manual journal)     | ✅ explicit                | ✅ Prisma middleware            |                                                                                   |
+| Clothing — payroll (generate, sync LWOP)             | ❌ not explicit            | ✅ Prisma middleware            |                                                                                   |
+| GM — transactions, expenses                          | ✅ explicit (shared base)  | ✅ Prisma middleware            |                                                                                   |
+| GM — products, customers, shipments                  | ❌ not explicit            | ✅ Prisma middleware            | Same gap as clothing side                                                         |
+| Trucking — trips, invoices, fleet                    | ❌ not explicit            | ✅ Prisma middleware            |                                                                                   |
+| Backup / restore route                               | ❌ no app-level change_log | ❌ AuditLog skips system tables | Backup events are recorded in backup manifests on disk, not in the DB             |
+| Household — accounts, income, expenses               | ❌ not explicit            | ✅ Prisma middleware            |                                                                                   |
 
 ### Genuine gaps (bypasses both layers)
 
-| Source | What it does | Risk |
-| --- | --- | --- |
-| Scripts in `scripts/` | Backfill, seed, data-fix scripts use Prisma directly without the app middleware being applied | High for data-fix scripts; low for read-only audit scripts |
-| `$executeRaw` for `operations_notifications` | Inserts into a notification table only; not a business data table | Low — no business entity writes go through this path |
-| Prisma `deleteMany` with no `where` (if ever used) | Middleware records count only, no before-state per row | Medium — before-state is not captured per-row for batch deletes |
+| Source                                             | What it does                                                                                  | Risk                                                            |
+| -------------------------------------------------- | --------------------------------------------------------------------------------------------- | --------------------------------------------------------------- |
+| Scripts in `scripts/`                              | Backfill, seed, data-fix scripts use Prisma directly without the app middleware being applied | High for data-fix scripts; low for read-only audit scripts      |
+| `$executeRaw` for `operations_notifications`       | Inserts into a notification table only; not a business data table                             | Low — no business entity writes go through this path            |
+| Prisma `deleteMany` with no `where` (if ever used) | Middleware records count only, no before-state per row                                        | Medium — before-state is not captured per-row for batch deletes |
 
 ### Decision
 
@@ -274,26 +274,28 @@ expires at the same time. If audit logs are gone but base backups still exist, i
 blind. If base backups are gone but WAL segments still exist, PITR is impossible. The windows must
 be aligned.
 
-### Target numbers (policy; auto-pruning enforcement is not yet implemented)
+### Target numbers
 
-| Artifact | Constant / Variable | Target | Notes |
-| --- | --- | --- | --- |
-| PITR base backups | `PITR_BASE_BACKUP_RETENTION_DAYS` (code) | 90 days | Must ≥ log retention so you can PITR within the same window you investigate |
-| WAL archive segments | `WAL_ARCHIVE_RETENTION_DAYS` (code) | 90 days | Must match base backup retention |
-| Full backups | `BACKUP_RETENTION_DAYS` (env var, default 30) | 90 days recommended | Currently defaults to 30; raise to match log retention |
-| Differential backups | same scheduler as full backups | 90 days recommended | Keep until chain is superseded by a newer full backup |
-| `change_log` | `CHANGE_LOG_RETENTION_DAYS` (code) | 90 days | Investigation window |
-| `audit_logs` | `AUDIT_LOG_RETENTION_DAYS` (code) | 90 days | Compliance and investigation window |
-| Soft-deleted records | `SOFT_DELETE_RETENTION_DAYS` (code) | 30 days | Grace period; shorter than investigation window by design |
+| Artifact             | Constant / Variable                                    | Target              | Notes                                                     |
+| -------------------- | ------------------------------------------------------ | ------------------- | --------------------------------------------------------- |
+| PITR base backups    | `PITR_BASE_BACKUP_RETENTION_DAYS` (env var, default 7) | 7 days              | Default operational PITR window                           |
+| WAL archive segments | `WAL_ARCHIVE_RETENTION_DAYS` (env var, default 7)      | 7 days              | Must match base backup retention                          |
+| Full backups         | `BACKUP_RETENTION_DAYS` (env var, Docker default 14)   | 14 days recommended | Configure to match the restore window you actually want   |
+| Differential backups | same scheduler as full backups                         | 14 days recommended | Keep until chain is superseded by a newer full backup     |
+| `change_log`         | `CHANGE_LOG_RETENTION_DAYS` (code)                     | 90 days             | Investigation window                                      |
+| `audit_logs`         | `AUDIT_LOG_RETENTION_DAYS` (code)                      | 90 days             | Compliance and investigation window                       |
+| Soft-deleted records | `SOFT_DELETE_RETENTION_DAYS` (code)                    | 30 days             | Grace period; shorter than investigation window by design |
 
-All constants above live in `src/constants/limits.ts`. The `BACKUP_RETENTION_DAYS` env var is read
-by `src/lib/backup/scheduledBackupRunner.ts`.
+The default retention constants live in `src/constants/limits.ts`. The `BACKUP_RETENTION_DAYS`
+env var is read by `src/lib/backup/scheduledBackupRunner.ts`, and the PITR retention env vars are
+read by `src/lib/backup/pitr.ts`.
 
 ### What is still missing
 
-- Scheduled pruning jobs for PITR base backups and WAL segments are not yet implemented. Currently
-  those artifacts accumulate indefinitely until manual cleanup.
-- ~~`BACKUP_RETENTION_DAYS` defaults to 30 in the scheduler.~~ Now defaults to 90 in `docker-compose.yml`.
+- PITR pruning runs after each successful scheduled PITR base backup and after each manual PITR
+  base-backup action.
+- PITR WAL pruning keeps WAL from the oldest retained base backup forward, so a retained PITR chain
+  stays restorable even when the retention cutoff falls between scheduled base backups.
 - ~~`change_log` and `audit_logs` do not yet have a scheduled cleanup job.~~ A scheduled cleanup job
   now exists at `src/app/api/internal/maintenance/prune-logs/route.ts`, triggered daily via
   `LOG_PRUNE_AUTO_ENABLED=true` in the backup scheduler.
@@ -360,9 +362,9 @@ accidentally. The exact timestamp is known.
    b. Run: `npm run docker:restore:pitr:scratch -- --base-backup <folder> --target-time <midpoint>`
    c. Connect to the scratch DB and check whether the corruption is present at that point.
    d. If present: the window is before the midpoint. Repeat with a midpoint between base backup
-      time and current midpoint.
+   time and current midpoint.
    e. If absent: the window is after the midpoint. Repeat with a midpoint between the current
-      midpoint and now.
+   midpoint and now.
    f. Narrow in until you have a ≤ 10-minute window.
 4. Once the window is identified, use Drill A procedure to extract the pre-corruption state.
 5. Verify the fix against accounting, inventory, and payroll totals as appropriate.

@@ -1,5 +1,5 @@
 const DEFAULT_BACKUP_TIMEZONE = 'Asia/Manila';
-const DEFAULT_BACKUP_RETENTION_DAYS = 30;
+const DEFAULT_BACKUP_RETENTION_DAYS = 14;
 const DEFAULT_FULL_BACKUP_TIME = '22:00';
 const DEFAULT_FULL_BACKUP_CADENCE = 'weekly';
 const DEFAULT_FULL_BACKUP_DAY_OF_WEEK = 'sunday';
@@ -36,10 +36,7 @@ function parseBooleanFlag(value, fallback) {
   return fallback;
 }
 
-function parseRetentionDays(
-  value,
-  fallback = DEFAULT_BACKUP_RETENTION_DAYS
-) {
+function parseRetentionDays(value, fallback = DEFAULT_BACKUP_RETENTION_DAYS) {
   const parsed =
     typeof value === 'number'
       ? value

@@ -180,11 +180,13 @@ Docker scheduler env knobs:
 - `BACKUP_DIFF_AUTO_TIME=12:00` for the daily differential snapshot time
 - `BACKUP_DIFF_AUTO_FORMAT=json` for scheduled differential artifacts
 - `BACKUP_AUTO_TIMEZONE=Asia/Manila` for scheduler timezone
-- `BACKUP_RETENTION_DAYS=30` for automatic pruning
+- `BACKUP_RETENTION_DAYS=14` for automatic full/differential backup pruning
 - `PITR_ENABLED=true` to enable PostgreSQL WAL archiving and the admin PITR status card
 - `PITR_ARCHIVE_TIMEOUT_SECONDS=300` to force periodic WAL segment archival during lower write volume
 - `PITR_BASE_AUTO_ENABLED=true` to let the scheduler create daily physical base backups automatically
 - `PITR_BASE_AUTO_TIME=01:00` for the daily PITR base-backup time
+- `PITR_BASE_BACKUP_RETENTION_DAYS=7` for PITR base-backup pruning
+- `WAL_ARCHIVE_RETENTION_DAYS=7` for PITR WAL pruning
 - `RESTORE_RUNNER_POLL_MS=5000` for the UI restore-runner poll interval
 
 Optional Playwright browser override:

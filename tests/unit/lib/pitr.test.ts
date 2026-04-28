@@ -4,8 +4,8 @@ import os from 'os';
 import path from 'path';
 import { EventEmitter } from 'events';
 
-const { mockGetDatabaseUrl, mockLogger, mockPrisma, mockSpawn } =
-  vi.hoisted(() => ({
+const { mockGetDatabaseUrl, mockLogger, mockPrisma, mockSpawn } = vi.hoisted(
+  () => ({
     mockGetDatabaseUrl: vi
       .fn()
       .mockReturnValue(
@@ -20,7 +20,8 @@ const { mockGetDatabaseUrl, mockLogger, mockPrisma, mockSpawn } =
       $queryRawUnsafe: vi.fn(),
     },
     mockSpawn: vi.fn(),
-  }));
+  })
+);
 
 vi.mock('@/lib/env', () => ({
   getDatabaseUrl: mockGetDatabaseUrl,
@@ -45,6 +46,7 @@ vi.mock('child_process', () => ({
 import {
   createPitrBaseBackup,
   getPitrStatus,
+  pruneExpiredPitrArtifacts,
   runScheduledPitrBaseBackup,
 } from '@/lib/backup/pitr';
 
@@ -59,6 +61,8 @@ describe('PITR helpers', () => {
     process.env.PITR_BASE_AUTO_ENABLED = 'true';
     process.env.PITR_BASE_AUTO_TIME = '01:00';
     process.env.BACKUP_AUTO_TIMEZONE = 'Asia/Manila';
+    process.env.PITR_BASE_BACKUP_RETENTION_DAYS = '90';
+    process.env.WAL_ARCHIVE_RETENTION_DAYS = '90';
 
     mockPrisma.$queryRawUnsafe.mockImplementation(async (query: string) => {
       if (query === 'SHOW archive_mode') {
@@ -66,7 +70,9 @@ describe('PITR helpers', () => {
       }
 
       if (query === 'SHOW archive_command') {
-        return [{ archive_command: '/bin/sh /usr/local/bin/archive-wal.sh %p %f' }];
+        return [
+          { archive_command: '/bin/sh /usr/local/bin/archive-wal.sh %p %f' },
+        ];
       }
 
       if (query === 'SHOW archive_timeout') {
@@ -128,6 +134,8 @@ describe('PITR helpers', () => {
     delete process.env.PITR_BASE_AUTO_ENABLED;
     delete process.env.PITR_BASE_AUTO_TIME;
     delete process.env.BACKUP_AUTO_TIMEZONE;
+    delete process.env.PITR_BASE_BACKUP_RETENTION_DAYS;
+    delete process.env.WAL_ARCHIVE_RETENTION_DAYS;
 
     if (backupRoot) {
       fs.rmSync(backupRoot, { recursive: true, force: true });
@@ -232,6 +240,10 @@ describe('PITR helpers', () => {
         scheduleTime: '01:00',
         timeZone: 'Asia/Manila',
       });
+      expect(result.prune).toMatchObject({
+        baseBackupRetentionDays: 90,
+        walRetentionDays: 90,
+      });
     } finally {
       vi.useRealTimers();
     }
@@ -284,7 +296,86 @@ describe('PITR helpers', () => {
 
       expect(result.success).toBe(true);
       expect(result.skipped).toBe(true);
-      expect(result.reason).toContain('already exists for the current scheduled day');
+      expect(result.reason).toContain(
+        'already exists for the current scheduled day'
+      );
+      expect(result.prune).toBeDefined();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('prunes expired PITR base backups and WAL files while preserving the anchor base backup', () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-04-28T04:30:00.000Z'));
+    process.env.PITR_BASE_BACKUP_RETENTION_DAYS = '7';
+    process.env.WAL_ARCHIVE_RETENTION_DAYS = '7';
+
+    const baseRoot = path.join(backupRoot, 'pitr', 'base');
+    const walRoot = path.join(backupRoot, 'pitr', 'wal');
+    fs.mkdirSync(baseRoot, { recursive: true });
+    fs.mkdirSync(walRoot, { recursive: true });
+
+    const writeBaseManifest = (folder: string, timestamp: string) => {
+      const dir = path.join(baseRoot, folder);
+      fs.mkdirSync(dir, { recursive: true });
+      fs.writeFileSync(path.join(dir, 'PG_VERSION'), '16');
+      fs.writeFileSync(
+        path.join(dir, 'MANIFEST.json'),
+        JSON.stringify(
+          {
+            folder,
+            timestamp,
+            createdAt: timestamp,
+            database: 'test_db',
+            host: 'localhost',
+            port: '5432',
+            label: `pitr-base-${folder}`,
+            totalSize: 2,
+            files: [],
+          },
+          null,
+          2
+        )
+      );
+    };
+
+    writeBaseManifest('2026-04-20T01-00-00', '2026-04-20T01:00:00.000Z');
+    writeBaseManifest('2026-04-21T01-00-00', '2026-04-21T01:00:00.000Z');
+    writeBaseManifest('2026-04-22T01-00-00', '2026-04-22T01:00:00.000Z');
+
+    const oldWal = path.join(walRoot, '000000010000000000000001');
+    const keptWal = path.join(walRoot, '000000010000000000000002');
+    fs.writeFileSync(oldWal, 'old');
+    fs.writeFileSync(keptWal, 'new');
+    fs.utimesSync(
+      oldWal,
+      new Date('2026-04-20T00:00:00.000Z'),
+      new Date('2026-04-20T00:00:00.000Z')
+    );
+    fs.utimesSync(
+      keptWal,
+      new Date('2026-04-21T02:00:00.000Z'),
+      new Date('2026-04-21T02:00:00.000Z')
+    );
+
+    try {
+      const result = pruneExpiredPitrArtifacts(
+        new Date('2026-04-28T04:30:00.000Z')
+      );
+
+      expect(result.anchorBaseBackupFolder).toBe('2026-04-21T01-00-00');
+      expect(result.prunedBaseBackupFolders).toEqual(['2026-04-20T01-00-00']);
+      expect(result.prunedWalFileCount).toBe(1);
+      expect(fs.existsSync(path.join(baseRoot, '2026-04-20T01-00-00'))).toBe(
+        false
+      );
+      expect(fs.existsSync(path.join(baseRoot, '2026-04-21T01-00-00'))).toBe(
+        true
+      );
+      expect(fs.existsSync(keptWal)).toBe(true);
+      expect(fs.existsSync(oldWal)).toBe(false);
+      expect(result.effectiveWalCutoff).toBe('2026-04-21T01:00:00.000Z');
     } finally {
       vi.useRealTimers();
     }

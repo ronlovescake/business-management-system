@@ -107,11 +107,13 @@ Required `.env.docker` settings:
 - `BACKUP_DIFF_AUTO_TIME=12:00`
 - `BACKUP_DIFF_AUTO_FORMAT=json`
 - `BACKUP_AUTO_TIMEZONE=Asia/Manila`
-- `BACKUP_RETENTION_DAYS=30`
+- `BACKUP_RETENTION_DAYS=14`
 - `PITR_ENABLED=false`
 - `PITR_ARCHIVE_TIMEOUT_SECONDS=300`
 - `PITR_BASE_AUTO_ENABLED=false`
 - `PITR_BASE_AUTO_TIME=01:00`
+- `PITR_BASE_BACKUP_RETENTION_DAYS=7`
+- `WAL_ARCHIVE_RETENTION_DAYS=7`
 - `EMPLOYEE_AUTOMATION_CLOTHING_ENABLED=true`
 - `EMPLOYEE_AUTOMATION_TRUCKING_ENABLED=true`
 - `EMPLOYEE_AUTOMATION_GENERAL_MERCHANDISE_ENABLED=true`
@@ -178,6 +180,10 @@ Operational notes:
 - If you enable `PITR_BASE_AUTO_ENABLED=true`, recreate the `app` and
   `backup-scheduler` containers so the scheduler can see the new base-backup
   schedule.
+- PITR retention is enforced in the app process after each successful scheduled
+  PITR base run, and also after a manual base-backup action in the admin UI.
+- Set `PITR_BASE_BACKUP_RETENTION_DAYS` and `WAL_ARCHIVE_RETENTION_DAYS` to the
+  same value unless you have a deliberate reason to keep a narrower WAL window.
 - The PITR status card is only considered healthy once PostgreSQL reports
   `archive_mode=on` and `wal_level=replica`.
 - Scheduled PITR base backups run daily at `PITR_BASE_AUTO_TIME` and perform

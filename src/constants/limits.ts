@@ -81,19 +81,16 @@ export const CHANGE_LOG_RETENTION_DAYS = 90;
 
 /**
  * Days to retain PITR base backups before cleanup
- * Reasoning: Must meet or exceed AUDIT_LOG_RETENTION_DAYS so operators can
- * perform PITR within the same window they can investigate via logs.
- * Note: auto-pruning enforcement is not yet implemented; this is the policy target.
+ * Reasoning: Default operational window for PITR recovery artifacts.
  */
-export const PITR_BASE_BACKUP_RETENTION_DAYS = 90;
+export const PITR_BASE_BACKUP_RETENTION_DAYS = 7;
 
 /**
  * Days to retain WAL archive segments before cleanup
  * Reasoning: Must match PITR_BASE_BACKUP_RETENTION_DAYS so WAL replay is
  * available for as long as base backups are retained.
- * Note: auto-pruning enforcement is not yet implemented; this is the policy target.
  */
-export const WAL_ARCHIVE_RETENTION_DAYS = 90;
+export const WAL_ARCHIVE_RETENTION_DAYS = 7;
 
 /**
  * Days to keep session tokens
