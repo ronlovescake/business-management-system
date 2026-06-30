@@ -48,23 +48,24 @@ Add the date you last ran a script in the **Last Used** column when known.
 
 ## Database — Backup / Restore / Snapshot
 
-| Script                            | Purpose                                                    | Risk             |
-| --------------------------------- | ---------------------------------------------------------- | ---------------- |
-| `backup-database.js`              | Takes a logical backup of the database.                    | 🟡               |
-| `db-snapshot.js`                  | Captures a snapshot of the current DB state.               | 🟡               |
-| `restore-database.js`             | Restores from a backup file.                               | 🔴               |
-| `restore-from-backup.js`          | Wrapper that orchestrates a restore flow.                  | 🔴               |
-| `plan-restore.ts`                 | Plans a restore without executing it.                      | 🟢               |
-| `replay-restore-chain.ts`         | Replays a chain of incremental restores.                   | 🔴               |
-| `run-backup-scheduler.js`         | Background scheduler for automated backups.                | 🟡               |
-| `run-restore-runner.js`           | Runs the restore runner container/process.                 | 🔴               |
-| `verify-restore.js`               | Validates that a restore completed successfully.           | 🟢               |
-| `verify-restore.ts`               | TS variant of restore verification.                        | 🟢               |
-| `verify-database-state.js`        | Sanity checks DB state against expectations.               | 🟢               |
-| `backup-schema-coverage-audit.ts` | Audits backup-schema coverage; used in `guardrails:check`. | 🟢               |
-| `prisma-safe-reset.js`            | Safer wrapper for `prisma migrate reset`.                  | 🔴               |
-| `reset-test-db.js`                | Resets the test database. **Test DB only.**                | 🔴 (test-scoped) |
-| `test-db.js`                      | Test-database helper.                                      | 🟢               |
+| Script                            | Purpose                                                            | Risk             |
+| --------------------------------- | ------------------------------------------------------------------ | ---------------- |
+| `backup-database.js`              | Takes a logical backup of the database.                            | 🟡               |
+| `db-snapshot.js`                  | Captures a snapshot of the current DB state.                       | 🟡               |
+| `restore-database.js`             | Restores from a backup file.                                       | 🔴               |
+| `restore-from-backup.js`          | Wrapper that orchestrates a restore flow.                          | 🔴               |
+| `plan-restore.ts`                 | Plans a restore without executing it.                              | 🟢               |
+| `replay-restore-chain.ts`         | Replays a chain of incremental restores.                           | 🔴               |
+| `run-backup-scheduler.js`         | Background scheduler for automated backups.                        | 🟡               |
+| `schedulerConfigShared.js`        | Shared schedule parsing/defaults used by backup scheduler tooling. | ⚙️               |
+| `run-restore-runner.js`           | Runs the restore runner container/process.                         | 🔴               |
+| `verify-restore.js`               | Validates that a restore completed successfully.                   | 🟢               |
+| `verify-restore.ts`               | TS variant of restore verification.                                | 🟢               |
+| `verify-database-state.js`        | Sanity checks DB state against expectations.                       | 🟢               |
+| `backup-schema-coverage-audit.ts` | Audits backup-schema coverage; used in `guardrails:check`.         | 🟢               |
+| `prisma-safe-reset.js`            | Safer wrapper for `prisma migrate reset`.                          | 🔴               |
+| `reset-test-db.js`                | Resets the test database. **Test DB only.**                        | 🔴 (test-scoped) |
+| `test-db.js`                      | Test-database helper.                                              | 🟢               |
 
 ## Database — Accounting / Inventory Integrity
 

@@ -38,7 +38,7 @@ npm run docker:build && npm run docker:up
 npm run docker:up
 ```
 
-**Full rebuild and restart** (database up → build image → migrate → start app):
+**Full rebuild and restart** (prepare storage → database up → build image → migrate → start app):
 
 ```bash
 npm run docker:prod
@@ -60,13 +60,14 @@ npm run docker:prod
 **Manual equivalent of `npm run docker:prod`:**
 
 ```bash
+npm run docker:prepare-storage
 npm run docker:db:up
 npm run docker:build
 npm run docker:db:deploy
 npm run docker:up
 ```
 
-> Run each line in order. This ensures the database is up before migrations run, and migrations run before the new app container starts.
+> Run each line in order. This ensures storage permissions are prepared, the database is up before migrations run, and migrations run before the new app container starts.
 
 ---
 
@@ -82,10 +83,10 @@ npm run docker:up
 
 ## Command Quick Reference
 
-| Command                                           | What it does                                                    | When to use it                                              |
-| ------------------------------------------------- | --------------------------------------------------------------- | ----------------------------------------------------------- |
-| `npm run docker:db:up`                            | Starts only the PostgreSQL container                            | Before running migrations or other steps that need the DB   |
-| `npm run docker:db:deploy`                        | Waits for PostgreSQL, then runs Prisma migrations in Docker     | Before app startup when the pulled code may include schema changes |
-| `npm run docker:build`                            | Builds a fresh app image                                        | After pulling code changes                                  |
-| `npm run docker:up`                               | Recreates / restarts the app container using the existing image | When the image is already built and you just need a restart |
-| `npm run docker:prod`                             | Full pipeline: DB up → build → migrate → app up                | When you want the safe one-shot production deploy path      |
+| Command                    | What it does                                                      | When to use it                                                     |
+| -------------------------- | ----------------------------------------------------------------- | ------------------------------------------------------------------ |
+| `npm run docker:db:up`     | Starts only the PostgreSQL container                              | Before running migrations or other steps that need the DB          |
+| `npm run docker:db:deploy` | Waits for PostgreSQL, then runs Prisma migrations in Docker       | Before app startup when the pulled code may include schema changes |
+| `npm run docker:build`     | Builds a fresh app image                                          | After pulling code changes                                         |
+| `npm run docker:up`        | Recreates / restarts the app container using the existing image   | When the image is already built and you just need a restart        |
+| `npm run docker:prod`      | Full pipeline: prepare storage → DB up → build → migrate → app up | When you want the safe one-shot production deploy path             |

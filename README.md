@@ -125,7 +125,7 @@ npm run docker:build
 npm run docker:up
 ```
 
-Use `npm run docker:prod` when you want the full db-up, rebuild, migrate, and app-up sequence.
+Use `npm run docker:prod` when you want the full storage-prep, db-up, rebuild, migrate, and app-up sequence.
 If the image is already built, prefer `npm run docker:up` so Docker does not evaluate a rebuild unnecessarily.
 
 Existing native PostgreSQL to Docker migration helpers:

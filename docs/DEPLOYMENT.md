@@ -65,7 +65,7 @@ npm run docker:build
 npm run docker:up
 ```
 
-Use `npm run docker:prod` only when you want the full DB-up, rebuild, migrate, and app-up sequence.
+Use `npm run docker:prod` only when you want the full storage-prep, DB-up, rebuild, migrate, and app-up sequence.
 If you already built the image and only need to restart or recreate the app container, use `npm run docker:up`.
 
 5. Wait for PostgreSQL to report healthy, then run the first-run bootstrap step:
