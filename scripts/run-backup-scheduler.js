@@ -16,7 +16,7 @@ const {
   parseScheduleCadence: sharedParseScheduleCadence,
   parseScheduleDayOfWeek: sharedParseScheduleDayOfWeek,
   parseScheduleTime: sharedParseScheduleTime,
-} = require('../src/lib/backup/schedulerConfigShared');
+} = require('./schedulerConfigShared');
 
 const DEFAULT_URL = 'http://app:5000/api/internal/backup/run';
 const DEFAULT_PITR_BASE_URL = 'http://app:5000/api/internal/backup/pitr/run';

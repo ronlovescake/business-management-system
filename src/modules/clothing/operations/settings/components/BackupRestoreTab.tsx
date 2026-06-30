@@ -142,8 +142,6 @@ export function BackupRestoreTab() {
     }
   }, []);
 
-
-
   useEffect(() => {
     void fetchBackups();
   }, [fetchBackups]);
@@ -172,11 +170,21 @@ export function BackupRestoreTab() {
             strategy?: BackupStrategy;
           };
           error?: string;
-        }>('/api/backup', {
-          format: formatToUse,
-          includeSoftDeleted,
-          strategy: strategyToUse,
-        });
+        }>(
+          '/api/backup',
+          {
+            format: formatToUse,
+            includeSoftDeleted,
+            strategy: strategyToUse,
+          },
+          {
+            // Backup operations are not idempotent and can be time-consuming
+            // Disable retries to prevent duplicate backups on timeout
+            // Use extended timeout (5 minutes) since backups can take a while
+            retryEnabled: false,
+            timeout: 5 * 60 * 1000,
+          }
+        );
 
         if (data.success && data.backup) {
           const strategyMeta = STRATEGY_META[strategyToUse];
@@ -250,7 +258,9 @@ export function BackupRestoreTab() {
 
     try {
       const data = await api.delete<{ success: boolean; error?: string }>(
-        `/api/backup?timestamp=${encodeURIComponent(timestamp)}`
+        `/api/backup?timestamp=${encodeURIComponent(timestamp)}`,
+        // Deletion of large backup folders can take significant time
+        { timeout: 5 * 60 * 1000, retryEnabled: false }
       );
 
       if (data.success) {
