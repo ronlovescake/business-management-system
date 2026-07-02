@@ -100,6 +100,12 @@ type TransactionRecord = {
   'Line Total'?: number | string | null;
 };
 
+const AUTO_HANDLED_TRANSACTION_STATUSES = new Set([
+  'ready for dispatch',
+  'checked out',
+  'pending payment',
+]);
+
 export function useDispatchData({
   _serverCustomersData,
   lookupCustomerName,
@@ -188,6 +194,29 @@ export function useDispatchData({
       ),
     [transactions]
   );
+
+  const handledTransactionCustomers = useMemo(() => {
+    if (transactions.length === 0) {
+      return {};
+    }
+
+    return transactions.reduce(
+      (acc, transaction) => {
+        const customerName = transaction.Customers?.trim();
+        if (!customerName) {
+          return acc;
+        }
+
+        const status = normalizeOrderStatus(transaction['Order Status']);
+        if (AUTO_HANDLED_TRANSACTION_STATUSES.has(status)) {
+          acc[customerName] = true;
+        }
+
+        return acc;
+      },
+      {} as Record<string, boolean>
+    );
+  }, [transactions]);
 
   // Mutation to save orders to database
   const saveOrdersMutation = useMutation<
@@ -561,7 +590,7 @@ export function useDispatchData({
     extractCarrierName,
   ]);
 
-  // Automatically mark orders as handled when prepared totals are small
+  // Automatically mark orders as handled from transaction status or small prepared totals
   const autoCompletedOrders = useMemo(() => {
     if (filteredData.length === 0) {
       return {};
@@ -569,18 +598,13 @@ export function useDispatchData({
 
     return filteredData.reduce(
       (acc, item) => {
-        const status = (item.orderStatus ?? '').trim().toLowerCase();
-        if (
-          status === 'ready for dispatch' ||
-          status === 'checked out' ||
-          status === 'pending payment'
-        ) {
-          acc[item.id] = true;
+        const customerKey = item.customerNames?.trim();
+        if (!customerKey) {
           return acc;
         }
 
-        const customerKey = item.customerNames?.trim();
-        if (!customerKey) {
+        if (handledTransactionCustomers[customerKey]) {
+          acc[item.id] = true;
           return acc;
         }
 
@@ -592,7 +616,7 @@ export function useDispatchData({
       },
       {} as Record<string, boolean>
     );
-  }, [filteredData, preparedLineTotalsByCustomer]);
+  }, [filteredData, handledTransactionCustomers, preparedLineTotalsByCustomer]);
 
   const updateOrderCompletion = useCallback(
     (orderId: string, completed: boolean) => {

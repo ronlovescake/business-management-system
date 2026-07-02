@@ -21,9 +21,28 @@ interface UsePackingListGenerationProps {
 interface UsePackingListGenerationReturn {
   isGeneratingPackingList: boolean;
   preparePackingListGeneration: (
-    visibleTransactions: TransactionData[]
+    visibleTransactions: TransactionData[],
+    options?: PackingListGenerationOptions
   ) => Promise<void>;
 }
+
+interface PackingListGenerationOptions {
+  dispatchOnly?: boolean;
+}
+
+type DispatchCustomerLookup = {
+  dispatchCustomerNames: Set<string>;
+  normalizedDispatchCustomerNames: Set<string>;
+  dispatchOrderCount: number;
+  dispatchUsernameCount: number;
+};
+
+type CustomerRecord = {
+  id: number;
+  customerName: string;
+  businessName: string;
+  shopeeUsernames: string[];
+};
 
 const PACKING_LIST_MONTHS = [
   'January',
@@ -88,6 +107,149 @@ function buildPackingListFilename(params: {
   return `Packing_lists_${datePart}.pdf`;
 }
 
+const normalizeDispatchName = (value: string | null | undefined) =>
+  (value || '')
+    .replace(/\s*\|\s*/g, ' | ')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .toLowerCase();
+
+function collectDispatchNameVariants(
+  lookup: DispatchCustomerLookup,
+  customerName: string | null | undefined,
+  businessName: string | null | undefined
+) {
+  const variants = new Set<string>();
+
+  const sanitizedCustomer = (customerName || '').trim();
+  const sanitizedBusiness = (businessName || '').trim();
+
+  if (sanitizedCustomer) {
+    variants.add(sanitizedCustomer);
+  }
+
+  if (sanitizedBusiness) {
+    variants.add(sanitizedBusiness);
+  }
+
+  if (sanitizedCustomer && sanitizedBusiness) {
+    variants.add(`${sanitizedCustomer} | ${sanitizedBusiness}`);
+  }
+
+  variants.forEach((variant) => {
+    lookup.dispatchCustomerNames.add(variant);
+    const normalized = normalizeDispatchName(variant);
+    if (normalized) {
+      lookup.normalizedDispatchCustomerNames.add(normalized);
+    }
+  });
+}
+
+function isCustomerInDispatch(
+  customerName: string | null | undefined,
+  normalizedDispatchCustomerNames: Set<string>
+) {
+  const transactionNameVariants = new Set<string>();
+  const sanitizedName = (customerName || '').trim();
+
+  if (sanitizedName) {
+    transactionNameVariants.add(sanitizedName);
+    const [primary, secondary] = sanitizedName
+      .split('|')
+      .map((part) => part.trim());
+    if (primary) {
+      transactionNameVariants.add(primary);
+    }
+    if (secondary) {
+      transactionNameVariants.add(secondary);
+    }
+  }
+
+  return Array.from(transactionNameVariants).some((nameVariant) =>
+    normalizedDispatchCustomerNames.has(normalizeDispatchName(nameVariant))
+  );
+}
+
+async function fetchDispatchCustomerLookup(
+  apiBasePath: string | undefined
+): Promise<DispatchCustomerLookup> {
+  const lookup: DispatchCustomerLookup = {
+    dispatchCustomerNames: new Set(),
+    normalizedDispatchCustomerNames: new Set(),
+    dispatchOrderCount: 0,
+    dispatchUsernameCount: 0,
+  };
+
+  const dispatchResponse = await fetch(
+    buildApiPath(apiBasePath, '/dispatch/orders')
+  );
+
+  if (!dispatchResponse.ok) {
+    throw new Error(
+      `Failed to fetch dispatch orders: ${dispatchResponse.statusText}`
+    );
+  }
+
+  const dispatchData = (await dispatchResponse.json()) as {
+    success: boolean;
+    data: Array<{ 'Username (Buyer)'?: string | null }>;
+  };
+
+  lookup.dispatchOrderCount = dispatchData.data.length;
+
+  const dispatchUsernames = Array.from(
+    new Set(
+      dispatchData.data
+        .map((order) => order['Username (Buyer)'])
+        .filter((username): username is string => Boolean(username))
+    )
+  );
+
+  lookup.dispatchUsernameCount = dispatchUsernames.length;
+
+  if (dispatchUsernames.length === 0) {
+    return lookup;
+  }
+
+  const customersResponse = await fetch(
+    buildApiPath(apiBasePath, '/customers/with-shopee')
+  );
+
+  if (!customersResponse.ok) {
+    throw new Error(
+      `Failed to fetch customers with Shopee usernames: ${customersResponse.statusText}`
+    );
+  }
+
+  const customersData = (await customersResponse.json()) as {
+    success: boolean;
+    data: CustomerRecord[] | { customers: CustomerRecord[] };
+  };
+
+  const customersPayload = Array.isArray(customersData.data)
+    ? customersData.data
+    : customersData.data.customers;
+
+  dispatchUsernames.forEach((username) => {
+    const normalizedUsername = username.toLowerCase().trim();
+    const matchedCustomer = customersPayload.find((customer) =>
+      customer.shopeeUsernames
+        .map((value) => value.toLowerCase().trim())
+        .includes(normalizedUsername)
+    );
+
+    if (matchedCustomer) {
+      collectDispatchNameVariants(
+        lookup,
+        matchedCustomer.customerName,
+        matchedCustomer.businessName
+      );
+    }
+  });
+
+  return lookup;
+}
+
 export function usePackingListGeneration(
   props: UsePackingListGenerationProps
 ): UsePackingListGenerationReturn {
@@ -106,8 +268,13 @@ export function usePackingListGeneration(
     normalizeOrderStatus(value);
 
   const preparePackingListGeneration = useCallback(
-    async (visibleTransactions: TransactionData[]) => {
+    async (
+      visibleTransactions: TransactionData[],
+      options: PackingListGenerationOptions = {}
+    ) => {
       const Swal = await getSwal();
+      let dispatchOnly = options.dispatchOnly === true;
+      let dispatchCustomerLookup: DispatchCustomerLookup | null = null;
       const allPrepared = visibleTransactions.filter((transaction) => {
         const status = getNormalizedStatus(transaction['Order Status']);
         return status === 'prepared';
@@ -157,6 +324,70 @@ export function usePackingListGeneration(
         return;
       }
 
+      const applyDispatchOnlyFilter = async () => {
+        try {
+          dispatchCustomerLookup =
+            dispatchCustomerLookup ??
+            (await fetchDispatchCustomerLookup(apiBasePath));
+        } catch (error) {
+          logger.error('Error fetching dispatch customers:', error);
+          showNotification({
+            title: '❌ Unable to Check Dispatch Customers',
+            message:
+              error instanceof Error
+                ? error.message
+                : 'Dispatch customer lookup failed.',
+            color: 'red',
+            autoClose: 7000,
+          });
+          return false;
+        }
+
+        if (dispatchCustomerLookup.normalizedDispatchCustomerNames.size === 0) {
+          showNotification({
+            title: '⚠️ No Dispatch Customers Found',
+            message:
+              'No customers from the dispatch table matched customer Shopee usernames.',
+            color: 'yellow',
+            autoClose: 6000,
+          });
+          return false;
+        }
+
+        const dispatchCustomerNames =
+          dispatchCustomerLookup.normalizedDispatchCustomerNames;
+
+        filteredEligible = filteredEligible.filter((transaction) =>
+          isCustomerInDispatch(transaction.Customers, dispatchCustomerNames)
+        );
+
+        if (filteredEligible.length === 0) {
+          showNotification({
+            title: '⚠️ No Dispatch Packing List Transactions',
+            message:
+              'No eligible prepared/on-hold transactions belong to customers found in the dispatch table.',
+            color: 'yellow',
+            autoClose: 6000,
+          });
+          return false;
+        }
+
+        return true;
+      };
+
+      if (dispatchOnly) {
+        const hasDispatchTransactions = await applyDispatchOnlyFilter();
+        if (!hasDispatchTransactions) {
+          return;
+        }
+      }
+
+      const customersInCurrentRun = new Set(
+        filteredEligible.map(
+          (transaction) => transaction.Customers || 'Unknown'
+        )
+      );
+
       const customerOrdersMap = new Map<
         string,
         { eligible: number; excluded: number }
@@ -164,6 +395,10 @@ export function usePackingListGeneration(
 
       allPrepared.forEach((transaction) => {
         const customerName = transaction.Customers || 'Unknown';
+        if (!customersInCurrentRun.has(customerName)) {
+          return;
+        }
+
         const lineTotal = Number(transaction['Line Total']) || 0;
         const isEligible = lineTotal <= 50.0;
 
@@ -201,7 +436,11 @@ export function usePackingListGeneration(
           )
           .join('');
 
-        const splitWarningResult = await Swal.fire({
+        const splitWarningSelection: {
+          action: 'proceed' | 'skip' | 'dispatch' | 'cancel';
+        } = { action: 'cancel' };
+
+        await Swal.fire({
           title: '⚠️ Some Customers Have Split Orders',
           html: `
             <div style="text-align: left;">
@@ -214,24 +453,53 @@ export function usePackingListGeneration(
               </p>
               <p style="margin-top: 12px; font-size: 14px;">Total orders excluded from split customers: <strong>${totalExcludedFromSplits}</strong></p>
             </div>
+            <div style="display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; margin-top: 28px;">
+              <button type="button" id="packing-list-proceed" class="swal2-confirm swal2-styled" style="display: inline-block; background-color: #60bd52ff;">Proceed</button>
+              <button type="button" id="packing-list-dispatch" class="swal2-deny swal2-styled" style="display: inline-block; background-color: #7950f2;">Dispatch Customers Only</button>
+              <button type="button" id="packing-list-skip" class="swal2-deny swal2-styled" style="display: inline-block; background-color: #5198dfff;">Skip These Customers</button>
+              <button type="button" id="packing-list-cancel" class="swal2-cancel swal2-styled" style="display: inline-block; background-color: #ff7171ff;">Cancel</button>
+            </div>
           `,
           icon: 'warning',
-          showDenyButton: true,
-          showCancelButton: true,
-          confirmButtonText: 'Proceed',
-          denyButtonText: 'Skip These Customers',
-          cancelButtonText: 'Cancel',
-          confirmButtonColor: '#60bd52ff',
-          denyButtonColor: '#5198dfff',
-          cancelButtonColor: '#ff7171ff',
+          showConfirmButton: false,
+          showDenyButton: false,
+          showCancelButton: false,
           width: '813px',
           allowOutsideClick: false,
+          didOpen: () => {
+            const popup = Swal.getPopup();
+            const closeWith = (
+              action: 'proceed' | 'skip' | 'dispatch' | 'cancel'
+            ) => {
+              splitWarningSelection.action = action;
+              Swal.close();
+            };
+
+            popup
+              ?.querySelector('#packing-list-proceed')
+              ?.addEventListener('click', () => closeWith('proceed'));
+            popup
+              ?.querySelector('#packing-list-dispatch')
+              ?.addEventListener('click', () => closeWith('dispatch'));
+            popup
+              ?.querySelector('#packing-list-skip')
+              ?.addEventListener('click', () => closeWith('skip'));
+            popup
+              ?.querySelector('#packing-list-cancel')
+              ?.addEventListener('click', () => closeWith('cancel'));
+          },
           customClass: {
             popup: 'swal-wide',
           },
         });
 
-        if (splitWarningResult.isDenied) {
+        if (splitWarningSelection.action === 'dispatch') {
+          dispatchOnly = true;
+          const hasDispatchTransactions = await applyDispatchOnlyFilter();
+          if (!hasDispatchTransactions) {
+            return;
+          }
+        } else if (splitWarningSelection.action === 'skip') {
           const splitCustomerNames = new Set(
             customersWithSplitOrders.map((customer) => customer.customerName)
           );
@@ -259,10 +527,7 @@ export function usePackingListGeneration(
             color: 'blue',
             autoClose: 5000,
           });
-        } else if (
-          splitWarningResult.dismiss === Swal.DismissReason.cancel ||
-          splitWarningResult.dismiss === Swal.DismissReason.close
-        ) {
+        } else if (splitWarningSelection.action === 'cancel') {
           showNotification({
             title: '✅ Packing List Generation Cancelled',
             message: 'No changes were made.',
@@ -311,8 +576,14 @@ export function usePackingListGeneration(
           getNormalizedStatus(transaction['Order Status']) === 'on-hold'
       ).length;
 
-      const result = await Swal.fire({
-        title: 'Packing List Generation Confirmation',
+      const finalConfirmationSelection: {
+        action: 'generate' | 'dispatch' | 'cancel';
+      } = { action: 'cancel' };
+
+      await Swal.fire({
+        title: dispatchOnly
+          ? 'Dispatch Packing List Generation Confirmation'
+          : 'Packing List Generation Confirmation',
         html: `
           <div style="text-align: left;">
             <p style="font-weight: 500; margin-bottom: 12px;">You are about to generate packing lists for:</p>
@@ -329,6 +600,7 @@ export function usePackingListGeneration(
               <p style="margin: 6px 0; font-size: 14px;">
                 Total value: <strong>₱${totalValue.toLocaleString()}</strong>
               </p>
+              ${dispatchOnly ? '<p style="margin: 6px 0; font-size: 14px; color: #5f3dc4;"><strong>Dispatch-only:</strong> customers must be found in the dispatch table</p>' : ''}
             </div>
 
             <hr style="border: none; border-top: 1px solid #dee2e6; margin: 16px 0;">
@@ -345,24 +617,49 @@ export function usePackingListGeneration(
             <p style="text-align: center; color: #868e96; font-size: 14px; margin: 0;">
               Do you want to proceed with packing list generation?
             </p>
+
+            <div style="display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; margin-top: 24px;">
+              <button type="button" id="packing-list-final-generate" class="swal2-confirm swal2-styled" style="display: inline-block; background-color: #7950f2;">Generate Packing Lists</button>
+              ${dispatchOnly ? '' : '<button type="button" id="packing-list-final-dispatch" class="swal2-deny swal2-styled" style="display: inline-block; background-color: #5f3dc4;">Dispatch Customers Only</button>'}
+              <button type="button" id="packing-list-final-cancel" class="swal2-cancel swal2-styled" style="display: inline-block; background-color: #868e96;">Cancel</button>
+            </div>
           </div>
         `,
         icon: 'question',
-        showCancelButton: true,
-        confirmButtonText: 'Generate Packing Lists',
-        cancelButtonText: 'Cancel',
-        confirmButtonColor: '#7950f2',
-        cancelButtonColor: '#868e96',
+        showConfirmButton: false,
+        showDenyButton: false,
+        showCancelButton: false,
         width: '600px',
         allowOutsideClick: false,
+        didOpen: () => {
+          const popup = Swal.getPopup();
+          const closeWith = (action: 'generate' | 'dispatch' | 'cancel') => {
+            finalConfirmationSelection.action = action;
+            Swal.close();
+          };
+
+          popup
+            ?.querySelector('#packing-list-final-generate')
+            ?.addEventListener('click', () => closeWith('generate'));
+          popup
+            ?.querySelector('#packing-list-final-dispatch')
+            ?.addEventListener('click', () => closeWith('dispatch'));
+          popup
+            ?.querySelector('#packing-list-final-cancel')
+            ?.addEventListener('click', () => closeWith('cancel'));
+        },
         customClass: {
           popup: 'swal-wide',
-          confirmButton: 'swal-confirm-btn',
-          cancelButton: 'swal-cancel-btn',
         },
       });
 
-      if (!result.isConfirmed) {
+      if (finalConfirmationSelection.action === 'dispatch') {
+        dispatchOnly = true;
+        const hasDispatchTransactions = await applyDispatchOnlyFilter();
+        if (!hasDispatchTransactions) {
+          return;
+        }
+      } else if (finalConfirmationSelection.action === 'cancel') {
         showNotification({
           title: '✅ Packing List Generation Cancelled',
           message: 'No changes were made.',
@@ -417,141 +714,17 @@ export function usePackingListGeneration(
             autoClose: 8000,
           });
 
-          const dispatchCustomerNames: Set<string> = new Set();
-          const normalizedDispatchCustomerNames: Set<string> = new Set();
-
-          const normalizeName = (value: string | null | undefined) =>
-            (value || '')
-              .replace(/\s*\|\s*/g, ' | ')
-              .replace(/\s+/g, ' ')
-              .trim()
-              .toLowerCase();
-
-          const collectNameVariants = (
-            customerName: string | null | undefined,
-            businessName: string | null | undefined
-          ) => {
-            const variants = new Set<string>();
-
-            const sanitizedCustomer = (customerName || '').trim();
-            const sanitizedBusiness = (businessName || '').trim();
-
-            if (sanitizedCustomer) {
-              variants.add(sanitizedCustomer);
-            }
-
-            if (sanitizedBusiness) {
-              variants.add(sanitizedBusiness);
-            }
-
-            if (sanitizedCustomer && sanitizedBusiness) {
-              variants.add(`${sanitizedCustomer} | ${sanitizedBusiness}`);
-            }
-
-            variants.forEach((variant) => {
-              dispatchCustomerNames.add(variant);
-              const normalized = normalizeName(variant);
-              if (normalized) {
-                normalizedDispatchCustomerNames.add(normalized);
-              }
-            });
-          };
           try {
-            const dispatchResponse = await fetch(
-              buildApiPath(apiBasePath, '/dispatch/orders')
-            );
-            logger.info('Dispatch response status:', dispatchResponse.status);
+            dispatchCustomerLookup =
+              dispatchCustomerLookup ??
+              (await fetchDispatchCustomerLookup(apiBasePath));
 
-            if (dispatchResponse.ok) {
-              const dispatchData = (await dispatchResponse.json()) as {
-                success: boolean;
-                data: Array<{ 'Username (Buyer)'?: string | null }>;
-              };
-
-              logger.info('Dispatch data received:', {
-                success: dispatchData.success,
-                totalOrders: dispatchData.data.length,
-              });
-
-              const dispatchUsernames = Array.from(
-                new Set(
-                  dispatchData.data
-                    .map((order) => order['Username (Buyer)'])
-                    .filter((username): username is string => Boolean(username))
-                )
-              );
-
-              logger.info('Dispatch usernames:', {
-                count: dispatchUsernames.length,
-                usernames: dispatchUsernames,
-              });
-
-              if (dispatchUsernames.length > 0) {
-                const customersResponse = await fetch(
-                  buildApiPath(apiBasePath, '/customers/with-shopee')
-                );
-                logger.info(
-                  'Customers with Shopee response status:',
-                  customersResponse.status
-                );
-
-                if (customersResponse.ok) {
-                  type CustomerRecord = {
-                    id: number;
-                    customerName: string;
-                    businessName: string;
-                    shopeeUsernames: string[];
-                  };
-
-                  const customersData = (await customersResponse.json()) as {
-                    success: boolean;
-                    data: CustomerRecord[] | { customers: CustomerRecord[] };
-                  };
-
-                  const customersPayload = Array.isArray(customersData.data)
-                    ? customersData.data
-                    : customersData.data.customers;
-
-                  logger.info('Customers with Shopee data received:', {
-                    success: customersData.success,
-                    totalCustomers: customersPayload.length,
-                  });
-
-                  dispatchUsernames.forEach((username) => {
-                    const normalizedUsername = username.toLowerCase().trim();
-                    const matchedCustomer = customersPayload.find((customer) =>
-                      customer.shopeeUsernames
-                        .map((value) => value.toLowerCase().trim())
-                        .includes(normalizedUsername)
-                    );
-
-                    if (matchedCustomer) {
-                      collectNameVariants(
-                        matchedCustomer.customerName,
-                        matchedCustomer.businessName
-                      );
-                    }
-                  });
-
-                  logger.info('✅ Dispatch customer names matched:', {
-                    count: dispatchCustomerNames.size,
-                    names: Array.from(dispatchCustomerNames),
-                  });
-                } else {
-                  logger.error(
-                    'Failed to fetch customers with Shopee:',
-                    customersResponse.statusText
-                  );
-                }
-              } else {
-                logger.warn('No usernames found in dispatch orders');
-              }
-            } else {
-              logger.error(
-                'Failed to fetch dispatch orders:',
-                dispatchResponse.statusText
-              );
-            }
+            logger.info('✅ Dispatch customer names matched:', {
+              count: dispatchCustomerLookup.dispatchCustomerNames.size,
+              names: Array.from(dispatchCustomerLookup.dispatchCustomerNames),
+              dispatchOrders: dispatchCustomerLookup.dispatchOrderCount,
+              dispatchUsernames: dispatchCustomerLookup.dispatchUsernameCount,
+            });
           } catch (error) {
             logger.error('Error fetching dispatch data:', error);
           }
@@ -570,24 +743,11 @@ export function usePackingListGeneration(
             if (processedIds.has(transaction.id)) {
               const customerName = transaction.Customers || '';
 
-              const transactionNameVariants = new Set<string>();
-              if (customerName) {
-                transactionNameVariants.add(customerName);
-                const [primary, secondary] = customerName
-                  .split('|')
-                  .map((part) => part.trim());
-                if (primary) {
-                  transactionNameVariants.add(primary);
-                }
-                if (secondary) {
-                  transactionNameVariants.add(secondary);
-                }
-              }
-
-              const isInDispatch = Array.from(transactionNameVariants).some(
-                (nameVariant) =>
-                  normalizedDispatchCustomerNames.has(
-                    normalizeName(nameVariant)
+              const isInDispatch = Boolean(
+                dispatchCustomerLookup &&
+                  isCustomerInDispatch(
+                    customerName,
+                    dispatchCustomerLookup.normalizedDispatchCustomerNames
                   )
               );
 

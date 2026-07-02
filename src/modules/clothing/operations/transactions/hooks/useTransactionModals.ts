@@ -37,7 +37,8 @@ interface UseTransactionModalsReturn {
 
   isGeneratingPackingList: boolean;
   preparePackingListGeneration: (
-    visibleTransactions: TransactionData[]
+    visibleTransactions: TransactionData[],
+    options?: { dispatchOnly?: boolean }
   ) => Promise<void>;
 
   showDistributionModal: boolean;
