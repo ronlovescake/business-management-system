@@ -1,6 +1,6 @@
 import type { NextRequest } from 'next/server';
-import { NextResponse } from 'next/server';
 import type { EmployeeAutomationExecutionResult } from './types';
+import { requireInternalToken as requireSharedInternalToken } from '@/lib/internal-jobs/auth';
 
 type SkipMetadata = {
   skipReason?: string;
@@ -16,29 +16,8 @@ function getSkipMetadata(
   return result.metadata as SkipMetadata;
 }
 
-export function requireInternalToken(
-  request: NextRequest
-): NextResponse | null {
-  const expected = (process.env.INTERNAL_JOB_TOKEN || '').trim();
-  if (!expected) {
-    return NextResponse.json(
-      {
-        success: false,
-        error: 'INTERNAL_JOB_TOKEN is not configured on the server',
-      },
-      { status: 500 }
-    );
-  }
-
-  const provided = (request.headers.get('x-internal-token') || '').trim();
-  if (!provided || provided !== expected) {
-    return NextResponse.json(
-      { success: false, error: 'Unauthorized' },
-      { status: 401, headers: { 'WWW-Authenticate': 'Bearer' } }
-    );
-  }
-
-  return null;
+export function requireInternalToken(request: NextRequest) {
+  return requireSharedInternalToken(request);
 }
 
 export function shouldPersistScheduledRun(

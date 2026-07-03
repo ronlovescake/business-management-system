@@ -5,6 +5,12 @@ export type AutoMovementRecord = {
   deletedAt: Date | null;
 };
 
+export type AutoMovementMetadata = {
+  sourceTransactionId: number;
+  movementSource: 'transaction';
+  movementType: 'reserve' | 'sale';
+};
+
 export async function logStatusChange(
   client: Prisma.TransactionClient | PrismaClient,
   transactionId: number,
@@ -47,6 +53,7 @@ export async function setAutoMovementActive(params: {
   toBucket: Prisma.InventoryMovementCreateInput['toBucket'];
   postingDate: string | null;
   note: string;
+  metadata: AutoMovementMetadata;
 }): Promise<void> {
   const {
     client,
@@ -57,6 +64,7 @@ export async function setAutoMovementActive(params: {
     toBucket,
     postingDate,
     note,
+    metadata,
   } = params;
 
   const now = new Date();
@@ -74,6 +82,9 @@ export async function setAutoMovementActive(params: {
         toBucket,
         postingDate,
         notes: note,
+        sourceTransactionId: metadata.sourceTransactionId,
+        movementSource: metadata.movementSource,
+        movementType: metadata.movementType,
       },
     });
 
@@ -87,6 +98,9 @@ export async function setAutoMovementActive(params: {
         toBucket,
         postingDate,
         notes: note,
+        sourceTransactionId: metadata.sourceTransactionId,
+        movementSource: metadata.movementSource,
+        movementType: metadata.movementType,
       },
       select: { id: true },
     });

@@ -21,18 +21,30 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 // ---------------------------------------------------------------------------
 // Mocks — isolate from filesystem / DB
 // ---------------------------------------------------------------------------
-const mockGetBackupDirectory = vi.hoisted(() => vi.fn().mockReturnValue('/tmp/backups'));
-const mockPruneExpiredBackups = vi.hoisted(() => vi.fn().mockReturnValue({ deleted: 0 }));
+const mockGetBackupDirectory = vi.hoisted(() =>
+  vi.fn().mockReturnValue('/tmp/backups')
+);
+const mockPruneExpiredBackups = vi.hoisted(() =>
+  vi.fn().mockReturnValue({ deleted: 0 })
+);
 const mockCreateBackupJob = vi.hoisted(() =>
   vi.fn().mockResolvedValue({
     backup: { timestamp: '2026-04-08T12-00-00', strategy: 'full' },
     manifest: { strategy: 'full', files: [], scheduler: null },
   })
 );
-const mockWriteFileAtomic = vi.hoisted(() => vi.fn().mockResolvedValue(undefined));
-const mockFindLatestBackupByStrategy = vi.hoisted(() => vi.fn().mockReturnValue(null));
-const mockListBackupFoldersDescending = vi.hoisted(() => vi.fn().mockReturnValue([]));
-const mockParseTimestampToDate = vi.hoisted(() => vi.fn().mockReturnValue(null));
+const mockWriteFileAtomic = vi.hoisted(() =>
+  vi.fn().mockResolvedValue(undefined)
+);
+const mockFindLatestBackupByStrategy = vi.hoisted(() =>
+  vi.fn().mockReturnValue(null)
+);
+const mockListBackupFoldersDescending = vi.hoisted(() =>
+  vi.fn().mockReturnValue([])
+);
+const mockParseTimestampToDate = vi.hoisted(() =>
+  vi.fn().mockReturnValue(null)
+);
 const mockReadManifest = vi.hoisted(() => vi.fn().mockReturnValue(null));
 
 vi.mock('@/lib/backup-storage', () => ({
@@ -62,7 +74,6 @@ import {
   runScheduledBackupJob,
   ScheduledBackupConfigurationError,
 } from '@/lib/backup/scheduledBackupRunner';
-import type { SchedulerRequestBody } from '@/lib/backup/scheduledBackupRunner';
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -114,7 +125,7 @@ describe('Scheduled Backup Runner', () => {
     it('accepts valid HH:MM schedule time (does not throw config error)', async () => {
       withTime('2026-04-08T22:00:00Z');
       // With no existing backups, the job should either skip (not due) or run
-      const result = await runScheduledBackupJob({
+      await runScheduledBackupJob({
         scheduleTime: '22:00',
         scheduleCadence: 'daily',
         timeZone: 'UTC',
@@ -145,7 +156,7 @@ describe('Scheduled Backup Runner', () => {
 
     it('daily cadence does not require dayOfWeek', async () => {
       withTime('2026-04-08T12:30:00Z');
-      const result = await runScheduledBackupJob({
+      await runScheduledBackupJob({
         scheduleCadence: 'daily',
         scheduleTime: '12:00',
         timeZone: 'UTC',
@@ -162,16 +173,16 @@ describe('Scheduled Backup Runner', () => {
     it('skips when existing backup found for same period', async () => {
       withTime('2026-04-08T12:30:00Z');
       // Simulate existing backup found
-      mockListBackupFoldersDescending.mockReturnValue([
-        '2026-04-08T12-00-00',
-      ]);
+      mockListBackupFoldersDescending.mockReturnValue(['2026-04-08T12-00-00']);
       mockReadManifest.mockReturnValue({
         strategy: 'full',
         format: 'dump',
         timestamp: '2026-04-08T12-00-00',
         files: [{ name: 'backup.dump', size: 1024 }],
       });
-      mockParseTimestampToDate.mockReturnValue(new Date('2026-04-08T12:00:00Z'));
+      mockParseTimestampToDate.mockReturnValue(
+        new Date('2026-04-08T12:00:00Z')
+      );
 
       const result = await runScheduledBackupJob({
         strategy: 'full',
@@ -269,9 +280,15 @@ describe('Scheduled Backup Runner', () => {
       withTime('2026-04-08T08:00:00Z');
       mockFindLatestBackupByStrategy.mockReturnValue({
         folder: '2026-04-05T22-00-00',
-        manifest: { strategy: 'full', timestamp: '2026-04-05T22-00-00', files: [] },
+        manifest: {
+          strategy: 'full',
+          timestamp: '2026-04-05T22-00-00',
+          files: [],
+        },
       });
-      mockParseTimestampToDate.mockReturnValue(new Date('2026-04-05T22:00:00Z'));
+      mockParseTimestampToDate.mockReturnValue(
+        new Date('2026-04-05T22:00:00Z')
+      );
 
       const result = await runScheduledBackupJob({
         strategy: 'full',
@@ -294,9 +311,15 @@ describe('Scheduled Backup Runner', () => {
       withTime('2026-04-08T08:00:00Z');
       mockFindLatestBackupByStrategy.mockReturnValue({
         folder: '2026-04-05T22-00-00',
-        manifest: { strategy: 'full', timestamp: '2026-04-05T22-00-00', files: [] },
+        manifest: {
+          strategy: 'full',
+          timestamp: '2026-04-05T22-00-00',
+          files: [],
+        },
       });
-      mockParseTimestampToDate.mockReturnValue(new Date('2026-04-05T22:00:00Z'));
+      mockParseTimestampToDate.mockReturnValue(
+        new Date('2026-04-05T22:00:00Z')
+      );
 
       const result = await runScheduledBackupJob({
         strategy: 'full',
@@ -350,7 +373,7 @@ describe('Scheduled Backup Runner', () => {
       expect(mockPruneExpiredBackups).toHaveBeenCalledWith(7);
     });
 
-    it('uses default 30-day retention when not specified', async () => {
+    it('uses default 14-day retention when not specified', async () => {
       withTime('2026-04-08T22:30:00Z');
 
       await runScheduledBackupJob({
@@ -359,7 +382,7 @@ describe('Scheduled Backup Runner', () => {
         timeZone: 'UTC',
       });
 
-      expect(mockPruneExpiredBackups).toHaveBeenCalledWith(30);
+      expect(mockPruneExpiredBackups).toHaveBeenCalledWith(14);
     });
   });
 });

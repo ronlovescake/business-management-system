@@ -138,6 +138,12 @@ type AutoMovementRecord = {
   deletedAt: Date | null;
 };
 
+type AutoMovementMetadata = {
+  sourceTransactionId: number;
+  movementSource: 'transaction';
+  movementType: 'reserve' | 'sale';
+};
+
 async function findLatestAutoMovement(
   client: typeof gmPrisma,
   note: string
@@ -158,6 +164,7 @@ async function setAutoMovementActive(params: {
   toBucket: Prisma.InventoryMovementCreateInput['toBucket'];
   postingDate: string | null;
   note: string;
+  metadata: AutoMovementMetadata;
 }) {
   const {
     client,
@@ -168,6 +175,7 @@ async function setAutoMovementActive(params: {
     toBucket,
     postingDate,
     note,
+    metadata,
   } = params;
 
   const now = new Date();
@@ -184,6 +192,9 @@ async function setAutoMovementActive(params: {
         toBucket,
         postingDate,
         notes: note,
+        sourceTransactionId: metadata.sourceTransactionId,
+        movementSource: metadata.movementSource,
+        movementType: metadata.movementType,
       },
     });
 
@@ -197,6 +208,9 @@ async function setAutoMovementActive(params: {
         toBucket,
         postingDate,
         notes: note,
+        sourceTransactionId: metadata.sourceTransactionId,
+        movementSource: metadata.movementSource,
+        movementType: metadata.movementType,
       },
       select: { id: true },
     })) as { id: number };
@@ -286,6 +300,11 @@ async function syncInventoryMovementsForTransaction(
       toBucket: 'reserved',
       postingDate,
       note: reserveNote,
+      metadata: {
+        sourceTransactionId: transaction.id,
+        movementSource: 'transaction',
+        movementType: 'reserve',
+      },
     });
   } else {
     await setAutoMovementInactive({ client, note: reserveNote });
@@ -303,6 +322,11 @@ async function syncInventoryMovementsForTransaction(
       toBucket: 'sold',
       postingDate,
       note: saleNote,
+      metadata: {
+        sourceTransactionId: transaction.id,
+        movementSource: 'transaction',
+        movementType: 'sale',
+      },
     });
   } else {
     await setAutoMovementInactive({ client, note: saleNote });

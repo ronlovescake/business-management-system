@@ -72,7 +72,7 @@ This file documents the backup-scheduler sidecar, the restore-runner sidecar, an
 | PITR base backup time    | `PITR_BASE_AUTO_TIME`     | `01:00`                |
 | Log pruning time         | `LOG_PRUNE_AUTO_TIME`     | `03:00`                |
 | Timezone                 | `BACKUP_AUTO_TIMEZONE`    | `Asia/Manila`          |
-| Retention days           | `BACKUP_RETENTION_DAYS`   | `30` (minimum 1)       |
+| Retention days           | `BACKUP_RETENTION_DAYS`   | `14` (minimum 1)       |
 | Polling interval         | —                         | 60 seconds (hardcoded) |
 | Fetch timeout            | —                         | 5 minutes (hardcoded)  |
 

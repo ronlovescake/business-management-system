@@ -31,8 +31,9 @@
 
 ## C — Workflow Baseline
 
-| #   | Logic                                                                                                                                    | Explanation                                                                  |
-| --- | ---------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------- |
-| 9   | GM-specific meaning comes from the GM API namespace and the hidden breakdowns-tab choice rather than a different P&L page implementation | The route customizes one visible behavior while reusing the shared P&L page. |
-| 10  | Shared P&L workflow changes that affect GM should also update this GM doc                                                                | Shared implementation still defines GM operator behavior.                    |
-| 11  | If GM later re-enables breakdowns or adds other route-level P&L differences, document them here explicitly                               | This doc currently records one explicit GM-specific route deviation.         |
+| #   | Logic                                                                                                                                    | Explanation                                                                                                                                        |
+| --- | ---------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 9   | GM-specific meaning comes from the GM API namespace and the hidden breakdowns-tab choice rather than a different P&L page implementation | The route customizes one visible behavior while reusing the shared P&L page.                                                                       |
+| 10  | Shared P&L workflow changes that affect GM should also update this GM doc                                                                | Shared implementation still defines GM operator behavior.                                                                                          |
+| 11  | If GM later re-enables breakdowns or adds other route-level P&L differences, document them here explicitly                               | This doc currently records one explicit GM-specific route deviation.                                                                               |
+| 12  | GM COGS uses the shared inventory movement grouping engine with GM Prisma bindings                                                       | Auto-sale movement COGS links prefer explicit `sourceTransactionId` metadata and fall back to legacy `auto-sale txn {id}` notes during transition. |

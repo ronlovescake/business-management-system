@@ -11,24 +11,56 @@ import {
 } from './shipmentUtils';
 
 type RouteContext = { params: { id: string } };
+type ShipmentWriteData = ReturnType<typeof convertShipmentDataToDB>;
+
+type ShipmentFindUniqueArgs = { where: { id: number } };
+type ShipmentUpdateArgs = { where: { id: number }; data: ShipmentWriteData };
+type ShipmentDeleteArgs = { where: { id: number } };
+type ProductFindManyArgs = {
+  where: { shipmentCode: string };
+  select: { productCode: true };
+};
+type ProductUpdateManyArgs = {
+  where: { shipmentCode: string };
+  data: Pick<
+    ShipmentWriteData,
+    'cvNumber' | 'noOfSacks' | 'totalCBM' | 'weight' | 'shipmentStatus'
+  >;
+};
+type TransactionUpdateManyArgs = {
+  where: {
+    deletedAt: null;
+    AND: Array<{
+      OR: Array<
+        | { shipmentCode: string }
+        | { productCode: { in: string[] } }
+        | { orderStatus: null }
+        | { orderStatus: '' }
+        | { orderStatus: { equals: string; mode: 'insensitive' } }
+      >;
+    }>;
+  };
+  data: { orderStatus: string };
+};
 
 /**
  * Prisma delegate for shipment detail routes.
  * Each domain binds its own shipment, product, and transaction models.
  */
-/* eslint-disable @typescript-eslint/no-explicit-any */
 export interface ShipmentDetailDelegates {
   shipmentModel: {
-    findUnique: (args: any) => Promise<any>;
-    update: (args: any) => Promise<any>;
-    delete?: (args: any) => Promise<any>;
+    findUnique: (args: ShipmentFindUniqueArgs) => Promise<ShipmentDB | null>;
+    update: (args: ShipmentUpdateArgs) => Promise<ShipmentDB>;
+    delete?: (args: ShipmentDeleteArgs) => Promise<unknown>;
   };
   productModel: {
-    findMany: (args: any) => Promise<Array<{ productCode?: string | null }>>;
-    updateMany: (args: any) => Promise<any>;
+    findMany: (
+      args: ProductFindManyArgs
+    ) => Promise<Array<{ productCode?: string | null }>>;
+    updateMany: (args: ProductUpdateManyArgs) => Promise<unknown>;
   };
   transactionModel?: {
-    updateMany: (args: any) => Promise<{ count: number }>;
+    updateMany: (args: TransactionUpdateManyArgs) => Promise<{ count: number }>;
   };
   /** If provided, called after create/update to post expense entries. */
   postExpenseForShipment?: (shipment: ShipmentDB) => Promise<void>;
@@ -56,7 +88,7 @@ export function createShipmentDetailRoutes(delegates: ShipmentDetailDelegates) {
         return ApiResponse.notFound('Shipment');
       }
 
-      const converted = convertShipmentDBToData(shipment as ShipmentDB);
+      const converted = convertShipmentDBToData(shipment);
       return ApiResponse.success(converted, 'Shipment fetched');
     }
   );
@@ -79,16 +111,14 @@ export function createShipmentDetailRoutes(delegates: ShipmentDetailDelegates) {
         return ApiResponse.notFound('Shipment');
       }
 
-      const current = currentShipment as ShipmentDB;
-
-      const updatedShipment = (await delegates.shipmentModel.update({
+      const updatedShipment = await delegates.shipmentModel.update({
         where: { id: idResult.id },
         data: shipmentData,
-      })) as ShipmentDB;
+      });
 
-      if (current.shipmentCode) {
+      if (currentShipment.shipmentCode) {
         await delegates.productModel.updateMany({
-          where: { shipmentCode: current.shipmentCode },
+          where: { shipmentCode: currentShipment.shipmentCode },
           data: {
             cvNumber: shipmentData.cvNumber,
             noOfSacks: shipmentData.noOfSacks,
@@ -99,7 +129,7 @@ export function createShipmentDetailRoutes(delegates: ShipmentDetailDelegates) {
         });
 
         logger.debug(
-          `${label ? label + ' ' : ''}Updated products with shipment code: ${current.shipmentCode}`,
+          `${label ? label + ' ' : ''}Updated products with shipment code: ${currentShipment.shipmentCode}`,
           `Updated fields: cvNumber, noOfSacks, totalCBM, weight, shipmentStatus`
         );
 
@@ -110,7 +140,7 @@ export function createShipmentDetailRoutes(delegates: ShipmentDetailDelegates) {
           );
 
           const productsForShipment = await delegates.productModel.findMany({
-            where: { shipmentCode: current.shipmentCode },
+            where: { shipmentCode: currentShipment.shipmentCode },
             select: { productCode: true },
           });
 
@@ -124,7 +154,7 @@ export function createShipmentDetailRoutes(delegates: ShipmentDetailDelegates) {
               AND: [
                 {
                   OR: [
-                    { shipmentCode: current.shipmentCode },
+                    { shipmentCode: currentShipment.shipmentCode },
                     ...(productCodes.length > 0
                       ? [{ productCode: { in: productCodes } }]
                       : []),
@@ -157,7 +187,7 @@ export function createShipmentDetailRoutes(delegates: ShipmentDetailDelegates) {
             logger.info(
               `${label ? label + ' s' : 'S'}ynced transaction orderStatus from shipment status`,
               {
-                shipmentCode: current.shipmentCode,
+                shipmentCode: currentShipment.shipmentCode,
                 shipmentStatus: shipmentData.shipmentStatus,
                 orderStatus: nextOrderStatus,
                 updatedCount: updateResult.count,

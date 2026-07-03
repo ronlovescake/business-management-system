@@ -1,5 +1,6 @@
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
+import { requireInternalToken } from '@/lib/internal-jobs/auth';
 import { logger } from '@/lib/logger';
 import {
   isPitrErrorWithStatusCode,
@@ -10,30 +11,22 @@ import {
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 
-function requireInternalToken(req: NextRequest): NextResponse | null {
-  const expected = (process.env.INTERNAL_JOB_TOKEN || '').trim();
-  if (!expected) {
-    logger.error('Internal PITR trigger missing INTERNAL_JOB_TOKEN env');
-    return NextResponse.json(
-      { success: false, error: 'Internal scheduler token is not configured' },
-      { status: 500 }
-    );
-  }
-
-  const provided = (req.headers.get('x-internal-token') || '').trim();
-  if (!provided || provided !== expected) {
-    return NextResponse.json(
-      { success: false, error: 'Invalid internal scheduler token' },
-      { status: 401 }
-    );
-  }
-
-  return null;
-}
-
 export async function POST(request: NextRequest) {
-  const authError = requireInternalToken(request);
+  const authError = requireInternalToken(request, {
+    missingTokenBody: {
+      success: false,
+      error: 'Internal scheduler token is not configured',
+    },
+    unauthorizedBody: {
+      success: false,
+      error: 'Invalid internal scheduler token',
+    },
+    unauthorizedHeaders: {},
+  });
   if (authError) {
+    if (authError.status === 500) {
+      logger.error('Internal PITR trigger missing INTERNAL_JOB_TOKEN env');
+    }
     return authError;
   }
 
@@ -48,7 +41,9 @@ export async function POST(request: NextRequest) {
     const result = await runScheduledPitrBaseBackup(body);
     return NextResponse.json(result);
   } catch (error) {
-    const statusCode = isPitrErrorWithStatusCode(error) ? error.statusCode : 500;
+    const statusCode = isPitrErrorWithStatusCode(error)
+      ? error.statusCode
+      : 500;
 
     logger.error('Internal scheduled PITR base backup failed', {
       error,

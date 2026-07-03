@@ -2,12 +2,22 @@ import { describe, expect, it } from 'vitest';
 
 import {
   DEFAULT_BACKUP_RETENTION_DAYS,
+  DEFAULT_BACKUP_TIMEZONE,
+  DEFAULT_DIFFERENTIAL_BACKUP_TIME,
+  DEFAULT_FULL_BACKUP_CADENCE,
+  DEFAULT_FULL_BACKUP_DAY_OF_WEEK,
+  DEFAULT_FULL_BACKUP_TIME,
+  DEFAULT_LOG_PRUNE_TIME,
+  DEFAULT_PITR_BASE_TIME,
+  WEEKDAY_NAMES,
   parseBooleanFlag,
   parseRetentionDays,
   parseScheduleCadence,
   parseScheduleDayOfWeek,
   parseScheduleTime,
 } from '@/lib/backup/schedulerConfig';
+
+const scriptSchedulerConfig = require('../../../scripts/schedulerConfigShared.js');
 
 describe('backup scheduler config helpers', () => {
   it('parses boolean-like scheduler flags', () => {
@@ -46,5 +56,33 @@ describe('backup scheduler config helpers', () => {
     expect(parseScheduleDayOfWeek(2)).toBe(2);
     expect(parseScheduleDayOfWeek('funday')).toBeNull();
     expect(parseScheduleDayOfWeek(8)).toBeNull();
+  });
+
+  it('keeps script and app scheduler config exports aligned', () => {
+    expect(scriptSchedulerConfig.DEFAULT_BACKUP_TIMEZONE).toBe(
+      DEFAULT_BACKUP_TIMEZONE
+    );
+    expect(scriptSchedulerConfig.DEFAULT_BACKUP_RETENTION_DAYS).toBe(
+      DEFAULT_BACKUP_RETENTION_DAYS
+    );
+    expect(scriptSchedulerConfig.DEFAULT_FULL_BACKUP_TIME).toBe(
+      DEFAULT_FULL_BACKUP_TIME
+    );
+    expect(scriptSchedulerConfig.DEFAULT_FULL_BACKUP_CADENCE).toBe(
+      DEFAULT_FULL_BACKUP_CADENCE
+    );
+    expect(scriptSchedulerConfig.DEFAULT_FULL_BACKUP_DAY_OF_WEEK).toBe(
+      DEFAULT_FULL_BACKUP_DAY_OF_WEEK
+    );
+    expect(scriptSchedulerConfig.DEFAULT_DIFFERENTIAL_BACKUP_TIME).toBe(
+      DEFAULT_DIFFERENTIAL_BACKUP_TIME
+    );
+    expect(scriptSchedulerConfig.DEFAULT_PITR_BASE_TIME).toBe(
+      DEFAULT_PITR_BASE_TIME
+    );
+    expect(scriptSchedulerConfig.DEFAULT_LOG_PRUNE_TIME).toBe(
+      DEFAULT_LOG_PRUNE_TIME
+    );
+    expect(scriptSchedulerConfig.WEEKDAY_NAMES).toEqual(WEEKDAY_NAMES);
   });
 });

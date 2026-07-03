@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useMemo, useState } from 'react';
+import React, { useState } from 'react';
 import { useDisclosure } from '@mantine/hooks';
 import {
   Button,
@@ -21,24 +21,16 @@ import {
 } from '@/components/tables/StandardDataTable';
 import { getCurrentDateISO } from '@/utils/date';
 import { useInventoryPage } from '../hooks/useInventoryPage';
-import {
-  useInventoryDisplayData,
-  type SellableFilter,
-} from '../hooks/useInventoryDisplayData';
-import { useTransferSummaries } from '../hooks/useTransferSummaries';
-import { useAdjustmentBuckets } from '../hooks/useAdjustmentBuckets';
-import { useAdjustmentSellablePreview } from '../hooks/useAdjustmentSellablePreview';
-import { useInventoryMovementDerivedData } from '../hooks/useInventoryMovementDerivedData';
+import { type SellableFilter } from '../hooks/useInventoryDisplayData';
 import { useInventoryQuickAdjustments } from '../hooks/useInventoryQuickAdjustments';
 import { useInventoryAdjustmentSubmit } from '../hooks/useInventoryAdjustmentSubmit';
 import { useInventoryAdjustmentEditActions } from '../hooks/useInventoryAdjustmentEditActions';
 import { useInventoryAdjustmentSelection } from '../hooks/useInventoryAdjustmentSelection';
-import { useInventoryProductOptions } from '../hooks/useInventoryProductOptions';
+import { useInventoryViewModel } from '../hooks/useInventoryViewModel';
 import { InventoryTableControls } from './InventoryTableControls';
 import { InventorySummary } from './InventorySummary';
 import { InventoryTable } from './InventoryTable';
 import { numberFormatter } from '../lib/formatters';
-import { calculateTotals } from '../lib/inventoryTransforms';
 import { UniversalModal } from '@/components/modals/UniversalModal';
 import { normalizeProductCode } from '@/lib/inventory/movements';
 
@@ -129,85 +121,48 @@ export function InventoryPage({ apiBasePath }: InventoryPageProps) {
     null
   );
 
-  const selectedOnHand = useMemo(
-    () => getSellableOnHand(selectedProduct),
-    [getSellableOnHand, selectedProduct]
-  );
-
   const {
     editableMovements,
     adjustmentMovements,
     supplierShortMovements,
-    transferMovements,
     additionalsMovements,
     additionalsQtyByProduct,
     supplierShortQtyByProduct,
     editingProductMovements,
     editingMovement,
-  } = useInventoryMovementDerivedData({
+    transferOutByProduct,
+    transferInByProduct,
+    getCurrentTransferQuantity,
+    adjustmentNotesByProduct,
+    getCurrentBucketQuantity,
+    getLatestBucketNote,
+    adjustmentSellablePreview,
+    sellableFilteredData,
+    sortedFilteredData,
+    singleFilteredProductCode,
+    inventoryEmptyStateMessage,
+    displayedTotals,
+    productOptions,
+    transferToOptions,
+    productOptionValueByNormalizedCode,
+    selectedOnHand,
+  } = useInventoryViewModel({
+    filteredData,
+    emptyStateMessage,
+    searchQuery,
+    sellableFilter,
+    products,
     movements,
     editingProductCode,
     editingMovementId,
     additionalsNotePrefix: ADDITIONALS_NOTE_PREFIX,
     transferNotePrefix: TRANSFER_NOTE_PREFIX,
-  });
-
-  const {
-    transferOutByProduct,
-    transferInByProduct,
-    getCurrentTransferQuantity,
-  } = useTransferSummaries({
-    transferMovements,
     transferNoteMarker: TRANSFER_NOTE_MARKER,
-  });
-
-  const {
-    adjustmentNotesByProduct,
-    getCurrentBucketQuantity,
-    getLatestBucketNote,
-  } = useAdjustmentBuckets({
-    filteredData,
-    adjustmentMovements,
-    supplierShortMovements,
-    additionalsMovements,
-    supplierShortQtyByProduct,
-    additionalsQtyByProduct,
-  });
-
-  const adjustmentSellablePreview = useAdjustmentSellablePreview({
     selectedProduct,
-    selectedOnHand,
     transferToProduct,
     transferQty,
     bucketQuantities,
-    getCurrentBucketQuantity,
-    getCurrentTransferQuantity,
-  });
-
-  const {
-    sellableFilteredData,
-    sortedFilteredData,
-    singleFilteredProductCode,
-    inventoryEmptyStateMessage,
-  } = useInventoryDisplayData({
-    filteredData,
-    sellableFilter,
-    emptyStateMessage,
-    searchQuery,
-  });
-
-  const displayedTotals = useMemo(
-    () => calculateTotals(sellableFilteredData),
-    [sellableFilteredData]
-  );
-
-  const {
-    productOptions,
-    transferToOptions,
-    productOptionValueByNormalizedCode,
-  } = useInventoryProductOptions({
-    products,
-    selectedProduct,
+    getSellableOnHand,
     normalizeProductCode,
   });
 

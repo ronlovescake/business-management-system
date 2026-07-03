@@ -111,6 +111,28 @@ export function extractAutoSaleTransactionId(
   return Number.isFinite(id) && id > 0 ? id : null;
 }
 
+export function resolveAutoSaleTransactionId(movement: {
+  sourceTransactionId?: number | null;
+  movementSource?: string | null;
+  movementType?: string | null;
+  notes?: string | null;
+}): number | null {
+  const explicitId = Number(movement.sourceTransactionId ?? 0);
+  const explicitSource = (movement.movementSource ?? '').trim().toLowerCase();
+  const explicitType = (movement.movementType ?? '').trim().toLowerCase();
+
+  if (
+    Number.isFinite(explicitId) &&
+    explicitId > 0 &&
+    explicitSource === 'transaction' &&
+    explicitType === 'sale'
+  ) {
+    return explicitId;
+  }
+
+  return extractAutoSaleTransactionId(movement.notes);
+}
+
 export function summarizeCustomerNames(names: string[]): string {
   const cleaned = names.map((n) => n.trim()).filter(Boolean);
   if (cleaned.length === 0) {

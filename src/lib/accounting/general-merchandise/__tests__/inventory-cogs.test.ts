@@ -165,4 +165,53 @@ describe('GM buildCogsAndInventoryEntries', () => {
     expect(inv?.credit).toBe(100);
     expect(inv?.debit).toBe(0);
   });
+
+  it('prefers explicit auto-sale movement fields over legacy notes', async () => {
+    prismaMock.generalMerchandiseInventoryMovement.findMany.mockResolvedValue([
+      {
+        id: 1,
+        createdAt: new Date('2026-01-20T01:00:00.000Z'),
+        postingDate: '2026-01-01',
+        productCode: 'SKU-1',
+        quantity: 1,
+        fromBucket: 'sellable',
+        toBucket: 'sold',
+        notes: 'manual correction, not a durable relation',
+        sourceTransactionId: 456,
+        movementSource: 'transaction',
+        movementType: 'sale',
+      },
+    ]);
+
+    prismaMock.generalMerchandiseProduct.findMany.mockResolvedValue([
+      {
+        productCode: 'SKU-1',
+        landedUnitCost: 100,
+        cogs: 0,
+        quantity: 0,
+        updatedAt: new Date('2026-01-01T00:00:00.000Z'),
+        createdAt: new Date('2026-01-01T00:00:00.000Z'),
+      },
+    ]);
+
+    prismaMock.generalMerchandiseTransaction.findMany.mockResolvedValue([
+      {
+        id: 456,
+        customers: 'Explicit Customer',
+        packedDate: null,
+      },
+    ]);
+
+    const result = await buildCogsAndInventoryEntries({
+      from: new Date('2026-01-17T00:00:00.000Z'),
+      to: null,
+    });
+
+    expect(result.entries).toHaveLength(2);
+    expect(
+      prismaMock.generalMerchandiseTransaction.findMany
+    ).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { id: { in: [456] } } })
+    );
+  });
 });

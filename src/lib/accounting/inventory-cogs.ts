@@ -1,6 +1,18 @@
 import { prisma } from '@/lib/db';
 import { parseDate } from '@/lib/accounting/date-utils';
 import { isInTransitShipmentStatus } from '@/lib/inventory/shipment-status';
+import {
+  buildCogsEntriesFromMovements,
+  dateKeyToIso,
+  formatQty,
+  INVENTORY_ASSET_BUCKETS,
+  isWithin,
+  normalizeIdSegment,
+  pickMovementDate,
+  pickUnitCostFromProductRow,
+  resolveAutoSaleTransactionId,
+  toDateKey,
+} from '@/lib/accounting/inventoryCogsShared';
 
 export type DerivedJournalEntry = {
   id: string;
@@ -17,130 +29,6 @@ const INVENTORY_ACCOUNT = 'Stock on Hand';
 const INVENTORY_IN_TRANSIT_ACCOUNT = 'Inventory in Transit';
 const OPENING_EQUITY_ACCOUNT = 'Opening Equity';
 const CURRENT_PERIOD_EARNINGS_ACCOUNT = 'Current Period Earnings';
-
-const INVENTORY_ASSET_BUCKETS = new Set([
-  'sellable',
-  'reserved',
-  'damaged_hold',
-  'assembly_wip',
-]);
-
-function toDateKey(date: Date): string {
-  return date.toISOString().slice(0, 10);
-}
-
-function dateKeyToIso(dateKey: string): string {
-  return `${dateKey}T00:00:00.000Z`;
-}
-
-function isWithin(date: Date, from: Date, to: Date | null): boolean {
-  if (date < from) {
-    return false;
-  }
-  if (to && date > to) {
-    return false;
-  }
-  return true;
-}
-
-function pickMovementDate(params: {
-  postingDate: string | null;
-  createdAt: Date;
-}): Date {
-  return parseDate(params.postingDate) ?? params.createdAt;
-}
-
-function pickUnitCost(actualPrice: number | null | undefined): number {
-  const cost = Number(actualPrice ?? 0);
-  return Number.isFinite(cost) && cost > 0 ? cost : 0;
-}
-
-function pickUnitCostFromProductRow(row: {
-  landedUnitCost?: number | null;
-  cogs?: number | null;
-  quantity?: number | null;
-}): number {
-  // Unit-cost basis for accounting:
-  // - Prefer `landedUnitCost` (cost per item) as maintained in the Products module.
-  // - Fallback to `cogs / quantity` when landedUnitCost is not available.
-  const base = pickUnitCost(row.landedUnitCost);
-  if (base > 0) {
-    return base;
-  }
-
-  const cogs = Number(row.cogs ?? 0);
-  const qty = Number(row.quantity ?? 0);
-  if (!Number.isFinite(cogs) || cogs <= 0) {
-    return 0;
-  }
-  if (!Number.isFinite(qty) || qty <= 0) {
-    return 0;
-  }
-
-  return pickUnitCost(cogs / qty);
-}
-
-function normalizeIdSegment(value: string): string {
-  return (value ?? '')
-    .trim()
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '_')
-    .replace(/^_+|_+$/g, '')
-    .slice(0, 80);
-}
-
-function formatQty(qty: number): string {
-  if (!Number.isFinite(qty)) {
-    return '0';
-  }
-  const rounded = Math.round(qty * 1000) / 1000;
-  if (Number.isInteger(rounded)) {
-    return String(rounded);
-  }
-  return String(rounded).replace(/0+$/, '').replace(/\.$/, '');
-}
-
-function summarizeSignedTransitions(transitions: Map<string, number>): string {
-  const parts = Array.from(transitions.entries())
-    .map(([label, qty]) => {
-      const q = Number(qty);
-      if (!Number.isFinite(q) || q === 0) {
-        return null;
-      }
-      const sign = q > 0 ? '+' : '';
-      return `${label} ${sign}${formatQty(q)}`;
-    })
-    .filter(Boolean) as string[];
-
-  return parts.join('; ');
-}
-
-function extractAutoSaleTransactionId(
-  notes: string | null | undefined
-): number | null {
-  const raw = (notes ?? '').trim();
-  if (!raw) {
-    return null;
-  }
-  const match = raw.match(/\bauto-sale\s+txn\s+(\d+)\b/i);
-  if (!match) {
-    return null;
-  }
-  const id = Number(match[1]);
-  return Number.isFinite(id) && id > 0 ? id : null;
-}
-
-function summarizeCustomerNames(names: string[]): string {
-  const cleaned = names.map((n) => n.trim()).filter(Boolean);
-  if (cleaned.length === 0) {
-    return '';
-  }
-  const unique = Array.from(new Set(cleaned));
-  if (unique.length <= 10) {
-    return unique.join(', ');
-  }
-  return `${unique.slice(0, 10).join(', ')} +${unique.length - 10} more`;
-}
 
 async function getUnitCostByProductCode(productCodes: string[]) {
   const codes = Array.from(
@@ -206,6 +94,9 @@ async function computeInventorySeedAndShrinkageByDate(params: {
       fromBucket: true,
       toBucket: true,
       notes: true,
+      sourceTransactionId: true,
+      movementSource: true,
+      movementType: true,
     },
     orderBy: { createdAt: 'asc' },
   });
@@ -400,7 +291,7 @@ export async function buildCogsAndInventoryEntries(params: {
   const autoSaleTxnIds = Array.from(
     new Set(
       movements
-        .map((m) => extractAutoSaleTransactionId(m.notes))
+        .map(resolveAutoSaleTransactionId)
         .filter((id): id is number => typeof id === 'number' && id > 0)
     )
   );
@@ -425,7 +316,7 @@ export async function buildCogsAndInventoryEntries(params: {
 
   const filtered = movements
     .map((m) => {
-      const txnId = extractAutoSaleTransactionId(m.notes);
+      const txnId = resolveAutoSaleTransactionId(m);
       const when = txnId
         ? (completionAtByTransactionId.get(txnId) ?? m.createdAt)
         : pickMovementDate({
@@ -444,167 +335,14 @@ export async function buildCogsAndInventoryEntries(params: {
     filtered.map((m) => m.productCode)
   );
 
-  const cogsByGroup = new Map<
-    string,
-    {
-      dateKey: string;
-      productCode: string;
-      debitAccount: string;
-      netQty: number;
-      netCost: number;
-      transitions: Map<string, number>;
-      customers: Set<string>;
-    }
-  >();
-  let totalCogs = 0;
-
-  for (const m of filtered) {
-    const qty = Number(m.quantity ?? 0);
-    if (!Number.isFinite(qty) || qty <= 0) {
-      continue;
-    }
-
-    // Net COGS effect sign:
-    // - Sales (.. -> sold): +qty
-    // - Returns (sold -> ..): -qty
-    const sign = m.toBucket === 'sold' ? 1 : m.fromBucket === 'sold' ? -1 : 0;
-    if (sign === 0) {
-      continue;
-    }
-
-    const code = (m.productCode ?? '').trim();
-    const unitCost = unitCostByProductCode.get(code) ?? 0;
-    const cost = sign * qty * unitCost;
-
-    if (!Number.isFinite(cost) || cost === 0) {
-      continue;
-    }
-
-    const dateKey = toDateKey(m.when);
-    const productCode = code || 'Unknown Product';
-
-    const txnId = extractAutoSaleTransactionId(m.notes);
-    const debitAccount = COGS_ACCOUNT;
-
-    const groupKey = `${dateKey}|||${productCode}`;
-
-    const transitionLabel = `${m.fromBucket}→${m.toBucket}`;
-
-    const group = cogsByGroup.get(groupKey) ?? {
-      dateKey,
-      productCode,
-      debitAccount,
-      netQty: 0,
-      netCost: 0,
-      transitions: new Map<string, number>(),
-      customers: new Set<string>(),
-    };
-
-    group.netQty += sign * qty;
-    group.netCost += cost;
-    group.transitions.set(
-      transitionLabel,
-      (group.transitions.get(transitionLabel) ?? 0) + sign * qty
-    );
-
-    if (txnId) {
-      const customerName = customerNameByTransactionId.get(txnId);
-      if (customerName) {
-        group.customers.add(customerName);
-      }
-    }
-
-    cogsByGroup.set(groupKey, group);
-    totalCogs += cost;
-  }
-
-  const entries: DerivedJournalEntry[] = Array.from(cogsByGroup.values())
-    .sort((a, b) => {
-      const byDate = a.dateKey.localeCompare(b.dateKey);
-      if (byDate !== 0) {
-        return byDate;
-      }
-      return a.productCode.localeCompare(b.productCode);
-    })
-    .flatMap((group) => {
-      const amt = Number(group.netCost);
-      if (!Number.isFinite(amt) || amt === 0) {
-        return [];
-      }
-
-      const date = dateKeyToIso(group.dateKey);
-      const qtyAbs = Math.abs(Number(group.netQty));
-      const qtyLabel = qtyAbs > 0 ? ` x${formatQty(qtyAbs)}` : '';
-      const ref = `COGS-${group.dateKey} ${group.productCode}${qtyLabel}`;
-
-      const customerSummary = summarizeCustomerNames(
-        Array.from(group.customers)
-      );
-      const transitionSummary = summarizeSignedTransitions(group.transitions);
-      const details = [
-        transitionSummary ? `Movements: ${transitionSummary}` : null,
-        customerSummary ? `Customers: ${customerSummary}` : null,
-      ]
-        .filter(Boolean)
-        .join(' • ');
-
-      const abs = Math.abs(amt);
-      const idBase = `COGS-${group.dateKey}-${normalizeIdSegment(group.productCode)}`;
-
-      const baseDescription =
-        cogsDescriptionStyle === 'short'
-          ? `${group.productCode}${qtyLabel}`
-          : `Cost of goods sold (inventory movements) • ${group.productCode}${qtyLabel}`;
-      const description = details
-        ? `${baseDescription} • ${details}`
-        : baseDescription;
-
-      // Positive: Dr COGS / Cr Inventory
-      if (amt > 0) {
-        return [
-          {
-            id: `${idBase}-cogs-debit`,
-            date,
-            ref,
-            account: group.debitAccount,
-            debit: abs,
-            credit: 0,
-            description,
-          },
-          {
-            id: `${idBase}-inventory-credit`,
-            date,
-            ref,
-            account: INVENTORY_ACCOUNT,
-            debit: 0,
-            credit: abs,
-            description,
-          },
-        ];
-      }
-
-      // Negative: Dr Inventory / Cr COGS (return/restock reversal)
-      return [
-        {
-          id: `${idBase}-inventory-debit`,
-          date,
-          ref,
-          account: INVENTORY_ACCOUNT,
-          debit: abs,
-          credit: 0,
-          description,
-        },
-        {
-          id: `${idBase}-cogs-credit`,
-          date,
-          ref,
-          account: group.debitAccount,
-          debit: 0,
-          credit: abs,
-          description,
-        },
-      ];
-    });
+  const { entries, totalCogs } = buildCogsEntriesFromMovements({
+    movements: filtered,
+    unitCostByProductCode,
+    customerNameByTransactionId,
+    cogsAccount: COGS_ACCOUNT,
+    inventoryAccount: INVENTORY_ACCOUNT,
+    cogsDescriptionStyle,
+  });
 
   return { entries, totalCogs };
 }

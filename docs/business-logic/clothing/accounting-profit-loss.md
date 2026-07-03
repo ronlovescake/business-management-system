@@ -43,10 +43,11 @@
 
 ## D - Summary Table
 
-| #   | Logic                                                                                                   | Explanation                      |
-| --- | ------------------------------------------------------------------------------------------------------- | -------------------------------- |
-| 11  | Summary table groups rows by type: Revenue section first, then Expense section                          | Totals shown per section.        |
-| 12  | Revenue rows show positive amounts; Expense rows may be displayed with sign conventions based on the UI | COGS appears as an Expense type. |
+| #   | Logic                                                                                                   | Explanation                                                                                                                                                                                 |
+| --- | ------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 11  | Summary table groups rows by type: Revenue section first, then Expense section                          | Totals shown per section.                                                                                                                                                                   |
+| 12  | Revenue rows show positive amounts; Expense rows may be displayed with sign conventions based on the UI | COGS appears as an Expense type.                                                                                                                                                            |
+| 13  | Inventory COGS entries prefer explicit movement source metadata                                         | Auto-sale movement COGS links use `sourceTransactionId` when `movementSource = transaction` and `movementType = sale`; legacy `auto-sale txn {id}` notes remain fallback during transition. |
 
 ---
 
@@ -54,8 +55,8 @@
 
 | #   | Logic                                                                                                                          | Explanation                                    |
 | --- | ------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------- |
-| 13  | Details tab shows transaction-level rows for the selected period                                                               | Fetched on demand when the tab becomes active. |
-| 14  | Detail columns include: Date, Category, Type, Description, Amount, Customer, Product Code, Method, Ref, Source Type, Source ID | Provides full audit trail per entry.           |
+| 14  | Details tab shows transaction-level rows for the selected period                                                               | Fetched on demand when the tab becomes active. |
+| 15  | Detail columns include: Date, Category, Type, Description, Amount, Customer, Product Code, Method, Ref, Source Type, Source ID | Provides full audit trail per entry.           |
 
 ---
 

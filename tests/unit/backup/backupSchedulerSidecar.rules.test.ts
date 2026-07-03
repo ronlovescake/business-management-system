@@ -18,13 +18,10 @@
  *  B20:     Skipped-but-successful advances under certain conditions
  */
 
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach } from 'vitest';
 import { readFileSync } from 'fs';
 import { resolve } from 'path';
 
-// ---------------------------------------------------------------------------
-// Load the scheduler source as a string so we can extract testable functions
-// ---------------------------------------------------------------------------
 const SCHEDULER_PATH = resolve(
   __dirname,
   '../../../scripts/run-backup-scheduler.js'
@@ -59,46 +56,8 @@ function createSchedulerSandbox(envOverrides: Record<string, string> = {}) {
     ...envOverrides,
   };
 
-  // Extract function bodies from the source
-  const functions: Record<string, Function> = {};
-
-  // parseScheduleTime
-  const parseScheduleTimeMatch = schedulerSource.match(
-    /function parseScheduleTime\(label, value\)\s*\{([\s\S]*?)(?=\n  function |\n  const parsedConfigByKey)/
-  );
-
-  // shiftDateKey
-  const shiftDateKeyMatch = schedulerSource.match(
-    /function shiftDateKey\(dateKey, days\)\s*\{([\s\S]*?)(?=\n  const parsedConfigByKey|\n  function )/
-  );
-
-  // getZonedParts
-  const getZonedPartsMatch = schedulerSource.match(
-    /function getZonedParts\(date\)\s*\{([\s\S]*?)(?=\n  function getCurrentPeriodKey)/
-  );
-
-  // getCurrentPeriodKey
-  const getCurrentPeriodKeyMatch = schedulerSource.match(
-    /function getCurrentPeriodKey\(zoned, config\)\s*\{([\s\S]*?)(?=\n  function getDuePeriodKey)/
-  );
-
-  // getDuePeriodKey
-  const getDuePeriodKeyMatch = schedulerSource.match(
-    /function getDuePeriodKey\(zoned, config\)\s*\{([\s\S]*?)(?=\n  async function triggerBackup)/
-  );
-
   return {
     env: mockEnv,
-    WEEKDAY_NAMES: [
-      'sunday',
-      'monday',
-      'tuesday',
-      'wednesday',
-      'thursday',
-      'friday',
-      'saturday',
-    ],
-
     parseScheduleTime(label: string, value: string) {
       const [scheduledHour, scheduledMinute] = value
         .split(':')
@@ -154,9 +113,7 @@ function createSchedulerSandbox(envOverrides: Record<string, string> = {}) {
         return dayIndex;
       }
 
-      throw new Error(
-        `${label} schedule day must be a weekday name or 0-6`
-      );
+      throw new Error(`${label} schedule day must be a weekday name or 0-6`);
     },
 
     shiftDateKey(dateKey: string, days: number) {
@@ -211,8 +168,21 @@ function createSchedulerSandbox(envOverrides: Record<string, string> = {}) {
     },
 
     getCurrentPeriodKey(
-      zoned: { year: string; month: string; day: string; hour: number; minute: number; weekday: number },
-      config: { periodStrategy: string; scheduleCadence?: string; scheduleDayOfWeek?: number | null; scheduledHour?: number | null; scheduledMinute?: number | null }
+      zoned: {
+        year: string;
+        month: string;
+        day: string;
+        hour: number;
+        minute: number;
+        weekday: number;
+      },
+      config: {
+        periodStrategy: string;
+        scheduleCadence?: string;
+        scheduleDayOfWeek?: number | null;
+        scheduledHour?: number | null;
+        scheduledMinute?: number | null;
+      }
     ) {
       const dateKey = `${zoned.year}-${zoned.month}-${zoned.day}`;
       if (config.periodStrategy === 'minute') {
@@ -225,23 +195,26 @@ function createSchedulerSandbox(envOverrides: Record<string, string> = {}) {
         return dateKey;
       }
 
-      const WEEKDAY_NAMES = [
-        'sunday',
-        'monday',
-        'tuesday',
-        'wednesday',
-        'thursday',
-        'friday',
-        'saturday',
-      ];
-      const offset =
-        (zoned.weekday - (config.scheduleDayOfWeek ?? 0) + 7) % 7;
+      const offset = (zoned.weekday - (config.scheduleDayOfWeek ?? 0) + 7) % 7;
       return this.shiftDateKey(dateKey, -offset);
     },
 
     getDuePeriodKey(
-      zoned: { year: string; month: string; day: string; hour: number; minute: number; weekday: number },
-      config: { periodStrategy: string; scheduleCadence?: string; scheduleDayOfWeek?: number | null; scheduledHour?: number | null; scheduledMinute?: number | null }
+      zoned: {
+        year: string;
+        month: string;
+        day: string;
+        hour: number;
+        minute: number;
+        weekday: number;
+      },
+      config: {
+        periodStrategy: string;
+        scheduleCadence?: string;
+        scheduleDayOfWeek?: number | null;
+        scheduledHour?: number | null;
+        scheduledMinute?: number | null;
+      }
     ) {
       const dateKey = `${zoned.year}-${zoned.month}-${zoned.day}`;
 
@@ -303,17 +276,11 @@ describe('Backup Scheduler Sidecar — Pure Functions', () => {
     });
 
     it('rejects invalid time formats', () => {
-      expect(() => sandbox.parseScheduleTime('test', '25:00')).toThrow(
-        'HH:MM'
-      );
-      expect(() => sandbox.parseScheduleTime('test', '12:60')).toThrow(
-        'HH:MM'
-      );
+      expect(() => sandbox.parseScheduleTime('test', '25:00')).toThrow('HH:MM');
+      expect(() => sandbox.parseScheduleTime('test', '12:60')).toThrow('HH:MM');
       expect(() => sandbox.parseScheduleTime('test', 'abc')).toThrow('HH:MM');
       expect(() => sandbox.parseScheduleTime('test', '')).toThrow('HH:MM');
-      expect(() => sandbox.parseScheduleTime('test', '-1:00')).toThrow(
-        'HH:MM'
-      );
+      expect(() => sandbox.parseScheduleTime('test', '-1:00')).toThrow('HH:MM');
     });
   });
 
@@ -663,16 +630,12 @@ describe('Backup Scheduler Sidecar — Config Rules', () => {
   });
 
   it('B8: disabled configs are filtered before the polling loop', () => {
-    expect(schedulerSource).toContain(
-      '.filter((config) => config.enabled)'
-    );
+    expect(schedulerSource).toContain('.filter((config) => config.enabled)');
   });
 
   it('B9: exits with code 1 if token is empty when configs exist', () => {
     expect(schedulerSource).toContain('process.exit(1)');
-    expect(schedulerSource).toContain(
-      'INTERNAL_JOB_TOKEN is required'
-    );
+    expect(schedulerSource).toContain('INTERNAL_JOB_TOKEN is required');
   });
 
   it('B11: employee automation configs use minute period strategy', () => {
@@ -697,11 +660,15 @@ describe('Backup Scheduler Sidecar — Defaults', () => {
   it('C: full backup defaults to Sunday 22:00 weekly', () => {
     expect(configSource).toContain("DEFAULT_FULL_BACKUP_TIME = '22:00'");
     expect(configSource).toContain("DEFAULT_FULL_BACKUP_CADENCE = 'weekly'");
-    expect(configSource).toContain("DEFAULT_FULL_BACKUP_DAY_OF_WEEK = 'sunday'");
+    expect(configSource).toContain(
+      "DEFAULT_FULL_BACKUP_DAY_OF_WEEK = 'sunday'"
+    );
   });
 
   it('C: differential backup defaults to 12:00 daily', () => {
-    expect(configSource).toContain("DEFAULT_DIFFERENTIAL_BACKUP_TIME = '12:00'");
+    expect(configSource).toContain(
+      "DEFAULT_DIFFERENTIAL_BACKUP_TIME = '12:00'"
+    );
   });
 
   it('C: PITR base defaults to 01:00', () => {
@@ -712,7 +679,7 @@ describe('Backup Scheduler Sidecar — Defaults', () => {
     expect(configSource).toContain("DEFAULT_LOG_PRUNE_TIME = '03:00'");
   });
 
-  it('C: retention defaults to 30 days', () => {
-    expect(configSource).toContain('DEFAULT_BACKUP_RETENTION_DAYS = 30');
+  it('C: retention defaults to 14 days', () => {
+    expect(configSource).toContain('DEFAULT_BACKUP_RETENTION_DAYS = 14');
   });
 });

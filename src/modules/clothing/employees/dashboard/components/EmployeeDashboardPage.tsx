@@ -45,6 +45,7 @@ import {
 } from 'recharts';
 import { PageLayout } from '@/components/layout/PageLayout';
 import { StatsCardGrid } from '@/components/ui';
+import { ChartEmptyState } from './ChartEmptyState';
 import { DashboardErrorBoundary } from './DashboardErrorBoundary';
 import { useEmployeeDashboard } from '../hooks/useEmployeeDashboard';
 import type { DashboardViewMode } from '../types';
@@ -92,24 +93,6 @@ function getStatusColor(status: string): string {
 function getStatusChartColor(status: string): string {
   const color = STATUS_COLOR_MAP[status.toLowerCase()];
   return color ? `var(--mantine-color-${color}-6)` : '#adb5bd';
-}
-
-function ChartEmptyState({ message }: { message: string }) {
-  return (
-    <div
-      style={{
-        height: '100%',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        padding: '1rem',
-      }}
-    >
-      <Text size="sm" c="dimmed" ta="center">
-        {message}
-      </Text>
-    </div>
-  );
 }
 
 function DashboardContent() {

@@ -200,18 +200,23 @@ model SplitBatchComponent {
 }
 
 model InventoryMovement {
-  id          Int             @id @default(autoincrement())
-  createdAt   DateTime        @default(now())
-  updatedAt   DateTime        @default(now()) @updatedAt
-  postingDate String?         @db.VarChar(50)
-  productCode String          @db.VarChar(100)
-  quantity    Float
-  fromBucket  InventoryBucket
-  toBucket    InventoryBucket
-  notes       String?
-  deletedAt   DateTime?
+  id                  Int             @id @default(autoincrement())
+  createdAt           DateTime        @default(now())
+  updatedAt           DateTime        @default(now()) @updatedAt
+  postingDate         String?         @db.VarChar(50)
+  productCode         String          @db.VarChar(100)
+  quantity            Float
+  fromBucket          InventoryBucket
+  toBucket            InventoryBucket
+  notes               String?
+  sourceTransactionId Int?
+  movementSource      String?         @db.VarChar(50)
+  movementType        String?         @db.VarChar(50)
+  deletedAt           DateTime?
 
   @@index([productCode])
+  @@index([sourceTransactionId])
+  @@index([movementSource, movementType])
   @@index([fromBucket])
   @@index([toBucket])
   @@index([createdAt])
@@ -2225,18 +2230,23 @@ model GeneralMerchandiseBundleBatchComponent {
 }
 
 model GeneralMerchandiseInventoryMovement {
-  id          Int             @id @default(autoincrement())
-  createdAt   DateTime        @default(now())
-  updatedAt   DateTime        @default(now()) @updatedAt
-  postingDate String?         @db.VarChar(50)
-  productCode String          @db.VarChar(100)
-  quantity    Float
-  fromBucket  InventoryBucket
-  toBucket    InventoryBucket
-  notes       String?
-  deletedAt   DateTime?
+  id                  Int             @id @default(autoincrement())
+  createdAt           DateTime        @default(now())
+  updatedAt           DateTime        @default(now()) @updatedAt
+  postingDate         String?         @db.VarChar(50)
+  productCode         String          @db.VarChar(100)
+  quantity            Float
+  fromBucket          InventoryBucket
+  toBucket            InventoryBucket
+  notes               String?
+  sourceTransactionId Int?
+  movementSource      String?         @db.VarChar(50)
+  movementType        String?         @db.VarChar(50)
+  deletedAt           DateTime?
 
   @@index([productCode])
+  @@index([sourceTransactionId])
+  @@index([movementSource, movementType])
   @@index([fromBucket])
   @@index([toBucket])
   @@index([createdAt])

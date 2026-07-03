@@ -20,6 +20,11 @@ Notes:
 
 If the ledger was **seeded** using an “opening balance” / receipt backfill (e.g., a single `scrap -> sellable` movement like `receipt-backfill`) and you also ran the **historical sales** backfill (`auto-sale txn ...`), you can end up with negative sellable because the ledger is subtracting historical sales from an already-net opening balance.
 
+Auto-generated reserve and sale movements now carry nullable source metadata (`sourceTransactionId`, `movementSource`, `movementType`) in addition to human-readable notes. Existing historical rows can be upgraded without changing quantities or buckets:
+
+- Dry run: `npm run -s inventory:movements:backfill-traceability -- --domain all --limit 500`
+- Apply metadata-only updates: `npm run -s inventory:movements:backfill-traceability -- --apply --domain all --limit 500`
+
 To safely remove the historical auto-sale backfill movements, run:
 
 - Dry run (shows what would be deleted): `npm run -s inventory:ledger:rollback-sales-backfill`

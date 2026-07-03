@@ -2,6 +2,7 @@ import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 
 import { logger } from '@/lib/logger';
+import { requireInternalToken } from '@/lib/internal-jobs/auth';
 import {
   ScheduledBackupConfigurationError,
   runScheduledBackupJob,
@@ -10,29 +11,6 @@ import {
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
-
-function requireInternalToken(req: NextRequest): NextResponse | null {
-  const expected = (process.env.INTERNAL_JOB_TOKEN || '').trim();
-  if (!expected) {
-    return NextResponse.json(
-      {
-        success: false,
-        error: 'INTERNAL_JOB_TOKEN is not configured on the server',
-      },
-      { status: 500 }
-    );
-  }
-
-  const provided = (req.headers.get('x-internal-token') || '').trim();
-  if (!provided || provided !== expected) {
-    return NextResponse.json(
-      { success: false, error: 'Unauthorized' },
-      { status: 401, headers: { 'WWW-Authenticate': 'Bearer' } }
-    );
-  }
-
-  return null;
-}
 
 export async function POST(request: NextRequest) {
   const authError = requireInternalToken(request);

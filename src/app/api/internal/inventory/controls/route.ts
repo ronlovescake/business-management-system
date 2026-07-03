@@ -2,6 +2,7 @@ import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 
 import { prisma } from '@/lib/db';
+import { requireInternalToken } from '@/lib/internal-jobs/auth';
 import {
   buildSellableDeltaMap,
   normalizeProductCode,
@@ -81,36 +82,17 @@ function parseBool(value: unknown, fallback: boolean): boolean {
   return fallback;
 }
 
-function requireInternalToken(req: NextRequest): NextResponse | null {
-  const expected = (process.env.INTERNAL_JOB_TOKEN || '').trim();
-  if (!expected) {
-    return NextResponse.json(
-      {
-        error: 'misconfigured',
-        message: 'INTERNAL_JOB_TOKEN is not configured on the server',
-      },
-      { status: 500 }
-    );
-  }
-
-  const provided = (req.headers.get('x-internal-token') || '').trim();
-  if (!provided || provided !== expected) {
-    return NextResponse.json(
-      { error: 'unauthorized' },
-      {
-        status: 401,
-        headers: {
-          'WWW-Authenticate': 'Bearer',
-        },
-      }
-    );
-  }
-
-  return null;
-}
+const requireInventoryControlsToken = (req: NextRequest) =>
+  requireInternalToken(req, {
+    missingTokenBody: {
+      error: 'misconfigured',
+      message: 'INTERNAL_JOB_TOKEN is not configured on the server',
+    },
+    unauthorizedBody: { error: 'unauthorized' },
+  });
 
 export async function POST(req: NextRequest) {
-  const authError = requireInternalToken(req);
+  const authError = requireInventoryControlsToken(req);
   if (authError) {
     return authError;
   }
@@ -328,7 +310,7 @@ export async function POST(req: NextRequest) {
 }
 
 export async function GET(req: NextRequest) {
-  const authError = requireInternalToken(req);
+  const authError = requireInventoryControlsToken(req);
   if (authError) {
     return authError;
   }

@@ -190,6 +190,7 @@ async function syncSimpleReserveAndSaleMovements(params: {
   productCode: string;
   quantity: number;
   postingDate: string | null;
+  transactionId: number;
   reserveNote: string;
   saleNote: string;
   reserved: boolean;
@@ -202,6 +203,7 @@ async function syncSimpleReserveAndSaleMovements(params: {
     productCode,
     quantity,
     postingDate,
+    transactionId,
     reserveNote,
     saleNote,
     reserved,
@@ -222,6 +224,11 @@ async function syncSimpleReserveAndSaleMovements(params: {
       toBucket: 'reserved',
       postingDate,
       note: reserveNote,
+      metadata: {
+        sourceTransactionId: transactionId,
+        movementSource: 'transaction',
+        movementType: 'reserve',
+      },
     });
   } else {
     await setAutoMovementInactive({ client, note: reserveNote });
@@ -237,6 +244,11 @@ async function syncSimpleReserveAndSaleMovements(params: {
       toBucket: 'sold',
       postingDate,
       note: saleNote,
+      metadata: {
+        sourceTransactionId: transactionId,
+        movementSource: 'transaction',
+        movementType: 'sale',
+      },
     });
   } else {
     await setAutoMovementInactive({ client, note: saleNote });
@@ -262,7 +274,10 @@ async function syncAllocatedComponentMovements(params: {
     fulfilled,
   } = params;
 
-  const reserveNote = buildAutoMixReserveMovementNote(transactionId, componentCode);
+  const reserveNote = buildAutoMixReserveMovementNote(
+    transactionId,
+    componentCode
+  );
   const saleNote = buildAutoMixSaleMovementNote(transactionId, componentCode);
   const existingMovements = await findExistingAutoMovements(client, {
     reserve: reserveNote,
@@ -276,6 +291,7 @@ async function syncAllocatedComponentMovements(params: {
     productCode: componentCode,
     quantity: allocated,
     postingDate,
+    transactionId,
     reserveNote,
     saleNote,
     reserved,
@@ -594,6 +610,7 @@ export async function syncInventoryMovementsForTransaction(
     productCode: simpleMovementProductCode,
     quantity,
     postingDate: movementState.postingDate,
+    transactionId: transaction.id,
     reserveNote: notes.reserve,
     saleNote: notes.sale,
     reserved: movementState.reserved,

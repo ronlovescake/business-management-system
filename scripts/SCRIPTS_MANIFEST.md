@@ -84,14 +84,15 @@ Add the date you last ran a script in the **Last Used** column when known.
 
 ## Database — Backfills / Resyncs
 
-| Script                                        | Purpose                                          | Risk |
-| --------------------------------------------- | ------------------------------------------------ | ---- |
-| `backfill-receipt-movements.ts`               | Backfills receipt-driven inventory movements.    | 🔴   |
-| `backfill-reservation-movements.ts`           | Backfills reservation movements.                 | 🔴   |
-| `backfill-sale-movements.ts`                  | Backfills sale-driven movements.                 | 🔴   |
-| `resync-paid-prepared-inventory-movements.ts` | Resyncs paid/prepared inventory movements.       | 🔴   |
-| `rollback-sale-backfill-movements.ts`         | Rolls back a sale-backfill run.                  | 🔴   |
-| `trucking-trip-customer-backfill.js`          | Backfills customer references on trucking trips. | 🔴   |
+| Script                                        | Purpose                                                                                      | Risk |
+| --------------------------------------------- | -------------------------------------------------------------------------------------------- | ---- |
+| `backfill-receipt-movements.ts`               | Backfills receipt-driven inventory movements.                                                | 🔴   |
+| `backfill-inventory-movement-traceability.ts` | Backfills nullable source metadata on existing auto inventory movements; dry-run by default. | 🟡   |
+| `backfill-reservation-movements.ts`           | Backfills reservation movements.                                                             | 🔴   |
+| `backfill-sale-movements.ts`                  | Backfills sale-driven movements.                                                             | 🔴   |
+| `resync-paid-prepared-inventory-movements.ts` | Resyncs paid/prepared inventory movements.                                                   | 🔴   |
+| `rollback-sale-backfill-movements.ts`         | Rolls back a sale-backfill run.                                                              | 🔴   |
+| `trucking-trip-customer-backfill.js`          | Backfills customer references on trucking trips.                                             | 🔴   |
 
 ## Database — Destructive Cleanups
 
