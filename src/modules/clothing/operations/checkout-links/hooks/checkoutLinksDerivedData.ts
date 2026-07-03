@@ -1,27 +1,6 @@
 import type { CustomerOrderData, InvoiceData } from '../types';
 import type { TransactionData } from '../../transactions/types/transaction.types';
 
-export const buildInvoiceWeightsByCustomer = (invoiceData: InvoiceData[]) => {
-  const map = new Map<string, string>();
-
-  invoiceData.forEach((invoice) => {
-    const customerName = invoice.customerName?.trim().toLowerCase();
-    if (!customerName) {
-      return;
-    }
-
-    if (!invoice.actualWeight) {
-      return;
-    }
-
-    if (!map.has(customerName)) {
-      map.set(customerName, invoice.actualWeight);
-    }
-  });
-
-  return map;
-};
-
 export const buildCustomerOrderWeightsByCustomer = (
   customerOrders: CustomerOrderData[]
 ) => {
@@ -47,14 +26,12 @@ export const buildCustomerOrderWeightsByCustomer = (
 type BuildLocalInvoiceDataArgs = {
   transactionsWithInvoiceDate: TransactionData[];
   localInvoiceTickboxes: Record<string, boolean>;
-  invoiceWeightsByCustomer: Map<string, string>;
   customerOrderWeightsByCustomer: Map<string, number>;
 };
 
 export const buildLocalInvoiceData = ({
   transactionsWithInvoiceDate,
   localInvoiceTickboxes,
-  invoiceWeightsByCustomer,
   customerOrderWeightsByCustomer,
 }: BuildLocalInvoiceDataArgs): InvoiceData[] => {
   if (transactionsWithInvoiceDate.length === 0) {
@@ -78,7 +55,6 @@ export const buildLocalInvoiceData = ({
 
     const key = customerName.toLowerCase();
     const derivedOrderWeight = customerOrderWeightsByCustomer.get(key);
-    const invoiceActualWeight = invoiceWeightsByCustomer.get(key);
     const existing = byCustomer.get(key);
     const recordId = existing?.id ?? `local-${transaction.id ?? key}`;
     const isChecked = Boolean(localInvoiceTickboxes[recordId]);
@@ -96,8 +72,6 @@ export const buildLocalInvoiceData = ({
 
       if (derivedOrderWeight !== undefined) {
         existing.actualWeight = derivedOrderWeight.toFixed(2);
-      } else if (invoiceActualWeight) {
-        existing.actualWeight = invoiceActualWeight;
       }
       existing.tickbox = isChecked;
       return;
@@ -106,9 +80,6 @@ export const buildLocalInvoiceData = ({
     const resolvedActualWeight = (() => {
       if (derivedOrderWeight !== undefined) {
         return derivedOrderWeight.toFixed(2);
-      }
-      if (invoiceActualWeight) {
-        return invoiceActualWeight;
       }
       return '';
     })();

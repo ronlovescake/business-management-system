@@ -2,29 +2,25 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useForm } from '@mantine/form';
 import { showNotification } from '@mantine/notifications';
 import { getSwal } from '@/lib/alerts';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import { api } from '@/lib/api/client';
 import { buildApiPath } from '@/lib/api/paths';
 import { queryKeys } from '@/lib/queryKeys';
 import { getCurrentDateISO } from '@/utils/date';
 import { useInvoiceCustomerLookup } from './useInvoiceCustomerLookup';
 import {
-  calculateInvoiceWeights,
   fetchCheckoutLinksData,
   fetchCustomerOrders,
-  fetchInvoicesData,
   fetchProductsData,
 } from './checkoutLinksApi';
 import {
   buildCustomerOrderWeightsByCustomer,
-  buildInvoiceWeightsByCustomer,
   buildLocalInvoiceData,
   buildLocalInvoiceDateOptions,
 } from './checkoutLinksDerivedData';
 import {
   filterCheckoutLinks,
   filterCustomerOrders,
-  filterInvoiceData,
   filterItemWeightData,
   filterLocalInvoiceData,
 } from './checkoutLinksFilters';
@@ -63,7 +59,6 @@ export const useCheckoutLinksPage = ({
   checkoutLinksApiBasePath,
 }: CheckoutLinksApiConfig = {}) => {
   const [activeTab, setActiveTab] = useState<string | null>('invoicing');
-  const [invoicingSearchQuery, setInvoicingSearchQuery] = useState('');
   const [localInvoicingSearchQuery, setLocalInvoicingSearchQuery] =
     useState('');
   const [customerOrdersSearchQuery, setCustomerOrdersSearchQuery] =
@@ -71,10 +66,8 @@ export const useCheckoutLinksPage = ({
   const [itemWeightSearchQuery, setItemWeightSearchQuery] = useState('');
   const [checkoutLinksSearchQuery, setCheckoutLinksSearchQuery] = useState('');
   const [isImporting, setIsImporting] = useState(false);
-  const [isSyncing, setIsSyncing] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [checkoutLinks, setCheckoutLinks] = useState<CheckoutLinkData[]>([]);
-  const [invoiceData, setInvoiceData] = useState<InvoiceData[]>([]);
   const [localInvoiceDateFilter, setLocalInvoiceDateFilter] = useState<
     string | null
   >(null);
@@ -105,12 +98,15 @@ export const useCheckoutLinksPage = ({
       buildApiPath(checkoutLinksApiBasePath ?? apiBasePath, path),
     [checkoutLinksApiBasePath, apiBasePath]
   );
-  const queryClient = useQueryClient();
   const queryScope = apiBasePath ?? 'default';
-  const invoiceSettingsQueryKey =
-    queryKeys.checkoutLinks.invoiceSettings(queryScope);
-  const customerOrdersQueryKey =
-    queryKeys.checkoutLinks.customerOrders(queryScope);
+  const invoiceSettingsQueryKey = useMemo(
+    () => queryKeys.checkoutLinks.invoiceSettings(queryScope),
+    [queryScope]
+  );
+  const customerOrdersQueryKey = useMemo(
+    () => queryKeys.checkoutLinks.customerOrders(queryScope),
+    [queryScope]
+  );
 
   const { data: invoiceSettings } = useQuery<InvoiceSettingsResponse>({
     queryKey: invoiceSettingsQueryKey,
@@ -156,46 +152,6 @@ export const useCheckoutLinksPage = ({
       staleTime: 30 * 1000,
     });
 
-  const handleCalculateWeights = useCallback(async () => {
-    try {
-      const result = await calculateInvoiceWeights(
-        resolveApiPath('/invoices/calculate-weights')
-      );
-
-      setInvoiceData(result.invoices);
-
-      const calculationResults = result.results;
-
-      const totalCalculated = calculationResults.length;
-      const withUnmatched = calculationResults.filter(
-        (r) =>
-          Array.isArray(r.unmatchedProducts) && r.unmatchedProducts.length > 0
-      ).length;
-
-      let message = `Successfully calculated weights for ${totalCalculated} invoice(s)`;
-      if (withUnmatched > 0) {
-        message += `. ${withUnmatched} invoice(s) have products without weight data.`;
-      }
-
-      showNotification({
-        title: 'Weight Calculation Complete',
-        message,
-        color: 'green',
-      });
-
-      await queryClient.invalidateQueries({ queryKey: customerOrdersQueryKey });
-    } catch (error) {
-      showNotification({
-        title: 'Calculation Failed',
-        message:
-          error instanceof Error
-            ? error.message
-            : 'Failed to calculate weights',
-        color: 'red',
-      });
-    }
-  }, [customerOrdersQueryKey, queryClient, resolveApiPath]);
-
   const loadCheckoutLinks = useCallback(async () => {
     try {
       const data = await fetchCheckoutLinksData(
@@ -212,23 +168,6 @@ export const useCheckoutLinksPage = ({
       setIsLoading(false);
     }
   }, [resolveCheckoutLinksApiPath]);
-
-  const loadInvoices = useCallback(async () => {
-    try {
-      const data = await fetchInvoicesData(resolveApiPath('/invoices'));
-      setInvoiceData(data);
-
-      if (data.length > 0) {
-        void handleCalculateWeights();
-      }
-    } catch (error) {
-      showNotification({
-        title: 'Error',
-        message: 'Failed to load invoices',
-        color: 'red',
-      });
-    }
-  }, [handleCalculateWeights, resolveApiPath]);
 
   const loadProductWeights = useCallback(async () => {
     setIsItemWeightLoading(true);
@@ -294,7 +233,7 @@ export const useCheckoutLinksPage = ({
         message:
           error instanceof Error
             ? error.message
-            : 'Failed to load transactions for local invoicing',
+            : 'Failed to load transactions for invoicing',
         color: 'red',
       });
     }
@@ -303,10 +242,6 @@ export const useCheckoutLinksPage = ({
   useEffect(() => {
     void loadCheckoutLinks();
   }, [loadCheckoutLinks]);
-
-  useEffect(() => {
-    void loadInvoices();
-  }, [loadInvoices]);
 
   useEffect(() => {
     void loadProductWeights();
@@ -320,14 +255,6 @@ export const useCheckoutLinksPage = ({
     return filterCheckoutLinks(checkoutLinks, checkoutLinksSearchQuery);
   }, [checkoutLinks, checkoutLinksSearchQuery]);
 
-  const filteredInvoiceData = useMemo(() => {
-    return filterInvoiceData(invoiceData, invoicingSearchQuery);
-  }, [invoiceData, invoicingSearchQuery]);
-
-  const invoiceWeightsByCustomer = useMemo(() => {
-    return buildInvoiceWeightsByCustomer(invoiceData);
-  }, [invoiceData]);
-
   const customerOrderWeightsByCustomer = useMemo(() => {
     return buildCustomerOrderWeightsByCustomer(customerOrders);
   }, [customerOrders]);
@@ -336,13 +263,11 @@ export const useCheckoutLinksPage = ({
     return buildLocalInvoiceData({
       transactionsWithInvoiceDate,
       localInvoiceTickboxes,
-      invoiceWeightsByCustomer,
       customerOrderWeightsByCustomer,
     });
   }, [
     transactionsWithInvoiceDate,
     localInvoiceTickboxes,
-    invoiceWeightsByCustomer,
     customerOrderWeightsByCustomer,
   ]);
 
@@ -381,10 +306,6 @@ export const useCheckoutLinksPage = ({
   const filteredCustomerOrders = useMemo(() => {
     return filterCustomerOrders(customerOrders, customerOrdersSearchQuery);
   }, [customerOrders, customerOrdersSearchQuery]);
-
-  const handleInvoicingSearch = useCallback((query: string) => {
-    setInvoicingSearchQuery(query);
-  }, []);
 
   const handleLocalInvoicingSearch = useCallback((query: string) => {
     setLocalInvoicingSearchQuery(query);
@@ -828,97 +749,6 @@ export const useCheckoutLinksPage = ({
     });
   }, [filteredCheckoutLinks]);
 
-  const handleSyncGoogleDrive = useCallback(async () => {
-    setIsSyncing(true);
-
-    try {
-      const response = await fetch('/api/google-drive/sync-files');
-      const result = await response.json();
-
-      if (!result.success) {
-        if (result.setupInstructions) {
-          showNotification({
-            title: 'Google Drive Not Configured',
-            message:
-              result.error ||
-              'Please configure Google Drive credentials in your environment variables. Check .env.example for setup instructions.',
-            color: 'yellow',
-            autoClose: 10000,
-          });
-          return;
-        }
-
-        if (result.instructions) {
-          showNotification({
-            title: 'Package Not Installed',
-            message: result.instructions,
-            color: 'yellow',
-            autoClose: 10000,
-          });
-          return;
-        }
-
-        throw new Error(result.error || 'Failed to sync Google Drive files');
-      }
-
-      const syncedData: InvoiceData[] = result.data.map(
-        (item: {
-          customerName: string;
-          driveFiles: string;
-          fileId: string;
-          fileName: string;
-        }) => ({
-          id: item.fileId || `temp-${Date.now()}-${Math.random()}`,
-          customerName: item.customerName,
-          actualWeight: '',
-          finalWeight: '',
-          shopeeCheckoutLinks: '',
-          driveFiles: item.driveFiles,
-          message: '',
-          chat: '',
-          tickbox: false,
-        })
-      );
-
-      const saveResponse = await fetch(resolveApiPath('/invoices'), {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ invoices: syncedData }),
-      });
-
-      const saveResult = await saveResponse.json();
-
-      if (!saveResponse.ok || !saveResult.success) {
-        throw new Error(
-          saveResult.error || 'Failed to save invoices to database'
-        );
-      }
-
-      setInvoiceData(saveResult.data);
-
-      showNotification({
-        title: 'Sync Successful',
-        message: `Successfully synced and saved ${syncedData.length} files from Google Drive`,
-        color: 'green',
-      });
-
-      void handleCalculateWeights();
-    } catch (error) {
-      showNotification({
-        title: 'Sync Failed',
-        message:
-          error instanceof Error
-            ? error.message
-            : 'Failed to sync Google Drive files',
-        color: 'red',
-      });
-    } finally {
-      setIsSyncing(false);
-    }
-  }, [handleCalculateWeights, resolveApiPath]);
-
   const handleOpenProductsModule = useCallback(() => {
     if (typeof window !== 'undefined') {
       const productsPath =
@@ -928,52 +758,6 @@ export const useCheckoutLinksPage = ({
       window.open(productsPath, '_blank');
     }
   }, [apiBasePath]);
-
-  const updateInvoiceTickbox = useCallback(
-    async (invoiceId: string, tickbox: boolean) => {
-      try {
-        const response = await fetch(
-          `${resolveApiPath('/invoices')}/${invoiceId}/tickbox`,
-          {
-            method: 'PUT',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({ tickbox }),
-          }
-        );
-
-        if (!response.ok) {
-          throw new Error('Failed to update tickbox');
-        }
-
-        return true;
-      } catch (error) {
-        showNotification({
-          title: 'Error',
-          message: 'Failed to update message sent status',
-          color: 'red',
-        });
-        return false;
-      }
-    },
-    [resolveApiPath]
-  );
-
-  const handleInvoiceTickboxChange = useCallback(
-    async (invoiceId: string, newValue: boolean) => {
-      const newData = invoiceData.map((item) =>
-        item.id === invoiceId ? { ...item, tickbox: newValue } : item
-      );
-      setInvoiceData(newData);
-
-      const success = await updateInvoiceTickbox(invoiceId, newValue);
-      if (!success) {
-        setInvoiceData(invoiceData);
-      }
-    },
-    [invoiceData, updateInvoiceTickbox]
-  );
 
   const sendInvoiceMessengerMessage = useCallback(
     async (invoice: InvoiceData, driveFilesOverride?: string) => {
@@ -1033,25 +817,6 @@ export const useCheckoutLinksPage = ({
     [checkoutLinks, invoiceSettings, lookupFacebookLink]
   );
 
-  const handleCustomerNameClick = useCallback(
-    async (invoice: InvoiceData) => {
-      const success = await sendInvoiceMessengerMessage(invoice);
-      if (!success) {
-        return;
-      }
-
-      const updated = await updateInvoiceTickbox(invoice.id, true);
-      if (updated) {
-        setInvoiceData((prev) =>
-          prev.map((item) =>
-            item.id === invoice.id ? { ...item, tickbox: true } : item
-          )
-        );
-      }
-    },
-    [sendInvoiceMessengerMessage, setInvoiceData, updateInvoiceTickbox]
-  );
-
   const handleLocalCustomerNameClick = useCallback(
     async (invoice: InvoiceData) => {
       const success = await sendInvoiceMessengerMessage(invoice, '');
@@ -1093,17 +858,6 @@ export const useCheckoutLinksPage = ({
       handleDelete,
       searchQuery: checkoutLinksSearchQuery,
       handleSearch: handleCheckoutLinksSearch,
-    },
-    invoicesState: {
-      data: invoiceData,
-      filteredData: filteredInvoiceData,
-      isSyncing,
-      handleSyncGoogleDrive,
-      handleCustomerNameClick,
-      handleInvoiceTickboxChange,
-      hasFacebookLink,
-      searchQuery: invoicingSearchQuery,
-      handleSearch: handleInvoicingSearch,
     },
     localInvoicesState: {
       data: localInvoiceData,

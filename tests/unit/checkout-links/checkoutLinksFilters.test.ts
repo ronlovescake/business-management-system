@@ -2,7 +2,6 @@ import { describe, expect, it } from 'vitest';
 
 import {
   filterCheckoutLinks,
-  filterInvoiceData,
   filterItemWeightData,
   filterCustomerOrders,
   filterLocalInvoiceData,
@@ -38,31 +37,6 @@ const checkoutLinks: CheckoutLinkData[] = [
     checkoutLinks: 'https://shopee.ph/checkout-def',
     productPortals: 'Portal-B',
     productNames: 'Red Dress',
-  },
-];
-
-const invoices: InvoiceData[] = [
-  {
-    id: '1',
-    customerName: 'Alice Johnson',
-    actualWeight: '2.50',
-    finalWeight: '3.00',
-    shopeeCheckoutLinks: 'https://shopee.ph/link-1',
-    driveFiles: 'invoice-001.pdf',
-    message: 'Hello Alice',
-    chat: 'chat-1',
-    tickbox: false,
-  },
-  {
-    id: '2',
-    customerName: 'Bob Smith',
-    actualWeight: '4.00',
-    finalWeight: '4.50',
-    shopeeCheckoutLinks: 'https://shopee.ph/link-2',
-    driveFiles: 'invoice-002.pdf',
-    message: 'Hello Bob',
-    chat: 'chat-2',
-    tickbox: true,
   },
 ];
 
@@ -140,32 +114,6 @@ describe('filterCheckoutLinks', () => {
 });
 
 // ---------------------------------------------------------------------------
-// filterInvoiceData
-// ---------------------------------------------------------------------------
-
-describe('filterInvoiceData', () => {
-  it('returns all items when search query is empty', () => {
-    expect(filterInvoiceData(invoices, '')).toEqual(invoices);
-  });
-
-  it('matches by customerName', () => {
-    expect(filterInvoiceData(invoices, 'alice')).toEqual([invoices[0]]);
-  });
-
-  it('matches by actualWeight', () => {
-    expect(filterInvoiceData(invoices, '4.00')).toEqual([invoices[1]]);
-  });
-
-  it('matches by driveFiles', () => {
-    expect(filterInvoiceData(invoices, 'invoice-001')).toEqual([invoices[0]]);
-  });
-
-  it('returns empty array when nothing matches', () => {
-    expect(filterInvoiceData(invoices, 'nobody')).toEqual([]);
-  });
-});
-
-// ---------------------------------------------------------------------------
 // filterItemWeightData
 // ---------------------------------------------------------------------------
 
@@ -187,9 +135,7 @@ describe('filterItemWeightData', () => {
   });
 
   it('matches by approxWeightPerPiece', () => {
-    expect(filterItemWeightData(itemWeights, '0.80')).toEqual([
-      itemWeights[1],
-    ]);
+    expect(filterItemWeightData(itemWeights, '0.80')).toEqual([itemWeights[1]]);
   });
 
   it('returns empty array when nothing matches', () => {
@@ -289,11 +235,7 @@ describe('filterLocalInvoiceData', () => {
   });
 
   it('returns empty when selectedDate does not match', () => {
-    const result = filterLocalInvoiceData(
-      localInvoices,
-      'alice',
-      '2099-01-01'
-    );
+    const result = filterLocalInvoiceData(localInvoices, 'alice', '2099-01-01');
     expect(result).toEqual([]);
   });
 

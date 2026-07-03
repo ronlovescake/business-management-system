@@ -15,8 +15,8 @@ export interface InvoicingTabProps {
   onImport?: (file: File | null) => void;
   onExport?: () => void;
   searchValue?: string;
-  onSyncGoogleDrive?: () => void;
-  isSyncing?: boolean;
+  onAddNew?: () => void;
+  isActionLoading?: boolean;
   onCustomerNameClick?: (invoice: InvoiceData) => void;
   hasFacebookLink?: (customerName: string) => boolean;
   onTickboxChange?: (invoiceId: string, nextValue: boolean) => void;
@@ -41,8 +41,8 @@ export function InvoicingTab({
   onSearch,
   onImport,
   onExport,
-  onSyncGoogleDrive,
-  isSyncing,
+  onAddNew,
+  isActionLoading,
   onCustomerNameClick,
   hasFacebookLink,
   onTickboxChange,
@@ -51,13 +51,13 @@ export function InvoicingTab({
   searchPlaceholder = 'Search invoicing records...',
   summaryLabel = 'invoicing records',
   emptyStateMessage = "No invoicing records found. Click 'Add New' to get started.",
-  addNewLabel = 'Retrieve Google Drive Invoices',
+  addNewLabel = 'Add New',
   showAddNewButton = true,
   searchAddon,
   showDriveFilesColumn = true,
   searchValue,
 }: InvoicingTabProps) {
-  const safeIsSyncing = Boolean(isSyncing);
+  const safeIsActionLoading = Boolean(isActionLoading);
   const safeCalculateFinalWeight =
     calculateFinalWeight ?? ((weight: string) => weight);
   const safeFindCheckoutLinkByWeight =
@@ -73,9 +73,9 @@ export function InvoicingTab({
         onExport={onExport}
         hideImport={!onImport}
         hideExport={!onExport}
-        onAddNew={showAddNewButton ? onSyncGoogleDrive : undefined}
+        onAddNew={showAddNewButton ? onAddNew : undefined}
         addNewLabel={addNewLabel}
-        isImporting={safeIsSyncing}
+        isImporting={safeIsActionLoading}
         hideAddNew={!showAddNewButton}
         searchAddon={searchAddon}
       />

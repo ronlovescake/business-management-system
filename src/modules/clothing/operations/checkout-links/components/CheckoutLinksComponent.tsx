@@ -3,7 +3,6 @@
 import { Stack, Tabs } from '@mantine/core';
 import { CheckoutLinkEditorModal } from './modals/CheckoutLinkEditorModal';
 import { CheckoutLinksTab } from './tabs/CheckoutLinksTab';
-import { InvoicingTab } from './tabs/InvoicingTab';
 import { ItemWeightTab } from './tabs/ItemWeightTab';
 import { LocalInvoicingTab } from './tabs/LocalInvoicingTab';
 import { CustomerOrdersTab } from './tabs/CustomerOrdersTab';
@@ -20,7 +19,6 @@ export function CheckoutLinksComponent({
     activeTab,
     setActiveTab,
     checkoutLinksState,
-    invoicesState,
     localInvoicesState,
     customerOrdersState,
     itemWeightsState,
@@ -35,30 +33,12 @@ export function CheckoutLinksComponent({
       <Tabs value={activeTab} onChange={setActiveTab}>
         <Tabs.List>
           <Tabs.Tab value="invoicing">Invoicing</Tabs.Tab>
-          <Tabs.Tab value="local-invoicing">Local Invoicing</Tabs.Tab>
           <Tabs.Tab value="customer-orders">Customer Orders</Tabs.Tab>
           <Tabs.Tab value="item-weight">Item Weight</Tabs.Tab>
           <Tabs.Tab value="checkout-links">Checkout Link</Tabs.Tab>
         </Tabs.List>
 
         <Tabs.Panel value="invoicing" pt="md">
-          <InvoicingTab
-            invoiceData={invoicesState.data}
-            filteredInvoiceData={invoicesState.filteredData}
-            checkoutLinks={checkoutLinksState.data}
-            onSearch={invoicesState.handleSearch}
-            searchValue={invoicesState.searchQuery}
-            onSyncGoogleDrive={invoicesState.handleSyncGoogleDrive}
-            isSyncing={invoicesState.isSyncing}
-            onCustomerNameClick={invoicesState.handleCustomerNameClick}
-            hasFacebookLink={invoicesState.hasFacebookLink}
-            onTickboxChange={invoicesState.handleInvoiceTickboxChange}
-            calculateFinalWeight={utilities.calculateFinalWeight}
-            findCheckoutLinkByWeight={utilities.findCheckoutLinkByWeight}
-          />
-        </Tabs.Panel>
-
-        <Tabs.Panel value="local-invoicing" pt="md">
           <LocalInvoicingTab
             invoiceData={localInvoicesState.data}
             filteredInvoiceData={localInvoicesState.filteredData}
@@ -70,8 +50,8 @@ export function CheckoutLinksComponent({
             onCustomerNameClick={localInvoicesState.handleCustomerNameClick}
             hasFacebookLink={localInvoicesState.hasFacebookLink}
             onTickboxChange={localInvoicesState.handleInvoiceTickboxChange}
-            searchPlaceholder="Search local invoicing customers..."
-            summaryLabel="local transactions with invoice dates"
+            searchPlaceholder="Search invoicing customers..."
+            summaryLabel="transactions with invoice dates"
             emptyStateMessage="No transactions with invoice dates were found."
             invoiceDateOptions={localInvoicesState.invoiceDateOptions}
             invoiceDateFilter={localInvoicesState.invoiceDateFilter}

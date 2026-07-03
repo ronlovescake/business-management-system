@@ -35,31 +35,6 @@ export const filterCheckoutLinks = (
   );
 };
 
-export const filterInvoiceData = (
-  invoiceData: InvoiceData[],
-  searchQuery: string
-): InvoiceData[] => {
-  if (!searchQuery.trim()) {
-    return invoiceData;
-  }
-
-  const query = searchQuery.toLowerCase();
-  return invoiceData.filter((item) =>
-    includesQuery(
-      [
-        item.customerName,
-        item.actualWeight,
-        item.finalWeight,
-        item.shopeeCheckoutLinks,
-        item.driveFiles,
-        item.message,
-        item.chat,
-      ],
-      query
-    )
-  );
-};
-
 export const filterItemWeightData = (
   itemWeightData: ItemWeightData[],
   searchQuery: string

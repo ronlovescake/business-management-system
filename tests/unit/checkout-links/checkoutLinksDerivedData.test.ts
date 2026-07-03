@@ -1,95 +1,12 @@
 import { describe, expect, it } from 'vitest';
 
 import {
-  buildInvoiceWeightsByCustomer,
   buildCustomerOrderWeightsByCustomer,
   buildLocalInvoiceData,
   buildLocalInvoiceDateOptions,
 } from '@/modules/clothing/operations/checkout-links/hooks/checkoutLinksDerivedData';
-import type { InvoiceData, CustomerOrderData } from '@/modules/clothing/operations/checkout-links/types';
+import type { CustomerOrderData } from '@/modules/clothing/operations/checkout-links/types';
 import type { TransactionData } from '@/modules/clothing/operations/transactions/types/transaction.types';
-
-// ---------------------------------------------------------------------------
-// buildInvoiceWeightsByCustomer
-// ---------------------------------------------------------------------------
-
-describe('buildInvoiceWeightsByCustomer', () => {
-  it('builds a map keyed by lowercase customer name', () => {
-    const invoices: InvoiceData[] = [
-      {
-        id: '1',
-        customerName: 'Alice Johnson',
-        actualWeight: '2.50',
-        finalWeight: '',
-        shopeeCheckoutLinks: '',
-        driveFiles: '',
-        message: '',
-        chat: '',
-        tickbox: false,
-      },
-    ];
-    const map = buildInvoiceWeightsByCustomer(invoices);
-    expect(map.get('alice johnson')).toBe('2.50');
-  });
-
-  it('keeps only the first occurrence per customer', () => {
-    const invoices: InvoiceData[] = [
-      {
-        id: '1',
-        customerName: 'Alice',
-        actualWeight: '1.00',
-        finalWeight: '',
-        shopeeCheckoutLinks: '',
-        driveFiles: '',
-        message: '',
-        chat: '',
-        tickbox: false,
-      },
-      {
-        id: '2',
-        customerName: 'alice',
-        actualWeight: '9.99',
-        finalWeight: '',
-        shopeeCheckoutLinks: '',
-        driveFiles: '',
-        message: '',
-        chat: '',
-        tickbox: false,
-      },
-    ];
-    const map = buildInvoiceWeightsByCustomer(invoices);
-    expect(map.get('alice')).toBe('1.00');
-  });
-
-  it('skips entries with empty customerName or actualWeight', () => {
-    const invoices: InvoiceData[] = [
-      {
-        id: '1',
-        customerName: '',
-        actualWeight: '2.00',
-        finalWeight: '',
-        shopeeCheckoutLinks: '',
-        driveFiles: '',
-        message: '',
-        chat: '',
-        tickbox: false,
-      },
-      {
-        id: '2',
-        customerName: 'Bob',
-        actualWeight: '',
-        finalWeight: '',
-        shopeeCheckoutLinks: '',
-        driveFiles: '',
-        message: '',
-        chat: '',
-        tickbox: false,
-      },
-    ];
-    const map = buildInvoiceWeightsByCustomer(invoices);
-    expect(map.size).toBe(0);
-  });
-});
 
 // ---------------------------------------------------------------------------
 // buildCustomerOrderWeightsByCustomer
@@ -183,7 +100,6 @@ describe('buildLocalInvoiceData', () => {
       buildLocalInvoiceData({
         transactionsWithInvoiceDate: [],
         localInvoiceTickboxes: {},
-        invoiceWeightsByCustomer: new Map(),
         customerOrderWeightsByCustomer: new Map(),
       })
     ).toEqual([]);
@@ -196,7 +112,6 @@ describe('buildLocalInvoiceData', () => {
         baseTx({ Customers: 'Alice', 'Invoice Date': '2026-01-15' }),
       ],
       localInvoiceTickboxes: {},
-      invoiceWeightsByCustomer: new Map(),
       customerOrderWeightsByCustomer: new Map(),
     });
 
@@ -212,7 +127,6 @@ describe('buildLocalInvoiceData', () => {
         baseTx({ Customers: 'Alice', 'Invoice Date': '2026-01-20' }),
       ],
       localInvoiceTickboxes: {},
-      invoiceWeightsByCustomer: new Map(),
       customerOrderWeightsByCustomer: new Map(),
     });
 
@@ -224,29 +138,26 @@ describe('buildLocalInvoiceData', () => {
     const result = buildLocalInvoiceData({
       transactionsWithInvoiceDate: [baseTx()],
       localInvoiceTickboxes: {},
-      invoiceWeightsByCustomer: new Map([['alice', '5.00']]),
       customerOrderWeightsByCustomer: new Map([['alice', 7.5]]),
     });
 
     expect(result[0].actualWeight).toBe('7.50');
   });
 
-  it('falls back to invoiceWeightsByCustomer when order weights missing', () => {
+  it('leaves actual weight blank when order weights are missing', () => {
     const result = buildLocalInvoiceData({
       transactionsWithInvoiceDate: [baseTx()],
       localInvoiceTickboxes: {},
-      invoiceWeightsByCustomer: new Map([['alice', '5.00']]),
       customerOrderWeightsByCustomer: new Map(),
     });
 
-    expect(result[0].actualWeight).toBe('5.00');
+    expect(result[0].actualWeight).toBe('');
   });
 
   it('sets tickbox from localInvoiceTickboxes', () => {
     const result = buildLocalInvoiceData({
       transactionsWithInvoiceDate: [baseTx()],
       localInvoiceTickboxes: { 'local-alice': true },
-      invoiceWeightsByCustomer: new Map(),
       customerOrderWeightsByCustomer: new Map(),
     });
 
@@ -260,7 +171,6 @@ describe('buildLocalInvoiceData', () => {
         baseTx({ 'Invoice Date': '2026-01-15', Customers: '' }),
       ],
       localInvoiceTickboxes: {},
-      invoiceWeightsByCustomer: new Map(),
       customerOrderWeightsByCustomer: new Map(),
     });
 

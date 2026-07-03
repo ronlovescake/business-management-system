@@ -72,15 +72,13 @@ export function LocalInvoicingTab({
   return (
     <InvoicingTab
       {...rest}
-      searchPlaceholder={
-        searchPlaceholder ?? 'Search local invoicing records...'
-      }
-      summaryLabel={summaryLabel ?? 'local invoicing records'}
+      searchPlaceholder={searchPlaceholder ?? 'Search invoicing records...'}
+      summaryLabel={summaryLabel ?? 'invoicing records'}
       emptyStateMessage={
         emptyStateMessage ??
-        'No local invoicing records found. Retrieve Google Drive invoices first.'
+        'No invoicing records found for the selected invoice date.'
       }
-      addNewLabel={addNewLabel ?? 'Retrieve Local Invoices'}
+      addNewLabel={addNewLabel ?? 'Retrieve Invoices'}
       searchAddon={searchAddon}
       showAddNewButton={false}
       showDriveFilesColumn={false}
