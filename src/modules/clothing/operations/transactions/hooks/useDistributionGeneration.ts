@@ -9,6 +9,7 @@ import type {
   DistributionConfirmationData,
   TransactionData,
 } from '../types/transaction.types';
+import { logDocumentGenerationNotification } from './documentGenerationNotifications';
 
 interface UseDistributionGenerationProps {
   apiBasePath?: string;
@@ -134,7 +135,8 @@ export function useDistributionGeneration(
           .toISOString()
           .slice(0, 19)
           .replace(/[:-]/g, '');
-        link.download = `distribution-slips-${timestamp}.pdf`;
+        const filename = `distribution-slips-${timestamp}.pdf`;
+        link.download = filename;
 
         document.body.appendChild(link);
         link.click();
@@ -146,6 +148,14 @@ export function useDistributionGeneration(
           message: `PDF with ${warehouse.length} distribution slips downloaded`,
           color: 'green',
           autoClose: 8000,
+        });
+
+        await logDocumentGenerationNotification({
+          apiBasePath,
+          documentType: 'distribution',
+          message: `Distribution slip PDF generated for ${warehouse.length} transaction${warehouse.length === 1 ? '' : 's'}.`,
+          count: warehouse.length,
+          filename,
         });
       } else {
         const errorData = (await response.json()) as { error?: string };

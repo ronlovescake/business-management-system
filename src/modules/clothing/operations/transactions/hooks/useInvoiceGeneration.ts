@@ -9,6 +9,7 @@ import { buildApiPath } from '@/lib/api/paths';
 import { logger } from '@/lib/logger';
 import { normalizeOrderStatus } from '@/lib/transactions/order-status';
 import type { TransactionData } from '../types/transaction.types';
+import { logDocumentGenerationNotification } from './documentGenerationNotifications';
 
 interface UseInvoiceGenerationProps {
   transactions: TransactionData[];
@@ -232,6 +233,14 @@ export function useInvoiceGeneration(
           color: 'green',
           autoClose: 8000,
         });
+
+        await logDocumentGenerationNotification({
+          apiBasePath,
+          documentType: 'invoice',
+          message: `${fileType} generated for ${inTransitTransactions.length} In Transit order${inTransitTransactions.length === 1 ? '' : 's'} across ${customersWithInTransit.size} customer${customersWithInTransit.size === 1 ? '' : 's'}.`,
+          count: inTransitTransactions.length,
+          filename,
+        });
       } catch (error) {
         logger.error('Error generating In Transit invoices:', error);
         showNotification({
@@ -441,6 +450,14 @@ export function useInvoiceGeneration(
           message: `${fileType} for ${reservationTransactions.length} In Transit order${reservationTransactions.length === 1 ? '' : 's'} across ${customersWithReservations.size} customer${customersWithReservations.size === 1 ? '' : 's'} downloaded. Total ${percentLabel} reservation fees: ₱${reservationFeeValue.toLocaleString()}.`,
           color: 'green',
           autoClose: 8000,
+        });
+
+        await logDocumentGenerationNotification({
+          apiBasePath,
+          documentType: 'invoice',
+          message: `${fileType} generated for ${reservationTransactions.length} reservation fee order${reservationTransactions.length === 1 ? '' : 's'} across ${customersWithReservations.size} customer${customersWithReservations.size === 1 ? '' : 's'}. Total ${percentLabel} reservation fees: ₱${reservationFeeValue.toLocaleString()}.`,
+          count: reservationTransactions.length,
+          filename,
         });
       } catch (error) {
         logger.error('Error generating reservation invoices:', error);
@@ -798,6 +815,14 @@ export function useInvoiceGeneration(
             message: `${fileType} for ${statusSummary} orders from ${customersWithWarehouse.size} customer${customersWithWarehouse.size > 1 ? 's' : ''} downloaded as ${invoiceType} invoices.${statusUpdateMessage}`,
             color: 'green',
             autoClose: 8000,
+          });
+
+          await logDocumentGenerationNotification({
+            apiBasePath,
+            documentType: 'invoice',
+            message: `${fileType} generated for ${statusSummary} orders from ${customersWithWarehouse.size} customer${customersWithWarehouse.size > 1 ? 's' : ''} as ${invoiceType} invoices.`,
+            count: invoiceTransactions.length,
+            filename,
           });
 
           const currentDateISO = new Date().toISOString();

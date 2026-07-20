@@ -1,9 +1,11 @@
-import { PageLayout } from '../../../../components/layout/PageLayout';
+import { EmployeeNotificationsPage } from '@/app/employees/_shared/EmployeeNotificationsPage';
 
 export default function EmployeeNotifications() {
   return (
-    <PageLayout title="Notifications">
-      <div>{/* Empty shell - content will be added later */}</div>
-    </PageLayout>
+    <EmployeeNotificationsPage
+      domains={[
+        { label: 'Trucking', value: 'trucking', apiBasePath: '/api/trucking' },
+      ]}
+    />
   );
 }

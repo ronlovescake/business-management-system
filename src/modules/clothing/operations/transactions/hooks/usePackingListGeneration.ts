@@ -10,6 +10,7 @@ import { logger } from '@/lib/logger';
 import { normalizeOrderStatus } from '@/lib/transactions/order-status';
 import { queryKeys } from '@/lib/queryKeys';
 import type { TransactionData } from '../types/transaction.types';
+import { logDocumentGenerationNotification } from './documentGenerationNotifications';
 
 interface UsePackingListGenerationProps {
   transactions: TransactionData[];
@@ -696,11 +697,12 @@ export function usePackingListGeneration(
           const link = document.createElement('a');
           link.href = url;
 
-          link.download = buildPackingListFilename({
+          const filename = buildPackingListFilename({
             customerNames: filteredEligible.map(
               (transaction) => transaction.Customers
             ),
           });
+          link.download = filename;
 
           document.body.appendChild(link);
           link.click();
@@ -712,6 +714,14 @@ export function usePackingListGeneration(
             message: `PDF with packing lists for ${filteredEligible.length} transactions downloaded`,
             color: 'green',
             autoClose: 8000,
+          });
+
+          await logDocumentGenerationNotification({
+            apiBasePath,
+            documentType: 'packing-list',
+            message: `Packing list PDF generated for ${filteredEligible.length} transaction${filteredEligible.length === 1 ? '' : 's'}.`,
+            count: filteredEligible.length,
+            filename,
           });
 
           try {
