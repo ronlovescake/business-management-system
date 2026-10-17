@@ -22,6 +22,7 @@ This index is the shortest path to the domain and workspace logic documents with
 ### Accounting
 
 - [Accounting overview](./business-logic/clothing/accounting-overview.md)
+- [Investors](./business-logic/clothing/accounting-investors.md)
 - [Balance sheet](./business-logic/clothing/accounting-balance-sheet.md)
 - [Ledger](./business-logic/clothing/accounting-ledger.md)
 - [Journal](./business-logic/clothing/accounting-journal.md)

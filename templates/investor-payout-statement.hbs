@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>{{companyName}} - Investor Payout Statement</title>
+    <style>
+      * { box-sizing: border-box; }
+      @page { size: A4; margin: 0; }
+      body { margin: 0; background: #fff; color: #20272d; font-family: Arial, sans-serif; }
+      .page { min-height: 297mm; padding: 16mm; }
+      .sheet { min-height: 265mm; border: 1px solid #d9dfe3; padding: 14mm; display: flex; flex-direction: column; }
+      header { display: flex; align-items: center; justify-content: space-between; border-bottom: 2px solid #137c72; padding-bottom: 8mm; }
+      .brand { display: flex; align-items: center; gap: 12px; }
+      .logo { width: 54px; height: 54px; object-fit: contain; }
+      .company { font-family: Georgia, serif; font-size: 24px; font-weight: 700; }
+      .subtitle { margin-top: 4px; color: #58636b; font-size: 11px; }
+      .document { text-align: right; }
+      .document h1 { margin: 0; color: #137c72; font-size: 17px; letter-spacing: 1.5px; }
+      .document p { margin: 6px 0 0; color: #58636b; font-size: 10px; }
+      section { margin-top: 9mm; }
+      .section-title { margin: 0 0 4mm; color: #58636b; font-size: 10px; letter-spacing: 1.3px; text-transform: uppercase; }
+      .details { display: grid; grid-template-columns: 1fr 1fr; gap: 5mm; }
+      .item { padding: 4mm; border: 1px solid #d9dfe3; }
+      .label { margin-bottom: 2mm; color: #68747b; font-size: 9px; text-transform: uppercase; }
+      .value { font-size: 13px; font-weight: 600; overflow-wrap: anywhere; }
+      .payment { margin-top: 12mm; padding: 7mm; background: #f2f8f6; border: 1px solid #b9d9d2; }
+      .payment-line { display: flex; justify-content: space-between; gap: 10px; padding: 3mm 0; border-bottom: 1px solid #d5e7e2; font-size: 12px; }
+      .payment-line:last-child { border-bottom: 0; }
+      .payment-total { color: #11685f; font-size: 19px; font-weight: 700; }
+      .status { display: inline-block; padding: 2mm 4mm; background: #d9f0e8; color: #12614c; font-size: 10px; font-weight: 700; letter-spacing: 1px; }
+      footer { margin-top: auto; padding-top: 10mm; color: #647078; font-size: 9px; line-height: 1.6; }
+      .generated { margin-top: 4mm; color: #879198; font-size: 8px; }
+    </style>
+  </head>
+  <body>
+    <main class="page">
+      <article class="sheet">
+        <header>
+          <div class="brand">
+            {{#if logoData}}<img class="logo" src="data:image/png;base64,{{logoData}}" alt="Company logo" />{{/if}}
+            <div>
+              <div class="company">{{companyName}}</div>
+              <div class="subtitle">Investor Relations</div>
+            </div>
+          </div>
+          <div class="document">
+            <h1>PAYOUT STATEMENT</h1>
+            <p>{{statementReference}}</p>
+            <p>{{payoutPeriod}}</p>
+          </div>
+        </header>
+
+        <section>
+          <h2 class="section-title">Investor and agreement</h2>
+          <div class="details">
+            <div class="item"><div class="label">Investor</div><div class="value">{{investorName}}</div></div>
+            <div class="item"><div class="label">Agreement reference</div><div class="value">{{agreementReference}}</div></div>
+            <div class="item"><div class="label">Effective date</div><div class="value">{{effectiveDate}}</div></div>
+            <div class="item"><div class="label">Original principal</div><div class="value">{{currency principal}}</div></div>
+            <div class="item"><div class="label">Monthly rate</div><div class="value">{{monthlyRate}}%</div></div>
+            <div class="item"><div class="label">Payout month</div><div class="value">{{payoutMonth}}</div></div>
+          </div>
+        </section>
+
+        <section class="payment">
+          <h2 class="section-title">Recorded payout</h2>
+          <div class="payment-line"><span>Agreement month</span><strong>{{agreementMonth}}</strong></div>
+          <div class="payment-line"><span>Scheduled banking date</span><strong>{{bankingDate}}</strong></div>
+          <div class="payment-line"><span>Payment date</span><strong>{{paidDate}}</strong></div>
+          <div class="payment-line"><span>Payment status</span><strong class="status">PAID</strong></div>
+          <div class="payment-line"><span>Amount recorded</span><strong class="payment-total">{{currency amount}}</strong></div>
+        </section>
+
+        <footer>
+          This statement summarizes a payout recorded in the investor records. It is not a bank transfer receipt, tax invoice, or confirmation from a financial institution.
+          <div class="generated">Generated {{generatedAt}}</div>
+        </footer>
+      </article>
+    </main>
+  </body>
+</html>

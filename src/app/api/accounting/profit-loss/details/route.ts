@@ -13,6 +13,7 @@ import {
 import { getRuntimeAccountingCutoverDate } from '@/lib/accounting/cutover';
 import {
   fetchApprovedExpenses,
+  fetchInvestorReturnExpenses,
   fetchPaidTransactions,
   fetchTransactionPayments,
   fetchTransactionRefunds,
@@ -62,6 +63,26 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
   ]);
 
   const rows: ProfitLossDetailRow[] = [];
+  const investorReturns = await fetchInvestorReturnExpenses({
+    from: effectiveFrom,
+    to: effectiveTo,
+  });
+  rows.push(
+    ...investorReturns.map((line) => ({
+      id: `investor-return-${line.id}`,
+      date: line.date.toISOString(),
+      category: 'Investor Return Expense',
+      type: 'Expense' as const,
+      sourceType: line.sourceType,
+      sourceId: line.sourceId,
+      ref: line.ref,
+      description: line.description ?? 'Investor monthly return',
+      amount: line.debit - line.credit,
+      customer: null,
+      productCode: null,
+      method: null,
+    }))
+  );
 
   const paidAtByTxId = new Map<number, Date | null>();
   for (const tx of transactions) {

@@ -113,7 +113,7 @@ export const ProfileMenu = memo(function ProfileMenu({
                 : session?.user?.email?.charAt(0).toUpperCase() || userInitials}
             </Avatar>
             {session?.user ? (
-              <Stack gap={4} style={{ minWidth: 0 }}>
+              <Stack gap={4} visibleFrom="sm" style={{ minWidth: 0 }}>
                 <Text size="sm" fw={600} lineClamp={1}>
                   {session.user.name || 'User'}
                 </Text>

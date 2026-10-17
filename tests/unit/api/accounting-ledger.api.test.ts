@@ -1,6 +1,8 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { NextRequest } from 'next/server';
 import { getTestApiUrl } from '@/core/testing/test-helpers';
+import { Prisma } from '@prisma/client';
+import { investorPostingLines } from '@/lib/investors/accounting';
 
 const { mockFetchers, mockPrisma, mockInventoryCogs } = vi.hoisted(() => {
   return {
@@ -8,6 +10,7 @@ const { mockFetchers, mockPrisma, mockInventoryCogs } = vi.hoisted(() => {
       fetchPaidTransactions: vi.fn(),
       fetchTransactionPayments: vi.fn(),
       fetchApprovedExpenses: vi.fn(),
+      fetchManualJournalLines: vi.fn(),
       fetchTransactionRefunds: vi.fn(),
       getPaidAtDate: vi.fn(),
       getCancelledAtDate: vi.fn(),
@@ -48,6 +51,7 @@ vi.mock('@/lib/accounting/data-fetchers', async (importOriginal) => {
     fetchPaidTransactions: mockFetchers.fetchPaidTransactions,
     fetchTransactionPayments: mockFetchers.fetchTransactionPayments,
     fetchApprovedExpenses: mockFetchers.fetchApprovedExpenses,
+    fetchManualJournalLines: mockFetchers.fetchManualJournalLines,
     fetchTransactionRefunds: mockFetchers.fetchTransactionRefunds,
     getPaidAtDate: mockFetchers.getPaidAtDate,
     getCancelledAtDate: mockFetchers.getCancelledAtDate,
@@ -90,6 +94,7 @@ describe('Accounting Ledger API - GET /api/accounting/ledger', () => {
     mockFetchers.fetchPaidTransactions.mockResolvedValue([]);
     mockFetchers.fetchTransactionPayments.mockResolvedValue([]);
     mockFetchers.fetchApprovedExpenses.mockResolvedValue([]);
+    mockFetchers.fetchManualJournalLines.mockResolvedValue([]);
     mockFetchers.fetchTransactionRefunds.mockResolvedValue([]);
 
     // Ledger route checks date range for each entry.
@@ -162,6 +167,47 @@ describe('Accounting Ledger API - GET /api/accounting/ledger', () => {
       seedTotal: 100,
       shrinkageTotal: 20,
     });
+  });
+
+  it('tracks investor cash, return expense and cleared principal balances', async () => {
+    mockInventoryCogs.buildInventorySeedAndShrinkageEntries.mockResolvedValue({
+      entries: [],
+      seedTotal: 0,
+      shrinkageTotal: 0,
+    });
+    const lines = (['funding', 'return', 'repayment'] as const).flatMap(
+      (kind, index) =>
+        investorPostingLines({
+          kind,
+          agreementId: 'agreement',
+          reference: 'CR-001',
+          sourceId: kind === 'return' ? 'payment' : 'agreement',
+          amount: new Prisma.Decimal(kind === 'return' ? '50000' : '1000000'),
+          date: `2026-04-${20 + index}`,
+          cutover: new Date('2026-01-17T00:00:00Z'),
+        }).map((line) => ({ ...line, id: `${kind}-${line.sourceLineKey}` }))
+    );
+    mockFetchers.fetchManualJournalLines.mockResolvedValue(lines);
+    const response = await GET(
+      buildRequest('/api/accounting/ledger?from=2026-04-01&to=2026-04-30')
+    );
+    expect(response.status).toBe(200);
+    const payload = await response.json();
+    const entries = payload.data.entries as Array<{
+      account: string;
+      balance: number;
+    }>;
+    const balances = (account: string) =>
+      entries
+        .filter((entry) => entry.account === account)
+        .map((entry) => entry.balance);
+    expect(entries).toHaveLength(6);
+    expect(balances('Cash')).toEqual([1000000, 950000, -50000]);
+    expect(balances('Loan Payable - Investor agreement')).toEqual([
+      -1000000, 0,
+    ]);
+    expect(balances('Investor Return Expense')).toEqual([50000]);
+    expect(payload.data.stats.netChange).toBe(0);
   });
 
   it('includes derived seed/shrinkage entries and computes running balances', async () => {

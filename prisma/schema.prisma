@@ -643,6 +643,68 @@ model Expense {
   @@schema("public")
 }
 
+model ClothingInvestor {
+  id            String   @id @default(cuid())
+  createdAt     DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt     DateTime @updatedAt @db.Timestamptz(6)
+  name          String   @db.VarChar(255)
+  email         String   @default("") @db.VarChar(255)
+  phone         String   @default("") @db.VarChar(100)
+  address       String   @default("") @db.VarChar(1000)
+  bankName      String   @default("") @db.VarChar(255)
+  accountName   String   @default("") @db.VarChar(255)
+  accountNumber String   @default("") @db.VarChar(100)
+  notes         String   @default("") @db.VarChar(2000)
+  agreements    ClothingInvestmentAgreement[]
+
+  @@index([name])
+  @@schema("public")
+}
+
+model ClothingInvestmentAgreement {
+  id             String   @id @default(cuid())
+  createdAt      DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt      DateTime @updatedAt @db.Timestamptz(6)
+  investorId     String
+  reference      String   @unique @db.VarChar(100)
+  effectiveDate  String   @db.VarChar(10)
+  principal      Decimal  @db.Decimal(14, 2)
+  monthlyRateBps Int      @default(500)
+  notes          String   @default("") @db.VarChar(2000)
+  investor       ClothingInvestor @relation(fields: [investorId], references: [id], onDelete: Restrict)
+  payments       ClothingInvestmentPayment[]
+
+  @@index([investorId])
+  @@index([effectiveDate])
+  @@schema("public")
+}
+
+model ClothingInvestmentPayment {
+  id          String   @id @default(cuid())
+  createdAt   DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt   DateTime @updatedAt @db.Timestamptz(6)
+  agreementId String
+  month       Int
+  amount      Decimal  @db.Decimal(14, 2)
+  paidDate    String   @db.VarChar(10)
+  agreement   ClothingInvestmentAgreement @relation(fields: [agreementId], references: [id], onDelete: Restrict)
+
+  @@unique([agreementId, month])
+  @@index([paidDate])
+  @@schema("public")
+}
+
+model ClothingInvestorBankClosure {
+  id        String   @id @default(cuid())
+  date      String   @unique @db.VarChar(10)
+  name      String   @db.VarChar(255)
+  createdAt DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @db.Timestamptz(6)
+  deletedAt DateTime? @db.Timestamptz(6)
+
+  @@schema("public")
+}
+
 model ClothingAccountingOpeningBalance {
   id          String   @id @default(cuid())
   createdAt   DateTime @default(now()) @db.Timestamptz(6)

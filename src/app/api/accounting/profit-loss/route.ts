@@ -13,6 +13,7 @@ import {
 import {
   fetchPaidTransactions,
   fetchApprovedExpenses,
+  fetchInvestorReturnExpenses,
   fetchTransactionRefunds,
   fetchTransactionPayments,
   getPaidAtDate,
@@ -224,6 +225,19 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
   const netRevenueTotal = revenueTotal - refundTotal;
 
   const expenseTotalsByCategory = new Map<string, number>();
+  const investorReturns = await fetchInvestorReturnExpenses({
+    from: effectiveFrom,
+    to: effectiveTo,
+  });
+  if (investorReturns.length) {
+    expenseTotalsByCategory.set(
+      'Investor Return Expense',
+      investorReturns.reduce(
+        (total, line) => total + line.debit - line.credit,
+        0
+      )
+    );
+  }
   expenses.forEach((exp) => {
     const expenseDate = parseDate(exp.date);
     if (!isWithinDateRange(expenseDate, effectiveFrom, effectiveTo)) {

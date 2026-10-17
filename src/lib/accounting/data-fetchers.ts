@@ -224,7 +224,7 @@ export async function fetchManualJournalLines(params: {
       }
     | undefined;
 
-  return fetchOptionalModelRows<ManualJournalLine>({
+  const lines = await fetchOptionalModelRows<ManualJournalLine>({
     model: journalModel,
     unavailableLogMessage:
       'Manual journal model is unavailable on Prisma Client; returning no manual journal lines',
@@ -247,6 +247,47 @@ export async function fetchManualJournalLines(params: {
         orderBy: { date: 'asc' },
       })) as ManualJournalLine[],
   });
+  const prefix = 'Loan Payable - Investor ';
+  const agreementIds = Array.from(
+    new Set(
+      lines
+        .filter((line) => line.account.startsWith(prefix))
+        .map((line) => line.account.slice(prefix.length))
+    )
+  );
+  if (!agreementIds.length) {
+    return lines;
+  }
+  const agreements = await prisma.clothingInvestmentAgreement.findMany({
+    where: { id: { in: agreementIds } },
+    select: { id: true, reference: true, investor: { select: { name: true } } },
+  });
+  const labels = new Map(
+    agreements.map((agreement) => [
+      `${prefix}${agreement.id}`,
+      `Investor Funding Payable - ${agreement.investor.name} - ${agreement.reference}`,
+    ])
+  );
+  return lines.map((line) => ({
+    ...line,
+    account:
+      labels.get(line.account) ??
+      (line.account.startsWith(prefix)
+        ? `Investor Funding Payable - ${line.account.slice(prefix.length)}`
+        : line.account),
+  }));
+}
+
+export async function fetchInvestorReturnExpenses(params: {
+  from: Date;
+  to: Date | null;
+}): Promise<ManualJournalLine[]> {
+  const lines = await fetchManualJournalLines(params);
+  return lines.filter(
+    (line) =>
+      line.sourceType === 'INVESTOR_RETURN' &&
+      line.account === 'Investor Return Expense'
+  );
 }
 
 export function getPaidAtDate(

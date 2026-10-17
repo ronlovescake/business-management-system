@@ -270,6 +270,10 @@ export const LOG_BACKUP_TABLES = [
 ] as const satisfies readonly LogBackupTable[];
 
 export const DUMP_ONLY_BACKUP_MODELS = [
+  'ClothingInvestor',
+  'ClothingInvestmentAgreement',
+  'ClothingInvestmentPayment',
+  'ClothingInvestorBankClosure',
   'HealthCheck',
   'AdditionalCustomerInfo',
   'BundleBatch',

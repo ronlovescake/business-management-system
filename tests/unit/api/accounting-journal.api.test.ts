@@ -1,6 +1,8 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { NextRequest } from 'next/server';
 import { getTestApiUrl } from '@/core/testing/test-helpers';
+import { Prisma } from '@prisma/client';
+import { investorPostingLines } from '@/lib/investors/accounting';
 
 const {
   mockFetchers,
@@ -13,6 +15,7 @@ const {
       fetchPaidTransactions: vi.fn(),
       fetchTransactionPayments: vi.fn(),
       fetchApprovedExpenses: vi.fn(),
+      fetchManualJournalLines: vi.fn(),
       fetchTransactionRefunds: vi.fn(),
       getPaidAtDate: vi.fn(),
       getCancelledAtDate: vi.fn(),
@@ -41,6 +44,7 @@ vi.mock('@/lib/accounting/data-fetchers', async (importOriginal) => {
     fetchPaidTransactions: mockFetchers.fetchPaidTransactions,
     fetchTransactionPayments: mockFetchers.fetchTransactionPayments,
     fetchApprovedExpenses: mockFetchers.fetchApprovedExpenses,
+    fetchManualJournalLines: mockFetchers.fetchManualJournalLines,
     fetchTransactionRefunds: mockFetchers.fetchTransactionRefunds,
     getPaidAtDate: mockFetchers.getPaidAtDate,
     getCancelledAtDate: mockFetchers.getCancelledAtDate,
@@ -79,6 +83,7 @@ describe('Accounting Journal API - GET /api/accounting/journal', () => {
     vi.clearAllMocks();
 
     mockFetchers.fetchApprovedExpenses.mockResolvedValue([]);
+    mockFetchers.fetchManualJournalLines.mockResolvedValue([]);
     mockFetchers.fetchTransactionRefunds.mockResolvedValue([]);
 
     mockPrisma.clothingInventoryReclassEntry.findMany.mockResolvedValue([]);
@@ -111,6 +116,46 @@ describe('Accounting Journal API - GET /api/accounting/journal', () => {
       };
       return typed.statusChanges?.[0]?.changedAt ?? typed.updatedAt ?? null;
     });
+  });
+
+  it('includes balanced investor movements with their source references', async () => {
+    mockFetchers.fetchPaidTransactions.mockResolvedValue([]);
+    mockFetchers.fetchTransactionPayments.mockResolvedValue([]);
+    const lines = (['funding', 'return', 'repayment'] as const).flatMap(
+      (kind) =>
+        investorPostingLines({
+          kind,
+          agreementId: 'agreement',
+          reference: 'CR-001',
+          sourceId: kind === 'return' ? 'payment' : 'agreement',
+          amount: new Prisma.Decimal(kind === 'return' ? '50000' : '1000000'),
+          date: '2026-04-28',
+          cutover: new Date('2026-01-17T00:00:00Z'),
+        }).map((line) => ({ ...line, id: `${kind}-${line.sourceLineKey}` }))
+    );
+    mockFetchers.fetchManualJournalLines.mockResolvedValue(lines);
+    const response = await GET(
+      buildRequest('/api/accounting/journal?from=2026-04-01&to=2026-04-30')
+    );
+    expect(response.status).toBe(200);
+    const payload = await response.json();
+    expect(payload.data.entries).toHaveLength(6);
+    for (const line of lines) {
+      expect(payload.data.entries).toContainEqual(
+        expect.objectContaining({
+          id: line.id,
+          account: line.account,
+          debit: line.debit,
+          credit: line.credit,
+          sourceType: line.sourceType,
+          sourceId: line.sourceId,
+          systemGenerated: true,
+        })
+      );
+    }
+    expect(payload.data.stats.totalDebits).toBe(2050000);
+    expect(payload.data.stats.totalCredits).toBe(2050000);
+    expect(payload.data.stats.netChange).toBe(0);
   });
 
   it('uses payment events and suppresses legacy cash entries for the same transaction', async () => {

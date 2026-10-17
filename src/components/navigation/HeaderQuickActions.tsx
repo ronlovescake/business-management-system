@@ -180,7 +180,7 @@ export function HeaderQuickActions({
   const totalConversations = conversations.length;
 
   return (
-    <Group gap="sm" align="center">
+    <Group gap="sm" align="center" wrap="nowrap">
       <AppsMenu
         isOpen={appsOpen}
         onOpenChange={setAppsOpen}

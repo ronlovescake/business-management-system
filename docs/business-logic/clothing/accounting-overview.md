@@ -9,6 +9,8 @@ This overview indexes the business logic documentation files for the **Clothing 
 
 ## Module Index
 
+Investor profiles, agreements, projected returns, and bank closures are documented in [Investors](accounting-investors.md). Confirmed funding, monthly returns, and principal repayment post to the Clothing journal, ledger, and balance sheet. Posted return expenses also appear in P&L totals and details; historical records require reconciliation before posting.
+
 | Module        | Doc File                                                   | Rules | Description                                                                                                                                                                                                                        |
 | ------------- | ---------------------------------------------------------- | ----- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Expenses      | [accounting-expenses.md](accounting-expenses.md)           | 50    | Expense tracking: add/edit/approve/reject/delete, status lifecycle (pending/approved/rejected/paid), receipt upload, category color mapping, CSV import/export with validation.                                                    |

@@ -1,6 +1,8 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { NextRequest } from 'next/server';
 import { getTestApiUrl } from '@/core/testing/test-helpers';
+import { Prisma } from '@prisma/client';
+import { investorPostingLines } from '@/lib/investors/accounting';
 
 const { mockFetchers, mockPrisma, mockInventoryCogs } = vi.hoisted(() => {
   return {
@@ -8,6 +10,7 @@ const { mockFetchers, mockPrisma, mockInventoryCogs } = vi.hoisted(() => {
       fetchRecognizedTransactions: vi.fn(),
       fetchTransactionPayments: vi.fn(),
       fetchApprovedExpenses: vi.fn(),
+      fetchManualJournalLines: vi.fn(),
       fetchTransactionRefunds: vi.fn(),
       getPaidAtDate: vi.fn(),
       isWithinDateRange: vi.fn(),
@@ -41,6 +44,7 @@ vi.mock('@/lib/accounting/data-fetchers', async (importOriginal) => {
     fetchRecognizedTransactions: mockFetchers.fetchRecognizedTransactions,
     fetchTransactionPayments: mockFetchers.fetchTransactionPayments,
     fetchApprovedExpenses: mockFetchers.fetchApprovedExpenses,
+    fetchManualJournalLines: mockFetchers.fetchManualJournalLines,
     fetchTransactionRefunds: mockFetchers.fetchTransactionRefunds,
     getPaidAtDate: mockFetchers.getPaidAtDate,
     isWithinDateRange: mockFetchers.isWithinDateRange,
@@ -81,6 +85,7 @@ describe('Accounting Balance Sheet API - GET /api/accounting/balance-sheet', () 
     mockFetchers.fetchRecognizedTransactions.mockResolvedValue([]);
     mockFetchers.fetchTransactionPayments.mockResolvedValue([]);
     mockFetchers.fetchApprovedExpenses.mockResolvedValue([]);
+    mockFetchers.fetchManualJournalLines.mockResolvedValue([]);
     mockFetchers.fetchTransactionRefunds.mockResolvedValue([]);
 
     // Date helpers: route uses isWithinDateRange for various flows; keep it permissive.
@@ -159,6 +164,65 @@ describe('Accounting Balance Sheet API - GET /api/accounting/balance-sheet', () 
 
     // COGS and shrinkage reduce equity (positive signed balances)
     expect(byAccount.get('Retained Earnings')).toBe(100 + 25);
+  });
+
+  it('reflects investor funding, monthly returns and principal repayment without losing balance', async () => {
+    mockInventoryCogs.computeCogsTotal.mockResolvedValue(0);
+    mockInventoryCogs.buildInventorySeedAndShrinkageEntries.mockResolvedValue({
+      entries: [],
+      seedTotal: 0,
+      shrinkageTotal: 0,
+    });
+    const input = {
+      agreementId: 'investor-agreement',
+      reference: 'CR-001',
+      sourceId: 'investor-agreement',
+      date: '2026-04-28',
+      cutover: new Date('2026-01-17T00:00:00Z'),
+      amount: new Prisma.Decimal('1000000'),
+    };
+    const funding = investorPostingLines({ ...input, kind: 'funding' });
+    const returns = investorPostingLines({
+      ...input,
+      kind: 'return',
+      sourceId: 'payment',
+      amount: new Prisma.Decimal('50000'),
+    });
+    const repayment = investorPostingLines({ ...input, kind: 'repayment' });
+    for (const scenario of [
+      { lines: funding, cash: 1000000, liability: -1000000, retained: 0 },
+      {
+        lines: [...funding, ...returns],
+        cash: 950000,
+        liability: -1000000,
+        retained: 50000,
+      },
+      {
+        lines: [...funding, ...returns, ...repayment],
+        cash: -50000,
+        liability: 0,
+        retained: 50000,
+      },
+    ]) {
+      mockFetchers.fetchManualJournalLines.mockResolvedValue(scenario.lines);
+      const response = await GET(
+        buildRequest('/api/accounting/balance-sheet?asOf=2026-04-30')
+      );
+      expect(response.status).toBe(200);
+      const payload = await response.json();
+      const rows = payload.data.rows as Array<{
+        account: string;
+        amount: number;
+      }>;
+      const amount = (account: string) =>
+        rows.find((row) => row.account === account)?.amount ?? 0;
+      expect(amount('Cash')).toBe(scenario.cash);
+      expect(amount('Loan Payable - Investor investor-agreement')).toBe(
+        scenario.liability
+      );
+      expect(amount('Retained Earnings')).toBe(scenario.retained);
+      expect(rows.reduce((total, row) => total + row.amount, 0)).toBe(0);
+    }
   });
 
   it('includes Cash details breakdown when available', async () => {

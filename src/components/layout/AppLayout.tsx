@@ -5,6 +5,7 @@ import { usePathname } from 'next/navigation';
 import {
   ActionIcon,
   AppShell,
+  Box,
   MantineProvider,
   Tooltip,
   createTheme,
@@ -227,6 +228,7 @@ export function AppLayout({ children }: AppLayoutProps) {
                   navbar={{
                     width: sidebarWidth,
                     breakpoint: 'sm',
+                    collapsed: { mobile: isSidebarCollapsed },
                   }}
                   header={{ height: 80 }}
                   transitionDuration={120}
@@ -246,14 +248,15 @@ export function AppLayout({ children }: AppLayoutProps) {
                       boxShadow: '0 1px 3px 0 rgba(0, 0, 0, 0.05)',
                     }}
                   >
-                    <div
+                    <Box
+                      px={{ base: 'xs', sm: 'xl' }}
+                      py="md"
                       style={{
-                        padding: '1rem 1.5rem',
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'space-between',
                         height: '100%',
-                        gap: '1.5rem',
+                        gap: '0.5rem',
                       }}
                     >
                       <div
@@ -290,10 +293,12 @@ export function AppLayout({ children }: AppLayoutProps) {
                             )}
                           </ActionIcon>
                         </Tooltip>
-                        <BreadcrumbNavigation />
+                        <Box visibleFrom="sm">
+                          <BreadcrumbNavigation />
+                        </Box>
                       </div>
                       <HeaderQuickActions />
-                    </div>
+                    </Box>
                   </AppShell.Header>
 
                   <AppShell.Navbar

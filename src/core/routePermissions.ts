@@ -52,6 +52,7 @@ export const ROUTE_PERMISSIONS: Record<string, RouteRole[]> = {
   '/clothing/employees/thirteenth-month': ['ADMIN', 'SUPER_ADMIN'],
   '/clothing/employees/expenses': ['ADMIN', 'SUPER_ADMIN'],
   '/clothing/accounting': ['ADMIN', 'SUPER_ADMIN'],
+  '/api/clothing/investors': ['ADMIN', 'SUPER_ADMIN'],
   '/clothing/ledger': ['ADMIN', 'SUPER_ADMIN'],
 
   // General Merchandise employees/accounting routes - Admin and Super Admin only

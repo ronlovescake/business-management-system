@@ -6,6 +6,7 @@
  */
 
 import { moduleRegistry } from '@/core/ModuleRegistry';
+import { clothingInvestorsModule } from './clothing/accounting/investors/module.config';
 
 // ============================================================================
 // CLOTHING BUSINESS MODULES
@@ -72,6 +73,7 @@ import { generalMerchandiseMessageTemplatesModule } from './general-merchandise/
 // Uncomment as you create modules:
 
 // Clothing
+moduleRegistry.register(clothingInvestorsModule);
 moduleRegistry.register(dashboardModule); // ✅ REGISTERED!
 moduleRegistry.register(customersModule); // ✅ REGISTERED!
 moduleRegistry.register(transactionsModule); // ✅ REGISTERED!

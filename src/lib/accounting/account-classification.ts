@@ -114,6 +114,7 @@ export function detectAccountType(account: string): AccountType | null {
   const nameTokens = normalizedName.split(' ').filter(Boolean);
 
   if (
+    normalizedName.startsWith('investor funding payable') ||
     normalizedName.includes('loan payable') ||
     (nameTokens.includes('loan') && nameTokens.includes('payable'))
   ) {

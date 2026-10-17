@@ -19,6 +19,7 @@ import {
 } from '@tabler/icons-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { useSession } from 'next-auth/react';
 import { useEffect, useMemo, useState } from 'react';
 import { useBusinessStore } from '../../lib/store';
 import { BackupRestoreSidebarPanel } from '@/modules/clothing/operations/settings/components/backup-restore/BackupRestoreSidebarPanel';
@@ -43,6 +44,7 @@ const LABEL_TRANSITION = 'width 160ms ease, opacity 120ms ease';
 
 export function Sidebar({ collapsed = false }: SidebarProps) {
   const pathname = usePathname();
+  const { data: session } = useSession();
   const [hoveredItemPath, setHoveredItemPath] = useState<string | null>(null);
   const { selectedBusiness, selectedWorkspace, initializeFromPath } =
     useBusinessStore();
@@ -60,8 +62,12 @@ export function Sidebar({ collapsed = false }: SidebarProps) {
     if (!isBusiness(selectedBusiness) || !isWorkspace(selectedWorkspace)) {
       return [];
     }
-    return buildNavigationItems(selectedBusiness, selectedWorkspace);
-  }, [selectedBusiness, selectedWorkspace]);
+    return buildNavigationItems(selectedBusiness, selectedWorkspace).filter(
+      (item) =>
+        item.path !== '/clothing/accounting/investors' ||
+        ['ADMIN', 'SUPER_ADMIN'].includes(session?.user?.role ?? '')
+    );
+  }, [selectedBusiness, selectedWorkspace, session?.user?.role]);
 
   const workspaceMeta = getWorkspaceDefinition(selectedWorkspace);
 
