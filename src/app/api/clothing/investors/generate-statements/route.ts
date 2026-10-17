@@ -33,6 +33,19 @@ const LOGO_PATH = path.join(
 let templateCache: TemplateDelegate | null = null;
 let logoCache: string | null = null;
 
+type ReturnRow = {
+  month: number;
+  anniversaryDate: string;
+  bankingDate: string;
+  amount: number;
+  paidDate: string;
+  status: string;
+  statusClass: string;
+  rowClass: string;
+};
+
+type ReturnTotal = { amount: number; count: number };
+
 type StatementContext = {
   companyName: string;
   logoData: string;
@@ -49,15 +62,14 @@ type StatementContext = {
   paidDate: string;
   amount: number;
   generatedAt: string;
-  projectedReturns: {
-    month: number;
-    anniversaryDate: string;
-    bankingDate: string;
-    amount: number;
-    paidDate: string;
-    status: string;
-    statusClass: string;
-  }[];
+  returnColumns: ReturnRow[][];
+  returnSummary: {
+    paid: ReturnTotal;
+    upcoming: ReturnTotal;
+    overdue: ReturnTotal;
+    total: ReturnTotal;
+    progress: number;
+  };
 };
 
 function validMonth(value: unknown): value is string {
@@ -98,6 +110,15 @@ function formatDate(date: string) {
   }).format(new Date(`${date}T00:00:00Z`));
 }
 
+function formatShortDate(date: string) {
+  return new Intl.DateTimeFormat('en-PH', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+    timeZone: 'UTC',
+  }).format(new Date(`${date}T00:00:00Z`));
+}
+
 function sanitizeFilename(value: string) {
   return value.replace(/[<>:"/\\|?*\x00-\x1F]/g, '').replace(/\s+/g, '-');
 }
@@ -132,6 +153,48 @@ function buildStatementContext(
   const recordedPayments = new Map(
     payment.agreement.payments.map((record) => [record.month, record])
   );
+  const labels = {
+    deferred: 'Setup deferral',
+    waived: 'March waived',
+    paid: 'Paid',
+    overdue: 'Overdue',
+    upcoming: 'Upcoming',
+  };
+  const rows: ReturnRow[] = payouts.map((payout) => {
+    const recorded = recordedPayments.get(payout.month);
+    const statusClass =
+      payout.status !== 'scheduled'
+        ? payout.status
+        : recorded
+          ? 'paid'
+          : payout.dueDate && payout.dueDate < today
+            ? 'overdue'
+            : 'upcoming';
+    return {
+      month: payout.month,
+      anniversaryDate: formatShortDate(payout.anniversaryDate),
+      bankingDate: payout.dueDate ? formatShortDate(payout.dueDate) : '—',
+      amount: payout.amountCents / 100,
+      paidDate: recorded ? formatShortDate(recorded.paidDate) : '—',
+      status: labels[statusClass],
+      statusClass,
+      rowClass: [
+        payout.month === payment.month && 'current',
+        payout.status !== 'scheduled' && 'muted',
+      ]
+        .filter(Boolean)
+        .join(' '),
+    };
+  });
+  const totalFor = (selected: ScheduledReturn[]): ReturnTotal => ({
+    amount: selected.reduce((sum, payout) => sum + payout.amountCents, 0) / 100,
+    count: selected.length,
+  });
+  const withStatus = (statusClass: string) =>
+    payouts.filter((_, index) => rows[index].statusClass === statusClass);
+  const payable = payouts.filter((payout) => payout.status === 'scheduled');
+  const paid = totalFor(withStatus('paid'));
+  const half = Math.ceil(rows.length / 2);
   return {
     companyName: 'Czarlie & Ron',
     logoData: getLogo(),
@@ -147,33 +210,16 @@ function buildStatementContext(
     bankingDate: formatDate(dueDate),
     paidDate: formatDate(payment.paidDate),
     amount: payment.amount.toNumber(),
-    projectedReturns: payouts.map((payout) => {
-      const recorded = recordedPayments.get(payout.month);
-      const statusClass =
-        payout.status !== 'scheduled'
-          ? payout.status
-          : recorded
-            ? 'paid'
-            : payout.dueDate && payout.dueDate < today
-              ? 'overdue'
-              : 'upcoming';
-      const labels = {
-        deferred: 'Setup deferral',
-        waived: 'March waived',
-        paid: 'Paid',
-        overdue: 'Overdue',
-        upcoming: 'Upcoming',
-      };
-      return {
-        month: payout.month,
-        anniversaryDate: formatDate(payout.anniversaryDate),
-        bankingDate: payout.dueDate ? formatDate(payout.dueDate) : '-',
-        amount: payout.amountCents / 100,
-        paidDate: recorded ? formatDate(recorded.paidDate) : '-',
-        status: labels[statusClass],
-        statusClass,
-      };
-    }),
+    returnColumns: [rows.slice(0, half), rows.slice(half)],
+    returnSummary: {
+      paid,
+      upcoming: totalFor(withStatus('upcoming')),
+      overdue: totalFor(withStatus('overdue')),
+      total: totalFor(payable),
+      progress: payable.length
+        ? Math.round((paid.count / payable.length) * 100)
+        : 0,
+    },
     generatedAt: `${formatDate(getCurrentDateISO())} · ${generatedDate.toLocaleTimeString(
       'en-PH',
       {

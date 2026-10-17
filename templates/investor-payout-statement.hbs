@@ -7,110 +7,205 @@
       * { box-sizing: border-box; }
       @page { size: A4; margin: 0; }
       @page returns { size: A4 landscape; margin: 0; }
-      body { margin: 0; background: #fff; color: #20272d; font-family: Arial, sans-serif; }
-      .page { min-height: 297mm; padding: 16mm; }
-      .sheet { min-height: 265mm; border: 1px solid #d9dfe3; padding: 14mm; display: flex; flex-direction: column; }
-      header { display: flex; align-items: center; justify-content: space-between; border-bottom: 2px solid #137c72; padding-bottom: 8mm; }
-      .brand { display: flex; align-items: center; gap: 12px; }
-      .logo { width: 54px; height: 54px; object-fit: contain; }
-      .company { font-family: Georgia, serif; font-size: 24px; font-weight: 700; }
-      .subtitle { margin-top: 4px; color: #58636b; font-size: 11px; }
-      .document { text-align: right; }
-      .document h1 { margin: 0; color: #137c72; font-size: 17px; letter-spacing: 1.5px; }
-      .document p { margin: 6px 0 0; color: #58636b; font-size: 10px; }
-      section { margin-top: 9mm; }
-      .section-title { margin: 0 0 4mm; color: #58636b; font-size: 10px; letter-spacing: 1.3px; text-transform: uppercase; }
-      .details { display: grid; grid-template-columns: 1fr 1fr; gap: 5mm; }
-      .item { padding: 4mm; border: 1px solid #d9dfe3; }
-      .label { margin-bottom: 2mm; color: #68747b; font-size: 9px; text-transform: uppercase; }
-      .value { font-size: 13px; font-weight: 600; overflow-wrap: anywhere; }
-      .payment { margin-top: 12mm; padding: 7mm; background: #f2f8f6; border: 1px solid #b9d9d2; }
-      .payment-line { display: flex; justify-content: space-between; gap: 10px; padding: 3mm 0; border-bottom: 1px solid #d5e7e2; font-size: 12px; }
-      .payment-line:last-child { border-bottom: 0; }
-      .payment-total { color: #11685f; font-size: 19px; font-weight: 700; }
-      .status { display: inline-block; padding: 2mm 4mm; background: #d9f0e8; color: #12614c; font-size: 10px; font-weight: 700; letter-spacing: 1px; }
-      footer { margin-top: auto; padding-top: 10mm; color: #647078; font-size: 9px; line-height: 1.6; }
+      body { margin: 0; background: #fff; color: #1f2933; font-family: Inter, 'Segoe UI', Helvetica, Arial, sans-serif; -webkit-font-smoothing: antialiased; }
+      .company { font-family: Georgia, 'Times New Roman', serif; font-size: 22px; font-weight: 700; letter-spacing: -0.2px; }
       .generated { margin-top: 4mm; color: #879198; font-size: 8px; }
-      .returns-page { page: returns; break-before: page; padding: 10mm 12mm; }
-      .returns-page header { padding-bottom: 3mm; }
-      .returns-page h2 { margin: 4mm 0 2mm; font-size: 15px; color: #137c72; }
-      .returns-summary { margin: 2mm 0 3mm; font-size: 10px; overflow-wrap: anywhere; }
-      .returns-table { width: 100%; border-collapse: collapse; table-layout: fixed; font-size: 8px; }
-      .returns-table th { background: #eef3f4; color: #58636b; text-align: left; }
-      .returns-table th, .returns-table td { padding: 0.5mm 2mm; border-bottom: 1px solid #e2e7e9; line-height: 1.15; }
-      .returns-table tr { break-inside: avoid; }
-      .returns-table .month { width: 7%; }
-      .returns-table .amount { text-align: right; }
-      .return-status { font-weight: 700; }
-      .paid { color: #12614c; }
-      .upcoming { color: #176b91; }
-      .overdue { color: #a33b25; }
-      .waived, .deferred { color: #68747b; }
-      .returns-note { margin-top: 3mm; font-size: 8px; color: #647078; }
+      .statement { position: relative; height: 297mm; overflow: hidden; display: flex; flex-direction: column; padding: 18mm 18mm 14mm; }
+      .statement::before { content: ''; position: absolute; inset: 0 0 auto 0; height: 5mm; background: linear-gradient(90deg, #0f5e57, #14b8a6); }
+      .st-header { display: flex; align-items: center; justify-content: space-between; gap: 8mm; }
+      .brand { display: flex; align-items: center; gap: 12px; }
+      .logo { width: 48px; height: 48px; object-fit: contain; }
+      .subtitle { margin-top: 3px; color: #6b7780; font-size: 10px; letter-spacing: 0.4px; }
+      .st-doc { text-align: right; }
+      .eyebrow { display: inline-block; padding: 1.6mm 3.6mm; border-radius: 999px; background: #e6f4f1; color: #0f6b62; font-size: 9px; font-weight: 700; letter-spacing: 1.6px; }
+      .st-doc h1 { margin: 0; }
+      .st-ref { margin: 3mm 0 0; color: #1f2933; font-size: 11px; font-weight: 600; letter-spacing: 0.4px; }
+      .st-period { margin: 1mm 0 0; color: #6b7780; font-size: 10px; }
+      .hero { margin-top: 12mm; padding: 9mm 10mm; border-radius: 5mm; background: linear-gradient(135deg, #0b4f49 0%, #137c72 60%, #18a092 100%); color: #fff; display: flex; justify-content: space-between; align-items: flex-end; gap: 8mm; }
+      .hero-label { font-size: 10px; letter-spacing: 1.4px; text-transform: uppercase; color: rgba(255, 255, 255, 0.75); }
+      .hero-amount { margin-top: 2mm; font-size: 36px; font-weight: 700; letter-spacing: -0.5px; line-height: 1.1; }
+      .hero-sub { margin-top: 3mm; font-size: 11px; color: rgba(255, 255, 255, 0.85); }
+      .hero-side { text-align: right; flex-shrink: 0; }
+      .badge { display: inline-flex; align-items: center; gap: 1.6mm; padding: 1.8mm 4mm; border-radius: 999px; background: rgba(255, 255, 255, 0.18); border: 1px solid rgba(255, 255, 255, 0.35); font-size: 10px; font-weight: 700; letter-spacing: 1.4px; }
+      .badge-dot { width: 2mm; height: 2mm; border-radius: 50%; background: #5eead4; }
+      .hero-month { margin-top: 3mm; font-size: 11px; color: rgba(255, 255, 255, 0.85); }
+      .tiles { margin-top: 7mm; display: grid; grid-template-columns: repeat(3, 1fr); gap: 4mm; }
+      .tile { padding: 4.5mm 5mm; border-radius: 3.5mm; background: #f5f7f8; }
+      .tile-label, .dl-label { color: #6b7780; font-size: 8.5px; font-weight: 600; letter-spacing: 1px; text-transform: uppercase; }
+      .tile-value { margin-top: 1.8mm; font-size: 13px; font-weight: 600; }
+      .card { margin-top: 7mm; padding: 6mm 7mm; border: 1px solid #e3e8eb; border-radius: 4mm; }
+      .card h2 { margin: 0 0 4mm; font-size: 12px; font-weight: 700; color: #1f2933; }
+      .dl { display: grid; grid-template-columns: 1fr 1fr; column-gap: 10mm; margin: 0; }
+      .dl-row { padding: 3.2mm 0; border-top: 1px solid #eef1f3; }
+      .dl-row:nth-child(-n + 2) { border-top: 0; padding-top: 0; }
+      .dl-row dd { margin: 1.4mm 0 0; font-size: 12.5px; font-weight: 600; overflow-wrap: anywhere; }
+      .calc { display: flex; align-items: center; justify-content: space-between; gap: 4mm; }
+      .calc-part { flex: 1; padding: 4mm 5mm; border-radius: 3mm; background: #f5f7f8; }
+      .calc-part.result { background: #e6f4f1; color: #0f6b62; }
+      .calc-op { color: #9aa5ad; font-size: 16px; font-weight: 300; }
+      .calc-value { margin-top: 1.4mm; font-size: 14px; font-weight: 700; }
+      .card-note { margin: 3.5mm 0 0; color: #6b7780; font-size: 9px; }
+      .st-footer { margin-top: auto; padding-top: 6mm; border-top: 1px solid #e3e8eb; display: flex; justify-content: space-between; align-items: flex-end; gap: 10mm; color: #6b7780; font-size: 8.5px; line-height: 1.6; }
+      .st-footer p { margin: 0; max-width: 120mm; }
+      .st-next { color: #0f6b62; font-weight: 600; white-space: nowrap; }
+      .returns-page { page: returns; break-before: page; position: relative; height: 210mm; overflow: hidden; display: flex; flex-direction: column; padding: 12mm 14mm 9mm; }
+      .returns-page::before { content: ''; position: absolute; inset: 0 0 auto 0; height: 4mm; background: linear-gradient(90deg, #0f5e57, #14b8a6); }
+      .returns-page .logo { width: 38px; height: 38px; }
+      .returns-page .company { font-size: 19px; }
+      .rs-title { margin-top: 6mm; display: flex; justify-content: space-between; align-items: flex-end; gap: 8mm; }
+      .rs-title h2 { margin: 0; font-size: 18px; font-weight: 700; letter-spacing: -0.2px; }
+      .rs-meta { margin: 1.2mm 0 0; color: #6b7780; font-size: 9.5px; }
+      .rs-progress { min-width: 62mm; text-align: right; color: #6b7780; font-size: 9px; }
+      .rs-progress strong { color: #0f6b62; }
+      .bar { margin-top: 1.6mm; height: 1.8mm; border-radius: 999px; background: #e6ecef; overflow: hidden; }
+      .bar span { display: block; height: 100%; border-radius: 999px; background: linear-gradient(90deg, #0f6b62, #14b8a6); }
+      .rs-tiles { margin-top: 4.5mm; display: grid; grid-template-columns: repeat(4, 1fr); gap: 3.5mm; }
+      .rs-tile { padding: 3mm 4mm; border-radius: 3mm; background: #f5f7f8; border-left: 3px solid #cbd5db; }
+      .rs-tile.paid { border-left-color: #10b981; }
+      .rs-tile.upcoming { border-left-color: #3b82f6; }
+      .rs-tile.overdue { border-left-color: #ef4444; }
+      .rs-tile.total { border-left-color: #0f6b62; background: #e6f4f1; }
+      .rs-value { margin-top: 1mm; font-size: 14px; font-weight: 700; }
+      .rs-count { margin-top: 0.4mm; color: #6b7780; font-size: 8.5px; }
+      .rs-grid { margin-top: 4.5mm; display: grid; grid-template-columns: 1fr 1fr; gap: 5mm; }
+      .rs-table { width: 100%; border-collapse: separate; border-spacing: 0; table-layout: fixed; font-size: 8px; border: 1px solid #e3e8eb; border-radius: 3mm; overflow: hidden; }
+      .rs-table th { background: #f5f7f8; color: #6b7780; font-size: 7px; font-weight: 700; letter-spacing: 0.8px; text-transform: uppercase; text-align: left; padding: 1.8mm 2mm; }
+      .rs-table td { padding: 1.15mm 2mm; border-top: 1px solid #eef1f3; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+      .rs-table .num { width: 7%; color: #6b7780; font-weight: 600; }
+      .rs-table .amount { width: 19%; text-align: right; font-weight: 600; font-variant-numeric: tabular-nums; }
+      .rs-table .status { width: 22%; text-align: right; }
+      .rs-table tr.muted td { color: #9aa5ad; }
+      .rs-table tr.current td { background: #e6f4f1; font-weight: 700; }
+      .rs-table tr.current td:first-child { box-shadow: inset 3px 0 0 #0f6b62; color: #0f6b62; }
+      .pill { display: inline-block; padding: 0.5mm 2.2mm; border-radius: 999px; font-size: 7px; font-weight: 700; letter-spacing: 0.4px; }
+      .pill.paid { background: #d1fae5; color: #047857; }
+      .pill.upcoming { background: #dbeafe; color: #1d4ed8; }
+      .pill.overdue { background: #fee2e2; color: #b91c1c; }
+      .pill.waived, .pill.deferred { background: #eef1f3; color: #6b7780; }
+      .rs-footer { margin-top: auto; padding-top: 3mm; border-top: 1px solid #e3e8eb; display: flex; justify-content: space-between; align-items: flex-end; gap: 10mm; color: #6b7780; font-size: 8px; line-height: 1.5; }
+      .rs-footer p { margin: 0; max-width: 190mm; }
+      .rs-footer .generated { margin: 0; white-space: nowrap; }
+      .legend-current { display: inline-block; width: 2.4mm; height: 2.4mm; border-radius: 0.6mm; background: #e6f4f1; box-shadow: inset 2px 0 0 #0f6b62; vertical-align: -0.3mm; margin-right: 1mm; }
     </style>
   </head>
   <body>
-    <main class="page">
-      <article class="sheet">
-        <header>
-          <div class="brand">
-            {{#if logoData}}<img class="logo" src="data:image/png;base64,{{logoData}}" alt="Company logo" />{{/if}}
-            <div>
-              <div class="company">{{companyName}}</div>
-              <div class="subtitle">Investor Relations</div>
-            </div>
+    <main class="statement">
+      <header class="st-header">
+        <div class="brand">
+          {{#if logoData}}<img class="logo" src="data:image/png;base64,{{logoData}}" alt="Company logo" />{{/if}}
+          <div>
+            <div class="company">{{companyName}}</div>
+            <div class="subtitle">Investor Relations</div>
           </div>
-          <div class="document">
-            <h1>PAYOUT STATEMENT</h1>
-            <p>{{statementReference}}</p>
-            <p>{{payoutPeriod}}</p>
-          </div>
-        </header>
+        </div>
+        <div class="st-doc">
+          <h1 class="eyebrow">PAYOUT STATEMENT</h1>
+          <p class="st-ref">{{statementReference}}</p>
+          <p class="st-period">{{payoutPeriod}}</p>
+        </div>
+      </header>
 
-        <section>
-          <h2 class="section-title">Investor and agreement</h2>
-          <div class="details">
-            <div class="item"><div class="label">Investor</div><div class="value">{{investorName}}</div></div>
-            <div class="item"><div class="label">Agreement reference</div><div class="value">{{agreementReference}}</div></div>
-            <div class="item"><div class="label">Effective date</div><div class="value">{{effectiveDate}}</div></div>
-            <div class="item"><div class="label">Original principal</div><div class="value">{{currency principal}}</div></div>
-            <div class="item"><div class="label">Monthly rate</div><div class="value">{{monthlyRate}}%</div></div>
-            <div class="item"><div class="label">Payout month</div><div class="value">{{payoutMonth}}</div></div>
-          </div>
-        </section>
+      <section class="hero" aria-label="Recorded payout">
+        <div>
+          <div class="hero-label">Amount paid</div>
+          <div class="hero-amount">{{currency amount}}</div>
+          <div class="hero-sub">Paid on {{paidDate}} to {{investorName}}</div>
+        </div>
+        <div class="hero-side">
+          <span class="badge"><span class="badge-dot"></span>PAID</span>
+          <div class="hero-month">Agreement month {{agreementMonth}} of 36</div>
+        </div>
+      </section>
 
-        <section class="payment">
-          <h2 class="section-title">Recorded payout</h2>
-          <div class="payment-line"><span>Agreement month</span><strong>{{agreementMonth}}</strong></div>
-          <div class="payment-line"><span>Scheduled banking date</span><strong>{{bankingDate}}</strong></div>
-          <div class="payment-line"><span>Payment date</span><strong>{{paidDate}}</strong></div>
-          <div class="payment-line"><span>Payment status</span><strong class="status">PAID</strong></div>
-          <div class="payment-line"><span>Amount recorded</span><strong class="payment-total">{{currency amount}}</strong></div>
-        </section>
+      <section class="tiles" aria-label="Payout dates">
+        <div class="tile"><div class="tile-label">Payout month</div><div class="tile-value">{{payoutMonth}}</div></div>
+        <div class="tile"><div class="tile-label">Scheduled banking date</div><div class="tile-value">{{bankingDate}}</div></div>
+        <div class="tile"><div class="tile-label">Payment date</div><div class="tile-value">{{paidDate}}</div></div>
+      </section>
 
-        <footer>
-          This statement summarizes a payout recorded in the investor records. It is not a bank transfer receipt, tax invoice, or confirmation from a financial institution.
+      <section class="card">
+        <h2>Investment details</h2>
+        <dl class="dl">
+          <div class="dl-row"><dt class="dl-label">Investor</dt><dd>{{investorName}}</dd></div>
+          <div class="dl-row"><dt class="dl-label">Agreement reference</dt><dd>{{agreementReference}}</dd></div>
+          <div class="dl-row"><dt class="dl-label">Effective date</dt><dd>{{effectiveDate}}</dd></div>
+          <div class="dl-row"><dt class="dl-label">Original principal</dt><dd>{{currency principal}}</dd></div>
+          <div class="dl-row"><dt class="dl-label">Monthly rate</dt><dd>{{monthlyRate}}%</dd></div>
+          <div class="dl-row"><dt class="dl-label">Amount recorded</dt><dd>{{currency amount}}</dd></div>
+        </dl>
+      </section>
+
+      <section class="card">
+        <h2>How this payout is calculated</h2>
+        <div class="calc">
+          <div class="calc-part"><div class="tile-label">Original principal</div><div class="calc-value">{{currency principal}}</div></div>
+          <div class="calc-op" aria-hidden="true">×</div>
+          <div class="calc-part"><div class="tile-label">Monthly rate</div><div class="calc-value">{{monthlyRate}}%</div></div>
+          <div class="calc-op" aria-hidden="true">=</div>
+          <div class="calc-part result"><div class="tile-label">Monthly return</div><div class="calc-value">{{currency amount}}</div></div>
+        </div>
+        <p class="card-note">Returns are simple interest on the original principal and do not compound. Principal is repaid separately at maturity.</p>
+      </section>
+
+      <footer class="st-footer">
+        <div>
+          <p>This statement summarizes a payout recorded in the investor records. It is not a bank transfer receipt, tax invoice, or confirmation from a financial institution.</p>
           <div class="generated">Generated {{generatedAt}}</div>
-        </footer>
-      </article>
+        </div>
+        <div class="st-next">Full return schedule on page 2 →</div>
+      </footer>
     </main>
     <main class="returns-page">
-      <header>
-        <div class="company">{{companyName}}</div>
-        <div class="document"><p>{{statementReference}}</p><p>{{payoutPeriod}}</p></div>
+      <header class="st-header">
+        <div class="brand">
+          {{#if logoData}}<img class="logo" src="data:image/png;base64,{{logoData}}" alt="" />{{/if}}
+          <div>
+            <div class="company">{{companyName}}</div>
+            <div class="subtitle">Investor Relations</div>
+          </div>
+        </div>
+        <div class="st-doc">
+          <span class="eyebrow">RETURN SCHEDULE</span>
+          <p class="st-ref">{{statementReference}}</p>
+          <p class="st-period">{{payoutPeriod}}</p>
+        </div>
       </header>
-      <h2>Projected returns</h2>
-      <p class="returns-summary">{{investorName}} · {{agreementReference}} · Original principal: {{currency principal}} · Monthly rate: {{monthlyRate}}%</p>
-      <table class="returns-table">
-        <thead><tr><th class="month" scope="col">Month</th><th scope="col">Anniversary</th><th scope="col">Banking date</th><th class="amount" scope="col">Return</th><th scope="col">Payment date</th><th scope="col">Status</th></tr></thead>
-        <tbody>
-          {{#each projectedReturns}}
-          <tr><td>{{month}}</td><td>{{anniversaryDate}}</td><td>{{bankingDate}}</td><td class="amount">{{currency amount}}</td><td>{{paidDate}}</td><td class="return-status {{statusClass}}">{{status}}</td></tr>
-          {{/each}}
-        </tbody>
-      </table>
-      <p class="returns-note">Paid reflects recorded payments as of generation. Unpaid returns are projected; banking dates may change for bank closures. Principal repayment is not included in this return schedule.</p>
-      <div class="generated">Generated {{generatedAt}}</div>
+
+      <div class="rs-title">
+        <div>
+          <h2>Projected returns</h2>
+          <p class="rs-meta">{{investorName}} · {{agreementReference}} · Original principal {{currency principal}} · Monthly rate {{monthlyRate}}%</p>
+        </div>
+        <div class="rs-progress">
+          <strong>{{returnSummary.paid.count}} of {{returnSummary.total.count}}</strong> payable months paid
+          <div class="bar"><span style="width: {{returnSummary.progress}}%"></span></div>
+        </div>
+      </div>
+
+      <section class="rs-tiles" aria-label="Return summary">
+        <div class="rs-tile paid"><div class="tile-label">Paid to date</div><div class="rs-value">{{currency returnSummary.paid.amount}}</div><div class="rs-count">{{returnSummary.paid.count}} payout(s)</div></div>
+        <div class="rs-tile upcoming"><div class="tile-label">Upcoming</div><div class="rs-value">{{currency returnSummary.upcoming.amount}}</div><div class="rs-count">{{returnSummary.upcoming.count}} payout(s)</div></div>
+        <div class="rs-tile overdue"><div class="tile-label">Overdue</div><div class="rs-value">{{currency returnSummary.overdue.amount}}</div><div class="rs-count">{{returnSummary.overdue.count}} payout(s)</div></div>
+        <div class="rs-tile total"><div class="tile-label">Total contract returns</div><div class="rs-value">{{currency returnSummary.total.amount}}</div><div class="rs-count">{{returnSummary.total.count}} payable months</div></div>
+      </section>
+
+      <section class="rs-grid" aria-label="Monthly return schedule">
+        {{#each returnColumns}}
+        <table class="rs-table">
+          <thead><tr><th class="num" scope="col">#</th><th scope="col">Anniversary</th><th scope="col">Banking date</th><th class="amount" scope="col">Return</th><th scope="col">Paid on</th><th class="status" scope="col">Status</th></tr></thead>
+          <tbody>
+            {{#each this}}
+            <tr class="{{rowClass}}"><td class="num">{{month}}</td><td>{{anniversaryDate}}</td><td>{{bankingDate}}</td><td class="amount">{{currency amount}}</td><td>{{paidDate}}</td><td class="status"><span class="pill {{statusClass}}">{{status}}</span></td></tr>
+            {{/each}}
+          </tbody>
+        </table>
+        {{/each}}
+      </section>
+
+      <footer class="rs-footer">
+        <p><span class="legend-current"></span>Highlighted row is this statement's payout. Paid reflects recorded payments as of generation. Unpaid returns are projected; banking dates may change for bank closures. Principal repayment is not included in this return schedule.</p>
+        <div class="generated">Generated {{generatedAt}}</div>
+      </footer>
     </main>
   </body>
 </html>

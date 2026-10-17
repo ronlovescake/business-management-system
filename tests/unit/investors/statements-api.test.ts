@@ -128,8 +128,13 @@ describe('investor payout statement API', () => {
     expect(html).toContain('not a bank transfer receipt');
     expect(html).toContain('Projected returns');
     expect(html).toContain('@page returns { size: A4 landscape;');
-    expect(html.match(/<tr><td>/g)).toHaveLength(36);
-    expect(html.match(/class="return-status paid"/g)).toHaveLength(2);
+    expect(html.match(/<tr class="[^"]*"><td class="num">/g)).toHaveLength(36);
+    expect(html.match(/<table class="rs-table">/g)).toHaveLength(2);
+    expect(html.match(/class="pill paid"/g)).toHaveLength(2);
+    expect(html).toContain('<tr class="current"><td class="num">3</td>');
+    expect(html).toContain('<tr class="muted"><td class="num">1</td>');
+    expect(html).toContain('2 of 32</strong> payable months paid');
+    expect(html).toContain('Paid to date');
     expect(html).toContain('May 26, 2025');
     expect(html).toContain('Setup deferral');
     expect(html).toContain('March waived');
