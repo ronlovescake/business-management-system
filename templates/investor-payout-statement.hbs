@@ -6,6 +6,7 @@
     <style>
       * { box-sizing: border-box; }
       @page { size: A4; margin: 0; }
+      @page returns { size: A4 landscape; margin: 0; }
       body { margin: 0; background: #fff; color: #20272d; font-family: Arial, sans-serif; }
       .page { min-height: 297mm; padding: 16mm; }
       .sheet { min-height: 265mm; border: 1px solid #d9dfe3; padding: 14mm; display: flex; flex-direction: column; }
@@ -30,6 +31,22 @@
       .status { display: inline-block; padding: 2mm 4mm; background: #d9f0e8; color: #12614c; font-size: 10px; font-weight: 700; letter-spacing: 1px; }
       footer { margin-top: auto; padding-top: 10mm; color: #647078; font-size: 9px; line-height: 1.6; }
       .generated { margin-top: 4mm; color: #879198; font-size: 8px; }
+      .returns-page { page: returns; break-before: page; padding: 10mm 12mm; }
+      .returns-page header { padding-bottom: 3mm; }
+      .returns-page h2 { margin: 4mm 0 2mm; font-size: 15px; color: #137c72; }
+      .returns-summary { margin: 2mm 0 3mm; font-size: 10px; overflow-wrap: anywhere; }
+      .returns-table { width: 100%; border-collapse: collapse; table-layout: fixed; font-size: 8px; }
+      .returns-table th { background: #eef3f4; color: #58636b; text-align: left; }
+      .returns-table th, .returns-table td { padding: 0.5mm 2mm; border-bottom: 1px solid #e2e7e9; line-height: 1.15; }
+      .returns-table tr { break-inside: avoid; }
+      .returns-table .month { width: 7%; }
+      .returns-table .amount { text-align: right; }
+      .return-status { font-weight: 700; }
+      .paid { color: #12614c; }
+      .upcoming { color: #176b91; }
+      .overdue { color: #a33b25; }
+      .waived, .deferred { color: #68747b; }
+      .returns-note { margin-top: 3mm; font-size: 8px; color: #647078; }
     </style>
   </head>
   <body>
@@ -76,6 +93,24 @@
           <div class="generated">Generated {{generatedAt}}</div>
         </footer>
       </article>
+    </main>
+    <main class="returns-page">
+      <header>
+        <div class="company">{{companyName}}</div>
+        <div class="document"><p>{{statementReference}}</p><p>{{payoutPeriod}}</p></div>
+      </header>
+      <h2>Projected returns</h2>
+      <p class="returns-summary">{{investorName}} · {{agreementReference}} · Original principal: {{currency principal}} · Monthly rate: {{monthlyRate}}%</p>
+      <table class="returns-table">
+        <thead><tr><th class="month" scope="col">Month</th><th scope="col">Anniversary</th><th scope="col">Banking date</th><th class="amount" scope="col">Return</th><th scope="col">Payment date</th><th scope="col">Status</th></tr></thead>
+        <tbody>
+          {{#each projectedReturns}}
+          <tr><td>{{month}}</td><td>{{anniversaryDate}}</td><td>{{bankingDate}}</td><td class="amount">{{currency amount}}</td><td>{{paidDate}}</td><td class="return-status {{statusClass}}">{{status}}</td></tr>
+          {{/each}}
+        </tbody>
+      </table>
+      <p class="returns-note">Paid reflects recorded payments as of generation. Unpaid returns are projected; banking dates may change for bank closures. Principal repayment is not included in this return schedule.</p>
+      <div class="generated">Generated {{generatedAt}}</div>
     </main>
   </body>
 </html>

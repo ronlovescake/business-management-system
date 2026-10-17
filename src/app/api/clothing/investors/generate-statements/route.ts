@@ -14,6 +14,7 @@ import {
   getChromiumExecutablePath,
 } from '@/lib/playwright/chromium';
 import { buildInvestmentSchedule } from '@/lib/investors/schedule';
+import type { ScheduledReturn } from '@/lib/investors/schedule';
 import { getCurrentDateISO } from '@/utils/date';
 
 export const dynamic = 'force-dynamic';
@@ -48,6 +49,15 @@ type StatementContext = {
   paidDate: string;
   amount: number;
   generatedAt: string;
+  projectedReturns: {
+    month: number;
+    anniversaryDate: string;
+    bankingDate: string;
+    amount: number;
+    paidDate: string;
+    status: string;
+    statusClass: string;
+  }[];
 };
 
 function validMonth(value: unknown): value is string {
@@ -103,10 +113,12 @@ function buildStatementContext(
       principal: Prisma.Decimal;
       monthlyRateBps: number;
       investor: { name: string };
+      payments: { month: number; paidDate: string }[];
     };
   },
   dueDate: string,
-  month: string
+  month: string,
+  payouts: ScheduledReturn[]
 ): StatementContext {
   const [year, monthNumber] = month.split('-').map(Number);
   const monthDate = new Date(Date.UTC(year, monthNumber - 1, 1));
@@ -116,6 +128,10 @@ function buildStatementContext(
     timeZone: 'UTC',
   }).format(monthDate);
   const generatedDate = new Date();
+  const today = getCurrentDateISO();
+  const recordedPayments = new Map(
+    payment.agreement.payments.map((record) => [record.month, record])
+  );
   return {
     companyName: 'Czarlie & Ron',
     logoData: getLogo(),
@@ -131,6 +147,33 @@ function buildStatementContext(
     bankingDate: formatDate(dueDate),
     paidDate: formatDate(payment.paidDate),
     amount: payment.amount.toNumber(),
+    projectedReturns: payouts.map((payout) => {
+      const recorded = recordedPayments.get(payout.month);
+      const statusClass =
+        payout.status !== 'scheduled'
+          ? payout.status
+          : recorded
+            ? 'paid'
+            : payout.dueDate && payout.dueDate < today
+              ? 'overdue'
+              : 'upcoming';
+      const labels = {
+        deferred: 'Setup deferral',
+        waived: 'March waived',
+        paid: 'Paid',
+        overdue: 'Overdue',
+        upcoming: 'Upcoming',
+      };
+      return {
+        month: payout.month,
+        anniversaryDate: formatDate(payout.anniversaryDate),
+        bankingDate: payout.dueDate ? formatDate(payout.dueDate) : '-',
+        amount: payout.amountCents / 100,
+        paidDate: recorded ? formatDate(recorded.paidDate) : '-',
+        status: labels[statusClass],
+        statusClass,
+      };
+    }),
     generatedAt: `${formatDate(getCurrentDateISO())} · ${generatedDate.toLocaleTimeString(
       'en-PH',
       {
@@ -179,7 +222,14 @@ export async function POST(request: NextRequest) {
   try {
     const [payments, closures] = await Promise.all([
       prisma.clothingInvestmentPayment.findMany({
-        include: { agreement: { include: { investor: true } } },
+        include: {
+          agreement: {
+            include: {
+              investor: true,
+              payments: { select: { month: true, paidDate: true } },
+            },
+          },
+        },
         orderBy: [{ paidDate: 'asc' }, { id: 'asc' }],
       }),
       prisma.clothingInvestorBankClosure.findMany({
@@ -208,7 +258,12 @@ export async function POST(request: NextRequest) {
         continue;
       }
       statements.push({
-        context: buildStatementContext(payment, payout.dueDate, body.month),
+        context: buildStatementContext(
+          payment,
+          payout.dueDate,
+          body.month,
+          schedule.payouts
+        ),
         filename: sanitizeFilename(
           `${agreement.reference}-month-${payment.month}.pdf`
         ),
@@ -242,6 +297,7 @@ export async function POST(request: NextRequest) {
           buffer: Buffer.from(
             await page.pdf({
               format: 'A4',
+              preferCSSPageSize: true,
               printBackground: true,
               margin: { top: '0mm', right: '0mm', bottom: '0mm', left: '0mm' },
             })

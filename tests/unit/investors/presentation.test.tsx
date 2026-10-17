@@ -75,42 +75,138 @@ describe('investor accounting presentation', () => {
         />
       </MantineProvider>
     );
-    expect(screen.getAllByText('No matching records.')).toHaveLength(6);
-    expect(screen.getAllByRole('region')[0]).toHaveAccessibleName(
-      'Agreement review'
-    );
+    expect(
+      within(
+        screen.getByRole('region', { name: 'Upcoming payouts (90 days)' })
+      ).getByText('No payouts scheduled in the next 90 days.')
+    ).toBeVisible();
+    expect(
+      within(
+        screen.getByRole('region', { name: 'Unpaid due returns' })
+      ).getByRole('status')
+    ).toHaveTextContent('No unpaid returns due');
+    expect(
+      within(
+        screen.getByRole('region', { name: 'Agreement review' })
+      ).getByText('Missing bank-calendar coverage')
+    ).toBeVisible();
     expect(
       screen.queryByRole('heading', { name: 'Needs attention' })
     ).not.toBeInTheDocument();
     expect(
-      screen.getByRole('region', {
+      screen.getByRole('figure', {
         name: 'Monthly cash requirements (12 months)',
       })
     ).toBeVisible();
     expect(
-      screen.getByRole('region', {
+      screen.queryByRole('figure', {
         name: 'Outstanding principal by maturity month',
       })
+    ).not.toBeInTheDocument();
+    fireEvent.click(screen.getByLabelText('Principal maturities'));
+    const maturityChart = screen.getByRole('figure', {
+      name: 'Outstanding principal by maturity month',
+    });
+    expect(maturityChart).toBeVisible();
+    expect(
+      within(maturityChart).getByText('No outstanding funded principal.')
     ).toBeVisible();
-    const review = screen.getByRole('region', { name: 'Agreement review' });
-    const overview = screen.getByRole('region', { name: 'Investor overview' });
-    expect(review.parentElement).toBe(overview.parentElement);
-    expect(review.parentElement).toHaveClass('mantine-SimpleGrid-root');
-    expect(review).toHaveStyle({ minWidth: '0' });
-    expect(overview).toHaveStyle({ minWidth: '0' });
-    for (const [leftTitle, rightTitle] of [
-      ['Cash requirements (cumulative)', 'Unpaid due returns'],
-      ['Upcoming payouts (90 days)', 'Investment maturities'],
+    for (const [region, empty] of [
+      ['Investment maturities', 'No outstanding funded principal.'],
+      ['Recent activity', 'No recorded movements yet.'],
+      ['Investors', 'No investors match this search.'],
     ]) {
-      const left = screen.getByRole('region', { name: leftTitle });
-      const right = screen.getByRole('region', { name: rightTitle });
-      expect(left.parentElement).toBe(right.parentElement);
-      expect(left.parentElement).toHaveClass('mantine-SimpleGrid-root');
+      expect(
+        within(screen.getByRole('region', { name: region })).getByText(empty)
+      ).toBeVisible();
     }
-    expect(screen.getByText('Missing bank-calendar coverage')).toBeVisible();
+    expect(screen.getAllByRole('table')).toHaveLength(1);
+    expect(
+      screen.getByRole('table', {
+        name: 'Outstanding principal by maturity month data',
+      })
+    ).toBeInTheDocument();
     expect(
       screen.queryByRole('button', { name: 'Mark paid' })
     ).not.toBeInTheDocument();
+  });
+  it('lists maturities with clear status and opens the related portfolio', () => {
+    const onOpenInvestor = vi.fn();
+    const data = buildInvestorDashboard(
+      [
+        {
+          id: 'investor',
+          name: 'Test investor',
+          agreements: [
+            ['overdue', '2023-10-01'],
+            ['day-90', '2024-01-15'],
+            ['day-91', '2024-01-16'],
+          ].map(([id, effectiveDate]) => ({
+            id,
+            reference: id,
+            principal: '1000.00',
+            accounting: {
+              fundedDate: effectiveDate,
+              repaidDate: null,
+              unpostedPayments: 0,
+            },
+            schedule: {
+              ...buildInvestmentSchedule({
+                effectiveDate,
+                principalCents: 100000,
+                monthlyRateBps: 500,
+              }),
+              payouts: [],
+            },
+          })),
+        },
+      ],
+      '2026-10-17'
+    );
+    render(
+      <MantineProvider>
+        <InvestorDashboard
+          data={data}
+          today="2026-10-17"
+          search=""
+          closureYears={['2026', '2027']}
+          onMarkPaid={vi.fn()}
+          onOpenInvestor={onOpenInvestor}
+        />
+      </MantineProvider>
+    );
+    const maturities = screen.getByRole('region', {
+      name: 'Investment maturities',
+    });
+    expect(
+      within(maturities).getByText('3 outstanding · ₱3,000.00')
+    ).toBeVisible();
+    for (const [reference, status] of [
+      ['overdue', 'Matured'],
+      ['day-90', 'Within 90 days'],
+      ['day-91', 'Active'],
+    ]) {
+      expect(
+        within(maturities).getByText(`${reference} · ₱1,000.00`)
+      ).toBeVisible();
+      expect(within(maturities).getByText(status)).toBeVisible();
+    }
+    expect(
+      within(
+        screen.getByRole('region', { name: 'Agreement review' })
+      ).getByText('Matured principal awaiting repayment')
+    ).toBeVisible();
+    fireEvent.click(
+      within(maturities).getByRole('button', {
+        name: 'View portfolio for overdue',
+      })
+    );
+    expect(onOpenInvestor).toHaveBeenCalledWith('investor', 'overdue');
+    expect(
+      within(
+        screen.getByRole('region', { name: 'Recent activity' })
+      ).getAllByText('Funding received')
+    ).toHaveLength(3);
   });
   it('shows all due unpaid candidates across months and requires payment confirmation', async () => {
     const schedule = buildInvestmentSchedule({
@@ -177,18 +273,24 @@ describe('investor accounting presentation', () => {
       screen.getAllByText('Outstanding funded principal')[0]
     ).toBeVisible();
     await waitFor(() => {
-      for (const title of [
-        'Monthly cash requirements (12 months)',
-        'Outstanding principal by maturity month',
-      ]) {
-        const chart = screen.getByRole('region', { name: title });
-        expect(
-          chart.querySelectorAll('.recharts-bar-rectangle path').length
-        ).toBeGreaterThan(0);
-      }
+      const chart = screen.getByRole('figure', {
+        name: 'Monthly cash requirements (12 months)',
+      });
+      expect(
+        chart.querySelectorAll('.recharts-bar-rectangle path').length
+      ).toBeGreaterThan(0);
+    });
+    fireEvent.click(screen.getByLabelText('Principal maturities'));
+    await waitFor(() => {
+      const chart = screen.getByRole('figure', {
+        name: 'Outstanding principal by maturity month',
+      });
+      expect(
+        chart.querySelectorAll('.recharts-bar-rectangle path').length
+      ).toBeGreaterThan(0);
     });
     expect(
-      screen.getByRole('region', { name: 'Cash requirements (cumulative)' })
+      screen.getByRole('group', { name: 'Cash requirements (cumulative)' })
     ).toBeVisible();
     const dueReturns = screen.getByRole('region', {
       name: 'Unpaid due returns',
@@ -197,7 +299,7 @@ describe('investor accounting presentation', () => {
       within(dueReturns).getAllByRole('button', { name: 'Mark paid' })
     ).toHaveLength(3);
     expect(
-      screen.getByText('1 paid return(s) without linked journal postings')
+      screen.getByText(/1 paid return\(s\) without linked journal postings/)
     ).toBeVisible();
     fireEvent.click(
       within(dueReturns).getAllByRole('button', { name: 'Mark paid' })[0]
@@ -223,13 +325,16 @@ describe('investor accounting presentation', () => {
         screen.getByRole('region', { name: 'Unpaid due returns' })
       ).queryByRole('button', { name: 'Mark paid' })
     ).not.toBeInTheDocument();
+    expect(screen.queryByText('No unpaid returns due')).not.toBeInTheDocument();
     fireEvent.change(
       screen.getByRole('textbox', { name: 'Search dashboard' }),
       { target: { value: 'cr-001' } }
     );
-    const overview = screen.getByRole('region', { name: 'Investor overview' });
     fireEvent.click(
-      within(overview).getByRole('button', { name: 'View portfolio' })
+      within(screen.getByRole('region', { name: 'Investors' })).getByRole(
+        'button',
+        { name: 'View portfolio for Test investor' }
+      )
     );
     expect(screen.getByRole('tab', { name: 'Investors' })).toHaveAttribute(
       'aria-selected',

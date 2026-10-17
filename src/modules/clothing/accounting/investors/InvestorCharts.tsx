@@ -1,12 +1,13 @@
 'use client';
 
+import { useState } from 'react';
 import {
   Box,
+  SegmentedControl,
   SimpleGrid,
   Stack,
   Table,
   Text,
-  Title,
   VisuallyHidden,
 } from '@mantine/core';
 import {
@@ -21,6 +22,7 @@ import {
 } from 'recharts';
 import { FormatterService } from '@/services/FormatterService';
 import type { buildInvestorDashboard } from './dashboard';
+import { DashboardCard } from './InvestorDashboardCards';
 
 type Dashboard = ReturnType<typeof buildInvestorDashboard>;
 const money = (cents: number) => FormatterService.formatCurrency(cents / 100);
@@ -50,55 +52,61 @@ function FundingChart({
     (row) => row.principal > 0 || (row.returns ?? 0) > 0
   );
   return (
-    <Stack
-      gap="sm"
-      component="section"
-      aria-label={title}
-      style={{ minWidth: 0 }}
-    >
-      <Title order={4}>{title}</Title>
-      <Box h={300} style={{ minWidth: 0 }}>
+    <Box component="figure" aria-label={title} m={0} style={{ minWidth: 0 }}>
+      <Box h={280} style={{ minWidth: 0 }}>
         {hasValues ? (
           <ResponsiveContainer width="100%" height="100%" minWidth={0}>
             <BarChart
               data={rows}
-              margin={{ top: 8, right: 12, left: 4, bottom: 8 }}
+              margin={{ top: 8, right: 4, left: 0, bottom: 0 }}
+              barCategoryGap="28%"
               accessibilityLayer
             >
               <CartesianGrid
-                strokeDasharray="3 3"
                 vertical={false}
-                stroke="var(--mantine-color-gray-3)"
+                stroke="var(--mantine-color-gray-2)"
               />
               <XAxis
                 dataKey="month"
                 tickFormatter={monthLabel}
-                tick={{ fontSize: 12 }}
-                minTickGap={20}
+                tick={{ fontSize: 11, fill: 'var(--mantine-color-gray-6)' }}
+                minTickGap={12}
                 axisLine={false}
                 tickLine={false}
               />
               <YAxis
                 tickFormatter={(value: number) =>
-                  `PHP ${compact.format(value / 100)}`
+                  `₱${compact.format(value / 100)}`
                 }
-                tick={{ fontSize: 12 }}
-                width={84}
+                tick={{ fontSize: 11, fill: 'var(--mantine-color-gray-6)' }}
+                width={56}
                 axisLine={false}
                 tickLine={false}
               />
               <Tooltip
+                cursor={{ fill: 'var(--mantine-color-gray-0)' }}
+                contentStyle={{
+                  borderRadius: 8,
+                  border: '1px solid var(--mantine-color-gray-3)',
+                  fontSize: 12,
+                }}
                 labelFormatter={(label) => monthLabel(String(label))}
                 formatter={(value) => money(Number(value))}
               />
-              <Legend />
+              {includeReturns && (
+                <Legend
+                  iconType="circle"
+                  iconSize={8}
+                  wrapperStyle={{ fontSize: 12 }}
+                />
+              )}
               {includeReturns && (
                 <Bar
                   dataKey="returns"
                   name="Unpaid returns"
                   stackId="cash"
-                  fill="#0f766e"
-                  maxBarSize={44}
+                  fill="#14b8a6"
+                  maxBarSize={36}
                   isAnimationActive={false}
                 />
               )}
@@ -110,15 +118,16 @@ function FundingChart({
                     : 'Outstanding funded principal'
                 }
                 stackId="cash"
-                fill="#2563eb"
-                maxBarSize={44}
+                fill="#3b82f6"
+                radius={[6, 6, 0, 0]}
+                maxBarSize={36}
                 isAnimationActive={false}
               />
             </BarChart>
           </ResponsiveContainer>
         ) : (
           <Box h="100%" style={{ display: 'grid', placeItems: 'center' }}>
-            <Text c="dimmed">
+            <Text c="dimmed" size="sm">
               {includeReturns
                 ? 'No unpaid cash requirements in this period.'
                 : 'No outstanding funded principal.'}
@@ -149,23 +158,73 @@ function FundingChart({
           </Table.Tbody>
         </Table>
       </VisuallyHidden>
-    </Stack>
+    </Box>
   );
 }
 
-export function InvestorCharts({ data }: { data: Dashboard }) {
+export function InvestorCashOutlook({ data }: { data: Dashboard }) {
+  const [view, setView] = useState('cash');
   return (
-    <SimpleGrid cols={{ base: 1, xl: 2 }} spacing="lg">
-      <FundingChart
-        title="Monthly cash requirements (12 months)"
-        rows={data.cashByMonth}
-        includeReturns
-      />
-      <FundingChart
-        title="Outstanding principal by maturity month"
-        rows={data.principalByMaturity}
-        includeReturns={false}
-      />
-    </SimpleGrid>
+    <DashboardCard
+      title="Cash outlook"
+      description="Cumulative totals include unpaid returns and principal already due."
+      action={
+        <SegmentedControl
+          size="xs"
+          radius="md"
+          value={view}
+          onChange={setView}
+          aria-label="Chart view"
+          data={[
+            { value: 'cash', label: 'Next 12 months' },
+            { value: 'maturity', label: 'Principal maturities' },
+          ]}
+        />
+      }
+    >
+      <Stack gap="lg">
+        <SimpleGrid
+          cols={{ base: 1, xs: 3 }}
+          spacing="sm"
+          aria-label="Cash requirements (cumulative)"
+          role="group"
+        >
+          {data.forecast.map((row) => (
+            <Box
+              key={row.days}
+              p="sm"
+              style={{
+                minWidth: 0,
+                borderRadius: 10,
+                background: 'var(--mantine-color-gray-0)',
+              }}
+            >
+              <Text size="xs" c="dimmed" fw={500}>
+                Next {row.days} days
+              </Text>
+              <Text fw={700} fz="lg" style={{ overflowWrap: 'anywhere' }}>
+                {money(row.total)}
+              </Text>
+              <Text size="xs" c="dimmed">
+                Returns {money(row.returns)} · Principal {money(row.principal)}
+              </Text>
+            </Box>
+          ))}
+        </SimpleGrid>
+        {view === 'cash' ? (
+          <FundingChart
+            title="Monthly cash requirements (12 months)"
+            rows={data.cashByMonth}
+            includeReturns
+          />
+        ) : (
+          <FundingChart
+            title="Outstanding principal by maturity month"
+            rows={data.principalByMaturity}
+            includeReturns={false}
+          />
+        )}
+      </Stack>
+    </DashboardCard>
   );
 }

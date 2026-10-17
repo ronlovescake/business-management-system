@@ -31,6 +31,7 @@ const mocks = vi.hoisted(() => {
 vi.mock('next-auth', () => ({ getServerSession: mocks.session }));
 vi.mock('@/lib/auth/auth', () => ({ authOptions: {} }));
 vi.mock('@/lib/logger', () => ({ logger: { error: vi.fn() } }));
+vi.mock('@/utils/date', () => ({ getCurrentDateISO: () => '2026-10-17' }));
 vi.mock('@/lib/db', () => ({
   prisma: {
     clothingInvestmentPayment: mocks.payments,
@@ -66,6 +67,10 @@ function payment(month: number) {
       principal: new Prisma.Decimal('1000.00'),
       monthlyRateBps: 500,
       investor: { name: 'Test Investor' },
+      payments: [
+        { month: 3, paidDate: '2025-04-28' },
+        { month: 4, paidDate: '2025-05-26' },
+      ],
     },
   };
 }
@@ -107,13 +112,32 @@ describe('investor payout statement API', () => {
     expect(response.headers.get('Content-Type')).toBe('application/zip');
     expect(response.headers.get('Cache-Control')).toBe('private, no-store');
     expect(mocks.payments.findMany).toHaveBeenCalledWith({
-      include: { agreement: { include: { investor: true } } },
+      include: {
+        agreement: {
+          include: {
+            investor: true,
+            payments: { select: { month: true, paidDate: true } },
+          },
+        },
+      },
       orderBy: [{ paidDate: 'asc' }, { id: 'asc' }],
     });
     const html = mocks.page.setContent.mock.calls[0][0] as string;
     expect(html).toContain('Test Investor');
     expect(html).toContain('PAYOUT STATEMENT');
     expect(html).toContain('not a bank transfer receipt');
+    expect(html).toContain('Projected returns');
+    expect(html).toContain('@page returns { size: A4 landscape;');
+    expect(html.match(/<tr><td>/g)).toHaveLength(36);
+    expect(html.match(/class="return-status paid"/g)).toHaveLength(2);
+    expect(html).toContain('May 26, 2025');
+    expect(html).toContain('Setup deferral');
+    expect(html).toContain('March waived');
+    expect(html).toContain('Overdue');
+    expect(html).toContain('Upcoming');
+    expect(mocks.page.pdf).toHaveBeenCalledWith(
+      expect.objectContaining({ preferCSSPageSize: true })
+    );
     const JSZip = (await import('jszip')).default;
     const archive = await JSZip.loadAsync(
       Buffer.from(await response.arrayBuffer())
