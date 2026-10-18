@@ -37,6 +37,7 @@ model Customer {
   truckingInvoices       TruckingInvoice[]
   truckingPayments       TruckingPayment[]
   truckingTrips          TruckingTrip[]
+  transactions           Transaction[]
 
   @@index([customerName])
   @@index([phoneNumber])
@@ -391,6 +392,8 @@ model Transaction {
   updatedAt     DateTime                  @updatedAt
   orderDate     String?                   @db.VarChar(50)
   customers     String?                   @db.VarChar(255)
+  customerId    Int?
+  customer      Customer?                 @relation(fields: [customerId], references: [id], onDelete: Restrict)
   productCode   String?                   @db.VarChar(100)
   quantity      Float?
   unitPrice     Float?
@@ -412,6 +415,7 @@ model Transaction {
 
   @@index([orderDate])
   @@index([customers])
+  @@index([customerId])
   @@index([productCode])
   @@index([orderStatus])
   @@index([shipmentCode])
@@ -2160,6 +2164,7 @@ model GeneralMerchandiseCustomer {
   customerStatus         String   @db.VarChar(50)
   deletedAt              DateTime?
   additionalCustomerInfo GeneralMerchandiseAdditionalCustomerInfo[]
+  transactions           GeneralMerchandiseTransaction[]
 
   @@index([customerName])
   @@index([phoneNumber])
@@ -2394,6 +2399,8 @@ model GeneralMerchandiseTransaction {
   updatedAt     DateTime @updatedAt
   orderDate     String?  @db.VarChar(50)
   customers     String?  @db.VarChar(255)
+  customerId    Int?
+  customer      GeneralMerchandiseCustomer? @relation(fields: [customerId], references: [id], onDelete: Restrict)
   productCode   String?  @db.VarChar(100)
   quantity      Float?
   unitPrice     Float?
@@ -2415,6 +2422,7 @@ model GeneralMerchandiseTransaction {
 
   @@index([orderDate])
   @@index([customers])
+  @@index([customerId])
   @@index([productCode])
   @@index([orderStatus])
   @@index([shipmentCode])

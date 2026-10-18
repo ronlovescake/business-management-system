@@ -79,6 +79,11 @@ run(
   'reset and align test database schema'
 );
 
+run(
+  `${prismaArgs.join(' ')} db execute --file prisma/migrations/20261018120000_order_customer_identity/migration.sql --schema prisma/schema.prisma`,
+  'install customer identity backfill and synchronization rules'
+);
+
 if (shouldSeed) {
   run(
     `${prismaArgs.join(' ')} db seed --schema prisma/schema.prisma`,

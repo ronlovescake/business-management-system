@@ -137,7 +137,7 @@ export const GET = withErrorHandler<RouteContext>(
         ...(transactionId ? { transactionId } : {}),
         transaction: {
           deletedAt: null,
-          customers: customer.customerName,
+          customerId: idResult.id,
         },
       },
       orderBy: [{ paymentDate: 'desc' }, { createdAt: 'desc' }],
@@ -204,7 +204,7 @@ export const POST = withErrorHandler<RouteContext>(
       where: {
         id: sanitized.transactionId,
         deletedAt: null,
-        customers: customer.customerName,
+        customerId: idResult.id,
       },
       select: { id: true },
     });

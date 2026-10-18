@@ -97,6 +97,11 @@ describe('POST /api/customers/[id]/payments', () => {
     const response = await POST(request, { params: { id: '1' } });
     expect(response.status).toBe(201);
 
+    expect(mockPrisma.transaction.findFirst).toHaveBeenCalledWith({
+      where: { id: 2033, deletedAt: null, customerId: 1 },
+      select: { id: true },
+    });
+
     expect(mockPrisma.transaction.update).toHaveBeenCalledWith({
       where: { id: 2033 },
       data: {

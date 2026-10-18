@@ -44,7 +44,7 @@ export const GET = withErrorHandler<RouteContext>(
 
     const transactions = await prisma.generalMerchandiseTransaction.findMany({
       where: {
-        customers: customer.customerName,
+        customerId: idResult.id,
       },
       orderBy: {
         orderDate: 'desc',

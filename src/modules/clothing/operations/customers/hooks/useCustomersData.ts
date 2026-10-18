@@ -152,6 +152,13 @@ export function useCustomersData(apiBasePath?: string) {
       logger.error('Failed to bulk update customers:', error);
     },
     onSettled: () => {
+      void queryClient.invalidateQueries({
+        queryKey: queryKeys.transactions.all,
+      });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.analytics.all });
+      void queryClient.invalidateQueries({
+        queryKey: queryKeys.customers.details(),
+      });
       // Always refetch after error or success
       queryClient.invalidateQueries({ queryKey: customersQueryKey });
       // Also invalidate dispatch page customer cache

@@ -60,6 +60,7 @@ snapshots/
 !prisma/migrations/20260419120000_add_accounting_softdelete_and_indexes/migration.sql
 !prisma/migrations/20261017090000_clothing_investors/migration.sql
 !prisma/migrations/20261017110000_clothing_investment_payments/migration.sql
+!prisma/migrations/20261018120000_order_customer_identity/migration.sql
 !prisma/manual/20260116_create_clothing_recurring_payments.sql
 !prisma/manual/20260116_reconcile_prisma_drift.sql
 !archives/migration-scripts/20260318_backfill_missing_shipment_jt0012625740989.sql

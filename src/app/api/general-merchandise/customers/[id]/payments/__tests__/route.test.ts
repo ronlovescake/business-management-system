@@ -84,6 +84,13 @@ describe('POST /api/general-merchandise/customers/[id]/payments', () => {
     expect(response.status).toBe(200);
 
     expect(
+      mockPrisma.generalMerchandiseTransaction.findFirst
+    ).toHaveBeenCalledWith({
+      where: { id: 777, deletedAt: null, customerId: 1 },
+      select: { id: true },
+    });
+
+    expect(
       mockPrisma.generalMerchandiseTransaction.update
     ).toHaveBeenCalledWith({
       where: { id: 777 },

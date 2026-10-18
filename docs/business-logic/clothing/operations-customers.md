@@ -234,3 +234,70 @@
 | 94  | Search results are debounced 300 ms before updating the grid | A `useEffect` with a 300 ms `setTimeout` drives `debouncedFilteredCustomers` separately from `filteredCustomers`, preventing layout thrashing on fast typists. |
 | 95  | Statistics are computed from the debounced filtered list     | `calculateStats` uses `debouncedFilteredCustomers` so stat cards do not flicker on each keystroke.                                                             |
 | 96  | Ctrl+F focuses the search input                              | `useCtrlFFocus` attaches a keyboard shortcut that moves focus to the element with `data-ctrlf-target="customers-search-input"`.                                |
+
+---
+
+## Permanent Order Customer Identity
+
+Orders use nullable `Transaction.customerId` foreign keys to `Customer.id`.
+Customer history, payment ownership, and refund ownership use this ID, not a
+name comparison. Clothing and general merchandise have separate relationships;
+customers are never linked across businesses.
+
+The existing `customers` text column remains a compatibility display field.
+PostgreSQL triggers populate IDs for exact, unique name matches on order writes
+and synchronize that display field when the linked customer is renamed. An
+explicit ID is authoritative. Renames cover every status and soft-deleted orders
+atomically, without changing quantities, prices, adjustments, balances, payment
+records, refunds, or inventory movements. Existing generated documents and
+historical audit snapshots are not rewritten.
+
+Unknown or duplicate legacy names remain unlinked rather than being guessed.
+Duplicates include soft-deleted customer profiles. Unlinked orders stay in the
+transactions list but do not appear in an ID-scoped customer history until
+reconciled. Selecting another unique customer name reassigns an order; a stale
+or ambiguous name cannot silently detach an already-linked order. Reload before
+retrying an edit rejected by this protection. Blank customer values intentionally
+clear the association.
+
+### Rollout
+
+Apply `prisma/migrations/20261018120000_order_customer_identity/migration.sql`
+through the normal reviewed Prisma migration process before deploying the new
+ID-scoped API handlers. It adds nullable columns and restrictive foreign keys,
+backfills exact unique matches across all statuses, and installs the triggers.
+It does not delete records or infer matches from contact details. Regenerate the
+Prisma client as part of the release. `prisma db push` alone does not install
+the triggers; disposable test resets explicitly execute this migration after
+aligning the schema. Full database dumps must retain the functions and triggers.
+
+Customer edits refresh customer-history, transaction, and analytics query
+caches. Transaction tabs also listen for existing customer-update broadcasts.
+
+### Historical Name Reconciliation
+
+The following commands require a migrated database and an explicit environment
+file. They do not fall back to an inherited `DATABASE_URL`.
+
+```bash
+npx tsx scripts/reconcile-order-customers.ts --env .env.test --domain clothing
+npx tsx scripts/reconcile-order-customers.ts --env .env.test --domain clothing --from "Olie's Collection | Ces Obejas" --customer-id 123
+```
+
+The first command reports unlinked names, counts, and exact-match candidate IDs.
+The second previews one operator-confirmed mapping. Replace `123` with the
+verified customer's ID and choose the intended environment file; the example
+uses the dedicated test environment, not production. Verify that every order
+under the old name belongs to that customer before applying. There is no fuzzy
+or automatic alias matching.
+
+Add `--apply` to the mapping command only after reviewing the preview and backup
+coverage. It links only previously unlinked orders with that exact old name,
+including soft-deleted orders, and adopts the customer's current name. Existing
+links are never reassigned by reconciliation. Conflicts with another current or
+deleted customer profile or already-linked order stop the entire operation;
+those require individual order review. A deleted target customer is rejected.
+Confirmed mappings briefly lock the business's customer and transaction tables
+to prevent concurrent changes between preview checks and writes. Each applied
+mapping records the affected order IDs and before/after identity in `audit_logs`
+within the same transaction. Subsequent customer renames follow the permanent ID.

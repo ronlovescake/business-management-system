@@ -181,14 +181,15 @@ export function useCustomerDetails(
     onSettled: () => {
       // Invalidate and refetch
       void queryClient.invalidateQueries({
-        queryKey: [
-          ...queryKeys.customers.detail(customerId),
-          apiBasePath ?? 'default',
-        ],
+        queryKey: queryKeys.customers.detail(customerId),
       });
       void queryClient.invalidateQueries({
-        queryKey: [...queryKeys.customers.all, apiBasePath ?? 'default'],
+        queryKey: queryKeys.customers.all,
       });
+      void queryClient.invalidateQueries({
+        queryKey: queryKeys.transactions.all,
+      });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.analytics.all });
       // Also invalidate dispatch page customer cache
       void queryClient.invalidateQueries({
         queryKey: [

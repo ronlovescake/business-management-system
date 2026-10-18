@@ -8,7 +8,7 @@
  */
 
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
-import { useQueries } from '@tanstack/react-query';
+import { useQueries, useQueryClient } from '@tanstack/react-query';
 import { useTransactionData } from '@/hooks/useSheetData';
 import { useDataTable } from '@/components/ui';
 import { TransactionService } from '../services/TransactionService';
@@ -137,6 +137,7 @@ export function useTransactionsData({
   apiBasePath?: string;
   productCodeSearchQuery?: string;
 } = {}): UseTransactionsDataReturn {
+  const queryClient = useQueryClient();
   const resolvedApiBasePath = apiBasePath ?? '/api';
   const customerLookupBasePath =
     apiBasePath === '/api/general-merchandise' ? undefined : apiBasePath;
@@ -149,6 +150,19 @@ export function useTransactionsData({
     resolvedApiBasePath === '/api/general-merchandise'
       ? GeneralMerchandiseTransactionService
       : TransactionApiService;
+
+  useEffect(() => {
+    if (typeof BroadcastChannel === 'undefined') {
+      return;
+    }
+    const channel = new BroadcastChannel('customer-updates');
+    channel.onmessage = () => {
+      void queryClient.invalidateQueries({ queryKey: transactionQueryKey });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.customers.all });
+    };
+    return () => channel.close();
+  }, [queryClient, transactionQueryKey]);
+
   // ============================================================================
   // DATA FETCHING - Using abstraction layer
   // ============================================================================
@@ -256,8 +270,13 @@ export function useTransactionsData({
   });
 
   // Destructure query results to avoid complex dependencies
-  const [customersQuery, pricesQuery, productsQuery, shipmentsQuery, splitBatchesQuery] =
-    lookupQueries;
+  const [
+    customersQuery,
+    pricesQuery,
+    productsQuery,
+    shipmentsQuery,
+    splitBatchesQuery,
+  ] = lookupQueries;
 
   // Extract data with proper memoization
   const customersQueryData = useMemo(

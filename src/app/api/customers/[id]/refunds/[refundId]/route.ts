@@ -67,7 +67,7 @@ export const DELETE = withErrorHandler<RouteContext>(
         deletedAt: null,
         transaction: {
           deletedAt: null,
-          customers: customer.customerName,
+          customerId: parsed.customerId,
         },
       },
       select: { id: true },

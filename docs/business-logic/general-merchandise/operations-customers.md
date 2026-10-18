@@ -38,3 +38,18 @@
 | 8   | The GM customer service exposes active-customer lookup, bulk sync, create, and soft-delete-all behavior               | These service methods define the customer data-management surface under GM APIs.                     |
 | 9   | GM customer DTO mapping reuses the shared customer DTO conversion helpers                                             | The service maps to and from shared customer DTO shapes while storing records in GM-specific tables. |
 | 10  | Bulk synchronization and create flows should be treated as GM customer workflow even though the DTO mapping is shared | GM data ownership stays separate from other businesses.                                              |
+
+## Permanent Order Customer Identity
+
+`GeneralMerchandiseTransaction.customerId` references only
+`GeneralMerchandiseCustomer.id`. Customer histories and payment/refund ownership
+use that ID. The order name remains synchronized by the database when a customer
+is renamed, across all statuses and soft-deleted orders, without changing
+financial fields or inventory. Exact unique existing names are backfilled;
+unknown or duplicate names remain unlinked for explicit review.
+
+The [shared identity and rollout rules](../clothing/operations-customers.md#permanent-order-customer-identity)
+also apply to GM. For historical-name reports or confirmed mappings, use
+`npx tsx scripts/reconcile-order-customers.ts --env .env.test --domain general-merchandise`.
+Add `--from "Old Name" --customer-id 123` to preview a verified mapping and
+`--apply` only after review. IDs and mappings never cross business schemas.
