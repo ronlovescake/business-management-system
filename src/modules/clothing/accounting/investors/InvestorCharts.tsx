@@ -114,8 +114,8 @@ function FundingChart({
                 dataKey="principal"
                 name={
                   includeReturns
-                    ? 'Principal by repayment deadline'
-                    : 'Outstanding funded principal'
+                    ? 'Investment by repayment deadline'
+                    : 'Outstanding Funded Investment'
                 }
                 stackId="cash"
                 fill="#3b82f6"
@@ -130,7 +130,7 @@ function FundingChart({
             <Text c="dimmed" size="sm">
               {includeReturns
                 ? 'No unpaid cash requirements in this period.'
-                : 'No outstanding funded principal.'}
+                : 'No outstanding funded investment.'}
             </Text>
           </Box>
         )}
@@ -142,7 +142,7 @@ function FundingChart({
             <Table.Tr>
               <Table.Th>Month</Table.Th>
               {includeReturns && <Table.Th>Unpaid returns</Table.Th>}
-              <Table.Th>Principal</Table.Th>
+              <Table.Th>Investment</Table.Th>
             </Table.Tr>
           </Table.Thead>
           <Table.Tbody>
@@ -167,7 +167,7 @@ export function InvestorCashOutlook({ data }: { data: Dashboard }) {
   return (
     <DashboardCard
       title="Cash outlook"
-      description="Cumulative totals include unpaid returns and principal already due."
+      description="Cumulative totals include unpaid returns and investment already due."
       action={
         <SegmentedControl
           size="xs"
@@ -177,7 +177,7 @@ export function InvestorCashOutlook({ data }: { data: Dashboard }) {
           aria-label="Chart view"
           data={[
             { value: 'cash', label: 'Next 12 months' },
-            { value: 'maturity', label: 'Principal maturities' },
+            { value: 'maturity', label: 'Investment maturities' },
           ]}
         />
       }
@@ -206,7 +206,7 @@ export function InvestorCashOutlook({ data }: { data: Dashboard }) {
                 {money(row.total)}
               </Text>
               <Text size="xs" c="dimmed">
-                Returns {money(row.returns)} · Principal {money(row.principal)}
+                Returns {money(row.returns)} · Investment {money(row.principal)}
               </Text>
             </Box>
           ))}
@@ -219,7 +219,7 @@ export function InvestorCashOutlook({ data }: { data: Dashboard }) {
           />
         ) : (
           <FundingChart
-            title="Outstanding principal by maturity month"
+            title="Outstanding investment by maturity month"
             rows={data.principalByMaturity}
             includeReturns={false}
           />

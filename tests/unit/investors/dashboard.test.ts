@@ -81,7 +81,7 @@ describe('investor dashboard', () => {
     expect(dashboard.maturities.map((row) => row.id)).toEqual(['funded']);
     expect(dashboard.investors[0].outstanding).toBe(100000010);
     expect(dashboard.investors[0].nextPayout).toBe('2026-09-01');
-    expect(dashboard.activity[0].kind).toBe('Principal repaid');
+    expect(dashboard.activity[0].kind).toBe('Investment repaid');
     expect(
       dashboard.activity.find((row) => row.kind === 'Return paid')?.cents
     ).toBe(5000001);

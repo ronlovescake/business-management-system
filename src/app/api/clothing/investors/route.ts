@@ -317,7 +317,7 @@ async function mutate(request: NextRequest, editing: boolean) {
           payload.data.paidDate < repayment.date.toISOString().slice(0, 10)
         ) {
           throw new InvestorAccountingError(
-            'Historical returns before principal repayment require review'
+            'Historical returns before investment repayment require review'
           );
         }
         const lines = investorPostingLines({

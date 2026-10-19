@@ -47,7 +47,7 @@ export function InvestorDashboardMetrics({ data }: { data: Dashboard }) {
       spacing="md"
       cards={[
         {
-          title: 'Outstanding funded principal',
+          title: 'Outstanding Funded Investment',
           value: money(data.outstanding),
           color: 'blue',
           backgroundColor: 'linear-gradient(135deg, #3b82f6, #2563eb)',
@@ -68,7 +68,7 @@ export function InvestorDashboardMetrics({ data }: { data: Dashboard }) {
           icon: <IconCash size={24} />,
         },
         {
-          title: 'Principal maturing in 90 days',
+          title: 'Investment maturing in 90 days',
           value: money(data.maturing90),
           color: 'red',
           backgroundColor: 'linear-gradient(135deg, #ef4444, #b91c1c)',
@@ -83,7 +83,7 @@ const activityStyle: Record<string, { color: string; icon: typeof IconCash }> =
   {
     'Funding received': { color: 'blue', icon: IconArrowDownLeft },
     'Return paid': { color: 'teal', icon: IconCash },
-    'Principal repaid': { color: 'grape', icon: IconArrowUpRight },
+    'Investment repaid': { color: 'grape', icon: IconArrowUpRight },
   };
 
 export function InvestorDashboard({
@@ -147,13 +147,13 @@ export function InvestorDashboard({
   const issues = (row: (typeof warnings)[number]) =>
     [
       !row.accounting.fundedDate &&
-        'Funding not linked; excluded from principal totals',
+        'Funding not linked; excluded from investment totals',
       row.accounting.unpostedPayments > 0 &&
         `${row.accounting.unpostedPayments} paid return(s) without linked journal postings`,
       row.accounting.fundedDate &&
         !row.accounting.repaidDate &&
         row.schedule.maturityDate <= today &&
-        'Matured principal awaiting repayment',
+        'Matured investment awaiting repayment',
     ]
       .filter(Boolean)
       .join(' · ');
@@ -328,7 +328,7 @@ export function InvestorDashboard({
                     />
                   );
                 }}
-                empty="No outstanding funded principal."
+                empty="No outstanding funded investment."
               />
             </DashboardCard>
             <DashboardCard title="Recent activity">

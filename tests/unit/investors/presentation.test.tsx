@@ -100,19 +100,21 @@ describe('investor accounting presentation', () => {
     ).toBeVisible();
     expect(
       screen.queryByRole('figure', {
-        name: 'Outstanding principal by maturity month',
+        name: 'Outstanding investment by maturity month',
       })
     ).not.toBeInTheDocument();
-    fireEvent.click(screen.getByLabelText('Principal maturities'));
+    fireEvent.click(
+      screen.getByRole('radio', { name: 'Investment maturities' })
+    );
     const maturityChart = screen.getByRole('figure', {
-      name: 'Outstanding principal by maturity month',
+      name: 'Outstanding investment by maturity month',
     });
     expect(maturityChart).toBeVisible();
     expect(
-      within(maturityChart).getByText('No outstanding funded principal.')
+      within(maturityChart).getByText('No outstanding funded investment.')
     ).toBeVisible();
     for (const [region, empty] of [
-      ['Investment maturities', 'No outstanding funded principal.'],
+      ['Investment maturities', 'No outstanding funded investment.'],
       ['Recent activity', 'No recorded movements yet.'],
       ['Investors', 'No investors match this search.'],
     ]) {
@@ -123,7 +125,7 @@ describe('investor accounting presentation', () => {
     expect(screen.getAllByRole('table')).toHaveLength(1);
     expect(
       screen.getByRole('table', {
-        name: 'Outstanding principal by maturity month data',
+        name: 'Outstanding investment by maturity month data',
       })
     ).toBeInTheDocument();
     expect(
@@ -195,7 +197,7 @@ describe('investor accounting presentation', () => {
     expect(
       within(
         screen.getByRole('region', { name: 'Agreement review' })
-      ).getByText('Matured principal awaiting repayment')
+      ).getByText('Matured investment awaiting repayment')
     ).toBeVisible();
     fireEvent.click(
       within(maturities).getByRole('button', {
@@ -272,7 +274,7 @@ describe('investor accounting presentation', () => {
       'true'
     );
     expect(
-      screen.getAllByText('Outstanding funded principal')[0]
+      screen.getAllByText('Outstanding Funded Investment')[0]
     ).toBeVisible();
     await waitFor(() => {
       const chart = screen.getByRole('figure', {
@@ -282,10 +284,12 @@ describe('investor accounting presentation', () => {
         chart.querySelectorAll('.recharts-bar-rectangle path').length
       ).toBeGreaterThan(0);
     });
-    fireEvent.click(screen.getByLabelText('Principal maturities'));
+    fireEvent.click(
+      screen.getByRole('radio', { name: 'Investment maturities' })
+    );
     await waitFor(() => {
       const chart = screen.getByRole('figure', {
-        name: 'Outstanding principal by maturity month',
+        name: 'Outstanding investment by maturity month',
       });
       expect(
         chart.querySelectorAll('.recharts-bar-rectangle path').length
@@ -479,7 +483,7 @@ describe('investor accounting presentation', () => {
     );
     expect(screen.getByText(/2 historical paid return/)).toBeVisible();
     expect(
-      screen.getByRole('button', { name: 'Record principal repayment' })
+      screen.getByRole('button', { name: 'Record Investment Repayment' })
     ).toBeDisabled();
     fireEvent.click(
       screen.getByRole('button', { name: 'Record funding received' })

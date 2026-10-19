@@ -103,11 +103,11 @@ export async function postInvestorPrincipal(
   if (input.kind === 'repayment') {
     if (!funding || funding.deletedAt) {
       throw new InvestorAccountingError(
-        'Record or reconcile investor funding before repaying principal'
+        'Record or reconcile investor funding before repaying investment'
       );
     }
     if (postings.some((line) => line.sourceType === INVESTOR_REPAYMENT)) {
-      throw new InvestorAccountingError('Principal has already been repaid');
+      throw new InvestorAccountingError('Investment has already been repaid');
     }
     const latestPayment = await transaction.clothingInvestmentPayment.findFirst(
       {
@@ -130,7 +130,7 @@ export async function postInvestorPrincipal(
     });
     if (input.date < schedule.maturityDate) {
       throw new InvestorAccountingError(
-        'Principal repayment is available at maturity; early termination requires separate review'
+        'Investment repayment is available at maturity; early termination requires separate review'
       );
     }
   }

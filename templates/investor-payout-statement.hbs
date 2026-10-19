@@ -89,6 +89,7 @@
     </style>
   </head>
   <body>
+    {{#unless contractOnly}}
     <main class="statement">
       <header class="st-header">
         <div class="brand">
@@ -129,7 +130,7 @@
           <div class="dl-row"><dt class="dl-label">Investor</dt><dd>{{investorName}}</dd></div>
           <div class="dl-row"><dt class="dl-label">Agreement reference</dt><dd>{{agreementReference}}</dd></div>
           <div class="dl-row"><dt class="dl-label">Effective date</dt><dd>{{effectiveDate}}</dd></div>
-          <div class="dl-row"><dt class="dl-label">Original principal</dt><dd>{{currency principal}}</dd></div>
+          <div class="dl-row"><dt class="dl-label">Original Investment</dt><dd>{{currency principal}}</dd></div>
           <div class="dl-row"><dt class="dl-label">Monthly rate</dt><dd>{{monthlyRate}}%</dd></div>
           <div class="dl-row"><dt class="dl-label">Amount recorded</dt><dd>{{currency amount}}</dd></div>
         </dl>
@@ -138,13 +139,13 @@
       <section class="card">
         <h2>How this payout is calculated</h2>
         <div class="calc">
-          <div class="calc-part"><div class="tile-label">Original principal</div><div class="calc-value">{{currency principal}}</div></div>
+          <div class="calc-part"><div class="tile-label">Original Investment</div><div class="calc-value">{{currency principal}}</div></div>
           <div class="calc-op" aria-hidden="true">×</div>
           <div class="calc-part"><div class="tile-label">Monthly rate</div><div class="calc-value">{{monthlyRate}}%</div></div>
           <div class="calc-op" aria-hidden="true">=</div>
           <div class="calc-part result"><div class="tile-label">Monthly return</div><div class="calc-value">{{currency amount}}</div></div>
         </div>
-        <p class="card-note">Returns are simple interest on the original principal and do not compound. Principal is repaid separately at maturity.</p>
+        <p class="card-note">Returns are simple interest on the original investment and do not compound. Investment is repaid separately at maturity.</p>
       </section>
 
       <footer class="st-footer">
@@ -155,6 +156,7 @@
         <div class="st-next">Full return schedule on page 2 →</div>
       </footer>
     </main>
+    {{/unless}}
     <main class="returns-page">
       <header class="st-header">
         <div class="brand">
@@ -174,7 +176,7 @@
       <div class="rs-title">
         <div>
           <h2>Projected returns</h2>
-          <p class="rs-meta">{{investorName}} · {{agreementReference}} · Original principal {{currency principal}} · Monthly rate {{monthlyRate}}%</p>
+          <p class="rs-meta">{{investorName}} · {{agreementReference}} · Original Investment {{currency principal}} · Monthly rate {{monthlyRate}}%</p>
         </div>
         <div class="rs-progress">
           <strong>{{returnSummary.paid.count}} of {{returnSummary.total.count}}</strong> payable months paid
@@ -203,7 +205,7 @@
       </section>
 
       <footer class="rs-footer">
-        <p><span class="legend-current"></span>Highlighted row is this statement's payout. Paid reflects recorded payments as of generation. Unpaid returns are projected; banking dates may change for bank closures. Principal repayment is not included in this return schedule.</p>
+        <p>{{#unless contractOnly}}<span class="legend-current"></span>Highlighted row is this statement's payout. {{/unless}}Paid reflects recorded payments as of generation. Unpaid returns are projected; banking dates may change for bank closures. Investment repayment is not included in this return schedule.</p>
         <div class="generated">Generated {{generatedAt}}</div>
       </footer>
     </main>

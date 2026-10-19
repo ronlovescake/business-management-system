@@ -20,6 +20,7 @@ import {
 import {
   IconAlertCircle,
   IconArrowLeft,
+  IconDownload,
   IconEdit,
   IconPlus,
   IconTrash,
@@ -45,6 +46,7 @@ import type { buildInvestmentSchedule } from '@/lib/investors/schedule';
 import { formatDateOnly } from '@/utils/dateFormatters';
 import { getCurrentDateISO } from '@/utils/date';
 import { FormatterService } from '@/services/FormatterService';
+import { useAgreementStatement } from './useAgreementStatement';
 import { useInvestorStatements } from './useInvestorStatements';
 import {
   InvestorAccounting,
@@ -139,6 +141,10 @@ export default function InvestorsPage() {
   });
   const { isGenerating: generatingStatements, generate: generateStatements } =
     useInvestorStatements();
+  const {
+    isDownloading: downloadingAgreementStatement,
+    download: downloadAgreementStatement,
+  } = useAgreementStatement();
 
   const investors = query.data?.investors ?? [];
   const closures = query.data?.closures ?? [];
@@ -469,6 +475,19 @@ export default function InvestorsPage() {
                               <IconEdit size={18} />
                             </ActionIcon>
                           </Tooltip>
+                          <Button
+                            variant="light"
+                            leftSection={<IconDownload size={16} />}
+                            loading={downloadingAgreementStatement}
+                            onClick={() =>
+                              void downloadAgreementStatement(
+                                agreement.id,
+                                agreement.reference
+                              )
+                            }
+                          >
+                            Download statement
+                          </Button>
                         </Group>
                         <InvestorAccounting
                           key={agreement.id}
@@ -709,7 +728,7 @@ export default function InvestorsPage() {
           opened={paymentTarget !== null}
           description={
             paymentTarget
-              ? `Confirm that ${money(paymentTarget.amountCents)} for month ${paymentTarget.month} was transferred to ${paymentTarget.investorName} (${paymentTarget.reference}) and has not already been entered in accounting. This posts Investor Return Expense against Cash; principal is unchanged.`
+              ? `Confirm that ${money(paymentTarget.amountCents)} for month ${paymentTarget.month} was transferred to ${paymentTarget.investorName} (${paymentTarget.reference}) and has not already been entered in accounting. This posts Investor Return Expense against Cash; investment is unchanged.`
               : ''
           }
           amount={paymentAmount}

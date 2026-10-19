@@ -141,7 +141,7 @@ export function buildInvestorDashboard(
                 ...common,
                 id: `repayment-${agreement.id}`,
                 date: agreement.accounting.repaidDate,
-                kind: 'Principal repaid',
+                kind: 'Investment repaid',
                 cents: agreement.principalCents,
               },
             ]

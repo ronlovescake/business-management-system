@@ -1,126 +1,40 @@
-import fs from 'fs';
-import path from 'path';
-import Handlebars from 'handlebars/dist/handlebars';
 import { Prisma } from '@prisma/client';
 import { getServerSession } from 'next-auth';
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
-import type { TemplateDelegate } from 'handlebars';
 import { authOptions } from '@/lib/auth/auth';
 import { prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
-import {
-  getChromiumBrowserType,
-  getChromiumExecutablePath,
-} from '@/lib/playwright/chromium';
+import { getChromiumExecutablePath } from '@/lib/playwright/chromium';
 import { buildInvestmentSchedule } from '@/lib/investors/schedule';
 import type { ScheduledReturn } from '@/lib/investors/schedule';
+import {
+  COMPANY_NAME,
+  buildReturnSchedule,
+  formatDate,
+  formatGeneratedAt,
+  formatMonthYear,
+  getStatementLogo,
+  getStatementTemplate,
+  renderStatementPdfs,
+  sanitizeFilename,
+} from '@/lib/investors/statements';
+import type { StatementPageContext } from '@/lib/investors/statements';
 import { getCurrentDateISO } from '@/utils/date';
 
 export const dynamic = 'force-dynamic';
 
-const TEMPLATE_PATH = path.join(
-  process.cwd(),
-  'templates',
-  'investor-payout-statement.hbs'
-);
-const LOGO_PATH = path.join(
-  process.cwd(),
-  'templates',
-  'images',
-  'payslip-logo.png'
-);
-let templateCache: TemplateDelegate | null = null;
-let logoCache: string | null = null;
-
-type ReturnRow = {
-  month: number;
-  anniversaryDate: string;
-  bankingDate: string;
-  amount: number;
-  paidDate: string;
-  status: string;
-  statusClass: string;
-  rowClass: string;
-};
-
-type ReturnTotal = { amount: number; count: number };
-
-type StatementContext = {
-  companyName: string;
-  logoData: string;
-  statementReference: string;
-  payoutPeriod: string;
-  investorName: string;
-  agreementReference: string;
+type StatementContext = StatementPageContext & {
   effectiveDate: string;
-  principal: number;
-  monthlyRate: string;
   payoutMonth: string;
   agreementMonth: number;
   bankingDate: string;
   paidDate: string;
   amount: number;
-  generatedAt: string;
-  returnColumns: ReturnRow[][];
-  returnSummary: {
-    paid: ReturnTotal;
-    upcoming: ReturnTotal;
-    overdue: ReturnTotal;
-    total: ReturnTotal;
-    progress: number;
-  };
 };
 
 function validMonth(value: unknown): value is string {
   return typeof value === 'string' && /^\d{4}-(0[1-9]|1[0-2])$/.test(value);
-}
-
-function getTemplate() {
-  if (!templateCache) {
-    templateCache = Handlebars.compile(
-      fs.readFileSync(TEMPLATE_PATH, 'utf8')
-    ) as TemplateDelegate;
-    Handlebars.registerHelper('currency', (value: number) =>
-      new Intl.NumberFormat('en-PH', {
-        style: 'currency',
-        currency: 'PHP',
-        minimumFractionDigits: 2,
-      }).format(Number(value) || 0)
-    );
-  }
-  return templateCache;
-}
-
-function getLogo() {
-  if (logoCache === null) {
-    logoCache = fs.existsSync(LOGO_PATH)
-      ? fs.readFileSync(LOGO_PATH).toString('base64')
-      : '';
-  }
-  return logoCache;
-}
-
-function formatDate(date: string) {
-  return new Intl.DateTimeFormat('en-PH', {
-    day: '2-digit',
-    month: 'long',
-    year: 'numeric',
-    timeZone: 'UTC',
-  }).format(new Date(`${date}T00:00:00Z`));
-}
-
-function formatShortDate(date: string) {
-  return new Intl.DateTimeFormat('en-PH', {
-    day: '2-digit',
-    month: 'short',
-    year: 'numeric',
-    timeZone: 'UTC',
-  }).format(new Date(`${date}T00:00:00Z`));
-}
-
-function sanitizeFilename(value: string) {
-  return value.replace(/[<>:"/\\|?*\x00-\x1F]/g, '').replace(/\s+/g, '-');
 }
 
 function buildStatementContext(
@@ -141,63 +55,23 @@ function buildStatementContext(
   month: string,
   payouts: ScheduledReturn[]
 ): StatementContext {
-  const [year, monthNumber] = month.split('-').map(Number);
-  const monthDate = new Date(Date.UTC(year, monthNumber - 1, 1));
-  const payoutPeriod = new Intl.DateTimeFormat('en-PH', {
-    month: 'long',
-    year: 'numeric',
-    timeZone: 'UTC',
-  }).format(monthDate);
-  const generatedDate = new Date();
+  const payoutPeriod = formatMonthYear(month);
+  const now = new Date();
   const today = getCurrentDateISO();
-  const recordedPayments = new Map(
-    payment.agreement.payments.map((record) => [record.month, record])
-  );
-  const labels = {
-    deferred: 'Setup deferral',
-    waived: 'March waived',
-    paid: 'Paid',
-    overdue: 'Overdue',
-    upcoming: 'Upcoming',
-  };
-  const rows: ReturnRow[] = payouts.map((payout) => {
-    const recorded = recordedPayments.get(payout.month);
-    const statusClass =
-      payout.status !== 'scheduled'
-        ? payout.status
-        : recorded
-          ? 'paid'
-          : payout.dueDate && payout.dueDate < today
-            ? 'overdue'
-            : 'upcoming';
-    return {
-      month: payout.month,
-      anniversaryDate: formatShortDate(payout.anniversaryDate),
-      bankingDate: payout.dueDate ? formatShortDate(payout.dueDate) : '—',
-      amount: payout.amountCents / 100,
-      paidDate: recorded ? formatShortDate(recorded.paidDate) : '—',
-      status: labels[statusClass],
-      statusClass,
-      rowClass: [
-        payout.month === payment.month && 'current',
-        payout.status !== 'scheduled' && 'muted',
-      ]
-        .filter(Boolean)
-        .join(' '),
-    };
+  const schedule = buildReturnSchedule({
+    payouts,
+    paidDates: new Map<number, string>(
+      payment.agreement.payments.map((record) => [
+        record.month,
+        record.paidDate,
+      ])
+    ),
+    today,
+    currentMonth: payment.month,
   });
-  const totalFor = (selected: ScheduledReturn[]): ReturnTotal => ({
-    amount: selected.reduce((sum, payout) => sum + payout.amountCents, 0) / 100,
-    count: selected.length,
-  });
-  const withStatus = (statusClass: string) =>
-    payouts.filter((_, index) => rows[index].statusClass === statusClass);
-  const payable = payouts.filter((payout) => payout.status === 'scheduled');
-  const paid = totalFor(withStatus('paid'));
-  const half = Math.ceil(rows.length / 2);
   return {
-    companyName: 'Czarlie & Ron',
-    logoData: getLogo(),
+    companyName: COMPANY_NAME,
+    logoData: getStatementLogo(),
     statementReference: `INV-${payment.agreement.reference}-${String(payment.month).padStart(2, '0')}`,
     payoutPeriod,
     investorName: payment.agreement.investor.name,
@@ -210,25 +84,9 @@ function buildStatementContext(
     bankingDate: formatDate(dueDate),
     paidDate: formatDate(payment.paidDate),
     amount: payment.amount.toNumber(),
-    returnColumns: [rows.slice(0, half), rows.slice(half)],
-    returnSummary: {
-      paid,
-      upcoming: totalFor(withStatus('upcoming')),
-      overdue: totalFor(withStatus('overdue')),
-      total: totalFor(payable),
-      progress: payable.length
-        ? Math.round((paid.count / payable.length) * 100)
-        : 0,
-    },
-    generatedAt: `${formatDate(getCurrentDateISO())} · ${generatedDate.toLocaleTimeString(
-      'en-PH',
-      {
-        hour: '2-digit',
-        minute: '2-digit',
-        hour12: true,
-        timeZone: 'Asia/Manila',
-      }
-    )}`,
+    returnColumns: schedule.columns,
+    returnSummary: schedule.summary,
+    generatedAt: formatGeneratedAt(today, now),
   };
 }
 
@@ -322,51 +180,24 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const browserType = await getChromiumBrowserType();
-    const browser = await browserType.launch({
-      headless: true,
-      executablePath: browserType.executablePath(),
-      args: ['--no-sandbox', '--disable-setuid-sandbox'],
+    const template = getStatementTemplate();
+    const buffers = await renderStatementPdfs(
+      statements.map((statement) => template(statement.context))
+    );
+    const JSZip = (await import('jszip')).default;
+    const zip = new JSZip();
+    statements.forEach((statement, index) => {
+      zip.file(statement.filename, buffers[index]);
     });
-    try {
-      const page = await (await browser.newContext()).newPage();
-      await page.emulateMedia({ media: 'screen' });
-      const template = getTemplate();
-      const files: { name: string; buffer: Buffer }[] = [];
-      for (const statement of statements) {
-        await page.setContent(template(statement.context), {
-          waitUntil: 'domcontentloaded',
-          timeout: 15000,
-        });
-        files.push({
-          name: statement.filename,
-          buffer: Buffer.from(
-            await page.pdf({
-              format: 'A4',
-              preferCSSPageSize: true,
-              printBackground: true,
-              margin: { top: '0mm', right: '0mm', bottom: '0mm', left: '0mm' },
-            })
-          ),
-        });
-      }
-      const JSZip = (await import('jszip')).default;
-      const zip = new JSZip();
-      for (const file of files) {
-        zip.file(file.name, file.buffer);
-      }
-      const archive = await zip.generateAsync({ type: 'nodebuffer' });
-      return new NextResponse(archive, {
-        status: 200,
-        headers: {
-          'Content-Type': 'application/zip',
-          'Content-Disposition': `attachment; filename="investor-payout-statements-${body.month}.zip"`,
-          'Cache-Control': 'private, no-store',
-        },
-      });
-    } finally {
-      await browser.close();
-    }
+    const archive = await zip.generateAsync({ type: 'nodebuffer' });
+    return new NextResponse(archive, {
+      status: 200,
+      headers: {
+        'Content-Type': 'application/zip',
+        'Content-Disposition': `attachment; filename="investor-payout-statements-${body.month}.zip"`,
+        'Cache-Control': 'private, no-store',
+      },
+    });
   } catch (error) {
     if (
       error instanceof Prisma.PrismaClientKnownRequestError &&

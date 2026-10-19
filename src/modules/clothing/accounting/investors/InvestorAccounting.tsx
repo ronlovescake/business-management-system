@@ -70,13 +70,13 @@ export function InvestorAccounting({
   const state = agreement.accounting;
   const money = FormatterService.formatCurrency(Number(agreement.principal));
   const metrics = [
-    ['Principal', money],
+    ['Investment', money],
     ['Monthly rate', `${agreement.monthlyRateBps / 100}%`],
     ['Effective date', formatDateOnly(agreement.effectiveDate)],
     ['Maturity', formatDateOnly(agreement.schedule.maturityDate)],
     ['Setup ends', formatDateOnly(agreement.schedule.eligibleDate)],
     [
-      'Principal repayment deadline',
+      'Investment repayment deadline',
       formatDateOnly(agreement.schedule.principalRepaymentDeadline),
     ],
   ];
@@ -115,7 +115,7 @@ export function InvestorAccounting({
         )}
         {state.repaidDate ? (
           <Badge color="gray">
-            Principal repaid {formatDateOnly(state.repaidDate)}
+            Investment repaid {formatDateOnly(state.repaidDate)}
           </Badge>
         ) : (
           <Button
@@ -127,7 +127,7 @@ export function InvestorAccounting({
             }
             onClick={() => open('repayment')}
           >
-            Record principal repayment
+            Record Investment Repayment
           </Button>
         )}
       </Group>
@@ -149,7 +149,7 @@ export function InvestorAccounting({
         title={
           action === 'funding'
             ? 'Record funding received'
-            : 'Record principal repayment'
+            : 'Record Investment Repayment'
         }
       >
         <Stack>
