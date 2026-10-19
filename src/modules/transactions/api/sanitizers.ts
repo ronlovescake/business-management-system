@@ -30,6 +30,11 @@ export function parseNumeric(value: unknown): number {
   return sanitizers.number(value, { min: 0, decimals: 2 }) ?? 0;
 }
 
+// Negative discounts are allowed (surcharge), so no minimum is applied.
+export function parseDiscount(value: unknown): number {
+  return sanitizers.number(value, { decimals: 2 }) ?? 0;
+}
+
 export function parseTrimmed(value: unknown): string {
   return sanitizers.name(value);
 }
@@ -63,7 +68,7 @@ export function sanitizeTransactionRecord(entry: unknown): TransactionRecord {
     'Product Code': parseTrimmed(record['Product Code']),
     Quantity: parseNumeric(record['Quantity']),
     'Unit Price': parseNumeric(record['Unit Price']),
-    Discount: parseNumeric(record['Discount']),
+    Discount: parseDiscount(record['Discount']),
     Adjustment: parseNumeric(record['Adjustment']),
     'Line Total': parseNumeric(record['Line Total']),
     'Order Status': parseOrderStatus(record['Order Status']),
@@ -105,7 +110,7 @@ export function sanitizeTransactionUpdateRecord(
     values['Unit Price'] = parseNumeric(record['Unit Price']);
   }
   if ('Discount' in record) {
-    values.Discount = parseNumeric(record['Discount']);
+    values.Discount = parseDiscount(record['Discount']);
   }
   if ('Adjustment' in record) {
     values.Adjustment = parseNumeric(record['Adjustment']);

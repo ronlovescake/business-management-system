@@ -12,7 +12,7 @@ export const transactionDataSchema = z.object({
   'Product Code': z.string().max(100), // allow empty string when only customer is provided
   Quantity: z.number().min(0),
   'Unit Price': z.number().min(0),
-  Discount: z.number().min(0),
+  Discount: z.number(),
   Adjustment: z.number().min(0),
   'Line Total': z.number().min(0),
   'Order Status': orderStatusSchema,
@@ -28,7 +28,7 @@ const transactionUpdateFields = z.object({
   'Product Code': z.string().max(100),
   Quantity: z.number().min(0),
   'Unit Price': z.number().min(0),
-  Discount: z.number().min(0),
+  Discount: z.number(),
   Adjustment: z.number().min(0),
   'Line Total': z.number().min(0),
   'Order Status': orderStatusSchema,
