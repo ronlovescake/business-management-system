@@ -4,6 +4,7 @@ import path from 'path';
 import { afterEach, describe, expect, it } from 'vitest';
 
 import {
+  buildTableQueryOptions,
   sanitizeTimestamp,
   parseTimestampToDate,
   listBackupFoldersDescending,
@@ -37,6 +38,31 @@ afterEach(() => {
     fs.rmSync(dir, { recursive: true, force: true });
   }
   tempDirs.length = 0;
+});
+
+describe('buildTableQueryOptions', () => {
+  it.each(['productCodeAlias', 'generalMerchandiseProductCodeAlias'])(
+    'exports %s only when its parent product is included',
+    (model) => {
+      const options = {
+        model,
+        strategy: 'full' as const,
+        differentialSince: null,
+      };
+      const sample = { id: 1, productId: 3, code: 'OLD' };
+
+      expect(
+        buildTableQueryOptions(sample, {
+          ...options,
+          includeSoftDeleted: false,
+        }).where
+      ).toEqual({ product: { deletedAt: null } });
+      expect(
+        buildTableQueryOptions(sample, { ...options, includeSoftDeleted: true })
+          .where
+      ).toEqual({});
+    }
+  );
 });
 
 // ---------------------------------------------------------------------------

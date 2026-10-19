@@ -36,6 +36,7 @@ import { normalizeProductCode } from '@/lib/inventory/movements';
 
 interface InventoryPageProps {
   apiBasePath?: string;
+  supportsSplitBatches?: boolean;
 }
 
 type AdjustmentBucket =
@@ -44,7 +45,10 @@ type AdjustmentBucket =
   | 'supplier_short'
   | 'additionals';
 
-export function InventoryPage({ apiBasePath }: InventoryPageProps) {
+export function InventoryPage({
+  apiBasePath,
+  supportsSplitBatches,
+}: InventoryPageProps) {
   const ADDITIONALS_NOTE_PREFIX = 'additionals';
   const ADDITIONALS_NOTE_MARKER = `${ADDITIONALS_NOTE_PREFIX}:`;
   const TRANSFER_NOTE_PREFIX = 'transfer';
@@ -69,7 +73,7 @@ export function InventoryPage({ apiBasePath }: InventoryPageProps) {
     updateMovement,
     deleteMovement,
     getSellableOnHand,
-  } = useInventoryPage(apiBasePath);
+  } = useInventoryPage(apiBasePath, { supportsSplitBatches });
 
   const [activeTab, setActiveTab] = React.useState<'inventory' | 'adjustments'>(
     'inventory'

@@ -247,16 +247,56 @@ export async function fetchManualJournalLines(params: {
         orderBy: { date: 'asc' },
       })) as ManualJournalLine[],
   });
+  const productIds = Array.from(
+    new Set(
+      lines
+        .filter((line) => line.sourceType === 'PRODUCT')
+        .map((line) => Number(line.sourceId))
+        .filter((id) => Number.isSafeInteger(id) && id > 0)
+    )
+  );
+  const products =
+    productIds.length > 0
+      ? await prisma.product.findMany({
+          where: { id: { in: productIds } },
+          select: { id: true, productCode: true, shipmentCode: true },
+        })
+      : [];
+  const productsById = new Map(
+    products.map((product) => [product.id, product])
+  );
+  const currentLines = lines.map((line) => {
+    if (line.sourceType !== 'PRODUCT') {
+      return line;
+    }
+    const product = productsById.get(Number(line.sourceId));
+    if (!product?.productCode) {
+      return line;
+    }
+    return {
+      ...line,
+      ref: `PRODUCT:${product.productCode}`,
+      description: line.sourceLineKey.startsWith('SUPPLIER_SETTLEMENT:')
+        ? [
+            'Supplier payment settlement',
+            `Product ${product.productCode}`,
+            product.shipmentCode ? `Shipment ${product.shipmentCode}` : null,
+          ]
+            .filter(Boolean)
+            .join(' | ')
+        : line.description,
+    };
+  });
   const prefix = 'Loan Payable - Investor ';
   const agreementIds = Array.from(
     new Set(
-      lines
+      currentLines
         .filter((line) => line.account.startsWith(prefix))
         .map((line) => line.account.slice(prefix.length))
     )
   );
   if (!agreementIds.length) {
-    return lines;
+    return currentLines;
   }
   const agreements = await prisma.clothingInvestmentAgreement.findMany({
     where: { id: { in: agreementIds } },
@@ -268,7 +308,7 @@ export async function fetchManualJournalLines(params: {
       `Investor Funding Payable - ${agreement.investor.name} - ${agreement.reference}`,
     ])
   );
-  return lines.map((line) => ({
+  return currentLines.map((line) => ({
     ...line,
     account:
       labels.get(line.account) ??

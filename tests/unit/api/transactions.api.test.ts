@@ -1,6 +1,8 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { NextRequest } from 'next/server';
+import type { Transaction } from '@prisma/client';
 import { getTestApiUrl } from '@/core/testing/test-helpers';
+import { mapToDTO } from '@/modules/transactions/api/dto';
 
 const {
   mockTransactionService,
@@ -52,6 +54,30 @@ type NextRequestInit = ConstructorParameters<typeof NextRequest>[1];
 
 const buildRequest = (path: string, init?: NextRequestInit) =>
   new NextRequest(getTestApiUrl(path), init);
+
+describe('Transaction product identity', () => {
+  it('shows current product details without changing the stored unit price or total', () => {
+    const transaction = {
+      id: 5,
+      productCode: 'S-101826',
+      shipmentCode: 'SH-OLD',
+      unitPrice: 115,
+      lineTotal: 230,
+      product: { productCode: 'SS-101826', shipmentCode: 'SH-NEW' },
+    } as Transaction & {
+      product: { productCode: string; shipmentCode: string };
+    };
+
+    expect(mapToDTO(transaction)).toEqual(
+      expect.objectContaining({
+        'Product Code': 'SS-101826',
+        'Shipment Code': 'SH-NEW',
+        'Unit Price': 115,
+        'Line Total': 230,
+      })
+    );
+  });
+});
 
 describe('Transactions API Routes', () => {
   beforeEach(() => {

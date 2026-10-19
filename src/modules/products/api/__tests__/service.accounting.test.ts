@@ -6,7 +6,8 @@ process.env.ACCOUNTING_CUTOVER_DATE = '2026-01-17';
 const mockPrisma = vi.hoisted(() => ({
   product: {
     create: vi.fn(),
-    findFirst: vi.fn(),
+    findMany: vi.fn(),
+    findUnique: vi.fn(),
     update: vi.fn(),
   },
   inventoryMovement: {
@@ -146,17 +147,19 @@ describe('productService accounting automation', () => {
   it('posts a supplier settlement when payment changes Unpaid → Paid', async () => {
     const { productService } = await import('../service');
 
-    mockPrisma.product.findFirst.mockResolvedValue({
-      id: 789,
-      productCode: 'TP-003',
-      shipmentCode: 'KPC-001',
-      payment: 'Unpaid',
-      deletedAt: null,
-      unitPrice: 0,
-      quantity: 1,
-      alibabaShippingCost: 0,
-      exchangeRates: 1,
-    });
+    mockPrisma.product.findMany.mockResolvedValue([
+      {
+        id: 789,
+        productCode: 'TP-003',
+        shipmentCode: 'KPC-001',
+        payment: 'Unpaid',
+        deletedAt: null,
+        unitPrice: 0,
+        quantity: 1,
+        alibabaShippingCost: 0,
+        exchangeRates: 1,
+      },
+    ]);
 
     mockPrisma.product.update.mockResolvedValue({ id: 789 });
     mockPrisma.inventoryMovement.findFirst.mockResolvedValue({
@@ -202,5 +205,48 @@ describe('productService accounting automation', () => {
 
     expect(debitCall?.[0].create.debit).toBe(155.5);
     expect(creditCall?.[0].create.credit).toBe(155.5);
+  });
+
+  it('updates a renamed product by ID without creating another product', async () => {
+    const { productService } = await import('../service');
+    mockPrisma.product.findUnique.mockResolvedValue({
+      id: 789,
+      productCode: 'S-101826',
+      shipmentCode: 'SHIP-OLD',
+      payment: 'Unpaid',
+      deletedAt: null,
+    });
+    mockPrisma.product.update.mockResolvedValue({ id: 789 });
+
+    await productService.bulkUpdate([
+      buildDto({
+        id: 789,
+        Product: 'Short Sleeves',
+        'Product Code': 'SS-101826',
+      }),
+    ]);
+
+    expect(mockPrisma.product.findUnique).toHaveBeenCalledWith({
+      where: { id: 789 },
+    });
+    expect(mockPrisma.product.findMany).not.toHaveBeenCalled();
+    expect(mockPrisma.product.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: 789 },
+        data: expect.objectContaining({ productCode: 'SS-101826' }),
+      })
+    );
+    expect(mockPrisma.product.create).not.toHaveBeenCalled();
+  });
+
+  it('rejects a code-only update when multiple products share the code', async () => {
+    const { productService } = await import('../service');
+    mockPrisma.product.findMany.mockResolvedValue([{ id: 1 }, { id: 2 }]);
+
+    await expect(productService.bulkUpdate([buildDto()])).rejects.toThrow(
+      'ambiguous'
+    );
+    expect(mockPrisma.product.update).not.toHaveBeenCalled();
+    expect(mockPrisma.product.create).not.toHaveBeenCalled();
   });
 });

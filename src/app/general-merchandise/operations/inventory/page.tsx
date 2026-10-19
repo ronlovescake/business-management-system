@@ -8,6 +8,9 @@ import { renderOperationsPage } from '@/app/operations/_shared/renderOperationsP
 export default async function Page() {
   return renderOperationsPage(
     '/general-merchandise/operations/inventory',
-    <InventoryRoutePage apiBasePath="/api/general-merchandise" />
+    <InventoryRoutePage
+      apiBasePath="/api/general-merchandise"
+      supportsSplitBatches={false}
+    />
   );
 }

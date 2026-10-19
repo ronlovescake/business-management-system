@@ -1,5 +1,5 @@
 import type { NextRequest } from 'next/server';
-import type { Price } from '@prisma/client';
+import type { GeneralMerchandisePrice } from '@prisma/client';
 import { Prisma } from '@prisma/client';
 import { ApiResponse } from '@/core/api';
 import { withErrorHandler } from '@/core/api/middleware';
@@ -32,7 +32,7 @@ type PriceDTO = {
 const MASS_DELETE_CONFIRM_TOKEN = 'DELETE_ALL_PRICES';
 const CSV_IMPORT_THRESHOLD = 10;
 
-function mapPriceDbToDto(price: Price): PriceDTO {
+function mapPriceDbToDto(price: GeneralMerchandisePrice): PriceDTO {
   return {
     id: price.id,
     'Product Code': price.productCode,

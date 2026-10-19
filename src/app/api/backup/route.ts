@@ -28,6 +28,7 @@ import {
   writeWorkbookToFile,
 } from './backupRouteFileOps';
 import {
+  buildTableQueryOptions,
   buildBackupFolderTimestamp,
   describeFiles,
   findLatestBackupByStrategy,
@@ -233,38 +234,6 @@ function reserveUniqueSheetName(baseName: string, usedNames: Set<string>) {
 
   usedNames.add(candidate);
   return candidate;
-}
-
-function buildTableQueryOptions(
-  sampleRecord: Record<string, unknown> | null,
-  {
-    includeSoftDeleted,
-    strategy,
-    differentialSince,
-  }: {
-    includeSoftDeleted: boolean;
-    strategy: BackupStrategy;
-    differentialSince: Date | null;
-  }
-) {
-  const where: Record<string, unknown> = {};
-  const hasDeletedAt = !!(sampleRecord && 'deletedAt' in sampleRecord);
-  const hasUpdatedAt = !!(sampleRecord && 'updatedAt' in sampleRecord);
-  let differentialUnsupported = false;
-
-  if (hasDeletedAt && !includeSoftDeleted) {
-    where.deletedAt = null;
-  }
-
-  if (strategy === 'differential' && differentialSince) {
-    if (hasUpdatedAt) {
-      where.updatedAt = { gte: differentialSince };
-    } else {
-      differentialUnsupported = true;
-    }
-  }
-
-  return { where, hasDeletedAt, hasUpdatedAt, differentialUnsupported };
 }
 
 function getBackupModelDelegate(model: string): BackupModelDelegate {
@@ -614,7 +583,10 @@ async function createDatabaseDump(
       port,
       database,
     } satisfies DatabaseConnectionConfig;
-    const dumpFile = path.join(backupDir, `${strategy}-backup-${timestamp}.dump`);
+    const dumpFile = path.join(
+      backupDir,
+      `${strategy}-backup-${timestamp}.dump`
+    );
 
     try {
       await runLocalPgDump(config, dumpFile);
@@ -819,6 +791,7 @@ export async function createBackupJob({
             const { where, differentialUnsupported } = buildTableQueryOptions(
               sampleRecord,
               {
+                model,
                 includeSoftDeleted,
                 strategy,
                 differentialSince,
@@ -902,6 +875,7 @@ export async function createBackupJob({
             const modelDelegate = getBackupModelDelegate(model);
             const sampleRecord = await modelDelegate.findFirst();
             const { where } = buildTableQueryOptions(sampleRecord, {
+              model,
               includeSoftDeleted,
               strategy,
               differentialSince,
@@ -952,7 +926,11 @@ export async function createBackupJob({
       (requestedFormat === 'dump' || requestedFormat === 'all')
     ) {
       logger.info('Starting PostgreSQL custom dump generation...');
-      const databaseDump = await createDatabaseDump(timestamp, backupDir, strategy);
+      const databaseDump = await createDatabaseDump(
+        timestamp,
+        backupDir,
+        strategy
+      );
       if (databaseDump.ok) {
         files.push(databaseDump.filePath);
         backupFile = databaseDump.filePath;
@@ -1003,6 +981,7 @@ export async function createBackupJob({
             const modelDelegate = getBackupModelDelegate(model);
             const sampleRecord = await modelDelegate.findFirst();
             const { where } = buildTableQueryOptions(sampleRecord, {
+              model,
               includeSoftDeleted,
               strategy,
               differentialSince,
@@ -1040,7 +1019,10 @@ export async function createBackupJob({
         }
 
         if (sheetCount > 0) {
-          const xlsxFile = path.join(backupDir, `${strategy}-backup-${timestamp}.xlsx`);
+          const xlsxFile = path.join(
+            backupDir,
+            `${strategy}-backup-${timestamp}.xlsx`
+          );
           await writeWorkbookToFile(wb, xlsxFile);
           files.push(xlsxFile);
           backupFile = xlsxFile;
@@ -1215,8 +1197,7 @@ export async function GET() {
     const backupFolders = fs
       .readdirSync(BACKUP_DIR, { withFileTypes: true })
       .filter(
-        (entry) =>
-          entry.isDirectory() && isValidTimestampFolderName(entry.name)
+        (entry) => entry.isDirectory() && isValidTimestampFolderName(entry.name)
       )
       .map((entry) => entry.name)
       .sort()

@@ -55,6 +55,9 @@ const SCALAR_TYPES = new Set([
 function parseSchema(schemaPath) {
   const content = fs.readFileSync(schemaPath, 'utf8');
   const lines = content.split('\n');
+  const modelNames = new Set(
+    [...content.matchAll(/^model\s+(\w+)\s*\{/gm)].map((match) => match[1])
+  );
   const models = {};
   let cur = null;
 
@@ -94,12 +97,8 @@ function parseSchema(schemaPath) {
               if (rawType.endsWith('[]') && !SCALAR_TYPES.has(baseType)) {
                 // skip
               }
-              // Skip relation fields (e.g. author User @relation(...))
-              else if (
-                !SCALAR_TYPES.has(baseType) &&
-                baseType[0] === baseType[0].toUpperCase() &&
-                trimmed.includes('@relation')
-              ) {
+              // Skip model relations, including inverse fields without @relation
+              else if (modelNames.has(baseType)) {
                 // skip
               }
               // Scalar or enum field — resolve DB column name via @map()

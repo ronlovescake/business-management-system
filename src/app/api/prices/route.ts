@@ -26,10 +26,12 @@ type PriceDTO = {
 const MASS_DELETE_CONFIRM_TOKEN = 'DELETE_ALL_PRICES';
 const CSV_IMPORT_THRESHOLD = 10;
 
-function mapPriceDbToDto(price: Price): PriceDTO {
+function mapPriceDbToDto(
+  price: Price & { product?: { productCode: string | null } | null }
+): PriceDTO {
   return {
     id: price.id,
-    'Product Code': price.productCode,
+    'Product Code': price.product?.productCode ?? price.productCode,
     'Lower Limit': Math.round(price.lowerLimit / 100),
     'Upper Limit': Math.round(price.upperLimit / 100),
     Prices: Math.round(price.currentPrice / 100),
@@ -131,6 +133,7 @@ export const GET = withErrorHandler(async () => {
     const prices = await prisma.price.findMany({
       where: { deletedAt: null },
       orderBy: { createdAt: 'desc' },
+      include: { product: { select: { productCode: true } } },
     });
 
     const formattedPrices = prices.map(mapPriceDbToDto);

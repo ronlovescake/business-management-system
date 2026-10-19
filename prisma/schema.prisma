@@ -67,6 +67,8 @@ model Price {
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @default(now()) @updatedAt
   productCode     String    @db.VarChar(100)
+  productId       Int?
+  product         Product?  @relation(fields: [productId], references: [id], onDelete: Restrict)
   lowerLimit      Int
   upperLimit      Int
   currentPrice    Int
@@ -77,6 +79,7 @@ model Price {
   deletedAt       DateTime?
 
   @@index([productCode])
+  @@index([productId])
   @@index([productCode, lowerLimit, upperLimit])
   @@index([isActive])
   @@map("prices")
@@ -127,6 +130,14 @@ model Product {
   paymentCardId          String?      @db.VarChar(100)
   paymentMethod          String?      @db.VarChar(50)
   paymentCard            PaymentCard? @relation(fields: [paymentCardId], references: [id])
+  prices                 Price[]
+  transactions           Transaction[]
+  inventoryMovements     InventoryMovement[]
+  sortingDistributions   SortingDistribution[]
+  bundleComponents       BundleBatchComponent[]
+  splitComponents        SplitBatchComponent[]
+  reclassEntries         ClothingInventoryReclassEntry[]
+  codeAliases            ProductCodeAlias[]
 
   @@index([productCode])
   @@index([shipmentCode])
@@ -136,6 +147,19 @@ model Product {
   @@index([paymentCardId])
   @@index([ageRange])
   @@map("products")
+  @@schema("public")
+}
+
+model ProductCodeAlias {
+  id        Int      @id @default(autoincrement())
+  productId Int
+  code      String   @db.VarChar(100)
+  createdAt DateTime @default(now())
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Restrict)
+
+  @@unique([productId, code])
+  @@index([code])
+  @@map("product_code_aliases")
   @@schema("public")
 }
 
@@ -161,11 +185,14 @@ model BundleBatchComponent {
   createdAt            DateTime    @default(now()) @db.Timestamptz(6)
   bundleBatchId        Int
   componentProductCode String      @db.VarChar(100)
+  productId            Int?
+  product              Product?    @relation(fields: [productId], references: [id], onDelete: Restrict)
   includedQuantity     Float       @default(0)
   bundleBatch          BundleBatch @relation(fields: [bundleBatchId], references: [id], onDelete: Cascade, onUpdate: NoAction)
 
   @@index([bundleBatchId])
   @@index([componentProductCode])
+  @@index([productId])
   @@map("bundle_batch_components")
   @@schema("public")
 }
@@ -191,12 +218,15 @@ model SplitBatchComponent {
   splitBatchId     Int
   componentLabel   String     @db.VarChar(255)
   componentSku     String     @db.VarChar(100)
+  productId        Int?
+  product          Product?   @relation(fields: [productId], references: [id], onDelete: Restrict)
   componentPrice   Float      @default(0)
   includedQuantity Float      @default(1)
   splitBatch       SplitBatch @relation(fields: [splitBatchId], references: [id], onDelete: Cascade, onUpdate: NoAction)
 
   @@index([splitBatchId])
   @@index([componentSku])
+  @@index([productId])
   @@map("split_batch_components")
   @@schema("public")
 }
@@ -207,6 +237,8 @@ model InventoryMovement {
   updatedAt           DateTime        @default(now()) @updatedAt
   postingDate         String?         @db.VarChar(50)
   productCode         String          @db.VarChar(100)
+  productId           Int?
+  product             Product?        @relation(fields: [productId], references: [id], onDelete: Restrict)
   quantity            Float
   fromBucket          InventoryBucket
   toBucket            InventoryBucket
@@ -217,6 +249,7 @@ model InventoryMovement {
   deletedAt           DateTime?
 
   @@index([productCode])
+  @@index([productId])
   @@index([sourceTransactionId])
   @@index([movementSource, movementType])
   @@index([fromBucket])
@@ -396,6 +429,8 @@ model Transaction {
   customerId    Int?
   customer      Customer?                 @relation(fields: [customerId], references: [id], onDelete: Restrict)
   productCode   String?                   @db.VarChar(100)
+  productId     Int?
+  product       Product?                  @relation(fields: [productId], references: [id], onDelete: Restrict)
   quantity      Float?
   unitPrice     Float?
   discount      Float?
@@ -418,6 +453,7 @@ model Transaction {
   @@index([customers])
   @@index([customerId])
   @@index([productCode])
+  @@index([productId])
   @@index([orderStatus])
   @@index([shipmentCode])
   @@index([customers, deletedAt])
@@ -504,6 +540,8 @@ model SortingDistribution {
   createdAt        DateTime  @default(now())
   updatedAt        DateTime  @updatedAt
   productCode      String    @db.VarChar(100)
+  productId        Int?
+  product          Product?  @relation(fields: [productId], references: [id], onDelete: Restrict)
   selectedQuantity Int?
   rowNumber        Int
   quantity         Float     @default(0)
@@ -515,6 +553,7 @@ model SortingDistribution {
 
   @@unique([productCode, rowNumber])
   @@index([productCode])
+  @@index([productId])
   @@index([groupNumber])
   @@map("sorting_distributions")
   @@schema("public")
@@ -742,6 +781,8 @@ model ClothingInventoryReclassEntry {
   shipmentId      Int?
   shipmentCode    String   @db.VarChar(100)
   productCode     String   @db.VarChar(100)
+  productId       Int?
+  product         Product? @relation(fields: [productId], references: [id], onDelete: Restrict)
   amount          Float    @default(0)
   fromAccount     String   @db.VarChar(255)
   toAccount       String   @db.VarChar(255)
@@ -753,6 +794,7 @@ model ClothingInventoryReclassEntry {
   @@index([postingDate])
   @@index([shipmentCode])
   @@index([productCode])
+  @@index([productId])
   @@index([shipmentId])
   @@index([deletedAt])
   @@map("clothing_inventory_reclass_entries")
@@ -2197,6 +2239,8 @@ model GeneralMerchandisePrice {
   id              Int      @id @default(autoincrement())
   createdAt       DateTime @default(now())
   updatedAt       DateTime @default(now()) @updatedAt
+  productId       Int?
+  product         GeneralMerchandiseProduct? @relation(fields: [productId], references: [id], onDelete: Restrict)
   productCode     String   @db.VarChar(100)
   lowerLimit      Int
   upperLimit      Int
@@ -2207,6 +2251,7 @@ model GeneralMerchandisePrice {
   isActive        Boolean  @default(true)
   deletedAt       DateTime?
 
+  @@index([productId])
   @@index([productCode])
   @@index([productCode, lowerLimit, upperLimit])
   @@index([isActive])
@@ -2257,6 +2302,13 @@ model GeneralMerchandiseProduct {
   weightPerPiece         Float        @default(0)
   paymentCardId          String?      @db.VarChar(100)
   paymentMethod          String?      @db.VarChar(50)
+  prices                 GeneralMerchandisePrice[]
+  transactions           GeneralMerchandiseTransaction[]
+  inventoryMovements     GeneralMerchandiseInventoryMovement[]
+  sortingDistributions   GeneralMerchandiseSortingDistribution[]
+  bundleComponents       GeneralMerchandiseBundleBatchComponent[]
+  inventoryReclassEntries GeneralMerchandiseInventoryReclassEntry[]
+  codeAliases            GeneralMerchandiseProductCodeAlias[]
 
   @@index([productCode])
   @@index([shipmentCode])
@@ -2266,6 +2318,19 @@ model GeneralMerchandiseProduct {
   @@index([paymentCardId])
   @@index([ageRange])
   @@map("products")
+  @@schema("general_merchandise")
+}
+
+model GeneralMerchandiseProductCodeAlias {
+  id        Int                       @id @default(autoincrement())
+  productId Int
+  code      String                    @db.VarChar(100)
+  createdAt DateTime                  @default(now())
+  product   GeneralMerchandiseProduct @relation(fields: [productId], references: [id], onDelete: Restrict)
+
+  @@unique([productId, code])
+  @@index([code])
+  @@map("product_code_aliases")
   @@schema("general_merchandise")
 }
 
@@ -2290,11 +2355,14 @@ model GeneralMerchandiseBundleBatchComponent {
   id                   Int      @id @default(autoincrement())
   createdAt            DateTime @default(now()) @db.Timestamptz(6)
   bundleBatchId        Int
+  productId            Int?
+  product              GeneralMerchandiseProduct? @relation(fields: [productId], references: [id], onDelete: Restrict)
   componentProductCode String   @db.VarChar(100)
   includedQuantity     Float    @default(0)
   bundleBatch          GeneralMerchandiseBundleBatch @relation(fields: [bundleBatchId], references: [id], onDelete: Cascade, onUpdate: NoAction)
 
   @@index([bundleBatchId])
+  @@index([productId])
   @@index([componentProductCode])
   @@map("bundle_batch_components")
   @@schema("general_merchandise")
@@ -2306,6 +2374,8 @@ model GeneralMerchandiseInventoryMovement {
   updatedAt           DateTime        @default(now()) @updatedAt
   postingDate         String?         @db.VarChar(50)
   productCode         String          @db.VarChar(100)
+  productId           Int?
+  product             GeneralMerchandiseProduct? @relation(fields: [productId], references: [id], onDelete: Restrict)
   quantity            Float
   fromBucket          InventoryBucket
   toBucket            InventoryBucket
@@ -2316,6 +2386,7 @@ model GeneralMerchandiseInventoryMovement {
   deletedAt           DateTime?
 
   @@index([productCode])
+  @@index([productId])
   @@index([sourceTransactionId])
   @@index([movementSource, movementType])
   @@index([fromBucket])
@@ -2357,6 +2428,8 @@ model GeneralMerchandiseInventoryReclassEntry {
   shipmentId     Int?
   shipmentCode   String    @db.VarChar(100)
   productCode    String    @db.VarChar(100)
+  productId      Int?
+  product        GeneralMerchandiseProduct? @relation(fields: [productId], references: [id], onDelete: Restrict)
   amount         Float     @default(0)
   fromAccount    String    @db.VarChar(255)
   toAccount      String    @db.VarChar(255)
@@ -2366,6 +2439,7 @@ model GeneralMerchandiseInventoryReclassEntry {
   deletedAt      DateTime? @db.Timestamptz(6)
 
   @@index([postingDate])
+  @@index([productId])
   @@index([shipmentCode])
   @@index([productCode])
   @@index([shipmentId])
@@ -2406,6 +2480,8 @@ model GeneralMerchandiseTransaction {
   customerId    Int?
   customer      GeneralMerchandiseCustomer? @relation(fields: [customerId], references: [id], onDelete: Restrict)
   productCode   String?  @db.VarChar(100)
+  productId     Int?
+  product       GeneralMerchandiseProduct? @relation(fields: [productId], references: [id], onDelete: Restrict)
   quantity      Float?
   unitPrice     Float?
   discount      Float?
@@ -2427,6 +2503,7 @@ model GeneralMerchandiseTransaction {
   @@index([orderDate])
   @@index([customers])
   @@index([customerId])
+  @@index([productId])
   @@index([productCode])
   @@index([orderStatus])
   @@index([shipmentCode])
@@ -2569,6 +2646,8 @@ model GeneralMerchandiseSortingDistribution {
   createdAt        DateTime  @default(now())
   updatedAt        DateTime  @updatedAt
   productCode      String    @db.VarChar(100)
+  productId        Int?
+  product          GeneralMerchandiseProduct? @relation(fields: [productId], references: [id], onDelete: Restrict)
   selectedQuantity Int?
   rowNumber        Int
   quantity         Float     @default(0)
@@ -2579,6 +2658,7 @@ model GeneralMerchandiseSortingDistribution {
   deletedAt        DateTime?
 
   @@unique([productCode, rowNumber])
+  @@index([productId])
   @@index([productCode])
   @@index([groupNumber])
   @@map("sorting_distributions")

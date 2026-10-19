@@ -195,10 +195,52 @@ describe('generalMerchandiseTransactionService', () => {
           shipments: 1,
         },
         suggestion:
-          'Create the missing customers/products/shipments before importing transactions.',
+          'Create missing customers/products/shipments and resolve duplicate GM product codes before importing transactions.',
       },
     });
 
+    expect(
+      mockPrisma.generalMerchandiseTransaction.createMany
+    ).not.toHaveBeenCalled();
+  });
+
+  it('rejects ambiguous active GM product codes before importing transactions', async () => {
+    vi.resetModules();
+    const { generalMerchandiseTransactionService } = await import('../service');
+    const { TransactionReferenceError } = await import(
+      '@/modules/transactions/api/service'
+    );
+
+    mockPrisma.generalMerchandiseProduct.findMany.mockResolvedValue([
+      { productCode: 'GM-001' },
+      { productCode: 'gm-001' },
+    ]);
+
+    const promise = generalMerchandiseTransactionService.importTransactions([
+      {
+        'Order Date': '2026-03-17',
+        Customers: 'ACME Retail',
+        'Product Code': 'GM-001',
+        Quantity: 1,
+        'Unit Price': 25,
+        Discount: 0,
+        Adjustment: 0,
+        'Line Total': 25,
+        'Order Status': 'Warehouse',
+        Notes: null,
+        'Invoice Date': null,
+        'Packed Date': null,
+        'Shipment Code': 'GM-SHIP-001',
+      },
+    ]);
+
+    await expect(promise).rejects.toBeInstanceOf(TransactionReferenceError);
+    await expect(promise).rejects.toMatchObject({
+      details: {
+        missing: { products: ['GM-001'] },
+        counts: { products: 1 },
+      },
+    });
     expect(
       mockPrisma.generalMerchandiseTransaction.createMany
     ).not.toHaveBeenCalled();

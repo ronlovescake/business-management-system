@@ -218,9 +218,24 @@ export async function postGmSupplierSettlementForProductPaymentChange(params: {
   }
 }
 
-function buildUpdateData(dto: ProductDTO): Prisma.ProductUpdateInput {
-  const base = mapFromDTO(dto);
-  return { ...base, deletedAt: null };
+function mapGmFromDTO(
+  dto: ProductDTO
+): Prisma.GeneralMerchandiseProductUncheckedCreateInput {
+  const data = mapFromDTO(dto);
+  delete data.paymentCard;
+  return {
+    ...data,
+    paymentCardId: dto['Payment Card Id'] ?? null,
+  } as unknown as Prisma.GeneralMerchandiseProductUncheckedCreateInput;
+}
+
+function buildUpdateData(
+  dto: ProductDTO
+): Prisma.GeneralMerchandiseProductUncheckedUpdateInput {
+  return {
+    ...mapGmFromDTO(dto),
+    deletedAt: null,
+  } as unknown as Prisma.GeneralMerchandiseProductUncheckedUpdateInput;
 }
 
 export const generalMerchandiseProductService: ProductService = {
@@ -234,7 +249,7 @@ export const generalMerchandiseProductService: ProductService = {
 
   async createSingle(payload) {
     const created = await gmPrisma.generalMerchandiseProduct.create({
-      data: mapFromDTO(payload),
+      data: mapGmFromDTO(payload),
     });
     return mapToDTO(created);
   },
@@ -253,7 +268,7 @@ export const generalMerchandiseProductService: ProductService = {
 
       for (const dto of payload) {
         const productCode = dto['Product Code']?.trim();
-        const data = mapFromDTO(dto);
+        const data = mapGmFromDTO(dto);
         const updateData = buildUpdateData(dto);
 
         if (dto.id) {

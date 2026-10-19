@@ -1,5 +1,26 @@
 # Clothing — Products Business Logic
 
+## Stable Product Identity
+
+`Product.id` is the unique, permanent database identifier. The generated Product
+Code remains editable by changing the product name/date and is not a unique
+database key. Linked price tiers, transactions, inventory movements, sorting,
+batch components, and reclassification entries use nullable `productId` links;
+their visible codes follow product-code changes. The previous code is retained
+in `product_code_aliases`. No recorded quantities or financial amounts are
+changed by a code rename.
+
+Selective backups exclude aliases for soft-deleted products when those products
+are omitted; database dumps retain all aliases.
+
+New code-only rows are linked only when one active product matches. A missing or
+ambiguous code remains unlinked; code-only bulk edits with duplicate matches
+are rejected. The additive migration links legacy rows only when their code
+matches one product; it cannot recover every historical rename. After applying
+the migration in a reviewed environment, run
+`npx tsx scripts/audit-clothing-product-identity.ts` to review duplicate codes
+and unlinked counts before relying on historical rollups. The audit is read-only.
+
 > **Source files:**
 >
 > - `src/modules/clothing/operations/products/services/ProductService.ts`

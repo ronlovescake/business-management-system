@@ -17,12 +17,20 @@ export interface TransactionDTO {
   'Shipment Code': string | null;
 }
 
-export function mapToDTO(transaction: Transaction): TransactionDTO {
+export function mapToDTO(
+  transaction: Transaction & {
+    product?: {
+      productCode: string | null;
+      shipmentCode: string | null;
+    } | null;
+  }
+): TransactionDTO {
   return {
     id: transaction.id,
     'Order Date': transaction.orderDate ?? '',
     Customers: transaction.customers ?? '',
-    'Product Code': transaction.productCode ?? '',
+    'Product Code':
+      transaction.product?.productCode ?? transaction.productCode ?? '',
     Quantity: transaction.quantity ?? 0,
     'Unit Price': transaction.unitPrice ?? 0,
     Discount: transaction.discount ?? 0,
@@ -32,7 +40,8 @@ export function mapToDTO(transaction: Transaction): TransactionDTO {
     Notes: transaction.notes ?? null,
     'Invoice Date': transaction.invoiceDate ?? null,
     'Packed Date': transaction.packedDate ?? null,
-    'Shipment Code': transaction.shipmentCode ?? null,
+    'Shipment Code':
+      transaction.product?.shipmentCode ?? transaction.shipmentCode ?? null,
   };
 }
 

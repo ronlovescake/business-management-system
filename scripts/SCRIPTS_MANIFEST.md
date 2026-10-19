@@ -69,18 +69,20 @@ Add the date you last ran a script in the **Last Used** column when known.
 
 ## Database — Accounting / Inventory Integrity
 
-| Script                                          | Purpose                                              | Risk |
-| ----------------------------------------------- | ---------------------------------------------------- | ---- |
-| `accounting-db-integrity-check.ts`              | Read-only accounting integrity audit.                | 🟢   |
-| `accounting-sanity-check.ts`                    | Read-only accounting sanity checks.                  | 🟢   |
-| `inventory-ledger-healthcheck.ts`               | Read-only inventory ledger healthcheck.              | 🟢   |
-| `report-inventory-ledger-drift.ts`              | Reports inventory ledger drift.                      | 🟢   |
-| `debug-opening-balances.ts`                     | Debug helper for opening balances.                   | 🟢   |
-| `debug-retained-earnings.ts`                    | Debug helper for retained earnings.                  | 🟢   |
-| `set-opening-balances.ts`                       | Writes opening balances. Review args carefully.      | 🔴   |
-| `reclass-receipt-backfill-opening-inventory.ts` | Reclassifies receipt backfills to opening inventory. | 🔴   |
-| `adjust-receipt-delta.ts`                       | Adjusts receipt delta entries.                       | 🔴   |
-| `cleanup-duplicate-auto-receipts.ts`            | Removes duplicate auto-generated receipts.           | 🔴   |
+| Script                                          | Purpose                                                                                | Risk |
+| ----------------------------------------------- | -------------------------------------------------------------------------------------- | ---- |
+| `accounting-db-integrity-check.ts`              | Read-only accounting integrity audit.                                                  | 🟢   |
+| `accounting-sanity-check.ts`                    | Read-only accounting sanity checks.                                                    | 🟢   |
+| `inventory-ledger-healthcheck.ts`               | Read-only inventory ledger healthcheck.                                                | 🟢   |
+| `report-inventory-ledger-drift.ts`              | Reports inventory ledger drift.                                                        | 🟢   |
+| `audit-clothing-product-identity.ts`            | Reports duplicate clothing product codes and unlinked records; read-only.              | 🟢   |
+| `audit-general-merchandise-product-identity.ts` | Reports duplicate GM product codes and linked/unlinked identity candidates; read-only. | 🟢   |
+| `debug-opening-balances.ts`                     | Debug helper for opening balances.                                                     | 🟢   |
+| `debug-retained-earnings.ts`                    | Debug helper for retained earnings.                                                    | 🟢   |
+| `set-opening-balances.ts`                       | Writes opening balances. Review args carefully.                                        | 🔴   |
+| `reclass-receipt-backfill-opening-inventory.ts` | Reclassifies receipt backfills to opening inventory.                                   | 🔴   |
+| `adjust-receipt-delta.ts`                       | Adjusts receipt delta entries.                                                         | 🔴   |
+| `cleanup-duplicate-auto-receipts.ts`            | Removes duplicate auto-generated receipts.                                             | 🔴   |
 
 ## Database — Backfills / Resyncs
 

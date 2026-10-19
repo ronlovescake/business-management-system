@@ -41,7 +41,10 @@ const HEADERS = [
   'SHIPMENT CODE',
 ] as const;
 
-export const useInventoryPage = (apiBasePath?: string) => {
+export const useInventoryPage = (
+  apiBasePath?: string,
+  { supportsSplitBatches = true }: { supportsSplitBatches?: boolean } = {}
+) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [isImporting, setIsImporting] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
@@ -71,7 +74,9 @@ export const useInventoryPage = (apiBasePath?: string) => {
         fetch(buildApiPath(apiBasePath, '/transactions')),
         fetch(buildApiPath(apiBasePath, '/bundles')),
         fetch(buildApiPath(apiBasePath, '/mix-and-match')),
-        fetch(buildApiPath(apiBasePath, '/split-batches')),
+        supportsSplitBatches
+          ? fetch(buildApiPath(apiBasePath, '/split-batches'))
+          : Promise.resolve(null),
         fetch(buildApiPath(apiBasePath, '/inventory/movements')),
       ]);
 
@@ -105,7 +110,7 @@ export const useInventoryPage = (apiBasePath?: string) => {
         );
       }
 
-      if (!splitBatchesResponse.ok) {
+      if (splitBatchesResponse && !splitBatchesResponse.ok) {
         throw new Error(
           `Failed to fetch split batches: ${splitBatchesResponse.statusText}`
         );
@@ -123,7 +128,7 @@ export const useInventoryPage = (apiBasePath?: string) => {
         transactionsResponse.json(),
         bundlesResponse.json(),
         mixAndMatchResponse.json(),
-        splitBatchesResponse.json(),
+        splitBatchesResponse?.json() ?? Promise.resolve([]),
         movementsResponse.json(),
       ]);
 
@@ -133,8 +138,9 @@ export const useInventoryPage = (apiBasePath?: string) => {
       const parsedBundles = extractApiData<BundleBatchFromAPI>(bundlesPayload);
       const parsedMixAndMatchBatches =
         extractApiData<MixAndMatchBatchFromAPI>(mixAndMatchPayload);
-      const parsedSplitBatches =
-        extractApiData<SplitBatchFromAPI>(splitBatchesPayload);
+      const parsedSplitBatches = splitBatchesResponse
+        ? extractApiData<SplitBatchFromAPI>(splitBatchesPayload)
+        : [];
       const parsedMovements =
         extractApiData<InventoryMovementFromAPI>(movementsPayload);
 
@@ -167,7 +173,7 @@ export const useInventoryPage = (apiBasePath?: string) => {
     } finally {
       setIsLoading(false);
     }
-  }, [apiBasePath]);
+  }, [apiBasePath, supportsSplitBatches]);
 
   useEffect(() => {
     void fetchInventoryData();
@@ -182,7 +188,14 @@ export const useInventoryPage = (apiBasePath?: string) => {
       mixAndMatchBatches,
       splitBatches
     );
-  }, [products, transactions, bundles, movements, mixAndMatchBatches, splitBatches]);
+  }, [
+    products,
+    transactions,
+    bundles,
+    movements,
+    mixAndMatchBatches,
+    splitBatches,
+  ]);
 
   const sellableOnHandByCode = useMemo(() => {
     const map = new Map<string, number>();

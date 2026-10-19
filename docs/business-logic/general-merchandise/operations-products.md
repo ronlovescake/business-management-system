@@ -24,14 +24,14 @@
 
 ## B — GM Product Service Behavior
 
-| #   | Logic                                                                                    | Explanation                                                                                                                |
-| --- | ---------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
-| 5   | GM product persistence is backed by `generalMerchandiseProduct` records                  | The product service binds directly to GM Prisma product models.                                                            |
-| 6   | GM manual transit build-up posts accounting entries by shipment code                     | The service exposes `postManualTransitBuildUpByShipmentCode` as a GM-specific product accounting workflow.                 |
-| 7   | Manual transit build-up debits `Inventory in Transit` for product grand total            | Test coverage confirms the grand total posts to `Inventory in Transit`.                                                    |
-| 8   | Manual transit build-up does not post separate forwarder or courier entries               | Forwarder's Fee and Lalamove entry creation is disabled via the `ENABLE_TRANSIT_BUILD_LOGISTICS_COMPONENTS` feature flag. Only the Grand Total entry is posted. These costs are handled separately via the Logistics Costs tab. |
-| 9   | Paid products credit `Cash` during manual transit build-up posting                       | For paid products, the Grand Total transit build-up line credits `Cash`.                                                   |
-| 10  | Unpaid products credit `Supplier Payable` during manual transit build-up posting         | Only the Grand Total entry is created, crediting `Supplier Payable`. Forwarder Payable and Courier Payable entries are disabled. |
+| #   | Logic                                                                            | Explanation                                                                                                                                                                                                                     |
+| --- | -------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 5   | GM product persistence is backed by `generalMerchandiseProduct` records          | The product service binds directly to GM Prisma product models.                                                                                                                                                                 |
+| 6   | GM manual transit build-up posts accounting entries by shipment code             | The service exposes `postManualTransitBuildUpByShipmentCode` as a GM-specific product accounting workflow.                                                                                                                      |
+| 7   | Manual transit build-up debits `Inventory in Transit` for product grand total    | Test coverage confirms the grand total posts to `Inventory in Transit`.                                                                                                                                                         |
+| 8   | Manual transit build-up does not post separate forwarder or courier entries      | Forwarder's Fee and Lalamove entry creation is disabled via the `ENABLE_TRANSIT_BUILD_LOGISTICS_COMPONENTS` feature flag. Only the Grand Total entry is posted. These costs are handled separately via the Logistics Costs tab. |
+| 9   | Paid products credit `Cash` during manual transit build-up posting               | For paid products, the Grand Total transit build-up line credits `Cash`.                                                                                                                                                        |
+| 10  | Unpaid products credit `Supplier Payable` during manual transit build-up posting | Only the Grand Total entry is created, crediting `Supplier Payable`. Forwarder Payable and Courier Payable entries are disabled.                                                                                                |
 
 ---
 
@@ -43,3 +43,12 @@
 | 12  | Changing payment from Unpaid to Paid triggers a supplier settlement journal automation    | `postGmSupplierSettlementForProductPaymentChange` posts settlement only on the Unpaid → Paid transition. |
 | 13  | Supplier settlement debits `Supplier Payable` and credits `Cash`                          | The supplier settlement automation writes a balanced two-line journal pair for the settlement amount.    |
 | 14  | Supplier settlement automation depends on existing transit build-up supplier-payable rows | If transit build-up source rows are missing or amount is non-positive, settlement posting is skipped.    |
+
+## D — Product Identity and Price Tiers
+
+- `GeneralMerchandiseProduct.id` is the stable identity for a GM product. Product codes are editable labels; linked prices, transactions, movements, sorting distributions, bundle components, and inventory reclass entries retain their product link when the code changes.
+- When a product code changes, the previous code is retained in the GM product-code alias table for history, and the new code is propagated to linked records. Aliases are not accepted as lookup keys for new writes.
+- Writes containing a current product code resolve to its active product when that code identifies exactly one product. Ambiguous codes are rejected rather than guessed. Historical records with blank, unmatched, or ambiguous codes remain unlinked until deliberately resolved.
+- A product shipment-code change updates the shipment code on linked transactions. It does not rewrite transaction prices or financial totals.
+- Changing `Actual Price` recalculates active linked price tiers. The highest-quantity tier uses `Actual Price`; each preceding lower-quantity tier is increased by 5 currency units. Archived tiers are left unchanged.
+- Run `npx tsx scripts/audit-general-merchandise-product-identity.ts` to report duplicate active codes, link totals, and unique, ambiguous, unmatched, or blank-code records before or after migration.

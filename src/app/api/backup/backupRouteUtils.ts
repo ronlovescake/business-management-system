@@ -60,6 +60,47 @@ export type BackupFileDescriptor = {
   size: number;
 };
 
+export function buildTableQueryOptions(
+  sampleRecord: Record<string, unknown> | null,
+  {
+    model,
+    includeSoftDeleted,
+    strategy,
+    differentialSince,
+  }: {
+    model: string;
+    includeSoftDeleted: boolean;
+    strategy: BackupStrategy;
+    differentialSince: Date | null;
+  }
+) {
+  const where: Record<string, unknown> = {};
+  const hasDeletedAt = !!(sampleRecord && 'deletedAt' in sampleRecord);
+  const hasUpdatedAt = !!(sampleRecord && 'updatedAt' in sampleRecord);
+  let differentialUnsupported = false;
+
+  if (hasDeletedAt && !includeSoftDeleted) {
+    where.deletedAt = null;
+  }
+  if (
+    (model === 'productCodeAlias' ||
+      model === 'generalMerchandiseProductCodeAlias') &&
+    !includeSoftDeleted
+  ) {
+    where.product = { deletedAt: null };
+  }
+
+  if (strategy === 'differential' && differentialSince) {
+    if (hasUpdatedAt) {
+      where.updatedAt = { gte: differentialSince };
+    } else {
+      differentialUnsupported = true;
+    }
+  }
+
+  return { where, hasDeletedAt, hasUpdatedAt, differentialUnsupported };
+}
+
 export function buildBackupFolderTimestamp(date: Date = new Date()) {
   return date.toISOString().replace(/[:.]/g, '-').slice(0, -5);
 }

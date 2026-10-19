@@ -3,14 +3,18 @@ import { InventoryErrorBoundary } from '@/app/clothing/operations/inventory/comp
 
 type InventoryRoutePageProps = {
   apiBasePath?: string;
+  supportsSplitBatches?: boolean;
 };
 
 export function InventoryRoutePage(props: InventoryRoutePageProps) {
-  const { apiBasePath } = props;
+  const { apiBasePath, supportsSplitBatches } = props;
 
   return (
     <InventoryErrorBoundary>
-      <InventoryPage apiBasePath={apiBasePath} />
+      <InventoryPage
+        apiBasePath={apiBasePath}
+        supportsSplitBatches={supportsSplitBatches}
+      />
     </InventoryErrorBoundary>
   );
 }

@@ -5,12 +5,17 @@ import {
 } from '@/lib/accounting/data-fetchers';
 import { detectAccountType } from '@/lib/accounting/account-classification';
 
-const mocks = vi.hoisted(() => ({ journal: vi.fn(), agreements: vi.fn() }));
+const mocks = vi.hoisted(() => ({
+  journal: vi.fn(),
+  agreements: vi.fn(),
+  products: vi.fn(),
+}));
 
 vi.mock('@/lib/db', () => ({
   prisma: {
     clothingAccountingJournalLine: { findMany: mocks.journal },
     clothingInvestmentAgreement: { findMany: mocks.agreements },
+    product: { findMany: mocks.products },
   },
 }));
 
@@ -95,6 +100,35 @@ describe('investor account report labels', () => {
     mocks.journal.mockResolvedValue([cash]);
     expect(await fetchManualJournalLines(params)).toEqual([cash]);
     expect(mocks.agreements).not.toHaveBeenCalled();
+  });
+
+  it('shows current product and shipment labels without changing journal amounts', async () => {
+    const productLine = {
+      ...line,
+      account: 'Cash',
+      sourceType: 'PRODUCT',
+      sourceId: '42',
+      sourceLineKey: 'SUPPLIER_SETTLEMENT:credit',
+      ref: 'PRODUCT:S-101826',
+      description:
+        'Supplier payment settlement | Product S-101826 | Shipment SH-OLD',
+    };
+    mocks.journal.mockResolvedValue([productLine]);
+    mocks.products.mockResolvedValue([
+      { id: 42, productCode: 'SS-101826', shipmentCode: 'SH-NEW' },
+    ]);
+
+    const [result] = await fetchManualJournalLines(params);
+    expect(result).toEqual({
+      ...productLine,
+      ref: 'PRODUCT:SS-101826',
+      description:
+        'Supplier payment settlement | Product SS-101826 | Shipment SH-NEW',
+    });
+    expect(mocks.products).toHaveBeenCalledWith({
+      where: { id: { in: [42] } },
+      select: { id: true, productCode: true, shipmentCode: true },
+    });
   });
 });
 

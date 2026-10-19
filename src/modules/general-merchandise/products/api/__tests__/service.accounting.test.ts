@@ -125,6 +125,36 @@ describe('generalMerchandiseProductService accounting automation', () => {
     ).not.toHaveBeenCalled();
   });
 
+  it('passes product-code and Actual Price edits through the GM product import path', async () => {
+    const { generalMerchandiseProductService } = await import('../service');
+    mockPrisma.generalMerchandiseProduct.findUnique.mockResolvedValue({
+      id: 789,
+      payment: 'Unpaid',
+      productCode: 'GM-OLD-789',
+      shipmentCode: 'GM-001',
+    });
+    mockPrisma.generalMerchandiseProduct.upsert.mockResolvedValue({ id: 789 });
+
+    await generalMerchandiseProductService.bulkImport([
+      buildDto({
+        id: 789,
+        'Product Code': 'GM-NEW-789',
+        'Actual Price': 120,
+        Payment: 'Unpaid',
+      }),
+    ]);
+
+    expect(mockPrisma.generalMerchandiseProduct.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: 789 },
+        update: expect.objectContaining({
+          productCode: 'GM-NEW-789',
+          actualPrice: 120,
+        }),
+      })
+    );
+  });
+
   it('posts a supplier settlement when payment changes Unpaid → Paid', async () => {
     const { generalMerchandiseProductService } = await import('../service');
 

@@ -43,6 +43,8 @@ export const RESTORE_MODEL_MAP: Record<string, string> = {
     'generalMerchandiseTransactionStatusChange',
   general_merchandise_customers: 'generalMerchandiseCustomer',
   general_merchandise_products: 'generalMerchandiseProduct',
+  general_merchandise_product_code_aliases:
+    'generalMerchandiseProductCodeAlias',
   general_merchandise_prices: 'generalMerchandisePrice',
   general_merchandise_shipments: 'generalMerchandiseShipment',
   general_merchandise_employees: 'generalMerchandiseEmployee',

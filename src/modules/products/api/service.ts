@@ -222,6 +222,33 @@ function buildUpdateData(dto: ProductDTO): Prisma.ProductUpdateInput {
   return { ...base, deletedAt: null };
 }
 
+async function findProductForWrite(
+  tx: Prisma.TransactionClient,
+  dto: ProductDTO
+) {
+  if (dto.id !== undefined) {
+    if (!Number.isSafeInteger(dto.id) || dto.id <= 0) {
+      throw new Error('Invalid product ID');
+    }
+    const product = await tx.product.findUnique({ where: { id: dto.id } });
+    if (!product) {
+      throw new Error(`Product ${dto.id} no longer exists`);
+    }
+    return product;
+  }
+
+  const matches = await tx.product.findMany({
+    where: { productCode: dto['Product Code'] },
+    take: 2,
+  });
+  if (matches.length > 1) {
+    throw new Error(
+      `Product code ${dto['Product Code']} is ambiguous; use a product ID`
+    );
+  }
+  return matches[0] ?? null;
+}
+
 function isPaid(payment?: string | null): boolean {
   return (payment ?? '').trim().toLowerCase() === 'paid';
 }
@@ -264,10 +291,7 @@ async function ensureReceiptMovementForProduct(params: {
   const existingReceipt = await prisma.inventoryMovement.findFirst({
     where: {
       deletedAt: null,
-      productCode: {
-        equals: normalizedCode,
-        mode: 'insensitive',
-      },
+      productId,
       toBucket: 'sellable',
       // Any non-sellable -> sellable movement counts as a receipt ledger.
       // This prevents accidental double-receipts (e.g., opening_inventory->sellable
@@ -285,6 +309,7 @@ async function ensureReceiptMovementForProduct(params: {
     await prisma.inventoryMovement.create({
       data: {
         productCode: normalizedCode,
+        product: { connect: { id: productId } },
         quantity: qty,
         // Use opening_inventory as the canonical source bucket for receipts.
         // (We keep `scrap` reserved for actual write-offs, not receiving.)
@@ -478,9 +503,7 @@ export const productService: ProductService = {
           continue;
         }
 
-        const existing = await tx.product.findFirst({
-          where: { productCode },
-        });
+        const existing = await findProductForWrite(tx, dto);
 
         if (existing) {
           const prevPayment = (existing as { payment?: string | null }).payment;
@@ -544,7 +567,13 @@ export const productService: ProductService = {
       )
     );
 
-    void logProductBulkChange('bulk_import', payload, result.created, result.updated, result.restored);
+    void logProductBulkChange(
+      'bulk_import',
+      payload,
+      result.created,
+      result.updated,
+      result.restored
+    );
     return result;
   },
 
@@ -574,9 +603,7 @@ export const productService: ProductService = {
           continue;
         }
 
-        const existing = await tx.product.findFirst({
-          where: { productCode },
-        });
+        const existing = await findProductForWrite(tx, dto);
 
         if (existing) {
           const prevPayment = (existing as { payment?: string | null }).payment;
@@ -618,33 +645,6 @@ export const productService: ProductService = {
             where: { id: existing.id },
             data: buildUpdateData(dto),
           });
-
-          const normalizedProductCode = (data.productCode ?? '').trim();
-          const transactionModel = (
-            tx as Prisma.TransactionClient & {
-              transaction?: {
-                updateMany: (args: {
-                  where: Prisma.TransactionWhereInput;
-                  data: Prisma.TransactionUpdateManyMutationInput;
-                }) => Promise<unknown>;
-              };
-            }
-          ).transaction;
-
-          if (normalizedProductCode && transactionModel?.updateMany) {
-            await transactionModel.updateMany({
-              where: {
-                deletedAt: null,
-                productCode: {
-                  equals: normalizedProductCode,
-                  mode: 'insensitive',
-                },
-              },
-              data: {
-                shipmentCode: data.shipmentCode,
-              },
-            });
-          }
 
           postings.push({ productId: existing.id, dto });
 
@@ -760,7 +760,13 @@ export const productService: ProductService = {
       notifications = result.changeTracking.length;
     }
 
-    void logProductBulkChange('bulk_update', payload, result.created, result.updated, result.restored);
+    void logProductBulkChange(
+      'bulk_update',
+      payload,
+      result.created,
+      result.updated,
+      result.restored
+    );
     return {
       created: result.created,
       updated: result.updated,

@@ -32,6 +32,11 @@ export const SELECTIVE_BACKUP_TABLES = [
   },
   { name: 'customers', model: 'customer', modelName: 'Customer' },
   { name: 'products', model: 'product', modelName: 'Product' },
+  {
+    name: 'product_code_aliases',
+    model: 'productCodeAlias',
+    modelName: 'ProductCodeAlias',
+  },
   { name: 'prices', model: 'price', modelName: 'Price' },
   { name: 'shipments', model: 'shipment', modelName: 'Shipment' },
   { name: 'employees', model: 'employee', modelName: 'Employee' },
@@ -146,6 +151,11 @@ export const SELECTIVE_BACKUP_TABLES = [
     name: 'general_merchandise_products',
     model: 'generalMerchandiseProduct',
     modelName: 'GeneralMerchandiseProduct',
+  },
+  {
+    name: 'general_merchandise_product_code_aliases',
+    model: 'generalMerchandiseProductCodeAlias',
+    modelName: 'GeneralMerchandiseProductCodeAlias',
   },
   {
     name: 'general_merchandise_prices',

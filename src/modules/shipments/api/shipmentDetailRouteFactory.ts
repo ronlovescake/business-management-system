@@ -24,7 +24,12 @@ type ProductUpdateManyArgs = {
   where: { shipmentCode: string };
   data: Pick<
     ShipmentWriteData,
-    'cvNumber' | 'noOfSacks' | 'totalCBM' | 'weight' | 'shipmentStatus'
+    | 'shipmentCode'
+    | 'cvNumber'
+    | 'noOfSacks'
+    | 'totalCBM'
+    | 'weight'
+    | 'shipmentStatus'
   >;
 };
 type TransactionUpdateManyArgs = {
@@ -50,6 +55,7 @@ type TransactionUpdateManyArgs = {
 export interface ShipmentDetailDelegates {
   shipmentModel: {
     findUnique: (args: ShipmentFindUniqueArgs) => Promise<ShipmentDB | null>;
+    count: (args: { where: { shipmentCode: string } }) => Promise<number>;
     update: (args: ShipmentUpdateArgs) => Promise<ShipmentDB>;
     delete?: (args: ShipmentDeleteArgs) => Promise<unknown>;
   };
@@ -111,6 +117,22 @@ export function createShipmentDetailRoutes(delegates: ShipmentDetailDelegates) {
         return ApiResponse.notFound('Shipment');
       }
 
+      if (shipmentData.shipmentCode !== currentShipment.shipmentCode) {
+        const [oldCodeCount, newCodeCount] = await Promise.all([
+          delegates.shipmentModel.count({
+            where: { shipmentCode: currentShipment.shipmentCode },
+          }),
+          delegates.shipmentModel.count({
+            where: { shipmentCode: shipmentData.shipmentCode },
+          }),
+        ]);
+        if (oldCodeCount !== 1 || newCodeCount !== 0) {
+          return ApiResponse.conflict(
+            'Shipment code is ambiguous or already in use'
+          );
+        }
+      }
+
       const updatedShipment = await delegates.shipmentModel.update({
         where: { id: idResult.id },
         data: shipmentData,
@@ -120,6 +142,7 @@ export function createShipmentDetailRoutes(delegates: ShipmentDetailDelegates) {
         await delegates.productModel.updateMany({
           where: { shipmentCode: currentShipment.shipmentCode },
           data: {
+            shipmentCode: shipmentData.shipmentCode,
             cvNumber: shipmentData.cvNumber,
             noOfSacks: shipmentData.noOfSacks,
             totalCBM: shipmentData.totalCBM,
@@ -140,7 +163,7 @@ export function createShipmentDetailRoutes(delegates: ShipmentDetailDelegates) {
           );
 
           const productsForShipment = await delegates.productModel.findMany({
-            where: { shipmentCode: currentShipment.shipmentCode },
+            where: { shipmentCode: shipmentData.shipmentCode },
             select: { productCode: true },
           });
 
@@ -154,7 +177,7 @@ export function createShipmentDetailRoutes(delegates: ShipmentDetailDelegates) {
               AND: [
                 {
                   OR: [
-                    { shipmentCode: currentShipment.shipmentCode },
+                    { shipmentCode: shipmentData.shipmentCode },
                     ...(productCodes.length > 0
                       ? [{ productCode: { in: productCodes } }]
                       : []),

@@ -4,6 +4,7 @@ import {
   DEFAULT_RESTORE_TABLE_ORDER,
   sortTablesForRestore,
 } from '../restore-order';
+import { RESTORE_MODEL_MAP } from '../restoreModelMap';
 
 describe('sortTablesForRestore', () => {
   it('orders known dependencies before dependents', () => {
@@ -64,5 +65,42 @@ describe('sortTablesForRestore', () => {
     expect(templatesIndex).toBeGreaterThanOrEqual(0);
     expect(draftsIndex).toBeGreaterThanOrEqual(0);
     expect(templatesIndex).toBeLessThan(draftsIndex);
+  });
+
+  it('restores GM products before aliases and product-linked records', () => {
+    const productIndex = DEFAULT_RESTORE_TABLE_ORDER.indexOf(
+      'general_merchandise_products'
+    );
+    const aliasIndex = DEFAULT_RESTORE_TABLE_ORDER.indexOf(
+      'general_merchandise_product_code_aliases'
+    );
+    const pricesIndex = DEFAULT_RESTORE_TABLE_ORDER.indexOf(
+      'general_merchandise_prices'
+    );
+    const transactionsIndex = DEFAULT_RESTORE_TABLE_ORDER.indexOf(
+      'general_merchandise_transactions'
+    );
+
+    expect(RESTORE_MODEL_MAP.general_merchandise_product_code_aliases).toBe(
+      'generalMerchandiseProductCodeAlias'
+    );
+    expect(productIndex).toBeGreaterThanOrEqual(0);
+    expect(productIndex).toBeLessThan(aliasIndex);
+    expect(aliasIndex).toBeLessThan(pricesIndex);
+    expect(pricesIndex).toBeLessThan(transactionsIndex);
+
+    expect(
+      sortTablesForRestore([
+        'general_merchandise_transactions',
+        'general_merchandise_product_code_aliases',
+        'general_merchandise_prices',
+        'general_merchandise_products',
+      ])
+    ).toEqual([
+      'general_merchandise_products',
+      'general_merchandise_product_code_aliases',
+      'general_merchandise_prices',
+      'general_merchandise_transactions',
+    ]);
   });
 });

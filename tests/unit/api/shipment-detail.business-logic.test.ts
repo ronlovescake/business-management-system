@@ -19,6 +19,7 @@ import { getTestApiUrl, mockLogger } from '@/core/testing/test-helpers';
 const mockPrisma = vi.hoisted(() => ({
   shipment: {
     findUnique: vi.fn(),
+    count: vi.fn(),
     update: vi.fn(),
     delete: vi.fn(),
   },
@@ -31,6 +32,7 @@ const mockPrisma = vi.hoisted(() => ({
   },
   generalMerchandiseShipment: {
     findUnique: vi.fn(),
+    count: vi.fn(),
     update: vi.fn(),
   },
   generalMerchandiseProduct: {
@@ -85,6 +87,14 @@ const toShipmentDB = (overrides: Record<string, unknown> = {}) => ({
 describe('Shipment Detail Routes — Business Logic', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockPrisma.shipment.count.mockImplementation(
+      async ({ where }: { where: { shipmentCode: string } }) =>
+        where.shipmentCode === 'SH-001' ? 1 : 0
+    );
+    mockPrisma.generalMerchandiseShipment.count.mockImplementation(
+      async ({ where }: { where: { shipmentCode: string } }) =>
+        where.shipmentCode === 'SH-001' ? 1 : 0
+    );
     mockPrisma.product.findMany.mockResolvedValue([]);
     mockPrisma.transaction.updateMany.mockResolvedValue({ count: 0 });
     mockPrisma.product.updateMany.mockResolvedValue({ count: 0 });
@@ -203,6 +213,57 @@ describe('Shipment Detail Routes — Business Logic', () => {
           }),
         })
       );
+    });
+
+    it('moves linked products and transaction status lookups to a renamed shipment code', async () => {
+      mockPrisma.shipment.findUnique.mockResolvedValue(toShipmentDB());
+      mockPrisma.shipment.update.mockResolvedValue(
+        toShipmentDB({ shipmentCode: 'SH-NEW' })
+      );
+
+      const res = await clothingPUT(
+        buildRequest('/api/shipments/1', {
+          method: 'PUT',
+          body: JSON.stringify({
+            'Shipment Code': 'SH-NEW',
+            'Shipment Status': 'Delivered',
+          }),
+        }),
+        { params: { id: '1' } }
+      );
+
+      expect(res.status).toBe(200);
+      expect(mockPrisma.product.updateMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { shipmentCode: 'SH-001' },
+          data: expect.objectContaining({ shipmentCode: 'SH-NEW' }),
+        })
+      );
+      expect(mockPrisma.product.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { shipmentCode: 'SH-NEW' },
+        })
+      );
+    });
+
+    it('refuses shipment-code renames when the old code has multiple owners', async () => {
+      mockPrisma.shipment.findUnique.mockResolvedValue(toShipmentDB());
+      mockPrisma.shipment.count.mockResolvedValue(2);
+
+      const res = await clothingPUT(
+        buildRequest('/api/shipments/1', {
+          method: 'PUT',
+          body: JSON.stringify({
+            'Shipment Code': 'SH-NEW',
+            'Shipment Status': 'Delivered',
+          }),
+        }),
+        { params: { id: '1' } }
+      );
+
+      expect(res.status).toBe(409);
+      expect(mockPrisma.shipment.update).not.toHaveBeenCalled();
+      expect(mockPrisma.product.updateMany).not.toHaveBeenCalled();
     });
 
     it('updates the shipment record and returns success', async () => {

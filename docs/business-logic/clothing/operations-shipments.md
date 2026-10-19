@@ -1,5 +1,13 @@
 # Clothing — Shipments Business Logic
 
+## Shipment Code Changes
+
+Editing an existing shipment's code also updates products assigned to its old
+code. Linked transactions follow the product's current shipment code. A code
+rename is rejected when the old code identifies multiple shipments or the new
+code is already used; this avoids moving products to an unrelated shipment.
+Existing transaction prices and accounting amounts are unchanged.
+
 > **Source files:**
 >
 > - `src/modules/clothing/operations/shipments/components/ShipmentsPage.tsx`

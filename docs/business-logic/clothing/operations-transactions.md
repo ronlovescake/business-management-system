@@ -1,5 +1,15 @@
 # Clothing — Transactions Business Logic
 
+## Product Identity And Historical Prices
+
+Transactions linked to a standard product use its stable `Product.id` to show
+the current product and shipment codes. Rows without a reliable product link
+(including composite SKUs) retain their stored codes. Existing `unitPrice`,
+discount, line total, refunds, and payments are never repriced by product edits;
+new rows use the current saved tier for their quantity. Product-code changes
+also update linked inventory movement codes so inventory and transaction
+rollups continue to refer to the same product.
+
 > **Source files:**
 >
 > - `src/modules/transactions/api/service.ts`

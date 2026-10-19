@@ -438,19 +438,36 @@ async function validateReferences(
   );
 
   const existingProducts = await gmPrisma.generalMerchandiseProduct.findMany({
-    where: { productCode: { in: uniqueProducts } },
+    where: {
+      deletedAt: null,
+      productCode: {
+        in: uniqueProducts.map((code) => normalizeProductCode(code)),
+        mode: 'insensitive',
+      },
+    },
     select: { productCode: true },
   });
 
-  const existingProductCodeSet = new Set<string>();
-  existingProducts
-    .map((p) => p.productCode)
-    .filter((code): code is string => Boolean(code))
-    .forEach((code) => existingProductCodeSet.add(code.toLowerCase()));
+  const productMatchesByCode = new Map<string, number>();
+  existingProducts.forEach(({ productCode }) => {
+    const normalizedCode = normalizeProductCode(productCode).toLowerCase();
+    productMatchesByCode.set(
+      normalizedCode,
+      (productMatchesByCode.get(normalizedCode) ?? 0) + 1
+    );
+  });
 
   const missingProducts = uniqueProducts.filter(
-    (code) => !existingProductCodeSet.has(code.toLowerCase())
+    (code) =>
+      (productMatchesByCode.get(normalizeProductCode(code).toLowerCase()) ??
+        0) === 0
   );
+  const ambiguousProducts = uniqueProducts.filter(
+    (code) =>
+      (productMatchesByCode.get(normalizeProductCode(code).toLowerCase()) ??
+        0) > 1
+  );
+  const unresolvedProducts = [...missingProducts, ...ambiguousProducts];
 
   const existingShipments = await gmPrisma.generalMerchandiseShipment.findMany({
     where: { shipmentCode: { in: uniqueShipments } },
@@ -467,24 +484,24 @@ async function validateReferences(
   if (
     missingCustomers.length > 0 ||
     ambiguousCustomers.length > 0 ||
-    missingProducts.length > 0 ||
+    unresolvedProducts.length > 0 ||
     missingShipments.length > 0
   ) {
     throw new TransactionReferenceError('Reference validation failed', {
       missing: {
         customers: missingCustomers,
         ambiguousCustomers,
-        products: missingProducts,
+        products: unresolvedProducts,
         shipments: missingShipments,
       },
       counts: {
         customers: missingCustomers.length,
         ambiguousCustomers: ambiguousCustomers.length,
-        products: missingProducts.length,
+        products: unresolvedProducts.length,
         shipments: missingShipments.length,
       },
       suggestion:
-        'Create the missing customers/products/shipments before importing transactions.',
+        'Create missing customers/products/shipments and resolve duplicate GM product codes before importing transactions.',
     });
   }
 

@@ -99,6 +99,9 @@ export const transactionService: TransactionService = {
     const transactions = await prisma.transaction.findMany({
       where: { deletedAt: null },
       orderBy: { id: 'asc' },
+      include: {
+        product: { select: { productCode: true, shipmentCode: true } },
+      },
     });
     return transactions.map(mapToDTO);
   },

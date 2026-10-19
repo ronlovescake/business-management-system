@@ -46,6 +46,7 @@ export const DEFAULT_RESTORE_TABLE_ORDER = [
   // General Merchandise (GM)
   'general_merchandise_customers',
   'general_merchandise_products',
+  'general_merchandise_product_code_aliases',
   'general_merchandise_prices',
   'general_merchandise_shipments',
 
