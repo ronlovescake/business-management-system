@@ -84,6 +84,11 @@ run(
   'install customer identity backfill and synchronization rules'
 );
 
+run(
+  `${prismaArgs.join(' ')} db execute --file prisma/migrations/20261019100000_link_gm_customers_to_clothing/migration.sql --schema prisma/schema.prisma`,
+  'install canonical Clothing-to-GM customer links'
+);
+
 if (shouldSeed) {
   run(
     `${prismaArgs.join(' ')} db seed --schema prisma/schema.prisma`,

@@ -34,9 +34,11 @@ interface UseCustomerDetailsReturn {
 
 export function useCustomerDetails(
   customerId: string,
-  apiBasePath?: string
+  apiBasePath?: string,
+  customerApiBasePath?: string
 ): UseCustomerDetailsReturn {
   const queryClient = useQueryClient();
+  const resolvedCustomerApiBasePath = customerApiBasePath ?? apiBasePath;
   const [editModalOpen, setEditModalOpen] = useState(false);
   const [editForm, setEditForm] = useState<Partial<CustomerData>>({});
 
@@ -52,11 +54,11 @@ export function useCustomerDetails(
   } = useQuery({
     queryKey: [
       ...queryKeys.customers.detail(customerId),
-      apiBasePath ?? 'default',
+      resolvedCustomerApiBasePath ?? 'default',
     ],
     queryFn: async (): Promise<CustomerData> => {
       return api.get<CustomerData>(
-        buildApiPath(apiBasePath, `/customers/${customerId}`)
+        buildApiPath(resolvedCustomerApiBasePath, `/customers/${customerId}`)
       );
     },
     enabled: !!customerId,
@@ -123,7 +125,7 @@ export function useCustomerDetails(
       updatedData: Partial<CustomerData>
     ): Promise<CustomerData> => {
       return api.put<CustomerData>(
-        buildApiPath(apiBasePath, `/customers/${customerId}`),
+        buildApiPath(resolvedCustomerApiBasePath, `/customers/${customerId}`),
         updatedData
       );
     },
@@ -132,20 +134,23 @@ export function useCustomerDetails(
       await queryClient.cancelQueries({
         queryKey: [
           ...queryKeys.customers.detail(customerId),
-          apiBasePath ?? 'default',
+          resolvedCustomerApiBasePath ?? 'default',
         ],
       });
 
       // Snapshot previous value
       const previousCustomer = queryClient.getQueryData<CustomerData>([
         ...queryKeys.customers.detail(customerId),
-        apiBasePath ?? 'default',
+        resolvedCustomerApiBasePath ?? 'default',
       ]);
 
       // Optimistically update to the new value
       if (previousCustomer) {
         queryClient.setQueryData<CustomerData>(
-          [...queryKeys.customers.detail(customerId), apiBasePath ?? 'default'],
+          [
+            ...queryKeys.customers.detail(customerId),
+            resolvedCustomerApiBasePath ?? 'default',
+          ],
           { ...previousCustomer, ...updatedData }
         );
       }
@@ -156,7 +161,10 @@ export function useCustomerDetails(
       // Rollback on error
       if (context?.previousCustomer) {
         queryClient.setQueryData(
-          [...queryKeys.customers.detail(customerId), apiBasePath ?? 'default'],
+          [
+            ...queryKeys.customers.detail(customerId),
+            resolvedCustomerApiBasePath ?? 'default',
+          ],
           context.previousCustomer
         );
       }

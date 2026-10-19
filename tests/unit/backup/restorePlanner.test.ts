@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest';
+import fs from 'fs';
+import os from 'os';
+import path from 'path';
 
 import {
+  planRestoreChain,
   planRestoreFromCatalog,
   type BackupCatalogEntry,
 } from '@/lib/backup/restorePlanner';
@@ -62,6 +66,60 @@ function buildEntry({
 }
 
 describe('restore planner', () => {
+  it('rejects a replay that omits changed tables before restoring the baseline', () => {
+    const backupDir = fs.mkdtempSync(
+      path.join(os.tmpdir(), 'restore-coverage-')
+    );
+    const full: BackupCatalogEntry = buildEntry({
+      folder: '2026-10-11T14-00-41-full-backup',
+      timestamp: '2026-10-11T14:00:41.212Z',
+      strategy: 'full',
+    });
+    const differential: BackupCatalogEntry = buildEntry({
+      folder: '2026-10-17T15-00-29-differential-backup',
+      timestamp: '2026-10-17T15:00:29.006Z',
+      strategy: 'differential',
+      baseFolder: full.folder,
+    });
+    const entry = {
+      key: 'inventory_movements',
+      modelName: 'InventoryMovement',
+      schema: 'public',
+      table: 'InventoryMovement',
+      coverage: 'log-only' as const,
+      count: 4648,
+    };
+    full.manifest.restoreVerification = {
+      generatedAt: full.manifest.timestamp,
+      entries: [entry],
+    };
+    differential.manifest.restoreVerification = {
+      generatedAt: differential.manifest.timestamp,
+      entries: [{ ...entry, count: 4706 }],
+    };
+    try {
+      for (const backup of [full, differential]) {
+        fs.mkdirSync(path.join(backupDir, backup.folder));
+        fs.writeFileSync(
+          path.join(backupDir, backup.folder, 'MANIFEST.json'),
+          JSON.stringify(backup.manifest)
+        );
+      }
+      fs.writeFileSync(
+        path.join(backupDir, differential.manifest.files[0]!.path),
+        JSON.stringify({ tables: {} })
+      );
+
+      const plan = planRestoreChain({ folder: differential.folder }, backupDir);
+
+      expect(plan.status).toBe('invalid');
+      expect(plan.disasterRecoveryReady).toBe(false);
+      expect(plan.errors.join(' ')).toContain('inventory_movements');
+    } finally {
+      fs.rmSync(backupDir, { recursive: true, force: true });
+    }
+  });
+
   it('returns a ready plan for a full dump backup', () => {
     const full = buildEntry({
       folder: '2026-04-01T02-00-00',

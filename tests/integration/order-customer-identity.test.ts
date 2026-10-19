@@ -263,3 +263,149 @@ describe.each(domains)(
     });
   }
 );
+
+describe('Shared Clothing and GM customer identity', () => {
+  it('previews and links a legacy GM name to the canonical customer before following renames', async () => {
+    await isolatedTest(async (client) => {
+      const oldName = `Legacy GM ${crypto.randomUUID()}`;
+      const currentName = `Canonical ${crypto.randomUUID()}`;
+      const clothingCustomerId = await createCustomer(
+        client,
+        'public."Customer"',
+        currentName
+      );
+      const [legacyTransaction] = await client.$queryRaw<
+        { id: number }[]
+      >(Prisma.sql`
+        INSERT INTO general_merchandise.transactions (
+          "createdAt", "updatedAt", customers, "orderStatus",
+          quantity, "unitPrice", "lineTotal"
+        ) VALUES (now(), now(), ${oldName}, 'Shipped', 2, 50, 100)
+        RETURNING id
+      `);
+      const options = {
+        domain: 'general-merchandise' as const,
+        from: oldName,
+        canonicalCustomerId: clothingCustomerId,
+      };
+
+      expect(await reconcileOrderCustomers(client, options)).toMatchObject({
+        orders: 1,
+        updated: 0,
+        applied: false,
+        customerId: null,
+      });
+      const [previewTransaction] = await client.$queryRaw<
+        { customerId: number | null; customers: string }[]
+      >(Prisma.sql`
+        SELECT "customerId", customers FROM general_merchandise.transactions
+        WHERE id = ${legacyTransaction.id}
+      `);
+      expect(previewTransaction).toEqual({
+        customerId: null,
+        customers: oldName,
+      });
+
+      const applied = await reconcileOrderCustomers(client, {
+        ...options,
+        apply: true,
+      });
+      expect(applied).toMatchObject({ orders: 1, updated: 1, applied: true });
+
+      const [gmCustomer] = await client.$queryRaw<{ id: number }[]>(Prisma.sql`
+        SELECT id FROM general_merchandise.customers
+        WHERE "clothingCustomerId" = ${clothingCustomerId}
+      `);
+      const renamedCustomer = `Renamed ${crypto.randomUUID()}`;
+      await client.$executeRaw(Prisma.sql`
+        UPDATE public."Customer" SET "customerName" = ${renamedCustomer}
+        WHERE id = ${clothingCustomerId}
+      `);
+      const [updatedTransaction] = await client.$queryRaw<
+        {
+          customerId: number;
+          customers: string;
+          quantity: number;
+          unitPrice: number;
+          lineTotal: number;
+        }[]
+      >(Prisma.sql`
+        SELECT "customerId", customers, quantity, "unitPrice", "lineTotal"
+        FROM general_merchandise.transactions
+        WHERE id = ${legacyTransaction.id}
+      `);
+
+      expect(updatedTransaction).toEqual({
+        customerId: gmCustomer.id,
+        customers: renamedCustomer,
+        quantity: 2,
+        unitPrice: 50,
+        lineTotal: 100,
+      });
+    });
+  });
+
+  it('propagates a canonical customer rename to linked GM transactions', async () => {
+    await isolatedTest(async (client) => {
+      const oldName = `Shared old ${crypto.randomUUID()}`;
+      const newName = `Shared new ${crypto.randomUUID()}`;
+      const clothingCustomerId = await createCustomer(
+        client,
+        'public."Customer"',
+        oldName
+      );
+      const [gmCustomer] = await client.$queryRaw<{ id: number }[]>(Prisma.sql`
+        INSERT INTO general_merchandise.customers (
+          "createdAt", "updatedAt", date, "customerName", "phoneNumber",
+          address, facebook, "emailAddress", "businessName", "taxNumber",
+          "businessAddress", "businessContactNumber", "customerStatus",
+          "clothingCustomerId"
+        ) VALUES (
+          now(), now(), '2026-10-18', ${oldName}, '', '', '', '', '', '', '', '',
+          'Active', ${clothingCustomerId}
+        ) RETURNING id
+      `);
+      const [gmTransaction] = await client.$queryRaw<
+        { id: number }[]
+      >(Prisma.sql`
+        INSERT INTO general_merchandise.transactions (
+          "createdAt", "updatedAt", "customerId", customers,
+          "orderStatus", quantity, "unitPrice", "lineTotal"
+        ) VALUES (now(), now(), ${gmCustomer.id}, 'Stale name', 'Shipped', 2, 50, 100)
+        RETURNING id
+      `);
+
+      await client.$executeRaw(Prisma.sql`
+        UPDATE public."Customer"
+        SET "customerName" = ${newName}
+        WHERE id = ${clothingCustomerId}
+      `);
+
+      const [updatedCustomer] = await client.$queryRaw<
+        { customerName: string }[]
+      >(Prisma.sql`
+        SELECT "customerName" FROM general_merchandise.customers
+        WHERE id = ${gmCustomer.id}
+      `);
+      const [updatedTransaction] = await client.$queryRaw<
+        {
+          customers: string;
+          quantity: number;
+          unitPrice: number;
+          lineTotal: number;
+        }[]
+      >(Prisma.sql`
+        SELECT customers, quantity, "unitPrice", "lineTotal"
+        FROM general_merchandise.transactions WHERE id = ${gmTransaction.id}
+      `);
+
+      expect(updatedCustomer.customerName).toBe(newName);
+      expect(updatedTransaction).toEqual({
+        customers: newName,
+        quantity: 2,
+        unitPrice: 50,
+        lineTotal: 100,
+      });
+    });
+  });
+});

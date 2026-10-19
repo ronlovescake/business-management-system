@@ -4,6 +4,10 @@ import { ApiResponse } from '@/core/api';
 import { withErrorHandler } from '@/core/api/middleware';
 import { prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
+import {
+  ensureGeneralMerchandiseCustomerForClothingId,
+  findGeneralMerchandiseCustomerForClothingId,
+} from '@/modules/general-merchandise/customers/api/service';
 import { sanitizeString, sanitizers } from '@/lib/security/sanitize';
 import {
   customerAdditionalInfoSchema,
@@ -46,19 +50,21 @@ export const GET = withErrorHandler<RouteContext>(
       return idResult.error;
     }
 
-    const customer = await prisma.generalMerchandiseCustomer.findUnique({
-      where: { id: idResult.id },
-      select: { id: true },
-    });
+    const customer = await findGeneralMerchandiseCustomerForClothingId(
+      idResult.id
+    );
 
     if (!customer) {
-      return ApiResponse.notFound('Customer');
+      return ApiResponse.success(
+        groupAdditionalCustomerInfo([]),
+        'Additional customer info fetched'
+      );
     }
 
     const additionalInfo =
       await prisma.generalMerchandiseAdditionalCustomerInfo.findMany({
         where: {
-          customerId: idResult.id,
+          customerId: customer.id,
           deletedAt: null,
         },
         orderBy: {
@@ -69,7 +75,7 @@ export const GET = withErrorHandler<RouteContext>(
     const grouped = groupAdditionalCustomerInfo(additionalInfo);
 
     logger.info('GM additional customer info fetched', {
-      customerId: idResult.id,
+      customerId: customer.id,
       counts: Object.fromEntries(
         Object.entries(grouped).map(([key, value]) => [key, value.length])
       ),
@@ -99,19 +105,18 @@ export const POST = withErrorHandler<RouteContext>(
       );
     }
 
-    const customer = await prisma.generalMerchandiseCustomer.findUnique({
-      where: { id: idResult.id },
-      select: { id: true },
-    });
+    const customer = await ensureGeneralMerchandiseCustomerForClothingId(
+      idResult.id
+    );
 
     if (!customer) {
       return ApiResponse.notFound('Customer');
     }
 
-    const entries = buildAdditionalInfoEntries(validation.data, idResult.id);
+    const entries = buildAdditionalInfoEntries(validation.data, customer.id);
     const operations: Array<Prisma.PrismaPromise<unknown>> = [
       prisma.generalMerchandiseAdditionalCustomerInfo.updateMany({
-        where: { customerId: idResult.id },
+        where: { customerId: customer.id },
         data: { deletedAt: new Date() },
       }),
     ];
@@ -126,7 +131,7 @@ export const POST = withErrorHandler<RouteContext>(
 
     operations.push(
       prisma.generalMerchandiseAdditionalCustomerInfo.findMany({
-        where: { customerId: idResult.id, deletedAt: null },
+        where: { customerId: customer.id, deletedAt: null },
         orderBy: { createdAt: 'asc' },
       })
     );
@@ -136,7 +141,7 @@ export const POST = withErrorHandler<RouteContext>(
     const grouped = groupAdditionalCustomerInfo(latestInfo);
 
     logger.info('GM additional customer info saved', {
-      customerId: idResult.id,
+      customerId: customer.id,
       newEntries: entries.length,
     });
 

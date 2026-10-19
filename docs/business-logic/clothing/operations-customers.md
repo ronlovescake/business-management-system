@@ -241,16 +241,21 @@
 
 Orders use nullable `Transaction.customerId` foreign keys to `Customer.id`.
 Customer history, payment ownership, and refund ownership use this ID, not a
-name comparison. Clothing and general merchandise have separate relationships;
-customers are never linked across businesses.
+name comparison. Clothing `Customer` is the canonical identity shared with
+General Merchandise. GM retains a separate extension for GM-only information
+and GM-owned transaction/payment/refund relationships;
+`GeneralMerchandiseCustomer.clothingCustomerId` links that extension to the
+canonical Clothing customer. Transaction foreign keys remain domain-specific.
 
 The existing `customers` text column remains a compatibility display field.
 PostgreSQL triggers populate IDs for exact, unique name matches on order writes
 and synchronize that display field when the linked customer is renamed. An
-explicit ID is authoritative. Renames cover every status and soft-deleted orders
-atomically, without changing quantities, prices, adjustments, balances, payment
-records, refunds, or inventory movements. Existing generated documents and
-historical audit snapshots are not rewritten.
+explicit ID is authoritative. Renaming the canonical Clothing customer updates
+its linked GM extension; the per-domain transaction triggers then update both
+Clothing and GM transaction display names. Renames cover every status and
+soft-deleted orders atomically, without changing quantities, prices,
+adjustments, balances, payment records, refunds, or inventory movements.
+Existing generated documents and historical audit snapshots are not rewritten.
 
 Unknown or duplicate legacy names remain unlinked rather than being guessed.
 Duplicates include soft-deleted customer profiles. Unlinked orders stay in the
@@ -261,6 +266,10 @@ retrying an edit rejected by this protection. Blank customer values intentionall
 clear the association.
 
 ### Rollout
+
+The subsequent `20261019100000_link_gm_customers_to_clothing` migration adds
+the explicit canonical Clothing-to-GM extension link and rename propagation.
+Review legacy GM rows before applying any name reconciliation.
 
 Apply `prisma/migrations/20261018120000_order_customer_identity/migration.sql`
 through the normal reviewed Prisma migration process before deploying the new
@@ -290,6 +299,10 @@ verified customer's ID and choose the intended environment file; the example
 uses the dedicated test environment, not production. Verify that every order
 under the old name belongs to that customer before applying. There is no fuzzy
 or automatic alias matching.
+
+For General Merchandise, `--customer-id` refers to the GM extension ID; it is
+not the canonical Clothing customer ID. Resolve the explicit
+`clothingCustomerId` relation before reconciling a GM transaction name.
 
 Add `--apply` to the mapping command only after reviewing the preview and backup
 coverage. It links only previously unlinked orders with that exact old name,

@@ -8,11 +8,13 @@ export class TransactionReferenceError extends Error {
     public details: {
       missing: {
         customers: string[];
+        ambiguousCustomers?: string[];
         products: string[];
         shipments: string[];
       };
       counts: {
         customers: number;
+        ambiguousCustomers?: number;
         products: number;
         shipments: number;
       };

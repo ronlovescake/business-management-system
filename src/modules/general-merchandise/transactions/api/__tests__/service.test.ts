@@ -3,6 +3,13 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 const mockPrisma = vi.hoisted(() => ({
   customer: {
     findMany: vi.fn(),
+    findUnique: vi.fn(),
+  },
+  generalMerchandiseCustomer: {
+    findUnique: vi.fn(),
+    findMany: vi.fn(),
+    create: vi.fn(),
+    update: vi.fn(),
   },
   generalMerchandiseProduct: {
     findMany: vi.fn(),
@@ -45,8 +52,26 @@ describe('generalMerchandiseTransactionService', () => {
 
     mockPrisma.generalMerchandisePrice.findMany.mockResolvedValue([]);
     mockPrisma.customer.findMany.mockResolvedValue([
-      { customerName: 'ACME Retail' },
+      { id: 101, customerName: 'ACME Retail' },
     ]);
+    mockPrisma.customer.findUnique.mockResolvedValue({
+      id: 101,
+      date: '2026-03-17',
+      customerName: 'ACME Retail',
+      phoneNumber: '',
+      address: '',
+      facebook: '',
+      emailAddress: '',
+      businessName: '',
+      taxNumber: '',
+      businessAddress: '',
+      businessContactNumber: '',
+      customerStatus: 'Active',
+      deletedAt: null,
+    });
+    mockPrisma.generalMerchandiseCustomer.findUnique.mockResolvedValue(null);
+    mockPrisma.generalMerchandiseCustomer.findMany.mockResolvedValue([]);
+    mockPrisma.generalMerchandiseCustomer.create.mockResolvedValue({ id: 202 });
     mockPrisma.generalMerchandiseProduct.findMany.mockResolvedValue([
       { productCode: 'GM-001' },
     ]);
@@ -112,6 +137,7 @@ describe('generalMerchandiseTransactionService', () => {
       data: [
         expect.objectContaining({
           customers: 'ACME Retail',
+          customerId: 202,
           productCode: 'GM-001',
           quantity: 2,
           lineTotal: 100,

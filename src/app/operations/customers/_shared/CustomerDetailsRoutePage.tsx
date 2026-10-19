@@ -4,7 +4,15 @@ import { useParams } from 'next/navigation';
 import { PageLayout } from '@/components/layout/PageLayout';
 import { CustomerDetailsView } from '@/app/clothing/operations/customers/[id]/components/CustomerDetailsView';
 
-export function CustomerDetailsRoutePage() {
+interface CustomerDetailsRoutePageProps {
+  apiBasePath?: string;
+  customerApiBasePath?: string;
+}
+
+export function CustomerDetailsRoutePage({
+  apiBasePath,
+  customerApiBasePath,
+}: CustomerDetailsRoutePageProps) {
   const params = useParams();
 
   if (!params || !params.id) {
@@ -15,7 +23,11 @@ export function CustomerDetailsRoutePage() {
 
   return (
     <PageLayout fluid withPadding>
-      <CustomerDetailsView customerId={customerId} />
+      <CustomerDetailsView
+        customerId={customerId}
+        apiBasePath={apiBasePath}
+        customerApiBasePath={customerApiBasePath}
+      />
     </PageLayout>
   );
 }

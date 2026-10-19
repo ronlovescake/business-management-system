@@ -1,4 +1,3 @@
-import path from 'path';
 import { config as loadEnv } from 'dotenv';
 import { beforeAll, vi } from 'vitest';
 import { execSync } from 'child_process';
@@ -89,6 +88,21 @@ beforeAll(async () => {
       try {
         for (const tableName of requiredTables) {
           await prisma.$queryRawUnsafe(`SELECT 1 FROM "${tableName}" LIMIT 1`);
+        }
+        await prisma.$queryRaw`
+          SELECT "clothingCustomerId"
+          FROM general_merchandise.customers
+          LIMIT 1
+        `;
+        const [gmRenameTrigger] = await prisma.$queryRaw<{ exists: boolean }[]>`
+          SELECT EXISTS (
+            SELECT 1 FROM pg_trigger
+            WHERE tgname = 'clothing_customer_gm_name'
+              AND NOT tgisinternal
+          ) AS exists
+        `;
+        if (!gmRenameTrigger?.exists) {
+          shouldReset = true;
         }
 
         const healthCount = await prisma.healthCheck.count();

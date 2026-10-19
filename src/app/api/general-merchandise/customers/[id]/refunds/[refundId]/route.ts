@@ -3,6 +3,7 @@ import { ApiResponse } from '@/core/api';
 import { withErrorHandler } from '@/core/api/middleware';
 import { prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
+import { findGeneralMerchandiseCustomerForClothingId } from '@/modules/general-merchandise/customers/api/service';
 
 type RouteContext = { params: { id: string; refundId: string } };
 
@@ -50,10 +51,9 @@ export const DELETE = withErrorHandler<RouteContext>(
       return parsed.error;
     }
 
-    const customer = await prisma.generalMerchandiseCustomer.findUnique({
-      where: { id: parsed.customerId },
-      select: { customerName: true },
-    });
+    const customer = await findGeneralMerchandiseCustomerForClothingId(
+      parsed.customerId
+    );
 
     if (!customer) {
       return ApiResponse.notFound('Customer');
@@ -66,7 +66,7 @@ export const DELETE = withErrorHandler<RouteContext>(
           deletedAt: null,
           transaction: {
             deletedAt: null,
-            customerId: parsed.customerId,
+            customerId: customer.id,
           },
         },
         select: { id: true },
@@ -91,7 +91,7 @@ export const DELETE = withErrorHandler<RouteContext>(
     });
 
     logger.info('GM transaction refund deleted (soft)', {
-      customerId: parsed.customerId,
+      customerId: customer.id,
       refundId: parsed.refundId,
     });
 

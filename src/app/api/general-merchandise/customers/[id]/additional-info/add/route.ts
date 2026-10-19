@@ -4,6 +4,7 @@ import { ApiResponse } from '@/core/api';
 import { withErrorHandler } from '@/core/api/middleware';
 import { prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
+import { ensureGeneralMerchandiseCustomerForClothingId } from '@/modules/general-merchandise/customers/api/service';
 import { sanitizeString, sanitizers } from '@/lib/security/sanitize';
 import {
   customerAdditionalInfoAddSchema,
@@ -51,10 +52,9 @@ export const POST = withErrorHandler<RouteContext>(
       );
     }
 
-    const customer = await prisma.generalMerchandiseCustomer.findUnique({
-      where: { id: idResult.id },
-      select: { id: true },
-    });
+    const customer = await ensureGeneralMerchandiseCustomerForClothingId(
+      idResult.id
+    );
 
     if (!customer) {
       return ApiResponse.notFound('Customer');
@@ -66,7 +66,7 @@ export const POST = withErrorHandler<RouteContext>(
     }
 
     const existing = await findExistingEntry(
-      idResult.id,
+      customer.id,
       sanitized.type,
       sanitized.value
     );
@@ -85,14 +85,14 @@ export const POST = withErrorHandler<RouteContext>(
     const created =
       await prisma.generalMerchandiseAdditionalCustomerInfo.create({
         data: {
-          customerId: idResult.id,
+          customerId: customer.id,
           type: sanitized.type,
           value: sanitized.value,
         },
       });
 
     logger.info('GM additional customer info added', {
-      customerId: idResult.id,
+      customerId: customer.id,
       type: sanitized.type,
     });
 

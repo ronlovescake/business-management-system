@@ -17,15 +17,85 @@
  *  D30: File permissions 0o777/0o666 for cross-container access
  */
 
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'fs';
 import { resolve } from 'path';
+import { runInNewContext } from 'vm';
 
 const RUNNER_PATH = resolve(
   __dirname,
   '../../../scripts/run-restore-runner.js'
 );
 const runnerSource = readFileSync(RUNNER_PATH, 'utf8');
+
+describe('Restore Runner Sidecar - Compose paths', () => {
+  it('ships the TypeScript replay runtime and its source imports', () => {
+    const packageJson = JSON.parse(
+      readFileSync(resolve(__dirname, '../../../package.json'), 'utf8')
+    );
+    const dockerfile = readFileSync(
+      resolve(__dirname, '../../../Dockerfile'),
+      'utf8'
+    );
+    expect(packageJson.dependencies.tsx).toBeTruthy();
+    expect(packageJson.devDependencies.tsx).toBeUndefined();
+    expect(dockerfile).toContain('/app/src ./src');
+    expect(dockerfile).toContain('/app/tsconfig.json ./tsconfig.json');
+    expect(
+      dockerfile.indexOf('apt-get install -y --no-install-recommends openssl')
+    ).toBeLessThan(dockerfile.indexOf('RUN npm run db:generate'));
+  });
+
+  it('reads config inside the runner and resolves bind mounts on the host', () => {
+    const hostDirectory =
+      '/home/ron/Websites Project/business-management-system';
+    const context = {
+      process: { env: { HOSTNAME: 'runner' } },
+      require: (moduleName: string) => {
+        if (moduleName === 'child_process') {
+          return {
+            execFileSync: () =>
+              JSON.stringify([
+                {
+                  Config: {
+                    Labels: { 'com.docker.compose.project': 'bms-dev' },
+                  },
+                  Mounts: [
+                    {
+                      Destination: '/app/docker-compose.yml',
+                      Source: `${hostDirectory}/docker-compose.yml`,
+                    },
+                  ],
+                },
+              ]),
+          };
+        }
+        return require(moduleName);
+      },
+      console,
+    };
+    const args = runInNewContext(
+      runnerSource.slice(
+        0,
+        runnerSource.indexOf('function executeDockerCompose')
+      ) + "buildDockerComposeArgs(['config', '--quiet']);",
+      context
+    );
+    expect(Array.from(args)).toEqual([
+      'compose',
+      '-f',
+      '/app/docker-compose.yml',
+      '--env-file',
+      '/app/.env.docker',
+      '--project-directory',
+      hostDirectory,
+      '-p',
+      'bms-dev',
+      'config',
+      '--quiet',
+    ]);
+  });
+});
 
 // ===========================================================================
 // Source-level contract verification

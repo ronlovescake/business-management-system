@@ -41,7 +41,10 @@ function inspectCurrentContainer() {
     const [containerInfo] = JSON.parse(inspectOutput);
     inspectedContainer = containerInfo ?? null;
   } catch (error) {
-    console.error('[restore-runner] Failed to inspect runner container:', error);
+    console.error(
+      '[restore-runner] Failed to inspect runner container:',
+      error
+    );
     inspectedContainer = null;
   }
 
@@ -70,10 +73,12 @@ function resolveMountedSource(destination) {
 }
 
 const composeProjectName = resolveComposeProjectName();
-const composeFilePath =
-  process.env.COMPOSE_FILE_PATH || resolveMountedSource(RUNNER_COMPOSE_FILE);
-const composeEnvFile =
-  process.env.COMPOSE_ENV_FILE || resolveMountedSource(RUNNER_ENV_FILE);
+const composeFilePath = process.env.COMPOSE_FILE_PATH || RUNNER_COMPOSE_FILE;
+const composeEnvFile = process.env.COMPOSE_ENV_FILE || RUNNER_ENV_FILE;
+const hostComposeFilePath = resolveMountedSource(RUNNER_COMPOSE_FILE);
+const composeProjectDirectory =
+  process.env.COMPOSE_PROJECT_DIRECTORY ||
+  (hostComposeFilePath ? path.dirname(hostComposeFilePath) : '');
 
 function buildDockerComposeArgs(args) {
   const composeArgs = ['compose'];
@@ -84,6 +89,10 @@ function buildDockerComposeArgs(args) {
 
   if (composeEnvFile) {
     composeArgs.push('--env-file', composeEnvFile);
+  }
+
+  if (composeProjectDirectory) {
+    composeArgs.push('--project-directory', composeProjectDirectory);
   }
 
   if (composeProjectName) {
@@ -118,7 +127,9 @@ function executeDockerCompose(args) {
       }
 
       reject(
-        new Error(output || `Docker Compose command failed with exit code ${code}`)
+        new Error(
+          output || `Docker Compose command failed with exit code ${code}`
+        )
       );
     });
   });
@@ -218,9 +229,14 @@ function executeRestore(status) {
         env: {
           ...process.env,
           ENV_FILE,
-          ...(status.scope === 'replay-chain' ? { SKIP_APP_START: 'true' } : {}),
+          ...(status.scope === 'replay-chain'
+            ? { SKIP_APP_START: 'true' }
+            : {}),
           ...(composeFilePath ? { COMPOSE_FILE_PATH: composeFilePath } : {}),
           ...(composeEnvFile ? { COMPOSE_ENV_FILE: composeEnvFile } : {}),
+          ...(composeProjectDirectory
+            ? { COMPOSE_PROJECT_DIRECTORY: composeProjectDirectory }
+            : {}),
           ...(composeProjectName
             ? { COMPOSE_PROJECT_NAME: composeProjectName }
             : {}),
@@ -351,11 +367,11 @@ if (composeProjectName) {
 }
 
 if (composeFilePath) {
-  console.log(`[restore-runner] Using host compose file: ${composeFilePath}`);
+  console.log(`[restore-runner] Using compose file: ${composeFilePath}`);
 }
 
 if (composeEnvFile) {
-  console.log(`[restore-runner] Using host env file: ${composeEnvFile}`);
+  console.log(`[restore-runner] Using env file: ${composeEnvFile}`);
 }
 
 void tick();

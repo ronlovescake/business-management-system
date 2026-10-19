@@ -38,12 +38,14 @@ import { useBreadcrumbStore } from '@/lib/useBreadcrumbStore';
 interface CustomerDetailsViewProps {
   customerId: string;
   apiBasePath?: string;
+  customerApiBasePath?: string;
   onBack?: () => void;
 }
 
 export const CustomerDetailsView = memo(function CustomerDetailsView({
   customerId,
   apiBasePath,
+  customerApiBasePath,
   onBack,
 }: CustomerDetailsViewProps) {
   const router = useRouter();
@@ -59,7 +61,7 @@ export const CustomerDetailsView = memo(function CustomerDetailsView({
     setEditModalOpen,
     setEditForm,
     handleUpdateCustomer,
-  } = useCustomerDetails(customerId, apiBasePath);
+  } = useCustomerDetails(customerId, apiBasePath, customerApiBasePath);
 
   const setPageLabel = useBreadcrumbStore((s) => s.setPageLabel);
   useEffect(() => {

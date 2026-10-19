@@ -1,3 +1,6 @@
+import fs from 'fs';
+import path from 'path';
+
 import { getBackupDirectory } from '@/lib/backup-storage';
 import {
   listBackupFoldersDescending,
@@ -441,5 +444,63 @@ export function planRestoreChain(
   targetReference: { folder?: string; timestamp?: string },
   backupDir = getBackupDirectory()
 ) {
-  return planRestoreFromCatalog(buildBackupCatalog(backupDir), targetReference);
+  const catalog = buildBackupCatalog(backupDir);
+  const plan = planRestoreFromCatalog(catalog, targetReference);
+  if (!plan.disasterRecoveryReady || plan.steps.length < 2) {
+    return plan;
+  }
+
+  const baseline = catalog.find(
+    (entry) => entry.folder === plan.steps[0]?.folder
+  );
+  const target = catalog.find((entry) => entry.folder === plan.targetFolder);
+  const baselineEntries = baseline?.manifest.restoreVerification?.entries;
+  const targetEntries = target?.manifest.restoreVerification?.entries;
+  if (!baselineEntries || !targetEntries) {
+    return plan;
+  }
+
+  const replayTables = new Set<string>();
+  try {
+    const root = path.resolve(backupDir);
+    for (const step of plan.steps.slice(1)) {
+      if (!step.artifactPath) {
+        throw new Error(`Replay artifact is missing for ${step.folder}`);
+      }
+      const artifactPath = path.resolve(root, step.artifactPath);
+      if (!artifactPath.startsWith(`${root}${path.sep}`)) {
+        throw new Error('Replay artifact escaped the backup directory');
+      }
+      const artifact = JSON.parse(fs.readFileSync(artifactPath, 'utf8')) as {
+        tables?: Record<string, { data?: unknown[] }>;
+      };
+      for (const [tableName, table] of Object.entries(artifact.tables ?? {})) {
+        if (Array.isArray(table?.data) && table.data.length > 0) {
+          replayTables.add(tableName);
+        }
+      }
+    }
+
+    const baselineCounts = new Map(
+      baselineEntries.map((entry) => [entry.key, entry.count])
+    );
+    for (const entry of targetEntries) {
+      const baselineCount = baselineCounts.get(entry.key) ?? 0;
+      if (entry.count !== baselineCount && !replayTables.has(entry.key)) {
+        plan.errors.push(
+          `Restore cannot reach the target for ${entry.key}: baseline has ${baselineCount} rows, target requires ${entry.count}, but no replay artifact contains this table. Supply a complete backup chain before restoring.`
+        );
+      }
+    }
+  } catch (error) {
+    plan.errors.push(
+      `Cannot validate replay coverage: ${error instanceof Error ? error.message : 'Unreadable replay artifact'}`
+    );
+  }
+
+  if (plan.errors.length > 0) {
+    plan.status = 'invalid';
+    plan.disasterRecoveryReady = false;
+  }
+  return plan;
 }

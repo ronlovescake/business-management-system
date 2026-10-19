@@ -8,6 +8,7 @@ interface CustomerDetailsModalProps {
   onClose: () => void;
   customerId: string;
   apiBasePath?: string;
+  customerApiBasePath?: string;
 }
 
 export function CustomerDetailsModal({
@@ -15,6 +16,7 @@ export function CustomerDetailsModal({
   onClose,
   customerId,
   apiBasePath,
+  customerApiBasePath,
 }: CustomerDetailsModalProps) {
   return (
     <UniversalModal
@@ -30,6 +32,7 @@ export function CustomerDetailsModal({
         <CustomerDetailsView
           customerId={customerId}
           apiBasePath={apiBasePath}
+          customerApiBasePath={customerApiBasePath}
           onBack={onClose}
         />
       </div>

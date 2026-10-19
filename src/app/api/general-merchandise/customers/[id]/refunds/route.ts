@@ -4,6 +4,7 @@ import { ApiResponse } from '@/core/api';
 import { withErrorHandler } from '@/core/api/middleware';
 import { prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
+import { findGeneralMerchandiseCustomerForClothingId } from '@/modules/general-merchandise/customers/api/service';
 import { sanitizers } from '@/lib/security/sanitize';
 import {
   transactionRefundCreateSchema,
@@ -128,13 +129,12 @@ export const GET = withErrorHandler<RouteContext>(
       return idResult.error;
     }
 
-    const customer = await prisma.generalMerchandiseCustomer.findUnique({
-      where: { id: idResult.id },
-      select: { customerName: true },
-    });
+    const customer = await findGeneralMerchandiseCustomerForClothingId(
+      idResult.id
+    );
 
     if (!customer) {
-      return ApiResponse.notFound('Customer');
+      return ApiResponse.success([], 'Customer refunds fetched');
     }
 
     const transactionIdParam =
@@ -155,7 +155,7 @@ export const GET = withErrorHandler<RouteContext>(
         ...(transactionId ? { transactionId } : {}),
         transaction: {
           deletedAt: null,
-          customerId: idResult.id,
+          customerId: customer.id,
         },
       },
       orderBy: [{ refundDate: 'desc' }, { createdAt: 'desc' }],
@@ -174,7 +174,7 @@ export const GET = withErrorHandler<RouteContext>(
     })) as RefundRow[];
 
     logger.info('GM customer refunds fetched', {
-      customerId: idResult.id,
+      customerId: customer.id,
       count: refunds.length,
       transactionId: transactionId ?? undefined,
     });
@@ -191,10 +191,9 @@ export const POST = withErrorHandler<RouteContext>(
       return idResult.error;
     }
 
-    const customer = await prisma.generalMerchandiseCustomer.findUnique({
-      where: { id: idResult.id },
-      select: { customerName: true },
-    });
+    const customer = await findGeneralMerchandiseCustomerForClothingId(
+      idResult.id
+    );
 
     if (!customer) {
       return ApiResponse.notFound('Customer');
@@ -205,7 +204,7 @@ export const POST = withErrorHandler<RouteContext>(
 
     if (!validation.success) {
       logger.warn('GM transaction refund validation failed', {
-        customerId: idResult.id,
+        customerId: customer.id,
         issues: validation.error.issues,
       });
       return ApiResponse.badRequest(
@@ -223,7 +222,7 @@ export const POST = withErrorHandler<RouteContext>(
       where: {
         id: sanitized.transactionId,
         deletedAt: null,
-        customerId: idResult.id,
+        customerId: customer.id,
       },
       select: { id: true, productCode: true, quantity: true },
     });

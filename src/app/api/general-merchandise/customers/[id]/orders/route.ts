@@ -4,6 +4,7 @@ import { withErrorHandler } from '@/core/api/middleware';
 import { prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
 import { sanitizers } from '@/lib/security/sanitize';
+import { findGeneralMerchandiseCustomerForClothingId } from '@/modules/general-merchandise/customers/api/service';
 
 export interface Order {
   id?: number;
@@ -59,10 +60,9 @@ export const GET = withErrorHandler<RouteContext>(
       return idResult.error;
     }
 
-    const customer = await prisma.generalMerchandiseCustomer.findUnique({
-      where: { id: idResult.id },
-      select: { customerName: true },
-    });
+    const customer = await findGeneralMerchandiseCustomerForClothingId(
+      idResult.id
+    );
 
     if (!customer) {
       logger.info('GM customer orders fetched for missing customer', {
@@ -75,7 +75,7 @@ export const GET = withErrorHandler<RouteContext>(
 
     const transactions = (await prisma.generalMerchandiseTransaction.findMany({
       where: {
-        customerId: idResult.id,
+        customerId: customer.id,
         deletedAt: null,
       },
       orderBy: [{ orderDate: 'desc' }, { id: 'desc' }],

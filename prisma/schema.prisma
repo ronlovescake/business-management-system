@@ -34,6 +34,7 @@ model Customer {
   customerStatus         String                   @db.VarChar(50)
   deletedAt              DateTime?
   additionalCustomerInfo AdditionalCustomerInfo[]
+  generalMerchandiseCustomer GeneralMerchandiseCustomer?
   truckingInvoices       TruckingInvoice[]
   truckingPayments       TruckingPayment[]
   truckingTrips          TruckingTrip[]
@@ -2163,6 +2164,8 @@ model GeneralMerchandiseCustomer {
   businessContactNumber  String   @db.VarChar(100)
   customerStatus         String   @db.VarChar(50)
   deletedAt              DateTime?
+  clothingCustomerId     Int?     @unique
+  clothingCustomer       Customer? @relation(fields: [clothingCustomerId], references: [id], onDelete: Restrict)
   additionalCustomerInfo GeneralMerchandiseAdditionalCustomerInfo[]
   transactions           GeneralMerchandiseTransaction[]
 

@@ -727,7 +727,7 @@ export function TransactionsPage({ apiBasePath }: TransactionsPageProps) {
   }, [cappedFilteredTransactions]);
 
   const customerLookupBasePath =
-    apiBasePath === '/api/general-merchandise' ? apiBasePath : apiBasePath;
+    apiBasePath === '/api/general-merchandise' ? undefined : apiBasePath;
 
   const resolveCustomerIdByName = useCallback(
     async (customerName: string): Promise<string | null> => {
@@ -778,10 +778,7 @@ export function TransactionsPage({ apiBasePath }: TransactionsPageProps) {
         }
       }
 
-      const fallback = response[0]?.id ?? response[0]?.ID;
-      return fallback !== null && fallback !== undefined
-        ? String(fallback)
-        : null;
+      return null;
     },
     [customerLookupBasePath]
   );
@@ -889,6 +886,9 @@ export function TransactionsPage({ apiBasePath }: TransactionsPageProps) {
           }}
           customerId={customerDetailsId ?? ''}
           apiBasePath={apiBasePath}
+          customerApiBasePath={
+            apiBasePath === '/api/general-merchandise' ? '/api' : apiBasePath
+          }
         />
 
         {/* Distribution Generation Modal */}

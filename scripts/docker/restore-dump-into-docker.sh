@@ -10,12 +10,17 @@ read_env_value() {
 }
 
 docker_compose() {
+  local compose_args=()
+  if [[ -n "${COMPOSE_PROJECT_DIRECTORY:-}" ]]; then
+    compose_args+=(--project-directory "$COMPOSE_PROJECT_DIRECTORY")
+  fi
+
   if [[ -n "$COMPOSE_FILE_PATH" ]]; then
-    docker compose -f "$COMPOSE_FILE_PATH" --env-file "$COMPOSE_ENV_FILE" "$@"
+    docker compose -f "$COMPOSE_FILE_PATH" --env-file "$COMPOSE_ENV_FILE" "${compose_args[@]}" "$@"
     return
   fi
 
-  docker compose --env-file "$COMPOSE_ENV_FILE" "$@"
+  docker compose --env-file "$COMPOSE_ENV_FILE" "${compose_args[@]}" "$@"
 }
 
 BMS_DATA_ROOT="${BMS_DATA_ROOT:-$(read_env_value BMS_DATA_ROOT)}"

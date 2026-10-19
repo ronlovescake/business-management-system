@@ -3,6 +3,7 @@ import { prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
 import type { TransactionDTO } from '@/modules/transactions/api/dto';
 import { mapToDTO } from '@/modules/transactions/api/dto';
+import { ensureGeneralMerchandiseCustomersForNames } from '@/modules/general-merchandise/customers/api/service';
 import { isFulfilledStatus, isReservedStatus } from '@/lib/inventory/statuses';
 import {
   EMPTY_SHIPMENT_MARKER,
@@ -391,7 +392,9 @@ function buildCreateInput(
   } satisfies Prisma.TransactionCreateManyInput;
 }
 
-async function validateReferences(rows: Prisma.TransactionCreateManyInput[]) {
+async function validateReferences(
+  rows: Prisma.TransactionCreateManyInput[]
+): Promise<Map<string, number>> {
   const uniqueCustomers = Array.from(
     new Set(rows.map((t) => t.customers).filter((c): c is string => Boolean(c)))
   );
@@ -417,15 +420,21 @@ async function validateReferences(rows: Prisma.TransactionCreateManyInput[]) {
   );
 
   const existingCustomers = await prisma.customer.findMany({
-    where: { customerName: { in: uniqueCustomers } },
-    select: { customerName: true },
+    where: { customerName: { in: uniqueCustomers }, deletedAt: null },
+    select: { id: true, customerName: true },
   });
 
-  const existingCustomerNames = new Set(
-    existingCustomers.map((c) => c.customerName)
-  );
+  const customersByName = new Map<string, typeof existingCustomers>();
+  for (const customer of existingCustomers) {
+    const matches = customersByName.get(customer.customerName) ?? [];
+    matches.push(customer);
+    customersByName.set(customer.customerName, matches);
+  }
   const missingCustomers = uniqueCustomers.filter(
-    (name) => !existingCustomerNames.has(name)
+    (name) => !customersByName.has(name)
+  );
+  const ambiguousCustomers = uniqueCustomers.filter(
+    (name) => (customersByName.get(name)?.length ?? 0) > 1
   );
 
   const existingProducts = await gmPrisma.generalMerchandiseProduct.findMany({
@@ -457,17 +466,20 @@ async function validateReferences(rows: Prisma.TransactionCreateManyInput[]) {
 
   if (
     missingCustomers.length > 0 ||
+    ambiguousCustomers.length > 0 ||
     missingProducts.length > 0 ||
     missingShipments.length > 0
   ) {
     throw new TransactionReferenceError('Reference validation failed', {
       missing: {
         customers: missingCustomers,
+        ambiguousCustomers,
         products: missingProducts,
         shipments: missingShipments,
       },
       counts: {
         customers: missingCustomers.length,
+        ambiguousCustomers: ambiguousCustomers.length,
         products: missingProducts.length,
         shipments: missingShipments.length,
       },
@@ -475,6 +487,8 @@ async function validateReferences(rows: Prisma.TransactionCreateManyInput[]) {
         'Create the missing customers/products/shipments before importing transactions.',
     });
   }
+
+  return ensureGeneralMerchandiseCustomersForNames(uniqueCustomers);
 }
 
 export interface TransactionService {
@@ -550,7 +564,12 @@ export const generalMerchandiseTransactionService: TransactionService = {
       );
     }
 
-    await validateReferences(preparedRows);
+    const customerIdsByName = await validateReferences(preparedRows);
+    for (const row of preparedRows) {
+      if (row.customers) {
+        row.customerId = customerIdsByName.get(row.customers) ?? null;
+      }
+    }
 
     const importStartedAt = new Date();
     const result = await gmPrisma.generalMerchandiseTransaction.createMany({
@@ -607,11 +626,23 @@ export const generalMerchandiseTransactionService: TransactionService = {
         continue;
       }
 
+      const customerName = updateRecord.values.Customers?.trim() ?? '';
+      const customerIdsByName = await ensureGeneralMerchandiseCustomersForNames(
+        customerName ? [customerName] : []
+      );
+      const linkedCustomerId = customerIdsByName.get(customerName);
+      const customerRelation = customerName
+        ? linkedCustomerId
+          ? { customerId: linkedCustomerId }
+          : {}
+        : { customerId: null };
+
       const updated = (await gmPrisma.generalMerchandiseTransaction.update({
         where: { id: updateRecord.id },
         data: {
           orderDate: updateRecord.values['Order Date'],
           customers: updateRecord.values.Customers,
+          ...customerRelation,
           productCode: updateRecord.values['Product Code'],
           quantity: updateRecord.values.Quantity,
           unitPrice: updateRecord.values['Unit Price'],
@@ -639,11 +670,23 @@ export const generalMerchandiseTransactionService: TransactionService = {
       throw new TransactionValidationError('Invalid transaction payload');
     }
 
+    const customerName = updateRecord.values.Customers?.trim() ?? '';
+    const customerIdsByName = await ensureGeneralMerchandiseCustomersForNames(
+      customerName ? [customerName] : []
+    );
+    const linkedCustomerId = customerIdsByName.get(customerName);
+    const customerRelation = customerName
+      ? linkedCustomerId
+        ? { customerId: linkedCustomerId }
+        : {}
+      : { customerId: null };
+
     const updated = (await gmPrisma.generalMerchandiseTransaction.update({
       where: { id: updateRecord.id },
       data: {
         orderDate: updateRecord.values['Order Date'],
         customers: updateRecord.values.Customers,
+        ...customerRelation,
         productCode: updateRecord.values['Product Code'],
         quantity: updateRecord.values.Quantity,
         unitPrice: updateRecord.values['Unit Price'],

@@ -34,22 +34,30 @@
 
 | #   | Logic                                                                                                                 | Explanation                                                                                          |
 | --- | --------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------- |
-| 7   | GM customer persistence is backed by `generalMerchandiseCustomer` records                                             | The GM customer service uses GM Prisma bindings instead of Clothing customer models.                 |
+| 7   | GM-only customer data is backed by `generalMerchandiseCustomer` extension records                                     | Each GM extension links to the canonical Clothing `Customer` by `clothingCustomerId`.                |
 | 8   | The GM customer service exposes active-customer lookup, bulk sync, create, and soft-delete-all behavior               | These service methods define the customer data-management surface under GM APIs.                     |
 | 9   | GM customer DTO mapping reuses the shared customer DTO conversion helpers                                             | The service maps to and from shared customer DTO shapes while storing records in GM-specific tables. |
 | 10  | Bulk synchronization and create flows should be treated as GM customer workflow even though the DTO mapping is shared | GM data ownership stays separate from other businesses.                                              |
 
 ## Permanent Order Customer Identity
 
-`GeneralMerchandiseTransaction.customerId` references only
-`GeneralMerchandiseCustomer.id`. Customer histories and payment/refund ownership
-use that ID. The order name remains synchronized by the database when a customer
-is renamed, across all statuses and soft-deleted orders, without changing
-financial fields or inventory. Exact unique existing names are backfilled;
-unknown or duplicate names remain unlinked for explicit review.
+Clothing `Customer` is the canonical customer identity and name. A GM customer
+extension is linked explicitly through `GeneralMerchandiseCustomer.clothingCustomerId`;
+`GeneralMerchandiseTransaction.customerId` references the GM extension, preserving
+GM-specific history and payment/refund ownership. GM customer detail pages use
+the canonical profile but query orders, transactions, refunds, and additional
+information through GM endpoints only.
+
+When the canonical customer is renamed, its linked GM extension is updated and
+the database triggers synchronize transaction display names in both domains.
+This covers all statuses and soft-deleted orders without changing financial
+fields or inventory. Exact unique existing names are backfilled; unknown or
+duplicate names remain unlinked for explicit review. Do not assume numeric IDs
+are equal across the Clothing and GM tables.
 
 The [shared identity and rollout rules](../clothing/operations-customers.md#permanent-order-customer-identity)
 also apply to GM. For historical-name reports or confirmed mappings, use
 `npx tsx scripts/reconcile-order-customers.ts --env .env.test --domain general-merchandise`.
 Add `--from "Old Name" --customer-id 123` to preview a verified mapping and
-`--apply` only after review. IDs and mappings never cross business schemas.
+`--apply` only after review. For General Merchandise, `--customer-id` is the GM
+extension ID, not the canonical Clothing customer ID.

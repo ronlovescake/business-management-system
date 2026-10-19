@@ -3,6 +3,7 @@ import { ApiResponse } from '@/core/api';
 import { withErrorHandler } from '@/core/api/middleware';
 import { prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
+import { findGeneralMerchandiseCustomerForClothingId } from '@/modules/general-merchandise/customers/api/service';
 
 export interface Transaction {
   id: number;
@@ -33,18 +34,17 @@ export const GET = withErrorHandler<RouteContext>(
       return idResult.error;
     }
 
-    const customer = await prisma.generalMerchandiseCustomer.findUnique({
-      where: { id: idResult.id },
-      select: { customerName: true },
-    });
+    const customer = await findGeneralMerchandiseCustomerForClothingId(
+      idResult.id
+    );
 
     if (!customer) {
-      return ApiResponse.notFound('Customer');
+      return ApiResponse.success([], 'Customer transactions fetched');
     }
 
     const transactions = await prisma.generalMerchandiseTransaction.findMany({
       where: {
-        customerId: idResult.id,
+        customerId: customer.id,
       },
       orderBy: {
         orderDate: 'desc',
