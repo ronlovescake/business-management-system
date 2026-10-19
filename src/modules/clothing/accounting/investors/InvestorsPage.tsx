@@ -64,7 +64,11 @@ type Agreement = AgreementInput & {
   schedule: Schedule;
   accounting: InvestorAccountingState;
 };
-type Investor = InvestorInput & { id: string; agreements: Agreement[] };
+type Investor = InvestorInput & {
+  id: string;
+  investorCode: string;
+  agreements: Agreement[];
+};
 type Closure = { id: string; date: string; name: string };
 type Portfolio = { investors: Investor[]; closures: Closure[] };
 type PaymentTarget = SchedulePayout & {
@@ -139,7 +143,7 @@ export default function InvestorsPage() {
   const investors = query.data?.investors ?? [];
   const closures = query.data?.closures ?? [];
   const filteredInvestors = investors.filter((investor) =>
-    `${investor.name} ${investor.email} ${investor.phone}`
+    `${investor.investorCode} ${investor.name} ${investor.email} ${investor.phone}`
       .toLowerCase()
       .includes(search.toLowerCase())
   );
@@ -298,6 +302,9 @@ export default function InvestorsPage() {
                           <Table.Tr key={investor.id}>
                             <Table.Td>
                               <Text fw={600}>{investor.name}</Text>
+                              <Text size="xs" c="dimmed">
+                                {investor.investorCode}
+                              </Text>
                             </Table.Td>
                             <Table.Td>
                               <Text size="sm">
@@ -370,6 +377,9 @@ export default function InvestorsPage() {
                         <Title order={3} style={{ overflowWrap: 'anywhere' }}>
                           {selected.name}
                         </Title>
+                        <Text size="sm" c="dimmed">
+                          {selected.investorCode}
+                        </Text>
                       </Group>
                       <Button
                         color="blue"

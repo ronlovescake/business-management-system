@@ -7,6 +7,7 @@ import type {
 } from '@/components/ui/HandsontableGrid';
 import { TransactionService } from '../services/TransactionService';
 import { DueDateService } from '../../due-dates/services/DueDateService';
+import { formatDateOnlyPreservingInput } from '@/utils/dateFormatters';
 import {
   ORDER_STATUS_OPTIONS,
   STATUS_FILTER_OPTIONS,
@@ -130,7 +131,7 @@ export function useTransactionsDerivedData({
       const numericValue = TransactionService.sanitizeNumericValue(value);
 
       if (column.id === 'orderDate') {
-        return { value: textValue };
+        return { value: formatDateOnlyPreservingInput(textValue) };
       }
 
       if (column.id === 'customers') {

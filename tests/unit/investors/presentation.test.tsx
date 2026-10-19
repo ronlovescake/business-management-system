@@ -136,6 +136,7 @@ describe('investor accounting presentation', () => {
       [
         {
           id: 'investor',
+          investorCode: 'INV-001',
           name: 'Test investor',
           agreements: [
             ['overdue', '2023-10-01'],
@@ -218,6 +219,7 @@ describe('investor accounting presentation', () => {
       investors: [
         {
           id: 'investor',
+          investorCode: 'INV-001',
           name: 'Test investor',
           agreements: [
             {
@@ -343,6 +345,10 @@ describe('investor accounting presentation', () => {
     expect(
       screen.getByRole('heading', { name: 'Projected returns' })
     ).toBeVisible();
+    expect(screen.getByText('INV-001')).toBeVisible();
+    fireEvent.click(screen.getByRole('button', { name: 'Back to investors' }));
+    const investorRow = screen.getByRole('row', { name: /Test investor/ });
+    expect(within(investorRow).getByText('INV-001')).toBeVisible();
     fireEvent.click(screen.getByRole('tab', { name: 'Payout schedule' }));
     expect(screen.getAllByRole('button', { name: 'Mark paid' })).toHaveLength(
       3

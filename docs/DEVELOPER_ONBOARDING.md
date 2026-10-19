@@ -62,6 +62,13 @@ Use `README.md` for the current command list and `docs/DEBUGGING.md` for VS Code
 
 ## 4. Rules That Matter Most
 
+### Development And Production Checkouts
+
+- Make and validate all code, documentation, and configuration changes in the `business-management-system-development` checkout only.
+- Do not edit files in the separate `business-management-production` checkout. Keep its environment, secrets, and data isolated.
+- Push approved development work to the shared remote first. Only then update production by pulling the intended release from `origin/main` in the production checkout.
+- A production pull is not a deployment. Follow the reviewed backup, migration, and deployment procedure in [CONTRIBUTING.md](../CONTRIBUTING.md) and [DEPLOYMENT.md](./DEPLOYMENT.md).
+
 ### Keep Scope Tight
 
 - Make the requested change and avoid unrelated cleanup.

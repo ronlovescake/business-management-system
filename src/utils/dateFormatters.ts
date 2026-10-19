@@ -28,6 +28,80 @@ export const dateFormatter = new Intl.DateTimeFormat(LOCALE, {
   timeZone: TIMEZONE,
 });
 
+const abbreviatedDateFormatter = new Intl.DateTimeFormat(LOCALE, {
+  month: 'short',
+  day: 'numeric',
+  year: 'numeric',
+  timeZone: TIMEZONE,
+});
+
+const MONTH_INDEX_BY_NAME: Record<string, number> = {
+  jan: 0,
+  january: 0,
+  feb: 1,
+  february: 1,
+  mar: 2,
+  march: 2,
+  apr: 3,
+  april: 3,
+  may: 4,
+  jun: 5,
+  june: 5,
+  jul: 6,
+  july: 6,
+  aug: 7,
+  august: 7,
+  sep: 8,
+  september: 8,
+  oct: 9,
+  october: 9,
+  nov: 10,
+  november: 10,
+  dec: 11,
+  december: 11,
+};
+
+/** Normalize parseable date text without changing unrecognized legacy values. */
+export function formatDateOnlyPreservingInput(value: string): string {
+  const trimmedValue = value.trim();
+  if (!trimmedValue) {
+    return value;
+  }
+
+  const monthDateMatch = trimmedValue.match(
+    /^([a-z]+)\s+(\d{1,2}),?\s+(\d{4})$/i
+  );
+  let parsedDate: Date;
+
+  if (monthDateMatch) {
+    const [, monthName, dayText, yearText] = monthDateMatch;
+    const monthIndex = MONTH_INDEX_BY_NAME[monthName.toLowerCase()];
+    const day = Number(dayText);
+    const year = Number(yearText);
+
+    if (monthIndex === undefined) {
+      return value;
+    }
+
+    parsedDate = new Date(Date.UTC(year, monthIndex, day, 12));
+    if (
+      parsedDate.getUTCFullYear() !== year ||
+      parsedDate.getUTCMonth() !== monthIndex ||
+      parsedDate.getUTCDate() !== day
+    ) {
+      return value;
+    }
+  } else {
+    parsedDate = new Date(trimmedValue);
+  }
+
+  if (Number.isNaN(parsedDate.getTime())) {
+    return value;
+  }
+
+  return abbreviatedDateFormatter.format(parsedDate);
+}
+
 /**
  * Format time as "12:00 AM"
  */

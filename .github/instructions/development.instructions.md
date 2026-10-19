@@ -18,6 +18,13 @@ description: 'Repository-wide developer instructions for the Business Management
 - Before any authorized commit or push, summarize the exact files or change set being sent and the validation status. If validation has not been run, say so clearly and wait for confirmation if the request was ambiguous.
 - Treat auth, permissions, Prisma schema, backup/restore, accounting, payroll, and inventory logic as high-risk areas. Validate those changes more aggressively.
 
+## Development And Production Checkouts
+
+- Make and validate all code, documentation, and configuration changes only in the development checkout (`business-management-system-development`).
+- Do not edit files directly in the production checkout (`business-management-production`). Keep production environment files, secrets, and data isolated.
+- Push approved changes to the shared remote before updating production. Run `git pull --ff-only origin main` only from the production checkout and only after the intended release is present on `origin/main`.
+- A production pull is not a deployment. Back up production data and follow the reviewed, environment-specific migration and deployment procedure. Do not assume the development Docker deployment command is safe for production.
+
 ## 2. Repository Shape
 
 - Stack: Next.js 14 App Router, TypeScript strict mode, Prisma 5, PostgreSQL, NextAuth v4, React Query, Mantine, Zustand, Vitest, Playwright, Sentry.

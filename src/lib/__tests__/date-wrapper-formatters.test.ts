@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { formatLongDateUS } from '@/lib/accounting/formatters';
 import { formatPayrollDate } from '@/lib/payroll/formatters';
 import { FormatterService } from '@/services/FormatterService';
+import { formatDateOnlyPreservingInput } from '@/utils/dateFormatters';
 
 describe('date wrapper formatters', () => {
   const sampleDate = '2026-02-04T13:45:00.000Z';
@@ -28,5 +29,18 @@ describe('date wrapper formatters', () => {
     expect(FormatterService.formatDate('not-a-date')).toBe('');
     expect(FormatterService.formatTime(undefined)).toBe('');
     expect(FormatterService.formatDateTime('not-a-date')).toBe('');
+  });
+
+  it('normalizes dates to abbreviated month names while preserving invalid text', () => {
+    expect(formatDateOnlyPreservingInput('Apr 11, 2026')).toBe('Apr 11, 2026');
+    expect(formatDateOnlyPreservingInput('April 13, 2026')).toBe(
+      'Apr 13, 2026'
+    );
+    expect(formatDateOnlyPreservingInput('April 31, 2026')).toBe(
+      'April 31, 2026'
+    );
+    expect(formatDateOnlyPreservingInput('legacy date text')).toBe(
+      'legacy date text'
+    );
   });
 });

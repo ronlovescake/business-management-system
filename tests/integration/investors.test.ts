@@ -18,6 +18,12 @@ describe('investor persistence', () => {
         const investor = await transaction.clothingInvestor.create({
           data: { name: 'Integration-only investor' },
         });
+        const secondInvestor = await transaction.clothingInvestor.create({
+          data: { name: 'Second integration-only investor' },
+        });
+        expect(investor.investorCode).toMatch(/^INV-\d{3,}$/);
+        expect(secondInvestor.investorCode).toMatch(/^INV-\d{3,}$/);
+        expect(secondInvestor.investorCode).not.toBe(investor.investorCode);
         const reference = `test-${investor.id}`;
         await transaction.clothingInvestmentAgreement.createMany({
           data: [

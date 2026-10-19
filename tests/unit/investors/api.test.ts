@@ -78,6 +78,7 @@ describe('investor API', () => {
       [
         {
           id: 'investor',
+          investorCode: 'INV-001',
           name: 'Test',
           agreements: [
             {
@@ -101,6 +102,7 @@ describe('investor API', () => {
     const response = await GET();
     const body = await response.json();
     expect(response.headers.get('Cache-Control')).toBe('private, no-store');
+    expect(body.investors[0].investorCode).toBe('INV-001');
     expect(body.investors[0].agreements[0].principal).toBe('100000.00');
     expect(body.investors[0].agreements[0].schedule.payouts[2].dueDate).toBe(
       '2026-04-28'

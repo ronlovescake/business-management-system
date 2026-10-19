@@ -30,8 +30,8 @@ For the latest contributor quick-start commands, documentation entry points, and
 1. **Clone the repository**
 
    ```bash
-   git clone <repository-url>
-   cd business-management
+   git clone <repository-url> business-management-system-development
+   cd business-management-system-development
    ```
 
 2. **Install dependencies**
@@ -74,18 +74,26 @@ Use `npx prisma migrate dev` only when you are intentionally creating or updatin
 
 ### Before Starting Work
 
+All code, documentation, and configuration changes must be made and validated in the development checkout (`business-management-system-development`). Do not edit files directly in the production checkout. Keep development and production environments, secrets, and data separate.
+
 1. **Pull latest changes**
 
    ```bash
-   git checkout main
-   git pull origin main
+
    ```
+
+# Run from the development checkout to sync with the shared remote.
+
+git checkout main
+git pull origin main
+
+````
 
 2. **Create feature branch**
 
-   ```bash
-   git checkout -b feature/your-feature-name
-   ```
+```bash
+git checkout -b feature/your-feature-name
+````
 
 3. **Check existing issues/tasks**
    - Review project board
@@ -110,6 +118,8 @@ Use `npx prisma migrate dev` only when you are intentionally creating or updatin
    git add .
    git commit -m "feat: add feature description"
    ```
+
+Push feature branches to the shared remote and use the pull request process below. Production must not be used as a source of code changes.
 
 4. **Keep commits atomic**
    - One logical change per commit
@@ -757,6 +767,17 @@ Types:
 5. **Merge after approval**
    - Squash commits if many small ones
    - Use merge commit for features
+
+### Updating the Production Checkout
+
+Only after the intended release is present on `origin/main` (pushed directly or merged through the pull request process), update the separate production checkout:
+
+```bash
+cd "/home/ron/Websites Production/business-management-production"
+git pull --ff-only origin main
+```
+
+This pull only updates the production checkout's tracked files; it does not itself deploy the application. Do not make fixes or other source changes in production. Back up production data and follow the reviewed, environment-specific migration and deployment procedure before starting or rebuilding production services. Do not assume the development Docker one-shot command is safe for production.
 
 ---
 

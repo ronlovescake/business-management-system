@@ -460,8 +460,8 @@ sudo rsync -a /home/ron/business-management-system-data/ /path/to/external-backu
 2. Preserve the local Docker env files from each repo because they are not committed:
 
 ```bash
-cp /home/ron/Websites/business-management-development/.env.docker /path/to/external-backup/development.env.docker
-cp '/home/ron/Website Production/business-management-production/.env.docker' /path/to/external-backup/production.env.docker
+cp '/home/ron/Websites Project/business-management-system-development/.env.docker' /path/to/external-backup/development.env.docker
+cp '/home/ron/Websites Production/business-management-production/.env.docker' /path/to/external-backup/production.env.docker
 ```
 
 3. Reinstall Docker on the replacement host and make sure the Docker service starts on boot:
@@ -482,14 +482,14 @@ sudo systemctl enable --now docker
 6. Start development from the development repo when needed:
 
 ```bash
-cd /home/ron/Websites/business-management-development
+cd '/home/ron/Websites Project/business-management-system-development'
 docker compose --env-file .env.docker up -d
 ```
 
 7. Start production from the production repo:
 
 ```bash
-cd '/home/ron/Website Production/business-management-production'
+cd '/home/ron/Websites Production/business-management-production'
 docker compose --env-file .env.docker up -d
 ```
 

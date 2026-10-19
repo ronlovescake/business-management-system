@@ -650,6 +650,7 @@ model Expense {
 
 model ClothingInvestor {
   id            String   @id @default(cuid())
+  investorCode  String   @unique @default(dbgenerated("('INV-'::text || lpad(nextval('public.\"ClothingInvestorCodeSequence\"'::regclass)::text, 3, '0'::text))")) @db.VarChar(20)
   createdAt     DateTime @default(now()) @db.Timestamptz(6)
   updatedAt     DateTime @updatedAt @db.Timestamptz(6)
   name          String   @db.VarChar(255)

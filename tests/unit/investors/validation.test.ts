@@ -40,6 +40,9 @@ describe('investor input and route policy', () => {
 
   it('requires names and validates email while allowing empty optional details', () => {
     expect(investorInput.parse({ name: ' Investor ' }).name).toBe('Investor');
+    expect(
+      investorInput.parse({ name: 'Investor', investorCode: 'INV-999' })
+    ).not.toHaveProperty('investorCode');
     expect(investorInput.safeParse({ name: ' ' }).success).toBe(false);
     expect(
       investorInput.safeParse({ name: 'Investor', email: 'invalid' }).success

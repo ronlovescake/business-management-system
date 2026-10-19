@@ -50,24 +50,18 @@ This command now runs Prisma deploy automatically before the app container start
 
 ## Production Deployment
 
-**Standard deploy after pulling code:**
+Make all changes in the development checkout, validate them, and push or merge the intended release to `origin/main` first. Do not edit source files in the production checkout.
+
+**Update the production checkout after the release is on the remote:**
 
 ```bash
-git pull origin main
-npm run docker:prod
+cd "/home/ron/Websites Production/business-management-production"
+git pull --ff-only origin main
 ```
 
-**Manual equivalent of `npm run docker:prod`:**
+Pulling updates tracked files only; it does not deploy or restart production. Before deployment, verify a current backup and review any migration against the production database and migration history. Follow the approved production deployment procedure; do not run the development `docker:prod` pipeline as an automatic next step.
 
-```bash
-npm run docker:prepare-storage
-npm run docker:db:up
-npm run docker:build
-npm run docker:db:deploy
-npm run docker:up
-```
-
-> Run each line in order. This ensures storage permissions are prepared, the database is up before migrations run, and migrations run before the new app container starts.
+Keep the production environment file, Docker project, and data root separate from development. See [DEPLOYMENT.md](./DEPLOYMENT.md) for production safety and recovery guidance.
 
 ---
 
@@ -83,10 +77,10 @@ npm run docker:up
 
 ## Command Quick Reference
 
-| Command                    | What it does                                                      | When to use it                                                     |
-| -------------------------- | ----------------------------------------------------------------- | ------------------------------------------------------------------ |
-| `npm run docker:db:up`     | Starts only the PostgreSQL container                              | Before running migrations or other steps that need the DB          |
-| `npm run docker:db:deploy` | Waits for PostgreSQL, then runs Prisma migrations in Docker       | Before app startup when the pulled code may include schema changes |
-| `npm run docker:build`     | Builds a fresh app image                                          | After pulling code changes                                         |
-| `npm run docker:up`        | Recreates / restarts the app container using the existing image   | When the image is already built and you just need a restart        |
-| `npm run docker:prod`      | Full pipeline: prepare storage → DB up → build → migrate → app up | When you want the safe one-shot production deploy path             |
+| Command                    | What it does                                                            | When to use it                                                                 |
+| -------------------------- | ----------------------------------------------------------------------- | ------------------------------------------------------------------------------ |
+| `npm run docker:db:up`     | Starts only the PostgreSQL container                                    | Before running migrations or other steps that need the DB                      |
+| `npm run docker:db:deploy` | Waits for PostgreSQL, then runs Prisma migrations in Docker             | Before app startup when the pulled code may include schema changes             |
+| `npm run docker:build`     | Builds a fresh app image                                                | After pulling code changes                                                     |
+| `npm run docker:up`        | Recreates / restarts the app container using the existing image         | When the image is already built and you just need a restart                    |
+| `npm run docker:prod`      | Full local pipeline: prepare storage → DB up → build → migrate → app up | Development or a verified safe environment, not an automatic production deploy |
