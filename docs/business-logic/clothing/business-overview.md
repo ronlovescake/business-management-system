@@ -89,7 +89,7 @@ Each rule file shares a common structure:
 - **Dispatching**, **Messaging**, **Employees Calendar**, and **Employees Notifications** are placeholder or shell modules. Their docs should continue to describe the current scaffold state until real workflow is implemented.
 - The Products module remains the largest documented single module.
 - The Transactions module contains the densest operator decision logic, including blocking stock-check dialogs.
-- Route-level behaviour also matters: `/clothing/accounting` is a root redirect entry point, and `/clothing/ledger` is a legacy redirect to `/clothing/accounting`.
+- Route-level behaviour also matters: `/clothing/accounting` is the Accounting overview dashboard, and `/clothing/ledger` is a legacy redirect to `/clothing/accounting`.
 
 ---
 

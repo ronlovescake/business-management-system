@@ -23,7 +23,7 @@ Investor profiles, agreements, projected returns, and bank closures are document
 
 ## Key Technical Notes
 
-- **Accounting route entry**: `/clothing/accounting` is a root entry route that resolves into the Clothing accounting experience rather than being a self-contained page implementation.
+- **Accounting route entry**: `/clothing/accounting` renders the Accounting overview dashboard (`AccountingDashboardRoutePage` in `src/app/accounting/_shared/`). It defaults to Year to date and shows KPI cards (revenue, gross profit, net profit and operating expenses with change vs the previous comparable period, gross/net margin, Cash balance), a 12-month P&L trend, operating expenses by category (COGS excluded), a profit snapshot, balance sheet totals with a balanced/out-of-balance badge, top asset accounts, a monthly summary table and quick links. It is read-only and reuses the existing `/api/accounting/profit-loss`, `/profit-loss/details` (last 12 months only) and `/balance-sheet` endpoints, so figures match the P&L and Balance Sheet pages. "Operating expenses" = P&L `expenseTotal - cogsTotal` (includes inventory shrinkage). "Cash" is the `Cash` account only, not payment-method accounts.
 - **Legacy ledger route**: `/clothing/ledger` now redirects to `/clothing/accounting`; route-level navigation changes should be reflected in the accounting docs when this behaviour changes.
 - **Double-entry accounting**: All journal and ledger entries are balanced debit/credit pairs. Manual entries always create two lines.
 - **Account tagging**: Five accounts support sub-tags: Accounts Payable, Forwarder Payable, Courier Payable, Credit Card Payable, Loan Payable. Tagged accounts post as `"{Account} – {Tag}"` in the ledger.

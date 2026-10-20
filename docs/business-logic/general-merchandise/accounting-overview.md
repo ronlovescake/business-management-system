@@ -21,7 +21,7 @@ This overview indexes the business logic documentation files for the **General M
 
 ## Key Technical Notes
 
-- **Accounting route entry**: `/general-merchandise/accounting` delegates to `AccountingRootRedirectPage` and resolves into the GM accounting experience rather than rendering a standalone page.
+- **Accounting route entry**: `/general-merchandise/accounting` renders the shared Accounting overview dashboard (`AccountingDashboardRoutePage`) against the `/api/general-merchandise/accounting/*` endpoints. Behavior matches the Clothing dashboard (see the Clothing accounting overview), except there are no Expenses or Investors quick links.
 - **Shared route UI**: Journal, Ledger, Balance Sheet, Profit & Loss, and Expenses pages are GM wrappers around shared accounting route pages with GM-specific services or API namespace.
 - **Recurring payments**: GM ledger behavior includes a dedicated recurring payment service with GM models, draft generation, approval, skip behavior, and journal posting.
 - **Expense persistence**: GM expenses use a dedicated repository and service layer built on shared expense base classes with GM Prisma model binding.

@@ -1,10 +1,12 @@
-import { AccountingRootRedirectPage } from '@/app/accounting/_shared/AccountingRootRedirectPage';
+'use client';
 
-export default function GeneralMerchandiseAccountingRoot() {
+import { AccountingDashboardRoutePage } from '@/app/accounting/_shared/AccountingDashboardRoutePage';
+
+export default function GeneralMerchandiseAccountingDashboardPage() {
   return (
-    <AccountingRootRedirectPage
+    <AccountingDashboardRoutePage
       businessPathPrefix="/general-merchandise"
-      defaultSection="journal"
+      apiBasePath="/api/general-merchandise"
     />
   );
 }

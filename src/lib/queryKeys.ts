@@ -109,6 +109,12 @@ export const queryKeys = {
     all: ['analytics'] as const,
     businessIntelligence: () =>
       [...queryKeys.analytics.all, 'business-intelligence'] as const,
+    accountingDashboard: (apiBasePath?: string) =>
+      [
+        ...queryKeys.analytics.all,
+        'accounting-dashboard',
+        apiBasePath ?? 'default',
+      ] as const,
     customerStats: (customerId: string) =>
       [...queryKeys.analytics.all, 'customer-stats', customerId] as const,
   },

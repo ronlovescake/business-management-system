@@ -344,6 +344,15 @@ export function buildNavigationItems(
   }
 
   if (workspace === 'accounting') {
+    if (business === 'clothing' || business === 'general-merchandise') {
+      additionalItems.push({
+        label: 'Dashboard',
+        path: basePath,
+        icon: IconDashboard as IconComponent,
+        order: -1,
+      });
+    }
+
     if (business === 'clothing') {
       additionalItems.push(
         {

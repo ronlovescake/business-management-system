@@ -1,5 +1,13 @@
-import { AccountingRootRedirectPage } from '@/app/accounting/_shared/AccountingRootRedirectPage';
+'use client';
 
-export default function AccountingRootRedirect() {
-  return <AccountingRootRedirectPage businessPathPrefix="/clothing" />;
+import { AccountingDashboardRoutePage } from '@/app/accounting/_shared/AccountingDashboardRoutePage';
+
+export default function ClothingAccountingDashboardPage() {
+  return (
+    <AccountingDashboardRoutePage
+      businessPathPrefix="/clothing"
+      showExpensesLink
+      showInvestorsLink
+    />
+  );
 }
