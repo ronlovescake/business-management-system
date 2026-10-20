@@ -30,12 +30,15 @@ test.describe('Household Finance', () => {
     await expect(page.getByText('Personal Dashboard')).toBeVisible();
   });
 
-  test('dashboard renders overview cards', async ({ page }) => {
+  test('dashboard renders financial KPIs and overview panels', async ({
+    page,
+  }) => {
     await gotoHouseholdPage(page, '/personal/dashboard');
     await expectNoFullPageError(page);
     await expect(page.getByText('Net worth')).toBeVisible();
-    await expect(page.getByText('Monthly cash flow')).toBeVisible();
-    await expect(page.getByText('Budget status')).toBeVisible();
+    await expect(page.getByText('Savings rate')).toBeVisible();
+    await expect(page.getByText('Income and expenses')).toBeVisible();
+    await expect(page.getByText('Budget vs actual')).toBeVisible();
     await expect(page.getByText('Upcoming bills')).toBeVisible();
   });
 

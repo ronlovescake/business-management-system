@@ -9,6 +9,12 @@ import {
   canonicalizeOrderStatus,
   isCancelledOrderStatus,
 } from '@/lib/transactions/order-status';
+import {
+  DATE_FILTER_OPTIONS,
+  getComparisonRange,
+  getDateRangeFilter,
+  percentChange,
+} from '@/lib/analytics/periodComparison';
 import type {
   TransactionData,
   ProductData,
@@ -27,130 +33,17 @@ import type {
 // DATE FILTER OPTIONS
 // ============================================================================
 
-export const filterOptions = [
-  { value: 'ytd', label: 'Year to Date' },
-  { value: 'mtd', label: 'Month to Date' },
-  { value: 'last7days', label: 'Last 7 Days' },
-  { value: 'last30days', label: 'Last 30 Days' },
-  { value: 'last3months', label: 'Last 3 Months' },
-  { value: 'last6months', label: 'Last 6 Months' },
-  { value: 'all', label: 'All Time' },
-];
+export const filterOptions = DATE_FILTER_OPTIONS;
+
+export {
+  getComparisonRange,
+  percentChange,
+  type ComparisonRange,
+} from '@/lib/analytics/periodComparison';
 
 // ============================================================================
 // HELPER FUNCTIONS
 // ============================================================================
-
-function getDateRangeFilter(filter: string): (date: Date) => boolean {
-  const now = new Date();
-  const startOfYear = new Date(now.getFullYear(), 0, 1);
-  const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-
-  switch (filter) {
-    case 'ytd':
-      return (date) => date >= startOfYear;
-    case 'mtd':
-      return (date) => date >= startOfMonth;
-    case 'last7days': {
-      const last7Days = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-      return (date) => date >= last7Days;
-    }
-    case 'last30days': {
-      const last30Days = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
-      return (date) => date >= last30Days;
-    }
-    case 'last3months': {
-      const last3Months = new Date(now.getFullYear(), now.getMonth() - 3, 1);
-      return (date) => date >= last3Months;
-    }
-    case 'last6months': {
-      const last6Months = new Date(now.getFullYear(), now.getMonth() - 6, 1);
-      return (date) => date >= last6Months;
-    }
-    case 'all':
-    default:
-      return () => true;
-  }
-}
-
-export interface ComparisonRange {
-  currentStart: Date;
-  previousStart: Date;
-  previousEnd: Date;
-}
-
-// Clamps the day so e.g. Mar 31 shifted back one month lands on Feb 28/29, not Mar 2/3.
-function shiftMonths(date: Date, months: number): Date {
-  const target = new Date(date.getFullYear(), date.getMonth() + months, 1);
-  const daysInTarget = new Date(
-    target.getFullYear(),
-    target.getMonth() + 1,
-    0
-  ).getDate();
-  return new Date(
-    target.getFullYear(),
-    target.getMonth(),
-    Math.min(date.getDate(), daysInTarget),
-    date.getHours(),
-    date.getMinutes(),
-    date.getSeconds(),
-    date.getMilliseconds()
-  );
-}
-
-/**
- * Window the selected filter covers (currentStart..now) and the same-length window
- * immediately before it. Returns null when there is nothing to compare against.
- */
-export function getComparisonRange(
-  filter: string,
-  now: Date = new Date()
-): ComparisonRange | null {
-  const DAY_MS = 24 * 60 * 60 * 1000;
-
-  const byMonths = (currentStart: Date, months: number): ComparisonRange => ({
-    currentStart,
-    previousStart: shiftMonths(currentStart, -months),
-    previousEnd: shiftMonths(now, -months),
-  });
-
-  const byDays = (days: number): ComparisonRange => ({
-    currentStart: new Date(now.getTime() - days * DAY_MS),
-    previousStart: new Date(now.getTime() - 2 * days * DAY_MS),
-    previousEnd: new Date(now.getTime() - days * DAY_MS),
-  });
-
-  switch (filter) {
-    case 'ytd':
-      return byMonths(new Date(now.getFullYear(), 0, 1), 12);
-    case 'mtd':
-      return byMonths(new Date(now.getFullYear(), now.getMonth(), 1), 1);
-    case 'last7days':
-      return byDays(7);
-    case 'last30days':
-      return byDays(30);
-    case 'last3months':
-      return byMonths(new Date(now.getFullYear(), now.getMonth() - 3, 1), 3);
-    case 'last6months':
-      return byMonths(new Date(now.getFullYear(), now.getMonth() - 6, 1), 6);
-    case 'all':
-    default:
-      return null;
-  }
-}
-
-export function percentChange(
-  current: number,
-  previous: number
-): number | null {
-  if (!Number.isFinite(current) || !Number.isFinite(previous)) {
-    return null;
-  }
-  if (previous === 0) {
-    return null;
-  }
-  return ((current - previous) / Math.abs(previous)) * 100;
-}
 
 // Filters whose window always contains the whole current month, so MTD is comparable.
 const FILTERS_COVERING_CURRENT_MONTH = new Set([

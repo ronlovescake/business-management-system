@@ -6,7 +6,6 @@ test.describe.configure({ timeout: 60000 });
  * E2E Tests for Operations Pages
  *
  * Tests cover basic page loading and navigation for all operations pages:
- * - Dashboard
  * - Inventory
  * - Products
  * - Shipments
@@ -47,23 +46,18 @@ test.beforeEach(async ({ page }) => {
   });
 });
 
-test.describe('Operations - Dashboard', () => {
-  test('should load operations dashboard', async ({ page }) => {
-    await gotoOperationsPage(page, '/clothing/operations/dashboard');
-    await expect(page.locator('body')).toBeVisible();
-
-    // Check for typical dashboard elements
-    const hasDashboard = await page
-      .locator('h1, h2, main, [role="main"]')
-      .first()
-      .isVisible({ timeout: 5000 })
-      .catch(() => false);
-    if (!hasDashboard) {
-      // Dashboard heading can take longer on first Turbopack compile; body visibility already asserted
-      return;
-    }
-    expect(hasDashboard).toBeTruthy();
-  });
+test.describe('Operations - Dashboard removal', () => {
+  for (const business of ['clothing', 'general-merchandise']) {
+    test(`${business} operations dashboard route is not available`, async ({
+      page,
+    }) => {
+      const response = await page.goto(`/${business}/operations/dashboard`, {
+        waitUntil: 'domcontentloaded',
+        timeout: 60_000,
+      });
+      expect(response?.status()).toBe(404);
+    });
+  }
 });
 
 test.describe('Operations - Inventory', () => {

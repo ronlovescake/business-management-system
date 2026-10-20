@@ -240,6 +240,11 @@ export const queryKeys = {
       list: () =>
         [...queryKeys.household.recurringPayments.all(), 'list'] as const,
     },
+    dashboard: {
+      all: () => [...queryKeys.household.all, 'dashboard'] as const,
+      summary: (range: string) =>
+        [...queryKeys.household.dashboard.all(), 'summary', range] as const,
+    },
   },
 
   // Messaging

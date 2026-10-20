@@ -13,7 +13,6 @@ import { clothingInvestorsModule } from './clothing/accounting/investors/module.
 // ============================================================================
 
 // Operations
-import { dashboardModule } from './clothing/operations/dashboard';
 import { customersModule } from './clothing/operations/customers';
 import { transactionsModule } from './clothing/operations/transactions';
 import { shipmentsModule } from './clothing/operations/shipments';
@@ -45,7 +44,6 @@ import { fleetRegistryModule } from './trucking/operations/fleet-registry';
 
 // General Merchandise
 import { generalMerchandiseTransactionsModule } from './general-merchandise/operations/transactions';
-import { generalMerchandiseDashboardModule } from './general-merchandise/operations/dashboard';
 import { generalMerchandiseCustomersModule } from './general-merchandise/operations/customers';
 import { generalMerchandiseProductsModule } from './general-merchandise/operations/products';
 import { generalMerchandisePricesModule } from './general-merchandise/operations/prices';
@@ -74,7 +72,6 @@ import { generalMerchandiseMessageTemplatesModule } from './general-merchandise/
 
 // Clothing
 moduleRegistry.register(clothingInvestorsModule);
-moduleRegistry.register(dashboardModule); // ✅ REGISTERED!
 moduleRegistry.register(customersModule); // ✅ REGISTERED!
 moduleRegistry.register(transactionsModule); // ✅ REGISTERED!
 moduleRegistry.register(shipmentsModule); // ✅ REGISTERED!
@@ -91,7 +88,6 @@ moduleRegistry.register(settingsModule); // ✅ REGISTERED!
 
 // General Merchandise
 moduleRegistry.register(generalMerchandiseTransactionsModule);
-moduleRegistry.register(generalMerchandiseDashboardModule);
 moduleRegistry.register(generalMerchandiseCustomersModule);
 moduleRegistry.register(generalMerchandiseProductsModule);
 moduleRegistry.register(generalMerchandisePricesModule);

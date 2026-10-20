@@ -24,7 +24,7 @@ describe('LIV-24 module-ops parity (clothing vs GM)', () => {
   );
 
   it('keeps shared module-config surfaces across operations families', () => {
-    expect(sharedModuleConfigs.length).toBeGreaterThanOrEqual(10);
+    expect(sharedModuleConfigs.length).toBeGreaterThanOrEqual(9);
   });
 
   it('keeps shared-helper contracts aligned on shared operations module configs', () => {

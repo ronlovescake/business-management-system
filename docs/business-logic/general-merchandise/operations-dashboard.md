@@ -1,6 +1,8 @@
 # General Merchandise — Operations Dashboard Business Logic
 
-> **Source files:**
+> **Retired:** The general-merchandise operations dashboard route has been removed. Use the Business Intelligence module for business insights. The notes below document the former route and shared implementation.
+
+> **Former source files (now removed):**
 >
 > - `src/app/general-merchandise/operations/dashboard/page.tsx`
 > - `src/app/general-merchandise/operations/_shared/renderGmOperationsPage.tsx`
@@ -11,11 +13,11 @@
 
 ## A — Route & Shell
 
-| #   | Logic                                                                 | Explanation                                                                                                                                 |
-| --- | --------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
-| 1   | The GM dashboard lives at `/general-merchandise/operations/dashboard` | The GM route path is declared in the page route and module config.                                                                          |
-| 2   | The route renders through the shared GM operations shell              | `renderGmOperationsPage` delegates to the shared operations page wrapper so the page keeps the standard operations layout/navigation shell. |
-| 3   | The module is registered as an Operations module                      | The module config registers the GM dashboard with operations metadata, permissions, order, and business scope.                              |
+| #   | Logic                                                                         | Explanation                                                                                                                   |
+| --- | ----------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| 1   | The former GM dashboard route was `/general-merchandise/operations/dashboard` | Its route page and module registration have been removed.                                                                     |
+| 2   | The former route rendered through the shared GM operations shell              | `renderGmOperationsPage` delegated to the shared operations page wrapper for the standard operations layout/navigation shell. |
+| 3   | The former dashboard was registered as an Operations module                   | Its module configuration and registration have been removed.                                                                  |
 
 ---
 

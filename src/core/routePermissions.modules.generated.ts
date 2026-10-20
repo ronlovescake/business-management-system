@@ -50,19 +50,6 @@ export const MODULE_ROUTE_CATALOG: ModuleRouteCatalogEntry[] = [
     ]
   },
   {
-    "moduleVar": "dashboardModule",
-    "file": "src/modules/clothing/operations/dashboard/module.config.ts",
-    "paths": [
-      "/clothing/operations/dashboard",
-      "/clothing/operations/dashboard"
-    ],
-    "permissions": [
-      "admin",
-      "manager",
-      "operations"
-    ]
-  },
-  {
     "moduleVar": "dispatchModule",
     "file": "src/modules/clothing/operations/dispatch/module.config.ts",
     "paths": [
@@ -96,19 +83,6 @@ export const MODULE_ROUTE_CATALOG: ModuleRouteCatalogEntry[] = [
     "file": "src/modules/general-merchandise/operations/customers/module.config.ts",
     "paths": [
       "/general-merchandise/operations/customers"
-    ],
-    "permissions": [
-      "admin",
-      "manager",
-      "operations"
-    ]
-  },
-  {
-    "moduleVar": "generalMerchandiseDashboardModule",
-    "file": "src/modules/general-merchandise/operations/dashboard/module.config.ts",
-    "paths": [
-      "/general-merchandise/operations/dashboard",
-      "/general-merchandise/operations/dashboard"
     ],
     "permissions": [
       "admin",

@@ -49,7 +49,9 @@ export function usePrefetchOperationsPages(
 ) {
   const pages = business
     ? [
-        `/${business}/operations/dashboard`,
+        ...(business === 'clothing'
+          ? []
+          : [`/${business}/operations/dashboard`]),
         `/${business}/operations/transactions`,
         `/${business}/operations/customers`,
         `/${business}/operations/products`,

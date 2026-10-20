@@ -5,7 +5,6 @@ import { test, expect, type Page } from '@playwright/test';
  *
  * Each test group mirrors the actual business workflow documented in
  * docs/business-logic/clothing/:
- *  - operations-dashboard.md
  *  - operations-inventory.md
  *  - operations-products.md
  *  - operations-transactions.md
@@ -85,79 +84,6 @@ test.beforeEach(async ({ page }) => {
         version: 0,
       })
     );
-  });
-});
-
-// ---------------------------------------------------------------------------
-// OPERATIONS — DASHBOARD
-// Doc: operations-dashboard.md
-// Route: /clothing/operations/dashboard
-// ---------------------------------------------------------------------------
-
-test.describe('Operations — Dashboard', () => {
-  const URL = '/clothing/operations/dashboard';
-
-  test('page loads without error boundary', async ({ page }) => {
-    await gotoOperationsPage(page, URL);
-    await expect(page.locator('body')).toBeVisible();
-    const errorEl = page.locator('[role="alertdialog"]');
-    const hasError = await errorEl
-      .isVisible({ timeout: 2_000 })
-      .catch(() => false);
-    expect(hasError).toBe(false);
-  });
-
-  test('four statistics cards are rendered [rule: Revenue, Orders, Customers, Products]', async ({
-    page,
-  }) => {
-    await gotoOperationsPage(page, URL);
-    await expect(page.getByText('Total Revenue').first()).toBeVisible({
-      timeout: 15_000,
-    });
-    await expect(page.getByText('Active Orders').first()).toBeVisible();
-    await expect(page.getByText('Customers').first()).toBeVisible();
-    await expect(page.getByText('Products').first()).toBeVisible();
-  });
-
-  test('sales trend range controls are present [rule: 7d / 30d / 90d]', async ({
-    page,
-  }) => {
-    await gotoOperationsPage(page, URL);
-    await expect(page.getByText('7 days')).toBeVisible({ timeout: 15_000 });
-    await expect(page.getByText('30 days')).toBeVisible();
-    await expect(page.getByText('90 days')).toBeVisible();
-  });
-
-  test('order pipeline funnel stages are present [rule: Prepared, Packed, Shipped, Delivered]', async ({
-    page,
-  }) => {
-    await gotoOperationsPage(page, URL);
-    // Business logic: 4 pipeline stages
-    const pipelineContent = page
-      .locator('[class*="pipeline" i], [class*="funnel" i]')
-      .or(page.getByText(/prepared|packed|shipped|delivered/i))
-      .first();
-    const exists = await pipelineContent
-      .isVisible({ timeout: 12_000 })
-      .catch(() => false);
-    if (exists) {
-      await expect(pipelineContent).toBeVisible();
-    }
-  });
-
-  test('shipment timeline filter control is present [rule: all / In Transit / Pending / Delivered]', async ({
-    page,
-  }) => {
-    await gotoOperationsPage(page, URL);
-    const anyFilter = page
-      .locator('[role="combobox"], [role="radio"], [role="tab"]')
-      .first();
-    const exists = await anyFilter
-      .isVisible({ timeout: 8_000 })
-      .catch(() => false);
-    if (exists) {
-      await expect(anyFilter).toBeVisible();
-    }
   });
 });
 

@@ -6,41 +6,14 @@ import type {
   HouseholdRecurringPaymentUpdateInput,
   HouseholdRecurringPaymentDeleteInput,
 } from './schemas';
-
-const toDateString = (date: Date): string => {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, '0');
-  const day = String(date.getDate()).padStart(2, '0');
-  return `${year}-${month}-${day}`;
-};
-
-const parseStoredDate = (value: string): Date => {
-  const [year, month, day] = value.split('-').map((part) => Number(part));
-  return new Date(year, month - 1, day);
-};
-
-const monthKeyFromDate = (date: Date): string => {
-  const y = date.getFullYear();
-  const m = String(date.getMonth() + 1).padStart(2, '0');
-  return `${y}-${m}`;
-};
-
-const parseMonthKey = (month: string): Date => {
-  const [y, m] = month.split('-').map((p) => Number(p));
-  return new Date(y, m - 1, 1);
-};
-
-const clampDayInMonth = (year: number, monthIndex: number, day: number) => {
-  const lastDay = new Date(year, monthIndex + 1, 0).getDate();
-  return Math.min(day, lastDay);
-};
-
-const diffMonths = (from: Date, to: Date): number => {
-  return (
-    (to.getFullYear() - from.getFullYear()) * 12 +
-    (to.getMonth() - from.getMonth())
-  );
-};
+import {
+  clampDayInMonth,
+  diffMonths,
+  monthKeyFromDate,
+  parseMonthKey,
+  parseStoredDate,
+  toDateString,
+} from './schedule';
 
 export class HouseholdRecurringPaymentService {
   async findAll(): Promise<HouseholdRecurringPayment[]> {

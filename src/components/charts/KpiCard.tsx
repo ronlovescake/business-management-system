@@ -8,6 +8,7 @@ interface KpiCardProps {
   badge?: string;
   /** Percent change vs the comparison period; null/undefined hides it. */
   delta?: number | null;
+  deltaPositiveIsGood?: boolean;
   deltaCaption?: string;
   caption?: string;
 }
@@ -17,11 +18,13 @@ export const KpiCard = memo(function KpiCard({
   value,
   badge,
   delta,
+  deltaPositiveIsGood = true,
   deltaCaption = 'vs previous period',
   caption,
 }: KpiCardProps) {
   const hasDelta = typeof delta === 'number' && Number.isFinite(delta);
   const isUp = hasDelta && delta >= 0;
+  const isPositive = deltaPositiveIsGood ? isUp : !isUp;
   const DeltaIcon = isUp ? IconArrowUpRight : IconArrowDownRight;
 
   return (
@@ -57,12 +60,12 @@ export const KpiCard = memo(function KpiCard({
         </Text>
         {hasDelta ? (
           <Group gap={2} wrap="nowrap">
-            <Text size="xs" fw={500} c={isUp ? 'teal.6' : 'red.6'}>
+            <Text size="xs" fw={500} c={isPositive ? 'teal.6' : 'red.6'}>
               {`${delta > 0 ? '+' : ''}${delta.toFixed(1)}%`}
             </Text>
             <DeltaIcon
               size={14}
-              color={`var(--mantine-color-${isUp ? 'teal' : 'red'}-6)`}
+              color={`var(--mantine-color-${isPositive ? 'teal' : 'red'}-6)`}
             />
           </Group>
         ) : null}

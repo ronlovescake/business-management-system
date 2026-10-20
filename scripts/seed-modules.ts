@@ -35,15 +35,6 @@ const APP_MODULES = [
     sortOrder: 2,
   },
   {
-    name: 'clothing-operations-dashboard',
-    displayName: 'Dashboard',
-    path: '/clothing/operations/dashboard',
-    category: 'clothing',
-    icon: 'IconDashboard',
-    parentName: 'clothing-operations',
-    sortOrder: 1,
-  },
-  {
     name: 'clothing-operations-transactions',
     displayName: 'Transactions',
     path: '/clothing/operations/transactions',

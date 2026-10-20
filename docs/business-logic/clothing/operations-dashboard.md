@@ -1,4 +1,8 @@
-# Clothing — Dashboard Business Logic
+# Shared Operations Dashboard — Business Logic
+
+> The clothing and general-merchandise operations dashboard routes have been
+> retired; use Business Intelligence for business insights. The shared dashboard
+> components remain in the repository but are no longer exposed as operations routes.
 
 > **Source files:**
 >
@@ -19,12 +23,12 @@
 
 ## A — Page Layout
 
-| #   | Logic                                                   | Explanation                                                                                                                                                        |
-| --- | ------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| 1   | Dashboard is the landing page for Clothing > Operations | `DashboardPage` renders the full dashboard layout wrapped in a two-column structure: main content on the left and a sidebar on the right.                          |
-| 2   | Main content area hosts four stacked cards              | The main column renders: Statistics Grid, Sales Performance chart, Order Pipeline funnel, and two lower cards (Inventory Health + Shipment Timeline) side by side. |
-| 3   | Sidebar hosts Highlights and Recent Activity            | `SidebarHighlights` (monthly goal + today's counters) and `RecentActivityCard` are stacked in the right sidebar column.                                            |
-| 4   | Loading state shows skeleton placeholders               | While `isLoading` is `true`, all cards render Mantine `Skeleton` components in place of real data.                                                                 |
+| #   | Logic                                            | Explanation                                                                                                                                                        |
+| --- | ------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| 1   | Dashboard page renders shared operations metrics | `DashboardPage` renders the full dashboard layout wrapped in a two-column structure: main content on the left and a sidebar on the right.                          |
+| 2   | Main content area hosts four stacked cards       | The main column renders: Statistics Grid, Sales Performance chart, Order Pipeline funnel, and two lower cards (Inventory Health + Shipment Timeline) side by side. |
+| 3   | Sidebar hosts Highlights and Recent Activity     | `SidebarHighlights` (monthly goal + today's counters) and `RecentActivityCard` are stacked in the right sidebar column.                                            |
+| 4   | Loading state shows skeleton placeholders        | While `isLoading` is `true`, all cards render Mantine `Skeleton` components in place of real data.                                                                 |
 
 ---
 

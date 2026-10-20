@@ -63,14 +63,7 @@ export interface MonthlyData {
   sacks: number;
 }
 
-export type DateFilterType =
-  | 'ytd'
-  | 'mtd'
-  | 'last7days'
-  | 'last30days'
-  | 'last3months'
-  | 'last6months'
-  | 'all';
+export type { DateFilterType } from '@/lib/analytics/periodComparison';
 
 /** Percent change vs the previous comparable period; null when not comparable. */
 export interface KpiDeltas {
