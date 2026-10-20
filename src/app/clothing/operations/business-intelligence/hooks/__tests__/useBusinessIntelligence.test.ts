@@ -454,7 +454,10 @@ describe('Shipment Metrics Aggregation', () => {
   }
 
   const calculateShipmentMetrics = (shipments: Shipment[]) => {
-    const totalCBM = shipments.reduce((sum, s) => sum + (s['Total CBM'] || 0), 0);
+    const totalCBM = shipments.reduce(
+      (sum, s) => sum + (s['Total CBM'] || 0),
+      0
+    );
     const totalSacks = shipments.reduce(
       (sum, s) => sum + (s['No. Of Sacks'] || 0),
       0
@@ -504,7 +507,10 @@ describe('Monthly Breakdown Generation', () => {
   }
 
   const generateMonthlyRevenue = (transactions: Transaction[]) => {
-    const monthlyDataMap = new Map<string, { revenue: number; count: number }>();
+    const monthlyDataMap = new Map<
+      string,
+      { revenue: number; count: number }
+    >();
 
     transactions.forEach((t) => {
       if (!t['Order Date']) {

@@ -27,7 +27,7 @@ export function BusinessIntelligenceRoutePage(
   const { apiBasePath } = props;
 
   return (
-    <PageLayout title="Business Intelligence">
+    <PageLayout fluid>
       <BiDashboard apiBasePath={apiBasePath} />
     </PageLayout>
   );

@@ -1,56 +1,102 @@
 'use client';
 
-import { Profiler, memo } from 'react';
+import { Profiler, memo, useMemo, useState } from 'react';
 import {
-  Stack,
-  Text,
-  Group,
-  Select,
-  Paper,
-  Title,
-  SimpleGrid,
-  Table,
-  Loader,
+  Box,
   Center,
+  Grid,
+  Group,
+  Loader,
+  ScrollArea,
+  SegmentedControl,
+  Select,
+  SimpleGrid,
+  Stack,
+  Table,
+  Text,
+  Title,
 } from '@mantine/core';
+import { IconCalendar } from '@tabler/icons-react';
+import { useMediaQuery } from '@mantine/hooks';
 import {
-  IconCurrencyPeso,
-  IconShoppingCart,
-  IconTrendingUp,
-  IconPackage,
-  IconUsers,
-  IconCube,
-  IconTruck,
-} from '@tabler/icons-react';
-import {
-  BarChart,
-  Bar,
-  PieChart,
-  Pie,
-  Cell,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  Legend,
-  ResponsiveContainer,
   Area,
   AreaChart,
-  LineChart,
-  Line,
+  Bar,
+  BarChart,
+  CartesianGrid,
+  Cell,
   ComposedChart,
+  Line,
+  Pie,
+  PieChart,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
 } from 'recharts';
 import {
   useBusinessIntelligence,
   filterOptions,
 } from '../hooks/useBusinessIntelligence';
-import { StatCard } from './StatCard';
-import { CHART_COLORS } from '../constants';
+import { COMPARISON_CAPTIONS, PERIOD_BADGE_LABELS } from '../constants';
 import type { DateFilterType } from '../types';
 import { onRenderCallback } from '@/lib/performance/monitoring';
+import { OrderPipelinePanel } from './panels/OrderPipelinePanel';
+import { CustomerMixPanel } from './panels/CustomerMixPanel';
+import { WeekdaySalesPanel } from './panels/WeekdaySalesPanel';
+import { ProfitSnapshotPanel } from './panels/ProfitSnapshotPanel';
+import { ChartCard } from '@/components/charts/ChartCard';
+import { ChartTooltip } from '@/components/charts/ChartTooltip';
+import { KpiCard } from '@/components/charts/KpiCard';
+import {
+  CHART_MARGIN,
+  CHART_PALETTE,
+  CHART_SERIES_COLORS,
+  chartAxisProps,
+  chartGridProps,
+  formatCompactPeso,
+} from '@/components/charts/chartTheme';
 
 interface BiDashboardProps {
   apiBasePath?: string;
+}
+
+const tableStyles = {
+  th: {
+    fontSize: 11,
+    fontWeight: 600,
+    textTransform: 'uppercase' as const,
+    letterSpacing: '0.3px',
+    color: 'var(--mantine-color-dimmed)',
+  },
+};
+
+function LegendDot({ color, label }: { color: string; label: string }) {
+  return (
+    <Group gap={6} wrap="nowrap">
+      <Box
+        w={8}
+        h={8}
+        style={{ borderRadius: '50%', backgroundColor: color }}
+      />
+      <Text size="xs" c="dimmed">
+        {label}
+      </Text>
+    </Group>
+  );
+}
+
+function MiniStat({ label, value }: { label: string; value: string }) {
+  return (
+    <div>
+      <Text size="xs" c="dimmed">
+        {label}
+      </Text>
+      <Text fw={600} c="dark.7">
+        {value}
+      </Text>
+    </div>
+  );
 }
 
 export const BiDashboard = memo(function BiDashboard({
@@ -63,9 +109,26 @@ export const BiDashboard = memo(function BiDashboard({
     products,
     shipments,
     metrics,
+    profit,
     formatCurrency,
     formatNumber,
   } = useBusinessIntelligence(apiBasePath);
+  const [productView, setProductView] = useState<'chart' | 'table'>('chart');
+  // Mantine's default xl breakpoint; wide screens show chart and table together.
+  const isWide = useMediaQuery('(min-width: 88em)') ?? false;
+
+  const customerSlices = useMemo(() => {
+    const top = metrics.topCustomers.slice(0, 5).map((c) => ({
+      name: c.customerName,
+      value: c.totalAmount,
+      orders: c.orderCount,
+    }));
+    const others =
+      metrics.ytdTotal - top.reduce((sum, slice) => sum + slice.value, 0);
+    return others > 0.005
+      ? [...top, { name: 'Others', value: others, orders: null }]
+      : top;
+  }, [metrics.topCustomers, metrics.ytdTotal]);
 
   if (isLoading) {
     return (
@@ -75,598 +138,651 @@ export const BiDashboard = memo(function BiDashboard({
     );
   }
 
+  const periodBadge = PERIOD_BADGE_LABELS[dateFilter];
+  const comparisonCaption = COMPARISON_CAPTIONS[dateFilter];
+  const formatTooltipValue = (value: number, key: string) =>
+    key === 'revenue' || key === 'totalValue'
+      ? formatCurrency(value)
+      : key === 'cbm'
+        ? formatNumber(value)
+        : value.toLocaleString('en-US');
+
   return (
     <Profiler id="BiDashboard" onRender={onRenderCallback}>
       <Stack gap="lg">
-        {/* Header with Filter */}
-        <Group justify="space-between" align="center" wrap="nowrap">
+        <Group justify="space-between" align="center" wrap="wrap" gap="sm">
           <div>
-            <Title order={1} size="h2" mb={4}>
-              Business Intelligence Dashboard
+            <Title order={2} fw={700} c="dark.8">
+              Business intelligence
             </Title>
             <Text size="sm" c="dimmed">
-              Real-time business metrics and analytics
+              Sales, customers and shipment performance
             </Text>
           </div>
           <Select
             data={filterOptions}
             value={dateFilter}
             onChange={(value) =>
-              setDateFilter((value as DateFilterType) || 'mtd')
+              setDateFilter((value as DateFilterType) || 'ytd')
             }
-            w={220}
-            size="md"
-            placeholder="Select time period"
-            label="Time Period"
-            styles={{
-              label: { fontWeight: 600 },
-            }}
+            allowDeselect={false}
+            w={190}
+            size="sm"
+            radius="md"
+            aria-label="Time period"
+            leftSection={<IconCalendar size={16} />}
+            comboboxProps={{ shadow: 'md' }}
           />
         </Group>
 
-        {/* Key Metrics Row */}
-        <SimpleGrid cols={{ base: 1, sm: 2, md: 3, lg: 6 }} spacing="md">
-          <StatCard
-            title="Year to Date"
+        <SimpleGrid cols={{ base: 1, xs: 2, md: 3, xl: 6 }} spacing="md">
+          <KpiCard
+            label="Revenue"
             value={formatCurrency(metrics.ytdTotal)}
-            icon={IconTrendingUp}
-            color="blue"
+            badge={periodBadge}
+            delta={metrics.deltas.revenue}
+            deltaCaption={comparisonCaption}
+            caption="Selected period"
           />
-          <StatCard
-            title="Month to Date"
+          <KpiCard
+            label="Month to date"
             value={formatCurrency(metrics.mtdTotal)}
-            icon={IconCurrencyPeso}
-            color="green"
+            badge="MTD"
+            delta={metrics.deltas.mtd}
+            deltaCaption={COMPARISON_CAPTIONS.mtd}
+            caption="Current month"
           />
-          <StatCard
-            title="Transactions"
-            value={metrics.transactionCount.toString()}
-            icon={IconShoppingCart}
-            color="violet"
+          <KpiCard
+            label="Transactions"
+            value={metrics.transactionCount.toLocaleString('en-US')}
+            badge={periodBadge}
+            delta={metrics.deltas.transactions}
+            deltaCaption={comparisonCaption}
+            caption="Selected period"
           />
-          <StatCard
-            title="Total COGS"
+          <KpiCard
+            label="Total COGS"
             value={formatCurrency(metrics.totalCOGS)}
-            icon={IconPackage}
-            color="orange"
+            caption="All products"
           />
-          <StatCard
-            title="Total CBM"
+          <KpiCard
+            label="Total CBM"
             value={formatNumber(metrics.totalCBM)}
-            icon={IconCube}
-            color="indigo"
+            caption="All shipments"
           />
-          <StatCard
-            title="Total Sacks"
-            value={metrics.totalSacks.toString()}
-            icon={IconTruck}
-            color="pink"
+          <KpiCard
+            label="Total sacks"
+            value={metrics.totalSacks.toLocaleString('en-US')}
+            caption="All shipments"
+          />
+          <KpiCard
+            label="Customers"
+            value={metrics.extended.uniqueCustomers.toLocaleString('en-US')}
+            badge={periodBadge}
+            delta={metrics.deltas.customers}
+            deltaCaption={comparisonCaption}
+            caption="Unique buyers"
+          />
+          <KpiCard
+            label="Quantity sold"
+            value={metrics.extended.quantitySold.toLocaleString('en-US')}
+            badge={periodBadge}
+            delta={metrics.deltas.quantity}
+            deltaCaption={comparisonCaption}
+            caption="Units"
+          />
+          <KpiCard
+            label="Avg. order value"
+            value={
+              metrics.extended.averageOrderValue === null
+                ? '—'
+                : formatCurrency(metrics.extended.averageOrderValue)
+            }
+            badge={periodBadge}
+            delta={metrics.deltas.averageOrderValue}
+            deltaCaption={comparisonCaption}
+            caption="Per transaction"
+          />
+          <KpiCard
+            label="Adjustments"
+            value={formatCurrency(metrics.extended.adjustmentsTotal)}
+            badge={periodBadge}
+            caption="Excludes cancelled orders"
+          />
+          <KpiCard
+            label="Lost revenue"
+            value={formatCurrency(metrics.extended.lostRevenue.value)}
+            badge={periodBadge}
+            caption={`${metrics.extended.lostRevenue.count.toLocaleString('en-US')} cancelled, forfeited or voided`}
+          />
+          <KpiCard
+            label="Not yet invoiced"
+            value={formatCurrency(metrics.extended.notYetInvoiced.value)}
+            badge={periodBadge}
+            caption={`${metrics.extended.notYetInvoiced.count.toLocaleString('en-US')} orders without invoice date`}
           />
         </SimpleGrid>
 
-        {/* Monthly Trends Section */}
-        {metrics.monthlyTrends.length > 0 && (
-          <>
-            <Title order={2} mt="md" mb="sm">
-              Monthly Trends
-            </Title>
+        <Grid gutter="md">
+          <Grid.Col span={{ base: 12, xl: 6 }}>
+            <ChartCard
+              title="Revenue & orders"
+              subtitle={`Monthly, ${new Date().getFullYear()}`}
+              actions={
+                <Group gap="md">
+                  <LegendDot color={CHART_PALETTE.primary} label="Revenue" />
+                  <LegendDot color={CHART_PALETTE.tertiary} label="Orders" />
+                </Group>
+              }
+            >
+              <ResponsiveContainer width="100%" height={300}>
+                <AreaChart data={metrics.monthlyTrends} margin={CHART_MARGIN}>
+                  <defs>
+                    <linearGradient id="bi-revenue" x1="0" y1="0" x2="0" y2="1">
+                      <stop
+                        offset="0%"
+                        stopColor={CHART_PALETTE.primary}
+                        stopOpacity={0.35}
+                      />
+                      <stop
+                        offset="100%"
+                        stopColor={CHART_PALETTE.primary}
+                        stopOpacity={0.02}
+                      />
+                    </linearGradient>
+                    <linearGradient id="bi-orders" x1="0" y1="0" x2="0" y2="1">
+                      <stop
+                        offset="0%"
+                        stopColor={CHART_PALETTE.tertiary}
+                        stopOpacity={0.35}
+                      />
+                      <stop
+                        offset="100%"
+                        stopColor={CHART_PALETTE.tertiary}
+                        stopOpacity={0.02}
+                      />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid {...chartGridProps} />
+                  <XAxis dataKey="month" {...chartAxisProps} />
+                  <YAxis
+                    yAxisId="revenue"
+                    {...chartAxisProps}
+                    width={56}
+                    tickFormatter={formatCompactPeso}
+                  />
+                  <YAxis
+                    yAxisId="orders"
+                    orientation="right"
+                    {...chartAxisProps}
+                    width={36}
+                    allowDecimals={false}
+                  />
+                  <Tooltip
+                    cursor={{ stroke: CHART_PALETTE.soft, strokeWidth: 2 }}
+                    content={
+                      <ChartTooltip valueFormatter={formatTooltipValue} />
+                    }
+                  />
+                  <Area
+                    yAxisId="orders"
+                    type="monotone"
+                    dataKey="transactions"
+                    name="Orders"
+                    stroke={CHART_PALETTE.secondary}
+                    strokeWidth={2}
+                    fill="url(#bi-orders)"
+                    activeDot={{ r: 4, strokeWidth: 0 }}
+                  />
+                  <Area
+                    yAxisId="revenue"
+                    type="monotone"
+                    dataKey="revenue"
+                    name="Revenue"
+                    stroke={CHART_PALETTE.primary}
+                    strokeWidth={2.5}
+                    fill="url(#bi-revenue)"
+                    activeDot={{ r: 5, strokeWidth: 0 }}
+                  />
+                </AreaChart>
+              </ResponsiveContainer>
+            </ChartCard>
+          </Grid.Col>
 
-            {/* Revenue & Transaction Trends */}
-            <SimpleGrid cols={{ base: 1, lg: 2 }} spacing="md">
-              <Paper shadow="sm" p="lg" withBorder>
-                <Title order={3} mb="md">
-                  Monthly Revenue Trend
-                </Title>
-                <ResponsiveContainer width="100%" height={350}>
-                  <LineChart
-                    data={metrics.monthlyTrends}
-                    margin={{ top: 5, right: 30, left: 20, bottom: 20 }}
+          <Grid.Col span={{ base: 12, md: 6, xl: 3 }}>
+            <OrderPipelinePanel
+              stages={metrics.extended.pipeline}
+              formatCurrency={formatCurrency}
+            />
+          </Grid.Col>
+
+          <Grid.Col span={{ base: 12, md: 6, xl: 3 }}>
+            <ChartCard title="Top customers" subtitle="Share of revenue">
+              {customerSlices.length === 0 ? (
+                <Center h={260}>
+                  <Text size="sm" c="dimmed">
+                    No customer sales in this period
+                  </Text>
+                </Center>
+              ) : (
+                <>
+                  <Box pos="relative" h={190}>
+                    <ResponsiveContainer width="100%" height="100%">
+                      <PieChart>
+                        <Pie
+                          data={customerSlices}
+                          dataKey="value"
+                          nameKey="name"
+                          innerRadius={62}
+                          outerRadius={84}
+                          paddingAngle={2}
+                          stroke="none"
+                          isAnimationActive={false}
+                        >
+                          {customerSlices.map((slice, index) => (
+                            <Cell
+                              key={slice.name}
+                              fill={
+                                CHART_SERIES_COLORS[
+                                  index % CHART_SERIES_COLORS.length
+                                ]
+                              }
+                            />
+                          ))}
+                        </Pie>
+                      </PieChart>
+                    </ResponsiveContainer>
+                    <Center
+                      pos="absolute"
+                      inset={0}
+                      style={{ pointerEvents: 'none', flexDirection: 'column' }}
+                    >
+                      <Text size="xs" c="dimmed">
+                        Total
+                      </Text>
+                      <Text fw={600} c="dark.7">
+                        {formatCompactPeso(metrics.ytdTotal)}
+                      </Text>
+                    </Center>
+                  </Box>
+                  <Table
+                    mt="xs"
+                    verticalSpacing={6}
+                    horizontalSpacing={4}
+                    styles={tableStyles}
                   >
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis
-                      dataKey="month"
-                      angle={-45}
-                      textAnchor="end"
-                      height={80}
-                      style={{ fontSize: '12px' }}
-                    />
-                    <YAxis
-                      tickFormatter={(value: number) =>
-                        `₱${(value / 1000).toFixed(0)}k`
-                      }
-                    />
-                    <Tooltip
-                      formatter={(value: number) => [
-                        formatCurrency(value),
-                        'Revenue',
-                      ]}
-                    />
-                    <Legend />
-                    <Line
-                      type="monotone"
-                      dataKey="revenue"
-                      stroke="#228be6"
-                      strokeWidth={3}
-                      name="Monthly Revenue"
-                      dot={{ fill: '#228be6', r: 5 }}
-                      activeDot={{ r: 8 }}
-                    />
-                  </LineChart>
-                </ResponsiveContainer>
-              </Paper>
+                    <Table.Thead>
+                      <Table.Tr>
+                        <Table.Th>Customer</Table.Th>
+                        <Table.Th style={{ textAlign: 'right' }}>
+                          Orders
+                        </Table.Th>
+                        <Table.Th style={{ textAlign: 'right' }}>
+                          Revenue
+                        </Table.Th>
+                      </Table.Tr>
+                    </Table.Thead>
+                    <Table.Tbody>
+                      {customerSlices.map((slice, index) => (
+                        <Table.Tr key={slice.name}>
+                          <Table.Td>
+                            <Group gap={8} wrap="nowrap">
+                              <Box
+                                w={8}
+                                h={8}
+                                style={{
+                                  flexShrink: 0,
+                                  borderRadius: '50%',
+                                  backgroundColor:
+                                    CHART_SERIES_COLORS[
+                                      index % CHART_SERIES_COLORS.length
+                                    ],
+                                }}
+                              />
+                              <Text size="sm" truncate maw={150}>
+                                {slice.name}
+                              </Text>
+                            </Group>
+                          </Table.Td>
+                          <Table.Td style={{ textAlign: 'right' }}>
+                            <Text size="sm" c="dimmed">
+                              {slice.orders ?? '—'}
+                            </Text>
+                          </Table.Td>
+                          <Table.Td style={{ textAlign: 'right' }}>
+                            <Text size="sm" fw={500}>
+                              {formatCurrency(slice.value)}
+                            </Text>
+                          </Table.Td>
+                        </Table.Tr>
+                      ))}
+                    </Table.Tbody>
+                  </Table>
+                </>
+              )}
+            </ChartCard>
+          </Grid.Col>
 
-              <Paper shadow="sm" p="lg" withBorder>
-                <Title order={3} mb="md">
-                  Monthly Transaction Volume
-                </Title>
-                <ResponsiveContainer width="100%" height={350}>
-                  <AreaChart
-                    data={metrics.monthlyTrends}
-                    margin={{ top: 5, right: 30, left: 20, bottom: 20 }}
-                  >
-                    <defs>
-                      <linearGradient
-                        id="colorTransactions"
-                        x1="0"
-                        y1="0"
-                        x2="0"
-                        y2="1"
-                      >
-                        <stop
-                          offset="5%"
-                          stopColor="#40c057"
-                          stopOpacity={0.8}
-                        />
-                        <stop
-                          offset="95%"
-                          stopColor="#40c057"
-                          stopOpacity={0}
-                        />
-                      </linearGradient>
-                    </defs>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis
-                      dataKey="month"
-                      angle={-45}
-                      textAnchor="end"
-                      height={80}
-                      style={{ fontSize: '12px' }}
-                    />
-                    <YAxis />
-                    <Tooltip />
-                    <Legend />
-                    <Area
-                      type="monotone"
-                      dataKey="transactions"
-                      stroke="#40c057"
-                      fillOpacity={1}
-                      fill="url(#colorTransactions)"
-                      name="Transactions"
-                    />
-                  </AreaChart>
-                </ResponsiveContainer>
-              </Paper>
-            </SimpleGrid>
-
-            {/* Shipment Trends */}
-            <Paper shadow="sm" p="lg" withBorder>
-              <Title order={3} mb="md">
-                Monthly Shipment Metrics
-              </Title>
-              <ResponsiveContainer width="100%" height={350}>
+          <Grid.Col span={{ base: 12, lg: 4 }}>
+            <ChartCard
+              title="Shipments"
+              subtitle={`Monthly, ${new Date().getFullYear()}`}
+              actions={
+                <Group gap="md">
+                  <LegendDot color={CHART_PALETTE.secondary} label="Sacks" />
+                  <LegendDot color={CHART_PALETTE.primary} label="CBM" />
+                </Group>
+              }
+            >
+              <SimpleGrid cols={3} spacing="xs" mb="md">
+                <MiniStat
+                  label="Total CBM"
+                  value={formatNumber(metrics.totalCBM)}
+                />
+                <MiniStat
+                  label="Total sacks"
+                  value={metrics.totalSacks.toLocaleString('en-US')}
+                />
+                <MiniStat
+                  label="Shipments"
+                  value={shipments.length.toLocaleString('en-US')}
+                />
+              </SimpleGrid>
+              <ResponsiveContainer width="100%" height={250}>
                 <ComposedChart
                   data={metrics.monthlyTrends}
-                  margin={{ top: 5, right: 30, left: 20, bottom: 20 }}
+                  margin={CHART_MARGIN}
                 >
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis
-                    dataKey="month"
-                    angle={-45}
-                    textAnchor="end"
-                    height={80}
-                    style={{ fontSize: '12px' }}
+                  <CartesianGrid {...chartGridProps} />
+                  <XAxis dataKey="month" {...chartAxisProps} />
+                  <YAxis
+                    yAxisId="sacks"
+                    {...chartAxisProps}
+                    width={40}
+                    allowDecimals={false}
                   />
-                  <YAxis yAxisId="left" />
-                  <YAxis yAxisId="right" orientation="right" />
-                  <Tooltip />
-                  <Legend />
+                  <YAxis
+                    yAxisId="cbm"
+                    orientation="right"
+                    {...chartAxisProps}
+                    width={40}
+                  />
+                  <Tooltip
+                    cursor={{ fill: 'rgba(76, 110, 245, 0.06)' }}
+                    content={
+                      <ChartTooltip
+                        valueFormatter={formatTooltipValue}
+                        extraRows={(datum) => [
+                          {
+                            label: 'Shipments',
+                            value: String(datum.shipments ?? 0),
+                          },
+                        ]}
+                      />
+                    }
+                  />
                   <Bar
-                    yAxisId="right"
+                    yAxisId="sacks"
                     dataKey="sacks"
-                    fill="#fd7e14"
-                    name="Total Sacks"
+                    name="Sacks"
+                    fill={CHART_PALETTE.secondary}
+                    radius={[4, 4, 0, 0]}
+                    maxBarSize={18}
                   />
                   <Line
-                    yAxisId="left"
-                    type="monotone"
-                    dataKey="shipments"
-                    stroke="#be4bdb"
-                    strokeWidth={2}
-                    name="Shipments"
-                    dot={{ fill: '#be4bdb', r: 4 }}
-                  />
-                  <Line
-                    yAxisId="right"
+                    yAxisId="cbm"
                     type="monotone"
                     dataKey="cbm"
-                    stroke="#4c6ef5"
-                    strokeWidth={2}
-                    name="Total CBM"
-                    dot={{ fill: '#4c6ef5', r: 4 }}
+                    name="CBM"
+                    stroke={CHART_PALETTE.primary}
+                    strokeWidth={2.5}
+                    dot={false}
+                    activeDot={{ r: 4, strokeWidth: 0 }}
                   />
                 </ComposedChart>
               </ResponsiveContainer>
-            </Paper>
+            </ChartCard>
+          </Grid.Col>
 
-            {/* Top Performers by Month Table */}
-            <Paper shadow="sm" p="lg" withBorder>
-              <Title order={3} mb="md">
-                Monthly Top Performers
-              </Title>
-              <div style={{ overflowX: 'auto' }}>
-                <Table striped highlightOnHover withTableBorder>
+          <Grid.Col span={{ base: 12, md: 6, lg: 4 }}>
+            <CustomerMixPanel
+              months={metrics.extended.customerMix}
+              repeatRate={metrics.extended.repeatRate}
+            />
+          </Grid.Col>
+
+          <Grid.Col span={{ base: 12, md: 6, lg: 4 }}>
+            <WeekdaySalesPanel
+              days={metrics.extended.weekdaySales}
+              formatCurrency={formatCurrency}
+            />
+          </Grid.Col>
+
+          <Grid.Col span={{ base: 12, lg: profit.enabled ? 7 : 12 }}>
+            <ChartCard
+              title="Monthly top performers"
+              subtitle="Best customer and product each month"
+            >
+              <ScrollArea h={338} type="hover" offsetScrollbars>
+                <Table
+                  verticalSpacing="xs"
+                  highlightOnHover
+                  stickyHeader
+                  styles={tableStyles}
+                >
                   <Table.Thead>
                     <Table.Tr>
                       <Table.Th>Month</Table.Th>
-                      <Table.Th>Revenue</Table.Th>
-                      <Table.Th>Top Customer</Table.Th>
                       <Table.Th style={{ textAlign: 'right' }}>
-                        Customer Revenue
+                        Revenue
                       </Table.Th>
-                      <Table.Th>Top Product</Table.Th>
-                      <Table.Th style={{ textAlign: 'right' }}>
-                        Product Revenue
-                      </Table.Th>
+                      <Table.Th>Top customer</Table.Th>
+                      <Table.Th>Top product</Table.Th>
                     </Table.Tr>
                   </Table.Thead>
                   <Table.Tbody>
                     {metrics.monthlyTrends.map((month) => (
                       <Table.Tr key={month.month}>
                         <Table.Td>
-                          <Text fw={600}>{month.month}</Text>
+                          <Text size="sm" fw={500}>
+                            {month.month}
+                          </Text>
                         </Table.Td>
-                        <Table.Td>
-                          <Text size="sm" c="blue" fw={600}>
+                        <Table.Td style={{ textAlign: 'right' }}>
+                          <Text size="sm" fw={600} c="dark.7">
                             {formatCurrency(month.revenue)}
                           </Text>
                         </Table.Td>
                         <Table.Td>
-                          <Text size="sm">{month.topCustomer}</Text>
-                        </Table.Td>
-                        <Table.Td style={{ textAlign: 'right' }}>
-                          <Text size="sm" c="green">
-                            {formatCurrency(month.topCustomerRevenue)}
+                          <Text size="sm" truncate maw={180}>
+                            {month.topCustomer}
                           </Text>
+                          {month.topCustomerRevenue > 0 ? (
+                            <Text size="xs" c="dimmed">
+                              {formatCurrency(month.topCustomerRevenue)}
+                            </Text>
+                          ) : null}
                         </Table.Td>
                         <Table.Td>
-                          <Text size="sm">{month.topProduct}</Text>
-                        </Table.Td>
-                        <Table.Td style={{ textAlign: 'right' }}>
-                          <Text size="sm" c="green">
-                            {formatCurrency(month.topProductRevenue)}
+                          <Text size="sm" truncate maw={180}>
+                            {month.topProduct}
                           </Text>
+                          {month.topProductRevenue > 0 ? (
+                            <Text size="xs" c="dimmed">
+                              {formatCurrency(month.topProductRevenue)}
+                            </Text>
+                          ) : null}
                         </Table.Td>
                       </Table.Tr>
                     ))}
                   </Table.Tbody>
                 </Table>
-              </div>
-            </Paper>
-          </>
-        )}
+              </ScrollArea>
+            </ChartCard>
+          </Grid.Col>
 
-        {/* Charts Row 1 - Sales & Products */}
-        <SimpleGrid cols={{ base: 1, lg: 2 }} spacing="md">
-          {/* Top Products Bar Chart */}
-          <Paper shadow="sm" p="lg" withBorder>
-            <Title order={3} mb="md">
-              Top 10 Products by Sales Value
-            </Title>
-            <ResponsiveContainer width="100%" height={400}>
-              <BarChart
-                data={metrics.topProducts}
-                margin={{ top: 5, right: 30, left: 20, bottom: 60 }}
-              >
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis
-                  dataKey="productCode"
-                  angle={-45}
-                  textAnchor="end"
-                  height={100}
-                  style={{ fontSize: '12px' }}
-                />
-                <YAxis
-                  tickFormatter={(value: number) =>
-                    `₱${(value / 1000).toFixed(0)}k`
-                  }
-                />
-                <Tooltip
-                  formatter={(value: number) => [
-                    formatCurrency(value),
-                    'Sales',
-                  ]}
-                  labelStyle={{ color: '#000' }}
-                />
-                <Legend />
-                <Bar
-                  dataKey="totalValue"
-                  fill="#228be6"
-                  name="Total Sales"
-                  radius={[8, 8, 0, 0]}
-                />
-              </BarChart>
-            </ResponsiveContainer>
-          </Paper>
-
-          {/* Top Products Quantity Line Chart */}
-          <Paper shadow="sm" p="lg" withBorder>
-            <Title order={3} mb="md">
-              Product Quantity Sold
-            </Title>
-            <ResponsiveContainer width="100%" height={400}>
-              <AreaChart
-                data={metrics.topProducts}
-                margin={{ top: 5, right: 30, left: 20, bottom: 60 }}
-              >
-                <defs>
-                  <linearGradient id="colorQty" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#8884d8" stopOpacity={0.8} />
-                    <stop offset="95%" stopColor="#8884d8" stopOpacity={0} />
-                  </linearGradient>
-                </defs>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis
-                  dataKey="productCode"
-                  angle={-45}
-                  textAnchor="end"
-                  height={100}
-                  style={{ fontSize: '12px' }}
-                />
-                <YAxis />
-                <Tooltip
-                  formatter={(value: number) => [
-                    formatNumber(value),
-                    'Quantity',
-                  ]}
-                />
-                <Legend />
-                <Area
-                  type="monotone"
-                  dataKey="quantity"
-                  stroke="#8884d8"
-                  fillOpacity={1}
-                  fill="url(#colorQty)"
-                  name="Quantity Sold"
-                />
-              </AreaChart>
-            </ResponsiveContainer>
-          </Paper>
-        </SimpleGrid>
-
-        {/* Charts Row 2 - Customers & Revenue Distribution */}
-        <SimpleGrid cols={{ base: 1, lg: 2 }} spacing="md">
-          {/* Top Customers Bar Chart */}
-          <Paper shadow="sm" p="lg" withBorder>
-            <Title order={3} mb="md">
-              Top 10 Customers by Revenue
-            </Title>
-            <ResponsiveContainer width="100%" height={400}>
-              <BarChart
-                data={metrics.topCustomers}
-                margin={{ top: 5, right: 30, left: 20, bottom: 80 }}
-                layout="vertical"
-              >
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis
-                  type="number"
-                  tickFormatter={(value: number) =>
-                    `₱${(value / 1000).toFixed(0)}k`
-                  }
-                />
-                <YAxis
-                  dataKey="customerName"
-                  type="category"
-                  width={150}
-                  style={{ fontSize: '11px' }}
-                />
-                <Tooltip
-                  formatter={(value: number) => [
-                    formatCurrency(value),
-                    'Revenue',
-                  ]}
-                />
-                <Legend />
-                <Bar
-                  dataKey="totalAmount"
-                  fill="#40c057"
-                  name="Total Revenue"
-                  radius={[0, 8, 8, 0]}
-                />
-              </BarChart>
-            </ResponsiveContainer>
-          </Paper>
-
-          {/* Customer Order Distribution */}
-          <Paper shadow="sm" p="lg" withBorder>
-            <Title order={3} mb="md">
-              Customer Order Distribution (Top 5)
-            </Title>
-            <ResponsiveContainer width="100%" height={400}>
-              <PieChart>
-                <Pie
-                  data={metrics.topCustomers.slice(0, 5).map((c) => ({
-                    name: c.customerName,
-                    value: c.totalAmount,
-                  }))}
-                  cx="50%"
-                  cy="50%"
-                  outerRadius={130}
-                  fill="#8884d8"
-                  dataKey="value"
-                  nameKey="name"
-                  label
-                >
-                  {metrics.topCustomers.slice(0, 5).map((customer, index) => (
-                    <Cell
-                      key={`cell-${customer.customerName}`}
-                      fill={CHART_COLORS[index % CHART_COLORS.length]}
-                    />
-                  ))}
-                </Pie>
-                <Tooltip
-                  formatter={(value: number) => [
-                    formatCurrency(value),
-                    'Revenue',
-                  ]}
-                />
-                <Legend />
-              </PieChart>
-            </ResponsiveContainer>
-          </Paper>
-        </SimpleGrid>
-
-        {/* Detailed Tables Section */}
-        <SimpleGrid cols={{ base: 1, lg: 2 }} spacing="md">
-          {/* Products Table */}
-          <Paper shadow="sm" p="lg" withBorder>
-            <Group mb="md">
-              <IconPackage size={24} color="#fd7e14" />
-              <Title order={3}>Products Overview</Title>
-            </Group>
-
-            {metrics.topProducts.length > 0 && (
-              <div style={{ overflowX: 'auto' }}>
-                <Table striped highlightOnHover withTableBorder>
-                  <Table.Thead>
-                    <Table.Tr>
-                      <Table.Th>#</Table.Th>
-                      <Table.Th>Product Code</Table.Th>
-                      <Table.Th style={{ textAlign: 'right' }}>Sales</Table.Th>
-                      <Table.Th style={{ textAlign: 'right' }}>Qty</Table.Th>
-                    </Table.Tr>
-                  </Table.Thead>
-                  <Table.Tbody>
-                    {metrics.topProducts.map((product, index) => (
-                      <Table.Tr key={product.productCode}>
-                        <Table.Td>
-                          <Text fw={600} c="blue">
-                            {index + 1}
-                          </Text>
-                        </Table.Td>
-                        <Table.Td>
-                          <Text size="sm" fw={500}>
-                            {product.productCode}
-                          </Text>
-                        </Table.Td>
-                        <Table.Td style={{ textAlign: 'right' }}>
-                          <Text size="sm" c="green" fw={600}>
-                            {formatCurrency(product.totalValue)}
-                          </Text>
-                        </Table.Td>
-                        <Table.Td style={{ textAlign: 'right' }}>
-                          <Text size="sm">
-                            {formatNumber(product.quantity)}
-                          </Text>
-                        </Table.Td>
-                      </Table.Tr>
-                    ))}
-                  </Table.Tbody>
-                </Table>
-              </div>
-            )}
-
-            <Group mt="md" justify="space-between">
-              <StatCard
-                title="Total Products"
-                value={products.length.toString()}
-                icon={IconPackage}
-                color="cyan"
+          {profit.enabled ? (
+            <Grid.Col span={{ base: 12, lg: 5 }}>
+              <ProfitSnapshotPanel
+                data={profit.data}
+                isLoading={profit.isLoading}
+                isError={profit.isError}
+                formatCurrency={formatCurrency}
               />
-              <StatCard
-                title="Total COGS"
-                value={formatCurrency(metrics.totalCOGS)}
-                icon={IconCurrencyPeso}
-                color="orange"
-              />
-            </Group>
-          </Paper>
+            </Grid.Col>
+          ) : null}
 
-          {/* Customers Table */}
-          <Paper shadow="sm" p="lg" withBorder>
-            <Group mb="md">
-              <IconUsers size={24} color="#228be6" />
-              <Title order={3}>Customers Overview</Title>
-            </Group>
-
-            {metrics.topCustomers.length > 0 && (
-              <div style={{ overflowX: 'auto' }}>
-                <Table striped highlightOnHover withTableBorder>
-                  <Table.Thead>
-                    <Table.Tr>
-                      <Table.Th>#</Table.Th>
-                      <Table.Th>Customer Name</Table.Th>
-                      <Table.Th style={{ textAlign: 'right' }}>Orders</Table.Th>
-                      <Table.Th style={{ textAlign: 'right' }}>Total</Table.Th>
-                    </Table.Tr>
-                  </Table.Thead>
-                  <Table.Tbody>
-                    {metrics.topCustomers.map((customer, index) => (
-                      <Table.Tr key={customer.customerName}>
-                        <Table.Td>
-                          <Text fw={600} c="blue">
-                            {index + 1}
-                          </Text>
-                        </Table.Td>
-                        <Table.Td>
-                          <Text size="sm" fw={500}>
-                            {customer.customerName}
-                          </Text>
-                        </Table.Td>
-                        <Table.Td style={{ textAlign: 'right' }}>
-                          <Text size="sm">{customer.orderCount}</Text>
-                        </Table.Td>
-                        <Table.Td style={{ textAlign: 'right' }}>
-                          <Text size="sm" c="green" fw={600}>
-                            {formatCurrency(customer.totalAmount)}
-                          </Text>
-                        </Table.Td>
-                      </Table.Tr>
-                    ))}
-                  </Table.Tbody>
-                </Table>
-              </div>
-            )}
-          </Paper>
-        </SimpleGrid>
-
-        {/* Shipments Section */}
-        <Paper shadow="sm" p="lg" withBorder>
-          <Group mb="md">
-            <IconTruck size={24} color="#be4bdb" />
-            <Title order={3}>Shipments Overview</Title>
-          </Group>
-
-          <SimpleGrid cols={{ base: 1, sm: 3 }} spacing="md">
-            <StatCard
-              title="Total CBM"
-              value={formatNumber(metrics.totalCBM)}
-              icon={IconCube}
-              color="indigo"
-            />
-            <StatCard
-              title="Total Sacks"
-              value={metrics.totalSacks.toString()}
-              icon={IconPackage}
-              color="pink"
-            />
-            <StatCard
-              title="Total Shipments"
-              value={shipments.length.toString()}
-              icon={IconTruck}
-              color="teal"
-            />
-          </SimpleGrid>
-        </Paper>
+          <Grid.Col span={12}>
+            <ChartCard
+              title="Top products"
+              subtitle={`Top 10 by sales value · ${products.length.toLocaleString('en-US')} products in catalog`}
+              actions={
+                isWide ? null : (
+                  <SegmentedControl
+                    size="xs"
+                    radius="md"
+                    value={productView}
+                    onChange={(value) =>
+                      setProductView(value as 'chart' | 'table')
+                    }
+                    data={[
+                      { value: 'chart', label: 'Chart' },
+                      { value: 'table', label: 'Table' },
+                    ]}
+                    aria-label="Top products view"
+                  />
+                )
+              }
+            >
+              {metrics.topProducts.length === 0 ? (
+                <Center h={200}>
+                  <Text size="sm" c="dimmed">
+                    No product sales in this period
+                  </Text>
+                </Center>
+              ) : (
+                <Grid gutter="xl">
+                  {isWide || productView === 'chart' ? (
+                    <Grid.Col span={isWide ? 8 : 12}>
+                      <ResponsiveContainer width="100%" height={340}>
+                        <BarChart
+                          data={metrics.topProducts}
+                          margin={CHART_MARGIN}
+                        >
+                          <defs>
+                            <linearGradient
+                              id="bi-products"
+                              x1="0"
+                              y1="0"
+                              x2="0"
+                              y2="1"
+                            >
+                              <stop
+                                offset="0%"
+                                stopColor={CHART_PALETTE.primary}
+                              />
+                              <stop
+                                offset="100%"
+                                stopColor={CHART_PALETTE.secondary}
+                              />
+                            </linearGradient>
+                          </defs>
+                          <CartesianGrid {...chartGridProps} />
+                          <XAxis
+                            dataKey="productCode"
+                            {...chartAxisProps}
+                            interval={0}
+                            tickFormatter={(code: string) =>
+                              code.length > 14 ? `${code.slice(0, 13)}…` : code
+                            }
+                          />
+                          <YAxis
+                            {...chartAxisProps}
+                            width={56}
+                            tickFormatter={formatCompactPeso}
+                          />
+                          <Tooltip
+                            cursor={{ fill: 'rgba(76, 110, 245, 0.06)' }}
+                            content={
+                              <ChartTooltip
+                                valueFormatter={formatTooltipValue}
+                                extraRows={(datum) => [
+                                  {
+                                    label: 'Quantity',
+                                    value: formatNumber(
+                                      Number(datum.quantity ?? 0)
+                                    ),
+                                  },
+                                ]}
+                              />
+                            }
+                          />
+                          <Bar
+                            dataKey="totalValue"
+                            name="Sales"
+                            fill="url(#bi-products)"
+                            radius={[6, 6, 0, 0]}
+                            maxBarSize={40}
+                          />
+                        </BarChart>
+                      </ResponsiveContainer>
+                    </Grid.Col>
+                  ) : null}
+                  {isWide || productView === 'table' ? (
+                    <Grid.Col span={isWide ? 4 : 12}>
+                      <Table.ScrollContainer minWidth={360}>
+                        <Table
+                          verticalSpacing="xs"
+                          highlightOnHover
+                          styles={tableStyles}
+                        >
+                          <Table.Thead>
+                            <Table.Tr>
+                              <Table.Th w={40}>#</Table.Th>
+                              <Table.Th>Product code</Table.Th>
+                              <Table.Th style={{ textAlign: 'right' }}>
+                                Quantity
+                              </Table.Th>
+                              <Table.Th style={{ textAlign: 'right' }}>
+                                Sales
+                              </Table.Th>
+                            </Table.Tr>
+                          </Table.Thead>
+                          <Table.Tbody>
+                            {metrics.topProducts.map((product, index) => (
+                              <Table.Tr key={product.productCode}>
+                                <Table.Td>
+                                  <Text size="sm" c="dimmed">
+                                    {index + 1}
+                                  </Text>
+                                </Table.Td>
+                                <Table.Td>
+                                  <Text size="sm" fw={500}>
+                                    {product.productCode}
+                                  </Text>
+                                </Table.Td>
+                                <Table.Td style={{ textAlign: 'right' }}>
+                                  <Text size="sm">
+                                    {formatNumber(product.quantity)}
+                                  </Text>
+                                </Table.Td>
+                                <Table.Td style={{ textAlign: 'right' }}>
+                                  <Text size="sm" fw={600} c="dark.7">
+                                    {formatCurrency(product.totalValue)}
+                                  </Text>
+                                </Table.Td>
+                              </Table.Tr>
+                            ))}
+                          </Table.Tbody>
+                        </Table>
+                      </Table.ScrollContainer>
+                    </Grid.Col>
+                  ) : null}
+                </Grid>
+              )}
+            </ChartCard>
+          </Grid.Col>
+        </Grid>
       </Stack>
     </Profiler>
   );

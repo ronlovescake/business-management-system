@@ -1,9 +1,14 @@
 import { useState, useMemo } from 'react';
-import { useQueries } from '@tanstack/react-query';
+import { useQueries, useQuery } from '@tanstack/react-query';
+import { useSession } from 'next-auth/react';
 import { api } from '@/lib/api/client';
 import { buildApiPath } from '@/lib/api/paths';
 import { queryKeys } from '@/lib/queryKeys';
 import { logger } from '@/lib/logger';
+import {
+  canonicalizeOrderStatus,
+  isCancelledOrderStatus,
+} from '@/lib/transactions/order-status';
 import type {
   TransactionData,
   ProductData,
@@ -12,6 +17,10 @@ import type {
   TopProduct,
   MonthlyData,
   DateFilterType,
+  KpiDeltas,
+  PeriodTotals,
+  ExtendedMetrics,
+  ProfitSnapshot,
 } from '../types';
 
 // ============================================================================
@@ -64,6 +73,94 @@ function getDateRangeFilter(filter: string): (date: Date) => boolean {
   }
 }
 
+export interface ComparisonRange {
+  currentStart: Date;
+  previousStart: Date;
+  previousEnd: Date;
+}
+
+// Clamps the day so e.g. Mar 31 shifted back one month lands on Feb 28/29, not Mar 2/3.
+function shiftMonths(date: Date, months: number): Date {
+  const target = new Date(date.getFullYear(), date.getMonth() + months, 1);
+  const daysInTarget = new Date(
+    target.getFullYear(),
+    target.getMonth() + 1,
+    0
+  ).getDate();
+  return new Date(
+    target.getFullYear(),
+    target.getMonth(),
+    Math.min(date.getDate(), daysInTarget),
+    date.getHours(),
+    date.getMinutes(),
+    date.getSeconds(),
+    date.getMilliseconds()
+  );
+}
+
+/**
+ * Window the selected filter covers (currentStart..now) and the same-length window
+ * immediately before it. Returns null when there is nothing to compare against.
+ */
+export function getComparisonRange(
+  filter: string,
+  now: Date = new Date()
+): ComparisonRange | null {
+  const DAY_MS = 24 * 60 * 60 * 1000;
+
+  const byMonths = (currentStart: Date, months: number): ComparisonRange => ({
+    currentStart,
+    previousStart: shiftMonths(currentStart, -months),
+    previousEnd: shiftMonths(now, -months),
+  });
+
+  const byDays = (days: number): ComparisonRange => ({
+    currentStart: new Date(now.getTime() - days * DAY_MS),
+    previousStart: new Date(now.getTime() - 2 * days * DAY_MS),
+    previousEnd: new Date(now.getTime() - days * DAY_MS),
+  });
+
+  switch (filter) {
+    case 'ytd':
+      return byMonths(new Date(now.getFullYear(), 0, 1), 12);
+    case 'mtd':
+      return byMonths(new Date(now.getFullYear(), now.getMonth(), 1), 1);
+    case 'last7days':
+      return byDays(7);
+    case 'last30days':
+      return byDays(30);
+    case 'last3months':
+      return byMonths(new Date(now.getFullYear(), now.getMonth() - 3, 1), 3);
+    case 'last6months':
+      return byMonths(new Date(now.getFullYear(), now.getMonth() - 6, 1), 6);
+    case 'all':
+    default:
+      return null;
+  }
+}
+
+export function percentChange(
+  current: number,
+  previous: number
+): number | null {
+  if (!Number.isFinite(current) || !Number.isFinite(previous)) {
+    return null;
+  }
+  if (previous === 0) {
+    return null;
+  }
+  return ((current - previous) / Math.abs(previous)) * 100;
+}
+
+// Filters whose window always contains the whole current month, so MTD is comparable.
+const FILTERS_COVERING_CURRENT_MONTH = new Set([
+  'ytd',
+  'mtd',
+  'last3months',
+  'last6months',
+  'all',
+]);
+
 export function formatCurrency(value: number): string {
   return new Intl.NumberFormat('en-PH', {
     style: 'currency',
@@ -83,9 +180,250 @@ export function formatNumber(value: number): string {
 // CUSTOM HOOK
 // ============================================================================
 
+const customerKey = (name: string | null | undefined) =>
+  (name ?? '').trim().toLowerCase();
+
+const monthKeyOf = (date: Date) =>
+  `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+
+/** Expects transactions that already exclude cancelled/forfeited/voided rows. */
+export function computeDeltas(
+  activeTransactions: TransactionData[],
+  filter: string,
+  current: PeriodTotals,
+  now: Date = new Date()
+): KpiDeltas {
+  const sumWithin = (start: Date, end: Date) => {
+    let revenue = 0;
+    let count = 0;
+    let quantity = 0;
+    const customers = new Set<string>();
+    for (const t of activeTransactions) {
+      if (!t['Order Date']) {
+        continue;
+      }
+      const orderDate = new Date(t['Order Date']);
+      if (orderDate >= start && orderDate < end) {
+        revenue += t['Line Total'] || 0;
+        quantity += t.Quantity || 0;
+        count += 1;
+        const key = customerKey(t.Customers);
+        if (key) {
+          customers.add(key);
+        }
+      }
+    }
+    return { revenue, count, quantity, customers: customers.size };
+  };
+
+  const range = getComparisonRange(filter, now);
+  const previous = range
+    ? sumWithin(range.previousStart, range.previousEnd)
+    : null;
+
+  let mtd: number | null = null;
+  if (FILTERS_COVERING_CURRENT_MONTH.has(filter)) {
+    const mtdRange = getComparisonRange('mtd', now);
+    if (mtdRange) {
+      mtd = percentChange(
+        current.mtd,
+        sumWithin(mtdRange.previousStart, mtdRange.previousEnd).revenue
+      );
+    }
+  }
+
+  if (!previous) {
+    return {
+      revenue: null,
+      mtd,
+      transactions: null,
+      customers: null,
+      quantity: null,
+      averageOrderValue: null,
+    };
+  }
+
+  const currentAov = current.count > 0 ? current.revenue / current.count : 0;
+  const previousAov =
+    previous.count > 0 ? previous.revenue / previous.count : 0;
+
+  return {
+    revenue: percentChange(current.revenue, previous.revenue),
+    mtd,
+    transactions: percentChange(current.count, previous.count),
+    customers: percentChange(current.customers, previous.customers),
+    quantity: percentChange(current.quantity, previous.quantity),
+    averageOrderValue:
+      current.count > 0 ? percentChange(currentAov, previousAov) : null,
+  };
+}
+
+const PIPELINE_STATUSES = [
+  'In Transit',
+  'Warehouse',
+  'Prepared',
+  'Ready For Dispatch',
+  'Checked Out',
+  'On-Hold',
+  'Pending Payment',
+  'Shipped',
+] as const;
+
+const WEEKDAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'] as const;
+
+/**
+ * @param periodTransactions rows in the selected period, cancelled included
+ * @param allActiveTransactions every non-cancelled row (any date), for first-order lookups
+ * @param monthKeys months (YYYY-MM) to bucket the new-vs-returning series into
+ */
+export function computeExtendedMetrics(
+  periodTransactions: TransactionData[],
+  allActiveTransactions: TransactionData[],
+  monthKeys: string[]
+): ExtendedMetrics {
+  const active = periodTransactions.filter(
+    (t) => !isCancelledOrderStatus(t['Order Status'])
+  );
+
+  let revenue = 0;
+  let quantitySold = 0;
+  let adjustmentsTotal = 0;
+  const customers = new Set<string>();
+  const lostRevenue = { value: 0, count: 0 };
+  const notYetInvoiced = { value: 0, count: 0 };
+  const pipelineMap = new Map<string, { count: number; value: number }>();
+  const weekday = WEEKDAYS.map((day) => ({ day, revenue: 0, orders: 0 }));
+
+  for (const t of periodTransactions) {
+    if (isCancelledOrderStatus(t['Order Status'])) {
+      lostRevenue.value += t['Line Total'] || 0;
+      lostRevenue.count += 1;
+    }
+  }
+
+  for (const t of active) {
+    const lineTotal = t['Line Total'] || 0;
+    revenue += lineTotal;
+    quantitySold += t.Quantity || 0;
+    adjustmentsTotal += t.Adjustment || 0;
+
+    const key = customerKey(t.Customers);
+    if (key) {
+      customers.add(key);
+    }
+
+    if (!t['Invoice Date']) {
+      notYetInvoiced.value += lineTotal;
+      notYetInvoiced.count += 1;
+    }
+
+    const status = canonicalizeOrderStatus(t['Order Status']);
+    if (status) {
+      const stage = pipelineMap.get(status) ?? { count: 0, value: 0 };
+      stage.count += 1;
+      stage.value += lineTotal;
+      pipelineMap.set(status, stage);
+    }
+
+    if (t['Order Date']) {
+      const date = new Date(t['Order Date']);
+      if (!Number.isNaN(date.getTime())) {
+        // getDay() is Sunday-first; shift so Monday is index 0.
+        const bucket = weekday[(date.getDay() + 6) % 7];
+        bucket.revenue += lineTotal;
+        bucket.orders += 1;
+      }
+    }
+  }
+
+  const firstOrderMonth = new Map<string, string>();
+  const orderDays = new Map<string, Set<string>>();
+  for (const t of allActiveTransactions) {
+    const key = customerKey(t.Customers);
+    if (!key || !t['Order Date']) {
+      continue;
+    }
+    const date = new Date(t['Order Date']);
+    if (Number.isNaN(date.getTime())) {
+      continue;
+    }
+    const month = monthKeyOf(date);
+    const existing = firstOrderMonth.get(key);
+    if (!existing || month < existing) {
+      firstOrderMonth.set(key, month);
+    }
+    const days = orderDays.get(key) ?? new Set<string>();
+    days.add(date.toDateString());
+    orderDays.set(key, days);
+  }
+
+  const customersByMonth = new Map<string, Set<string>>();
+  for (const t of active) {
+    const key = customerKey(t.Customers);
+    if (!key || !t['Order Date']) {
+      continue;
+    }
+    const date = new Date(t['Order Date']);
+    if (Number.isNaN(date.getTime())) {
+      continue;
+    }
+    const month = monthKeyOf(date);
+    const set = customersByMonth.get(month) ?? new Set<string>();
+    set.add(key);
+    customersByMonth.set(month, set);
+  }
+
+  const customerMix = monthKeys.map((monthKey) => {
+    const [year, month] = monthKey.split('-');
+    const label = new Date(Number(year), Number(month) - 1).toLocaleString(
+      'en-US',
+      { month: 'short' }
+    );
+    let newCustomers = 0;
+    let returningCustomers = 0;
+    customersByMonth.get(monthKey)?.forEach((key) => {
+      if (firstOrderMonth.get(key) === monthKey) {
+        newCustomers += 1;
+      } else {
+        returningCustomers += 1;
+      }
+    });
+    return { month: label, newCustomers, returningCustomers };
+  });
+
+  let repeatCustomers = 0;
+  customers.forEach((key) => {
+    if ((orderDays.get(key)?.size ?? 0) >= 2) {
+      repeatCustomers += 1;
+    }
+  });
+
+  return {
+    uniqueCustomers: customers.size,
+    quantitySold,
+    averageOrderValue: active.length > 0 ? revenue / active.length : null,
+    adjustmentsTotal,
+    lostRevenue,
+    notYetInvoiced,
+    pipeline: PIPELINE_STATUSES.map((status) => ({
+      status,
+      count: pipelineMap.get(status)?.count ?? 0,
+      value: pipelineMap.get(status)?.value ?? 0,
+    })),
+    customerMix,
+    repeatRate:
+      customers.size > 0 ? (repeatCustomers / customers.size) * 100 : null,
+    weekdaySales: weekday,
+  };
+}
+
 export function useBusinessIntelligence(apiBasePath?: string) {
   const [dateFilter, setDateFilter] = useState<DateFilterType>('ytd');
   const cacheSuffix = apiBasePath ?? 'default';
+  const { data: session } = useSession();
+  const canViewProfit = ['ADMIN', 'SUPER_ADMIN'].includes(
+    session?.user?.role ?? ''
+  );
 
   // ============================================================================
   // DATA FETCHING WITH REACT QUERY
@@ -157,14 +495,22 @@ export function useBusinessIntelligence(apiBasePath?: string) {
   const metrics = useMemo(() => {
     const dateFilterFn = getDateRangeFilter(dateFilter);
 
-    // Filter transactions by date
-    const filteredTransactions = transactions.filter((t) => {
+    const activeTransactions = transactions.filter(
+      (t) => !isCancelledOrderStatus(t['Order Status'])
+    );
+
+    const periodTransactions = transactions.filter((t) => {
       if (!t['Order Date']) {
         return false;
       }
       const orderDate = new Date(t['Order Date']);
       return dateFilterFn(orderDate);
     });
+
+    // Cancelled/forfeited/voided rows are reported separately as lost revenue.
+    const filteredTransactions = periodTransactions.filter(
+      (t) => !isCancelledOrderStatus(t['Order Status'])
+    );
 
     // YTD and MTD calculations
     const ytdTotal = filteredTransactions.reduce(
@@ -421,6 +767,18 @@ export function useBusinessIntelligence(apiBasePath?: string) {
       };
     });
 
+    const extended = computeExtendedMetrics(
+      periodTransactions,
+      activeTransactions,
+      allMonths.filter((monthKey) => {
+        const [year, month] = monthKey.split('-').map(Number);
+        return (
+          dateFilterFn(new Date(year, month - 1, 1)) ||
+          dateFilterFn(new Date(year, month, 0, 23, 59, 59))
+        );
+      })
+    );
+
     return {
       ytdTotal,
       mtdTotal,
@@ -431,8 +789,42 @@ export function useBusinessIntelligence(apiBasePath?: string) {
       totalSacks,
       transactionCount: filteredTransactions.length,
       monthlyTrends,
+      extended,
+      deltas: computeDeltas(activeTransactions, dateFilter, {
+        revenue: ytdTotal,
+        mtd: mtdTotal,
+        count: filteredTransactions.length,
+        customers: extended.uniqueCustomers,
+        quantity: extended.quantitySold,
+      }),
     };
   }, [transactions, products, shipments, dateFilter]);
+
+  const profitQuery = useQuery({
+    queryKey: [
+      ...queryKeys.analytics.businessIntelligence(),
+      'profit-loss',
+      cacheSuffix,
+      dateFilter,
+    ],
+    queryFn: async (): Promise<ProfitSnapshot> => {
+      const range = getComparisonRange(dateFilter);
+      const params = new URLSearchParams();
+      if (range) {
+        params.set('from', range.currentStart.toISOString());
+        params.set('to', new Date().toISOString());
+      }
+      const endpoint = buildApiPath(apiBasePath, '/accounting/profit-loss');
+      const query = params.toString();
+      const data = await api.get<{ stats: ProfitSnapshot }>(
+        query ? `${endpoint}?${query}` : endpoint
+      );
+      return data.stats;
+    },
+    enabled: canViewProfit,
+    staleTime: 5 * 60 * 1000,
+    retry: false,
+  });
 
   return {
     // State
@@ -446,6 +838,12 @@ export function useBusinessIntelligence(apiBasePath?: string) {
 
     // Metrics
     metrics,
+    profit: {
+      enabled: canViewProfit,
+      data: profitQuery.data,
+      isLoading: profitQuery.isLoading,
+      isError: profitQuery.isError,
+    },
 
     // Utilities
     formatCurrency,
