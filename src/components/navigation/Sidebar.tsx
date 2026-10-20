@@ -36,11 +36,16 @@ interface SidebarProps {
 }
 
 const NAV_ITEM_ICON_CONTAINER_SIZE = 32;
-const NAV_ITEM_ICON_SIZE = 24;
+const NAV_ITEM_ICON_SIZE = 20;
 const NAV_ITEM_ROW_HEIGHT = 48;
 const NAV_LIST_GAP = 4;
 const SIDEBAR_SECTION_SPACING = 12;
 const LABEL_TRANSITION = 'width 160ms ease, opacity 120ms ease';
+
+export const SIDEBAR_BACKGROUND = '#4c6ef5';
+const SIDEBAR_ACTIVE_TEXT = '#4c6ef5';
+const SIDEBAR_TEXT = '#ffffff';
+const SIDEBAR_HOVER_BACKGROUND = 'rgba(255, 255, 255, 0.14)';
 
 export function Sidebar({ collapsed = false }: SidebarProps) {
   const pathname = usePathname();
@@ -83,10 +88,10 @@ export function Sidebar({ collapsed = false }: SidebarProps) {
     return (
       <Stack gap="md">
         <Group>
-          <ThemeIcon size="sm" radius="sm" variant="light">
+          <ThemeIcon size="sm" radius="sm" variant="white">
             <IconShirt size={16} />
           </ThemeIcon>
-          <Text size="sm" c="dimmed">
+          <Text size="sm" c="rgba(255, 255, 255, 0.8)">
             Loading navigation...
           </Text>
         </Group>
@@ -142,7 +147,7 @@ export function Sidebar({ collapsed = false }: SidebarProps) {
           }}
         >
           <Stack gap={2}>
-            <Text size="sm" fw={600} c="dark">
+            <Text size="sm" fw={600} c={SIDEBAR_TEXT}>
               {selectedBusiness === 'clothing'
                 ? 'Clothing'
                 : selectedBusiness === 'trucking'
@@ -153,7 +158,7 @@ export function Sidebar({ collapsed = false }: SidebarProps) {
             </Text>
             <Badge
               size="xs"
-              variant="light"
+              variant="white"
               color={workspaceMeta?.color ?? 'gray'}
             >
               {workspaceMeta?.label ?? 'Workspace'}
@@ -162,7 +167,7 @@ export function Sidebar({ collapsed = false }: SidebarProps) {
         </Box>
       </Group>
 
-      <Divider my={0} />
+      <Divider my={0} color="rgba(255, 255, 255, 0.2)" />
 
       {backupSidebarActive ? (
         <BackupRestoreSidebarPanel />
@@ -193,21 +198,16 @@ export function Sidebar({ collapsed = false }: SidebarProps) {
                     minHeight: `${NAV_ITEM_ROW_HEIGHT}px`,
                     borderRadius: '8px',
                     fontWeight: isActive ? 600 : 500,
+                    color: isActive ? SIDEBAR_ACTIVE_TEXT : SIDEBAR_TEXT,
                     backgroundColor: isActive
-                      ? 'rgba(67, 97, 238, 0.14)'
+                      ? '#ffffff'
                       : isHovered
-                        ? 'rgba(67, 97, 238, 0.08)'
+                        ? SIDEBAR_HOVER_BACKGROUND
                         : 'transparent',
-                    border: isActive
-                      ? '1px solid rgba(67, 97, 238, 0.3)'
-                      : isHovered
-                        ? '1px solid rgba(67, 97, 238, 0.2)'
-                        : 'none',
+                    border: 'none',
                     boxShadow: isActive
-                      ? 'inset 3px 0 0 rgba(67, 97, 238, 0.95), 0 4px 12px rgba(67, 97, 238, 0.12)'
-                      : isHovered
-                        ? '0 2px 8px rgba(67, 97, 238, 0.08)'
-                        : 'none',
+                      ? '0 4px 12px rgba(15, 23, 42, 0.12)'
+                      : 'none',
                     padding: '0 8px',
                     display: 'flex',
                     alignItems: 'center',
@@ -215,9 +215,7 @@ export function Sidebar({ collapsed = false }: SidebarProps) {
                     overflow: 'hidden',
                     justifyContent: collapsed ? 'center' : 'flex-start',
                     transition:
-                      'background-color 160ms ease, border-color 160ms ease, box-shadow 160ms ease, transform 120ms ease',
-                    transform:
-                      isHovered && !isActive ? 'translateX(1px)' : 'none',
+                      'background-color 160ms ease, color 160ms ease, box-shadow 160ms ease',
                     cursor: 'pointer',
                   }}
                 >
@@ -230,14 +228,10 @@ export function Sidebar({ collapsed = false }: SidebarProps) {
                       justifyContent: 'center',
                     }}
                   >
-                    <ThemeIcon
-                      size={NAV_ITEM_ICON_CONTAINER_SIZE}
-                      radius="sm"
-                      variant={isActive ? 'filled' : 'light'}
-                      color={isActive ? 'indigo' : 'gray'}
-                    >
-                      <IconComponent size={NAV_ITEM_ICON_SIZE} />
-                    </ThemeIcon>
+                    <IconComponent
+                      size={NAV_ITEM_ICON_SIZE}
+                      stroke={isActive ? 2 : 1.75}
+                    />
                   </Box>
                   <Box
                     style={{
@@ -252,7 +246,7 @@ export function Sidebar({ collapsed = false }: SidebarProps) {
                   >
                     <Text
                       size="sm"
-                      c={isActive ? 'indigo.7' : 'dark'}
+                      c="inherit"
                       fw={isActive ? 600 : 500}
                       truncate
                     >

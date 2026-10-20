@@ -17,7 +17,8 @@ import {
   IconLayoutSidebarLeftCollapse,
   IconLayoutSidebarLeftExpand,
 } from '@tabler/icons-react';
-import Sidebar from '../navigation/Sidebar';
+import Sidebar, { SIDEBAR_BACKGROUND } from '../navigation/Sidebar';
+import { useBackupRestoreSidebarStore } from '@/modules/clothing/operations/settings/components/backup-restore/backupRestoreSidebarStore';
 import BreadcrumbNavigation from '../navigation/BreadcrumbNavigation';
 import HeaderQuickActions from '../navigation/HeaderQuickActions';
 import {
@@ -99,8 +100,9 @@ const theme = createTheme({
 });
 
 export function AppLayout({ children }: AppLayoutProps) {
-  const pathname = usePathname();
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
+  const pathname = usePathname();
+  const isBackupSidebarActive = useBackupRestoreSidebarStore((s) => s.active);
   const [isSidebarVisualCollapsed, setIsSidebarVisualCollapsed] =
     useState(false);
   const [isSidebarTransitioning, setIsSidebarTransitioning] = useState(false);
@@ -304,9 +306,14 @@ export function AppLayout({ children }: AppLayoutProps) {
                   <AppShell.Navbar
                     p="lg"
                     style={{
-                      backgroundColor: '#ffffff',
+                      // Backup/restore panel is designed for a light surface.
+                      backgroundColor: isBackupSidebarActive
+                        ? '#ffffff'
+                        : SIDEBAR_BACKGROUND,
                       border: 'none',
-                      borderRight: '1px solid #e2e8f0',
+                      borderRight: isBackupSidebarActive
+                        ? '1px solid #e2e8f0'
+                        : 'none',
                       boxShadow: '0 1px 2px 0 rgba(0, 0, 0, 0.05)',
                       overflowX: 'hidden',
                     }}
