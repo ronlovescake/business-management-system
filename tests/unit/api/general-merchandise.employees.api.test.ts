@@ -11,28 +11,22 @@ const mockPrisma = vi.hoisted(() => ({
     count: vi.fn(),
   },
   generalMerchandiseAttendance: {
-    count: vi.fn(),
-    groupBy: vi.fn(),
     findMany: vi.fn(),
   },
   generalMerchandiseExpense: {
-    aggregate: vi.fn(),
-    groupBy: vi.fn(),
+    findMany: vi.fn(),
   },
   generalMerchandisePayroll: {
-    aggregate: vi.fn(),
-    groupBy: vi.fn(),
+    findMany: vi.fn(),
   },
   generalMerchandiseLeaveRequest: {
-    groupBy: vi.fn(),
+    findMany: vi.fn(),
   },
   generalMerchandiseCashAdvanceRecord: {
-    aggregate: vi.fn(),
-    groupBy: vi.fn(),
+    findMany: vi.fn(),
   },
   generalMerchandiseThirteenthMonthPayRecord: {
-    aggregate: vi.fn(),
-    groupBy: vi.fn(),
+    findMany: vi.fn(),
   },
 }));
 
@@ -155,64 +149,88 @@ describe('General merchandise employees API', () => {
   });
 
   it('returns GM employee dashboard metrics with normalized range ordering', async () => {
-    mockPrisma.generalMerchandiseAttendance.count.mockResolvedValue(4);
-    mockPrisma.generalMerchandiseAttendance.groupBy.mockResolvedValue([
-      { status: 'present', _count: { _all: 3 } },
-      { status: 'late', _count: { _all: 1 } },
-    ]);
+    const attendanceRow = (
+      employeeId: string,
+      date: string,
+      status: string
+    ) => ({
+      employeeId,
+      employeeName: employeeId,
+      department: 'Operations',
+      date,
+      status,
+      totalHours: 8,
+    });
     mockPrisma.generalMerchandiseAttendance.findMany.mockResolvedValue([
-      { employeeId: 'GM-001' },
-      { employeeId: 'GM-002' },
+      attendanceRow('GM-001', '2026-03-02', 'present'),
+      attendanceRow('GM-001', '2026-03-03', 'present'),
+      attendanceRow('GM-002', '2026-03-02', 'present'),
+      attendanceRow('GM-002', '2026-03-03', 'late'),
     ]);
-    mockPrisma.generalMerchandiseExpense.aggregate.mockResolvedValue({
-      _sum: { amount: 1500 },
-    });
-    mockPrisma.generalMerchandiseExpense.groupBy.mockResolvedValue([
-      { category: 'Fuel', _sum: { amount: 500 } },
-      { category: 'Supplies', _sum: { amount: 1000 } },
+    mockPrisma.generalMerchandisePayroll.findMany.mockResolvedValue([
+      {
+        employeeId: 'GM-001',
+        employeeName: 'GM-001',
+        periodStart: '2026-03-01',
+        status: 'paid',
+        basicSalary: 5000,
+        allowance: 0,
+        overtime: 0,
+        bonuses: 0,
+        grossPay: 5000,
+        sss: 0,
+        philHealth: 0,
+        pagIbig: 0,
+        tax: 0,
+        loans: 0,
+        lwop: 0,
+        absentsLates: 0,
+        cashAdvance: 500,
+        totalDeductions: 900,
+        netPay: 4100,
+      },
     ]);
-    mockPrisma.generalMerchandisePayroll.aggregate
-      .mockResolvedValueOnce({
-        _sum: {
-          grossPay: 10000,
-          netPay: 8200,
-          totalDeductions: 1800,
-          cashAdvance: 500,
-        },
-        _count: { _all: 2 },
-      })
-      .mockResolvedValueOnce({
-        _sum: { thirteenthMonthPay: 900 },
-        _count: { _all: 1 },
-      })
-      .mockResolvedValueOnce({
-        _sum: { thirteenthMonthPay: 600 },
-      });
-    mockPrisma.generalMerchandisePayroll.groupBy.mockResolvedValue([
-      { status: 'paid', _count: { _all: 2 } },
+    mockPrisma.generalMerchandiseLeaveRequest.findMany.mockResolvedValue([
+      {
+        id: 1,
+        employeeName: 'GM-002',
+        leaveType: 'Sick',
+        startDate: '2026-03-10',
+        endDate: '2026-03-10',
+        numberOfDays: 1,
+        status: 'approved',
+      },
     ]);
-    mockPrisma.generalMerchandiseLeaveRequest.groupBy.mockResolvedValue([
-      { status: 'approved', _count: { _all: 1 } },
-    ]);
-    mockPrisma.generalMerchandiseCashAdvanceRecord.aggregate.mockResolvedValue({
-      _sum: { amount: 700, remainingBalance: 250 },
-      _count: { _all: 2 },
-    });
-    mockPrisma.generalMerchandiseCashAdvanceRecord.groupBy.mockResolvedValue([
-      { status: 'approved', _count: { _all: 2 } },
-    ]);
-    mockPrisma.generalMerchandiseThirteenthMonthPayRecord.aggregate
-      .mockResolvedValueOnce({
-        _sum: { thirteenthMonthPay: 900 },
-        _count: { _all: 1 },
-      })
-      .mockResolvedValueOnce({
-        _sum: { thirteenthMonthPay: 600 },
-      });
-    mockPrisma.generalMerchandiseThirteenthMonthPayRecord.groupBy.mockResolvedValue(
-      [{ status: 'paid', _count: { _all: 1 } }]
+    const cashAdvance = {
+      id: 'gm-ca-1',
+      employeeId: 'GM-001',
+      employeeName: 'GM-001',
+      amount: 700,
+      remainingBalance: 250,
+      monthlyPayment: 100,
+      status: 'approved',
+    };
+    mockPrisma.generalMerchandiseCashAdvanceRecord.findMany
+      .mockResolvedValueOnce([cashAdvance])
+      .mockResolvedValueOnce([cashAdvance]);
+    mockPrisma.generalMerchandiseThirteenthMonthPayRecord.findMany.mockResolvedValue(
+      [
+        { thirteenthMonthPay: 600, status: 'paid' },
+        { thirteenthMonthPay: 300, status: 'calculated' },
+      ]
     );
-    mockPrisma.generalMerchandiseEmployee.count.mockResolvedValue(12);
+    mockPrisma.generalMerchandiseEmployee.findMany.mockResolvedValue([
+      {
+        employeeId: 'GM-001',
+        name: 'GM-001',
+        department: 'Operations',
+        position: 'Picker',
+        status: 'active',
+        employmentStatus: 'Regular',
+        hireDate: '2026-03-15',
+        employmentEndDate: null,
+      },
+    ]);
 
     const response = await GET_DASHBOARD(
       new NextRequest(
@@ -222,6 +240,13 @@ describe('General merchandise employees API', () => {
     const body = await response.json();
 
     expect(response.status).toBe(200);
+    expect(
+      mockPrisma.generalMerchandiseLeaveRequest.findMany
+    ).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ deletedAt: null }),
+      })
+    );
     expect(body.range).toEqual({ from: '2026-03-01', to: '2026-03-31' });
     expect(body.attendance).toEqual(
       expect.objectContaining({
@@ -230,13 +255,17 @@ describe('General merchandise employees API', () => {
         statusCounts: { present: 3, late: 1 },
       })
     );
-    expect(body.expenses.categories).toEqual([
-      { category: 'Supplies', amount: 1000 },
-      { category: 'Fuel', amount: 500 },
-    ]);
-    expect(body.payroll.totalNet).toBe(8200);
-    expect(body.cashAdvance.remainingBalance).toBe(250);
-    expect(body.thirteenthMonth.totalPaid).toBe(600);
-    expect(body.employees.totalRecords).toBe(12);
+    expect(body).not.toHaveProperty('expenses');
+    expect(
+      mockPrisma.generalMerchandiseExpense.findMany
+    ).not.toHaveBeenCalled();
+    expect(body.payroll.totalNet).toBe(4100);
+    expect(body.leaves.totalRequests).toBe(1);
+    expect(body.cashAdvance.outstandingBalance).toBe(250);
+    expect(body.thirteenthMonth).toMatchObject({
+      totalAccrued: 900,
+      totalPaid: 600,
+    });
+    expect(body.team).toMatchObject({ headcount: 1, newHires: 1 });
   });
 });

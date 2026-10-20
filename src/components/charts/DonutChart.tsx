@@ -9,6 +9,7 @@ import { CHART_SERIES_COLORS } from './chartTheme';
 export type DonutSlice = {
   name: string;
   value: number;
+  color?: string;
 };
 
 interface DonutChartProps {
@@ -32,8 +33,8 @@ const tableStyles = {
   },
 };
 
-const sliceColor = (index: number) =>
-  CHART_SERIES_COLORS[index % CHART_SERIES_COLORS.length];
+const sliceColor = (slice: DonutSlice, index: number) =>
+  slice.color ?? CHART_SERIES_COLORS[index % CHART_SERIES_COLORS.length];
 
 export const DonutChart = memo(function DonutChart({
   data,
@@ -63,7 +64,7 @@ export const DonutChart = memo(function DonutChart({
               isAnimationActive={false}
             >
               {data.map((slice, index) => (
-                <Cell key={slice.name} fill={sliceColor(index)} />
+                <Cell key={slice.name} fill={sliceColor(slice, index)} />
               ))}
             </Pie>
             <Tooltip
@@ -113,7 +114,7 @@ export const DonutChart = memo(function DonutChart({
                       style={{
                         flexShrink: 0,
                         borderRadius: '50%',
-                        backgroundColor: sliceColor(index),
+                        backgroundColor: sliceColor(slice, index),
                       }}
                     />
                     <Text size="sm" truncate maw={170}>

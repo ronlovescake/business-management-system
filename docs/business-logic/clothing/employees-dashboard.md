@@ -2,8 +2,10 @@
 
 > **Source files:**
 >
+> - `src/app/clothing/employees/dashboard/page.tsx`
 > - `src/app/clothing/employees/dashboard/hooks/useEmployeeDashboard.ts`
-> - `src/app/clothing/employees/dashboard/types.ts`
+> - `src/lib/employees/dashboard/buildEmployeeDashboard.ts` (shared by the Clothing and GM dashboard APIs)
+> - `src/lib/employees/dashboard/types.ts`
 
 ---
 
@@ -40,15 +42,17 @@
 
 ## D — Metrics Displayed
 
-| #   | Logic                                                                                   | Explanation                                                                            |
-| --- | --------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------- |
-| 11  | Attendance metrics: total records, unique employees, status counts                      | `data.attendance.statusCounts` is a map of status → count.                             |
-| 12  | Payroll metrics: total gross, total net, total deductions, total records, status counts | `data.payroll` includes aggregated financial totals for the period.                    |
-| 13  | Leave metrics: total requests, status counts                                            | `data.leaves.statusCounts` maps `pending/approved/rejected` to counts.                 |
-| 14  | Cash Advance metrics: total requested, outstanding balance, active count, status counts | `data.cashAdvance.outstandingBalance` is the sum of all non-settled approved advances. |
-| 15  | 13th Month metrics: total records, total accrued, total paid, status counts             | `data.thirteenthMonth` shows progress across `pending/calculated/approved/paid`.       |
-| 16  | Team metrics: headcount (active), new hires, department breakdown, status counts        | `data.team.newHires` counts employees hired within the date range.                     |
-| 17  | Expenses metrics: total amount, category breakdown                                      | `data.expenses.categories` is an array of `{ category, amount }`.                      |
+| #   | Logic                                                                                                                                        | Explanation                                                                                                                                                                                                                  |
+| --- | -------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 11  | Attendance: records, unique employees, status counts, total/average hours, attendance rate, trend                                            | Attendance rate = (present + late) / all records. Trend is per day for ranges up to 31 days, per month otherwise (hidden in Daily view).                                                                                     |
+| 12  | Payroll: gross, net, deductions, runs processed, status counts, earnings/deductions breakdown, trend                                         | Includes payrolls whose `periodStart` is in range. Breakdown shows basic, allowance, overtime, bonuses, SSS, PhilHealth, Pag-IBIG, tax, loans, LWOP, absences/lates and cash-advance deductions.                             |
+| 13  | Leaves: requests, total days, status counts, breakdown by type, first 10 requests                                                            | Requests overlapping the range; `totalDays` sums each request's `numberOfDays`.                                                                                                                                              |
+| 14  | Cash advances: requested in range, request counts/statuses, all open balances                                                                | Requests use `requestDate` (or `createdAt` when no request date). `outstandingBalance` and the open-balances table cover every non-settled, non-rejected advance with a remaining balance, regardless of the selected range. |
+| 15  | 13th Month metrics: total records, total accrued, total paid, status counts                                                                  | Records whose `year` falls within the range; the UI also shows unpaid amount and paid %.                                                                                                                                     |
+| 16  | Team: active count, headcount on file, new hires, separations, status/employment-type counts, active headcount by department, hires in range | Separations count `employmentEndDate` within the range.                                                                                                                                                                      |
+| 17  | No business expenses are shown                                                                                                               | Expenses belong to Accounting; the employee dashboard does not query or display them.                                                                                                                                        |
+| 17a | Team members table                                                                                                                           | Active employees plus anyone with attendance, payroll or an open cash advance: present/late/absent/leave days, hours, net pay, cash-advance balance.                                                                         |
+| 17b | Soft-deleted records are excluded                                                                                                            | Every dashboard query filters `deletedAt: null` where the model supports it.                                                                                                                                                 |
 
 ---
 

@@ -1,16 +1,21 @@
 'use client';
 
-import { useMemo } from 'react';
+import { useMemo, type ReactNode } from 'react';
 import {
   Alert,
   Badge,
   Button,
+  Center,
+  Grid,
   Group,
   Loader,
   Paper,
+  Progress,
+  ScrollArea,
   SegmentedControl,
   SimpleGrid,
   Stack,
+  Table,
   Text,
 } from '@mantine/core';
 import {
@@ -18,39 +23,30 @@ import {
   MonthPickerInput,
   YearPickerInput,
 } from '@mantine/dates';
-import {
-  IconAlertCircle,
-  IconCalendarStats,
-  IconCash,
-  IconChartBar,
-  IconChartPie,
-  IconGiftCard,
-  IconReceipt2,
-  IconRefresh,
-  IconReportMoney,
-  IconUsers,
-  IconUsersGroup,
-} from '@tabler/icons-react';
-import {
-  Bar,
-  BarChart,
-  CartesianGrid,
-  Cell,
-  Pie,
-  PieChart,
-  ResponsiveContainer,
-  Tooltip as RechartsTooltip,
-  XAxis,
-  YAxis,
-} from 'recharts';
+import { IconAlertCircle, IconRefresh } from '@tabler/icons-react';
 import { PageLayout } from '../../../../components/layout/PageLayout';
-import { StatsCardGrid } from '@/components/ui';
+import { ChartCard } from '@/components/charts/ChartCard';
+import { KpiCard } from '@/components/charts/KpiCard';
+import { LegendDot } from '@/components/charts/LegendDot';
+import { StackedBarChart } from '@/components/charts/StackedBarChart';
+import { DonutChart, type DonutSlice } from '@/components/charts/DonutChart';
+import { HorizontalBarChart } from '@/components/charts/HorizontalBarChart';
+import { TrendAreaChart } from '@/components/charts/TrendAreaChart';
+import {
+  CHART_PALETTE,
+  formatCompactPeso,
+} from '@/components/charts/chartTheme';
+import { dayjs } from '@/utils/date';
 import { DashboardErrorBoundary } from './components/DashboardErrorBoundary';
 import { useEmployeeDashboard } from './hooks/useEmployeeDashboard';
-import type { DashboardViewMode } from './types';
+import type { DashboardViewMode, EmployeeDashboardResponse } from './types';
 import { FormatterService } from '@/services/FormatterService';
 
 const STATUS_COLOR_MAP: Record<string, string> = {
+  active: 'teal',
+  terminated: 'red',
+  resigned: 'gray',
+  inactive: 'gray',
   present: 'green',
   late: 'yellow',
   absent: 'red',
@@ -62,17 +58,19 @@ const STATUS_COLOR_MAP: Record<string, string> = {
   settled: 'blue',
   released: 'cyan',
   processed: 'indigo',
+  calculated: 'indigo',
   cancelled: 'gray',
 };
 
-const CHART_COLORS = [
-  '#4C6EF5',
-  '#2F9E44',
-  '#845EF7',
-  '#F59F00',
-  '#0CA678',
-  '#E64980',
-];
+const ATTENDANCE_COLORS = {
+  present: '#40c057',
+  late: '#fab005',
+  absent: '#fa5252',
+  onLeave: '#be4bdb',
+};
+
+const DEDUCTION_COLOR = '#ff8787';
+const POSITIVE_COLOR = '#20c997';
 
 const viewOptions = [
   { label: 'Daily', value: 'day' },
@@ -80,36 +78,151 @@ const viewOptions = [
   { label: 'Yearly', value: 'year' },
 ];
 
+const tableStyles = {
+  th: {
+    fontSize: 11,
+    fontWeight: 600,
+    textTransform: 'uppercase' as const,
+    letterSpacing: '0.3px',
+    color: 'var(--mantine-color-dimmed)',
+  },
+};
+
+const formatCurrency = (value: number) =>
+  FormatterService.formatCurrency(value);
+const formatCount = (value: number) => FormatterService.formatNumber(value, 0);
+const formatShortDate = (value: string) => {
+  const parsed = dayjs(value);
+  return parsed.isValid() ? parsed.format('MMM D') : value;
+};
+
 function formatStatusLabel(status: string): string {
-  const normalized = status.replace(/[-_]/g, ' ');
-  return FormatterService.titleCase(normalized);
+  return FormatterService.titleCase(status.replace(/[-_]/g, ' '));
 }
 
 function getStatusColor(status: string): string {
   return STATUS_COLOR_MAP[status.toLowerCase()] || 'gray';
 }
 
-function getStatusChartColor(status: string): string {
-  const color = STATUS_COLOR_MAP[status.toLowerCase()];
-  return color ? `var(--mantine-color-${color}-6)` : '#adb5bd';
+function StatusBadges({ counts }: { counts: Record<string, number> }) {
+  const entries = Object.entries(counts).filter(([, value]) => value > 0);
+  if (entries.length === 0) {
+    return (
+      <Text size="sm" c="dimmed">
+        No records in this range.
+      </Text>
+    );
+  }
+  return (
+    <Group gap="xs" wrap="wrap">
+      {entries.map(([status, count]) => (
+        <Badge
+          key={status}
+          color={getStatusColor(status)}
+          variant="light"
+          radius="sm"
+        >
+          {formatStatusLabel(status)}: {count.toLocaleString()}
+        </Badge>
+      ))}
+    </Group>
+  );
 }
 
-function ChartEmptyState({ message }: { message: string }) {
+function Figure({
+  label,
+  value,
+  tone,
+}: {
+  label: string;
+  value: string;
+  tone?: 'positive' | 'negative';
+}) {
   return (
-    <div
-      style={{
-        height: '100%',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        padding: '1rem',
-      }}
-    >
-      <Text size="sm" c="dimmed" ta="center">
-        {message}
+    <div>
+      <Text size="xs" c="dimmed">
+        {label}
+      </Text>
+      <Text
+        fw={600}
+        c={
+          tone === 'negative'
+            ? 'red.7'
+            : tone === 'positive'
+              ? 'teal.7'
+              : 'dark.7'
+        }
+      >
+        {value}
       </Text>
     </div>
   );
+}
+
+function EmptyState({ height, message }: { height: number; message: string }) {
+  return (
+    <Center h={height}>
+      <Text size="sm" c="dimmed" ta="center">
+        {message}
+      </Text>
+    </Center>
+  );
+}
+
+function SectionLabel({ children }: { children: ReactNode }) {
+  return (
+    <Text
+      size="xs"
+      c="dimmed"
+      tt="uppercase"
+      fw={600}
+      style={{ letterSpacing: '0.3px' }}
+    >
+      {children}
+    </Text>
+  );
+}
+
+function buildPayrollBars(payroll: EmployeeDashboardResponse['payroll']) {
+  const { earnings, deductions } = payroll;
+  return [
+    {
+      name: 'Basic salary',
+      value: earnings.basicSalary,
+      color: CHART_PALETTE.primary,
+    },
+    {
+      name: 'Allowance',
+      value: earnings.allowance,
+      color: CHART_PALETTE.primary,
+    },
+    {
+      name: 'Overtime',
+      value: earnings.overtime,
+      color: CHART_PALETTE.primary,
+    },
+    { name: 'Bonuses', value: earnings.bonuses, color: CHART_PALETTE.primary },
+    { name: 'SSS', value: deductions.sss, color: DEDUCTION_COLOR },
+    {
+      name: 'PhilHealth',
+      value: deductions.philHealth,
+      color: DEDUCTION_COLOR,
+    },
+    { name: 'Pag-IBIG', value: deductions.pagIbig, color: DEDUCTION_COLOR },
+    { name: 'Tax', value: deductions.tax, color: DEDUCTION_COLOR },
+    { name: 'Loans', value: deductions.loans, color: DEDUCTION_COLOR },
+    { name: 'LWOP', value: deductions.lwop, color: DEDUCTION_COLOR },
+    {
+      name: 'Absences/lates',
+      value: deductions.absentsLates,
+      color: DEDUCTION_COLOR,
+    },
+    {
+      name: 'Cash advance',
+      value: deductions.cashAdvance,
+      color: DEDUCTION_COLOR,
+    },
+  ].filter((row) => row.value > 0);
 }
 
 function DashboardContent({ apiBasePath }: { apiBasePath?: string }) {
@@ -124,171 +237,52 @@ function DashboardContent({ apiBasePath }: { apiBasePath?: string }) {
     selections,
   } = useEmployeeDashboard(apiBasePath);
 
-  const statsCards = useMemo(() => {
+  const attendanceSlices = useMemo<DonutSlice[]>(() => {
     if (!data) {
       return [];
     }
-
+    const counts = data.attendance.statusCounts;
+    const valueOf = (status: string) =>
+      Object.entries(counts)
+        .filter(([key]) => key.toLowerCase() === status)
+        .reduce((sum, [, count]) => sum + count, 0);
     return [
       {
-        title: 'Attendance Records',
-        value: FormatterService.formatNumber(data.attendance.totalRecords, 0),
-        icon: <IconUsersGroup size={20} />,
-        color: 'blue',
-        backgroundColor: 'var(--mantine-color-blue-6)',
+        name: 'Present',
+        value: valueOf('present'),
+        color: ATTENDANCE_COLORS.present,
+      },
+      { name: 'Late', value: valueOf('late'), color: ATTENDANCE_COLORS.late },
+      {
+        name: 'Absent',
+        value: valueOf('absent'),
+        color: ATTENDANCE_COLORS.absent,
       },
       {
-        title: 'Expenses',
-        value: FormatterService.formatCurrency(data.expenses.totalAmount),
-        icon: <IconReceipt2 size={20} />,
-        color: 'teal',
-        backgroundColor: 'var(--mantine-color-teal-6)',
+        name: 'On leave',
+        value: valueOf('on-leave'),
+        color: ATTENDANCE_COLORS.onLeave,
       },
-      {
-        title: 'Payroll Net Pay',
-        value: FormatterService.formatCurrency(data.payroll.totalNet),
-        icon: <IconCash size={20} />,
-        color: 'violet',
-        backgroundColor: 'var(--mantine-color-violet-6)',
-      },
-      {
-        title: 'Cash Advance Requests',
-        value: FormatterService.formatNumber(data.cashAdvance.totalRecords, 0),
-        icon: <IconReportMoney size={20} />,
-        color: 'orange',
-        backgroundColor: 'var(--mantine-color-orange-6)',
-      },
-    ];
+    ].filter((slice) => slice.value > 0);
   }, [data]);
 
-  const attendanceChartData = useMemo(() => {
-    if (!data) {
-      return [];
-    }
-
-    return Object.entries(data.attendance.statusCounts)
-      .filter(([, count]) => count > 0)
-      .map(([status, count]) => ({
-        status,
-        label: formatStatusLabel(status),
-        value: count,
-      }));
-  }, [data]);
-
-  const expensesChartData = useMemo(() => {
-    if (!data) {
-      return [];
-    }
-
-    return data.expenses.categories
-      .filter((category) => (category.amount || 0) > 0)
-      .slice(0, 6)
-      .map((category, index) => ({
-        label: category.category,
-        value: Number(category.amount || 0),
-        color: CHART_COLORS[index % CHART_COLORS.length],
-      }));
-  }, [data]);
-
-  const payrollComparisonData = useMemo(() => {
-    if (!data) {
-      return [];
-    }
-
-    const rows = [
-      { label: 'Payroll Net', value: data.payroll.totalNet },
-      { label: 'Expenses', value: data.expenses.totalAmount },
-      { label: 'Cash Advance', value: data.cashAdvance.totalRequested },
-      { label: '13th Month Paid', value: data.thirteenthMonth.totalPaid },
-    ];
-
-    return rows
-      .filter((row) => row.value > 0)
-      .map((row, index) => ({
-        ...row,
-        color: CHART_COLORS[index % CHART_COLORS.length],
-      }));
-  }, [data]);
-
-  const departmentChartData = useMemo(() => {
-    if (!data) {
-      return [];
-    }
-
-    return data.team.departments
-      .filter((dept) => dept.count > 0)
-      .slice(0, 6)
-      .map((dept, index) => ({
-        label: dept.name,
-        value: dept.count,
-        color: CHART_COLORS[index % CHART_COLORS.length],
-      }));
-  }, [data]);
+  const payrollBars = useMemo(
+    () => (data ? buildPayrollBars(data.payroll) : []),
+    [data]
+  );
 
   const isInitialLoading = loading && !data;
   const shouldDimContent = loading && !!data;
-
-  const renderStatusBadges = (counts: Record<string, number>) => {
-    const entries = Object.entries(counts).filter(([, value]) => value > 0);
-
-    if (entries.length === 0) {
-      return (
-        <Text size="sm" c="dimmed">
-          No data in this range.
-        </Text>
-      );
-    }
-
-    return (
-      <Group gap="xs" wrap="wrap">
-        {entries.map(([status, count]) => (
-          <Badge
-            key={status}
-            color={getStatusColor(status)}
-            variant="light"
-            radius="sm"
-          >
-            {formatStatusLabel(status)}: {count.toLocaleString()}
-          </Badge>
-        ))}
-      </Group>
-    );
-  };
-
-  const renderExpenseBreakdown = () => {
-    if (!data || data.expenses.categories.length === 0) {
-      return (
-        <Text size="sm" c="dimmed">
-          No expenses recorded for this range.
-        </Text>
-      );
-    }
-
-    const total = data.expenses.totalAmount || 1;
-
-    return (
-      <Stack gap="sm">
-        {data.expenses.categories.slice(0, 5).map((category) => {
-          const percentage = Math.round((category.amount / total) * 100);
-          return (
-            <Group
-              key={category.category}
-              justify="space-between"
-              align="center"
-            >
-              <div>
-                <Text fw={600}>{category.category}</Text>
-                <Text size="xs" c="dimmed">
-                  {FormatterService.formatCurrency(category.amount)} •{' '}
-                  {percentage}%
-                </Text>
-              </div>
-            </Group>
-          );
-        })}
-      </Stack>
-    );
-  };
+  const hasTrend = (data?.attendance.trend.length ?? 0) > 1;
+  const attendanceTrendHasData =
+    data?.attendance.trend.some(
+      (point) => point.present + point.late + point.absent + point.onLeave > 0
+    ) ?? false;
+  const payrollTrendHasData =
+    data?.payroll.trend.some((point) => point.gross !== 0 || point.net !== 0) ??
+    false;
+  const trendSubtitle =
+    data?.attendance.granularity === 'month' ? 'By month' : 'By day';
 
   return (
     <PageLayout title="Employee Dashboard" withPadding fluid>
@@ -372,357 +366,653 @@ function DashboardContent({ apiBasePath }: { apiBasePath?: string }) {
           </Group>
         )}
 
-        {!isInitialLoading && (
+        {!isInitialLoading && data && (
           <Stack gap="lg" style={{ opacity: shouldDimContent ? 0.6 : 1 }}>
-            {statsCards.length > 0 && (
-              <StatsCardGrid cards={statsCards} variant="vibrant" />
-            )}
-
-            <SimpleGrid cols={{ base: 1, md: 2 }} spacing="lg">
-              <Paper withBorder p="md" radius="md">
-                <Stack gap="sm">
-                  <Group gap="sm">
-                    <IconUsersGroup size={20} />
-                    <Text fw={600}>Attendance Overview</Text>
-                  </Group>
-                  <Text size="sm" c="dimmed">
-                    {FormatterService.formatNumber(
-                      data?.attendance.uniqueEmployees ?? 0,
-                      0
-                    )}{' '}
-                    team member(s) logged within this range.
-                  </Text>
-                  {data && renderStatusBadges(data.attendance.statusCounts)}
-                </Stack>
-              </Paper>
-
-              <Paper withBorder p="md" radius="md">
-                <Stack gap="sm">
-                  <Group gap="sm">
-                    <IconReceipt2 size={20} />
-                    <Text fw={600}>Expenses</Text>
-                  </Group>
-                  <Text size="lg" fw={700}>
-                    {FormatterService.formatCurrency(
-                      data?.expenses.totalAmount ?? 0
-                    )}
-                  </Text>
-                  {renderExpenseBreakdown()}
-                </Stack>
-              </Paper>
-
-              <Paper withBorder p="md" radius="md">
-                <Stack gap="sm">
-                  <Group gap="sm">
-                    <IconCash size={20} />
-                    <Text fw={600}>Payroll</Text>
-                  </Group>
-                  <Text size="sm" c="dimmed">
-                    {FormatterService.formatNumber(
-                      data?.payroll.processedCount ?? 0,
-                      0
-                    )}{' '}
-                    of{' '}
-                    {FormatterService.formatNumber(
-                      data?.payroll.totalRecords ?? 0,
-                      0
-                    )}{' '}
-                    payroll runs processed.
-                  </Text>
-                  {data && renderStatusBadges(data.payroll.statusCounts)}
-                </Stack>
-              </Paper>
-
-              <Paper withBorder p="md" radius="md">
-                <Stack gap="sm">
-                  <Group gap="sm">
-                    <IconCalendarStats size={20} />
-                    <Text fw={600}>Leave Tracker</Text>
-                  </Group>
-                  <Text size="sm" c="dimmed">
-                    {FormatterService.formatNumber(
-                      data?.leaves.totalRequests ?? 0,
-                      0
-                    )}{' '}
-                    request(s) overlapping this range.
-                  </Text>
-                  {data && renderStatusBadges(data.leaves.statusCounts)}
-                </Stack>
-              </Paper>
-
-              <Paper withBorder p="md" radius="md">
-                <Stack gap="sm">
-                  <Group gap="sm">
-                    <IconReportMoney size={20} />
-                    <Text fw={600}>Cash Advance</Text>
-                  </Group>
-                  <Text size="sm" c="dimmed">
-                    Active: {data?.cashAdvance.activeCount ?? 0} • Outstanding
-                    balance{' '}
-                    {FormatterService.formatCurrency(
-                      data?.cashAdvance.outstandingBalance ?? 0
-                    )}
-                  </Text>
-                  {data && renderStatusBadges(data.cashAdvance.statusCounts)}
-                </Stack>
-              </Paper>
-
-              <Paper withBorder p="md" radius="md">
-                <Stack gap="sm">
-                  <Group gap="sm">
-                    <IconGiftCard size={20} />
-                    <Text fw={600}>13th Month Pay</Text>
-                  </Group>
-                  <Text size="sm" c="dimmed">
-                    Accrued{' '}
-                    {FormatterService.formatCurrency(
-                      data?.thirteenthMonth.totalAccrued ?? 0
-                    )}{' '}
-                    • Paid{' '}
-                    {FormatterService.formatCurrency(
-                      data?.thirteenthMonth.totalPaid ?? 0
-                    )}
-                  </Text>
-                  {data &&
-                    renderStatusBadges(data.thirteenthMonth.statusCounts)}
-                </Stack>
-              </Paper>
+            <SimpleGrid cols={{ base: 1, xs: 2, md: 3, xl: 6 }} spacing="md">
+              <KpiCard
+                label="Active employees"
+                value={formatCount(data.team.activeCount)}
+                caption={`${formatCount(data.team.headcount)} on file · ${formatCount(data.team.newHires)} new hire(s)`}
+              />
+              <KpiCard
+                label="Attendance rate"
+                value={
+                  data.attendance.attendanceRate === null
+                    ? '—'
+                    : `${data.attendance.attendanceRate.toFixed(1)}%`
+                }
+                caption={`${formatCount(data.attendance.uniqueEmployees)} people · ${formatCount(data.attendance.totalRecords)} records`}
+              />
+              <KpiCard
+                label="Hours logged"
+                value={`${FormatterService.formatNumber(data.attendance.totalHours, 1)} h`}
+                caption={
+                  data.attendance.averageHours === null
+                    ? 'No attendance logged'
+                    : `Avg ${data.attendance.averageHours.toFixed(1)} h per record`
+                }
+              />
+              <KpiCard
+                label="Payroll net pay"
+                value={formatCurrency(data.payroll.totalNet)}
+                caption={`Gross ${formatCompactPeso(data.payroll.totalGross)} · ${formatCount(data.payroll.totalRecords)} run(s)`}
+              />
+              <KpiCard
+                label="Leave days"
+                value={formatCount(data.leaves.totalDays)}
+                caption={`${formatCount(data.leaves.totalRequests)} request(s) in range`}
+              />
+              <KpiCard
+                label="Cash advance owed"
+                value={formatCurrency(data.cashAdvance.outstandingBalance)}
+                badge="Open"
+                caption="All open balances"
+              />
             </SimpleGrid>
 
-            <SimpleGrid cols={{ base: 1, lg: 2 }} spacing="lg">
-              <Paper withBorder p="md" radius="md">
-                <Stack gap="sm">
-                  <Group gap="sm">
-                    <IconChartBar size={20} />
-                    <Text fw={600}>Attendance Distribution</Text>
-                  </Group>
-                  <div style={{ height: 260 }}>
-                    {attendanceChartData.length ? (
-                      <ResponsiveContainer width="100%" height="100%">
-                        <BarChart data={attendanceChartData} barSize={32}>
-                          <CartesianGrid
-                            strokeDasharray="3 3"
-                            vertical={false}
-                            opacity={0.4}
-                          />
-                          <XAxis
-                            dataKey="label"
-                            tickLine={false}
-                            axisLine={false}
-                            tick={{ fontSize: 12 }}
-                          />
-                          <YAxis
-                            allowDecimals={false}
-                            tickLine={false}
-                            axisLine={false}
-                          />
-                          <RechartsTooltip
-                            formatter={(value: number | string) =>
-                              FormatterService.formatNumber(Number(value), 0)
-                            }
-                          />
-                          <Bar dataKey="value" radius={[8, 8, 0, 0]}>
-                            {attendanceChartData.map((entry) => (
-                              <Cell
-                                key={entry.status}
-                                fill={getStatusChartColor(entry.status)}
-                              />
-                            ))}
-                          </Bar>
-                        </BarChart>
-                      </ResponsiveContainer>
-                    ) : (
-                      <ChartEmptyState message="No attendance data to visualize." />
-                    )}
-                  </div>
-                </Stack>
-              </Paper>
-
-              <Paper withBorder p="md" radius="md">
-                <Stack gap="sm">
-                  <Group gap="sm">
-                    <IconChartPie size={20} />
-                    <Text fw={600}>Expense Breakdown</Text>
-                  </Group>
-                  <div style={{ height: 260 }}>
-                    {expensesChartData.length ? (
-                      <ResponsiveContainer width="100%" height="100%">
-                        <PieChart>
-                          <Pie
-                            data={expensesChartData}
-                            dataKey="value"
-                            nameKey="label"
-                            innerRadius={60}
-                            outerRadius={90}
-                            paddingAngle={2}
-                          >
-                            {expensesChartData.map((entry) => (
-                              <Cell key={entry.label} fill={entry.color} />
-                            ))}
-                          </Pie>
-                          <RechartsTooltip
-                            formatter={(value: number | string) =>
-                              FormatterService.formatCurrency(Number(value))
-                            }
-                          />
-                        </PieChart>
-                      </ResponsiveContainer>
-                    ) : (
-                      <ChartEmptyState message="No expense categories in this range." />
-                    )}
-                  </div>
-                </Stack>
-              </Paper>
-            </SimpleGrid>
-
-            <SimpleGrid cols={{ base: 1, lg: 2 }} spacing="lg">
-              <Paper withBorder p="md" radius="md">
-                <Stack gap="sm">
-                  <Group gap="sm">
-                    <IconCash size={20} />
-                    <Text fw={600}>Payroll vs. Spending</Text>
-                  </Group>
-                  <div style={{ height: 260 }}>
-                    {payrollComparisonData.length ? (
-                      <ResponsiveContainer width="100%" height="100%">
-                        <BarChart data={payrollComparisonData} barSize={32}>
-                          <CartesianGrid
-                            strokeDasharray="3 3"
-                            vertical={false}
-                            opacity={0.4}
-                          />
-                          <XAxis
-                            dataKey="label"
-                            tickLine={false}
-                            axisLine={false}
-                            tick={{ fontSize: 12 }}
-                          />
-                          <YAxis tickLine={false} axisLine={false} />
-                          <RechartsTooltip
-                            formatter={(value: number | string) =>
-                              FormatterService.formatCurrency(Number(value))
-                            }
-                          />
-                          <Bar dataKey="value" radius={[8, 8, 0, 0]}>
-                            {payrollComparisonData.map((entry) => (
-                              <Cell key={entry.label} fill={entry.color} />
-                            ))}
-                          </Bar>
-                        </BarChart>
-                      </ResponsiveContainer>
-                    ) : (
-                      <ChartEmptyState message="No payroll or spending data recorded." />
-                    )}
-                  </div>
-                </Stack>
-              </Paper>
-
-              <Paper withBorder p="md" radius="md">
-                <Stack gap="sm">
-                  <Group gap="sm">
-                    <IconUsers size={20} />
-                    <Text fw={600}>Department Headcount</Text>
-                  </Group>
-                  <div style={{ height: 260 }}>
-                    {departmentChartData.length ? (
-                      <ResponsiveContainer width="100%" height="100%">
-                        <BarChart
-                          data={departmentChartData}
-                          layout="vertical"
-                          margin={{ left: 0, right: 20, top: 10, bottom: 10 }}
-                        >
-                          <CartesianGrid
-                            horizontal={false}
-                            strokeDasharray="3 3"
-                            opacity={0.4}
-                          />
-                          <XAxis
-                            type="number"
-                            allowDecimals={false}
-                            tickLine={false}
-                            axisLine={false}
-                          />
-                          <YAxis
-                            dataKey="label"
-                            type="category"
-                            width={120}
-                            tickLine={false}
-                            axisLine={false}
-                          />
-                          <RechartsTooltip
-                            formatter={(value: number | string) =>
-                              FormatterService.formatNumber(Number(value), 0)
-                            }
-                          />
-                          <Bar dataKey="value" radius={[0, 8, 8, 0]}>
-                            {departmentChartData.map((entry) => (
-                              <Cell key={entry.label} fill={entry.color} />
-                            ))}
-                          </Bar>
-                        </BarChart>
-                      </ResponsiveContainer>
-                    ) : (
-                      <ChartEmptyState message="No department breakdown available." />
-                    )}
-                  </div>
-                </Stack>
-              </Paper>
-            </SimpleGrid>
-
-            <Paper withBorder p="md" radius="md">
-              <Stack gap="sm">
-                <Group gap="sm">
-                  <IconUsers size={20} />
-                  <Text fw={600}>Team Snapshot</Text>
-                </Group>
-                <Group gap="xl" wrap="wrap">
-                  <Stack gap={0}>
-                    <Text size="xs" c="dimmed">
-                      Headcount
-                    </Text>
-                    <Text fw={700} size="xl">
-                      {FormatterService.formatNumber(
-                        data?.team.headcount ?? 0,
-                        0
-                      )}
-                    </Text>
-                  </Stack>
-                  <Stack gap={0}>
-                    <Text size="xs" c="dimmed">
-                      New hires in range
-                    </Text>
-                    <Text fw={700} size="xl">
-                      {FormatterService.formatNumber(
-                        data?.team.newHires ?? 0,
-                        0
-                      )}
-                    </Text>
-                  </Stack>
-                </Group>
-                {data && renderStatusBadges(data.team.statusCounts)}
-                <Stack gap="xs">
-                  <Text size="sm" fw={600}>
-                    Top Departments
-                  </Text>
-                  {data && data.team.departments.length > 0 ? (
-                    <Stack gap={4}>
-                      {data.team.departments.map((dept) => (
-                        <Group key={dept.name} justify="space-between">
-                          <Text>{dept.name}</Text>
-                          <Badge color="blue" variant="light">
-                            {dept.count}
-                          </Badge>
-                        </Group>
-                      ))}
-                    </Stack>
+            <Grid gutter="md">
+              <Grid.Col span={{ base: 12, xl: 8 }}>
+                <ChartCard
+                  title="Attendance trend"
+                  subtitle={trendSubtitle}
+                  actions={
+                    <Group gap="md" visibleFrom="sm">
+                      <LegendDot
+                        color={ATTENDANCE_COLORS.present}
+                        label="Present"
+                      />
+                      <LegendDot color={ATTENDANCE_COLORS.late} label="Late" />
+                      <LegendDot
+                        color={ATTENDANCE_COLORS.absent}
+                        label="Absent"
+                      />
+                      <LegendDot
+                        color={ATTENDANCE_COLORS.onLeave}
+                        label="On leave"
+                      />
+                    </Group>
+                  }
+                >
+                  {!hasTrend ? (
+                    <EmptyState
+                      height={280}
+                      message="Switch to Monthly or Yearly to see the attendance trend."
+                    />
+                  ) : attendanceTrendHasData ? (
+                    <StackedBarChart
+                      data={data.attendance.trend}
+                      xKey="label"
+                      height={280}
+                      valueFormatter={(value) => formatCount(value)}
+                      series={[
+                        {
+                          dataKey: 'present',
+                          name: 'Present',
+                          color: ATTENDANCE_COLORS.present,
+                        },
+                        {
+                          dataKey: 'late',
+                          name: 'Late',
+                          color: ATTENDANCE_COLORS.late,
+                        },
+                        {
+                          dataKey: 'absent',
+                          name: 'Absent',
+                          color: ATTENDANCE_COLORS.absent,
+                        },
+                        {
+                          dataKey: 'onLeave',
+                          name: 'On leave',
+                          color: ATTENDANCE_COLORS.onLeave,
+                        },
+                      ]}
+                    />
                   ) : (
-                    <Text size="sm" c="dimmed">
-                      No department data available.
-                    </Text>
+                    <EmptyState
+                      height={280}
+                      message="No attendance logged in this range."
+                    />
                   )}
-                </Stack>
-              </Stack>
-            </Paper>
+                </ChartCard>
+              </Grid.Col>
+
+              <Grid.Col span={{ base: 12, md: 6, xl: 4 }}>
+                <ChartCard
+                  title="Attendance status"
+                  subtitle="Share of records"
+                >
+                  {attendanceSlices.length === 0 ? (
+                    <EmptyState
+                      height={280}
+                      message="No attendance logged in this range."
+                    />
+                  ) : (
+                    <DonutChart
+                      data={attendanceSlices}
+                      centerLabel="Records"
+                      centerValue={formatCount(data.attendance.totalRecords)}
+                      valueFormatter={formatCount}
+                      labelHeader="Status"
+                      valueHeader="Records"
+                    />
+                  )}
+                </ChartCard>
+              </Grid.Col>
+
+              <Grid.Col span={{ base: 12, md: 6, xl: 6 }}>
+                <ChartCard
+                  title="Payroll breakdown"
+                  subtitle="Earnings and deductions for pay periods starting in range"
+                  actions={
+                    data.payroll.totalRecords > 0 ? (
+                      <Badge variant="light" color="indigo" radius="sm">
+                        {`${data.payroll.processedCount}/${data.payroll.totalRecords} processed`}
+                      </Badge>
+                    ) : null
+                  }
+                >
+                  <SimpleGrid cols={3} spacing="md" mb="md">
+                    <Figure
+                      label="Gross pay"
+                      value={formatCurrency(data.payroll.totalGross)}
+                    />
+                    <Figure
+                      label="Deductions"
+                      value={formatCurrency(data.payroll.totalDeductions)}
+                    />
+                    <Figure
+                      label="Net pay"
+                      value={formatCurrency(data.payroll.totalNet)}
+                      tone="positive"
+                    />
+                  </SimpleGrid>
+                  {payrollBars.length === 0 ? (
+                    <EmptyState
+                      height={220}
+                      message="No payroll in this range."
+                    />
+                  ) : (
+                    <HorizontalBarChart
+                      data={payrollBars}
+                      valueFormatter={formatCurrency}
+                      height={Math.max(160, payrollBars.length * 26)}
+                      labelWidth={110}
+                    />
+                  )}
+                  <Stack gap={6} mt="sm">
+                    <SectionLabel>Payroll status</SectionLabel>
+                    <StatusBadges counts={data.payroll.statusCounts} />
+                  </Stack>
+                </ChartCard>
+              </Grid.Col>
+
+              <Grid.Col span={{ base: 12, xl: 6 }}>
+                <ChartCard
+                  title="Payroll trend"
+                  subtitle={trendSubtitle}
+                  actions={
+                    <Group gap="md">
+                      <LegendDot color={CHART_PALETTE.primary} label="Gross" />
+                      <LegendDot color={POSITIVE_COLOR} label="Net" />
+                    </Group>
+                  }
+                >
+                  {!hasTrend ? (
+                    <EmptyState
+                      height={300}
+                      message="Switch to Monthly or Yearly to see the payroll trend."
+                    />
+                  ) : payrollTrendHasData ? (
+                    <TrendAreaChart
+                      data={data.payroll.trend}
+                      xKey="label"
+                      valueFormatter={(value) => formatCurrency(value)}
+                      series={[
+                        {
+                          dataKey: 'gross',
+                          name: 'Gross',
+                          color: CHART_PALETTE.primary,
+                          strokeWidth: 2.5,
+                        },
+                        {
+                          dataKey: 'net',
+                          name: 'Net',
+                          color: POSITIVE_COLOR,
+                          strokeWidth: 2.5,
+                        },
+                      ]}
+                    />
+                  ) : (
+                    <EmptyState
+                      height={300}
+                      message="No payroll in this range."
+                    />
+                  )}
+                </ChartCard>
+              </Grid.Col>
+
+              <Grid.Col span={{ base: 12, lg: 8 }}>
+                <ChartCard
+                  title="Team members"
+                  subtitle="Active employees and anyone with attendance, payroll or open cash advances"
+                >
+                  {data.members.length === 0 ? (
+                    <EmptyState
+                      height={200}
+                      message="No team members to show."
+                    />
+                  ) : (
+                    <ScrollArea h={380} type="hover" offsetScrollbars>
+                      <Table
+                        verticalSpacing="xs"
+                        highlightOnHover
+                        stickyHeader
+                        styles={tableStyles}
+                      >
+                        <Table.Thead>
+                          <Table.Tr>
+                            <Table.Th>Employee</Table.Th>
+                            <Table.Th style={{ textAlign: 'right' }}>
+                              Present
+                            </Table.Th>
+                            <Table.Th style={{ textAlign: 'right' }}>
+                              Late
+                            </Table.Th>
+                            <Table.Th style={{ textAlign: 'right' }}>
+                              Absent
+                            </Table.Th>
+                            <Table.Th style={{ textAlign: 'right' }}>
+                              Leave
+                            </Table.Th>
+                            <Table.Th style={{ textAlign: 'right' }}>
+                              Hours
+                            </Table.Th>
+                            <Table.Th style={{ textAlign: 'right' }}>
+                              Net pay
+                            </Table.Th>
+                            <Table.Th style={{ textAlign: 'right' }}>
+                              CA balance
+                            </Table.Th>
+                          </Table.Tr>
+                        </Table.Thead>
+                        <Table.Tbody>
+                          {data.members.map((member) => (
+                            <Table.Tr key={member.employeeId}>
+                              <Table.Td>
+                                <Group gap={6} wrap="nowrap">
+                                  <Text size="sm" fw={500} truncate maw={180}>
+                                    {member.name}
+                                  </Text>
+                                  {member.status &&
+                                  member.status !== 'active' ? (
+                                    <Badge
+                                      size="xs"
+                                      variant="light"
+                                      color={getStatusColor(member.status)}
+                                    >
+                                      {formatStatusLabel(member.status)}
+                                    </Badge>
+                                  ) : null}
+                                </Group>
+                                <Text size="xs" c="dimmed" truncate maw={220}>
+                                  {[member.position, member.department]
+                                    .filter(Boolean)
+                                    .join(' · ')}
+                                </Text>
+                              </Table.Td>
+                              <Table.Td style={{ textAlign: 'right' }}>
+                                {member.present}
+                              </Table.Td>
+                              <Table.Td style={{ textAlign: 'right' }}>
+                                <Text
+                                  size="sm"
+                                  c={member.late > 0 ? 'yellow.8' : undefined}
+                                >
+                                  {member.late}
+                                </Text>
+                              </Table.Td>
+                              <Table.Td style={{ textAlign: 'right' }}>
+                                <Text
+                                  size="sm"
+                                  c={member.absent > 0 ? 'red.7' : undefined}
+                                >
+                                  {member.absent}
+                                </Text>
+                              </Table.Td>
+                              <Table.Td style={{ textAlign: 'right' }}>
+                                {member.onLeave}
+                              </Table.Td>
+                              <Table.Td style={{ textAlign: 'right' }}>
+                                {FormatterService.formatNumber(member.hours, 1)}
+                              </Table.Td>
+                              <Table.Td style={{ textAlign: 'right' }}>
+                                <Text size="sm" fw={600} c="dark.7">
+                                  {formatCurrency(member.netPay)}
+                                </Text>
+                              </Table.Td>
+                              <Table.Td style={{ textAlign: 'right' }}>
+                                <Text
+                                  size="sm"
+                                  c={
+                                    member.cashAdvanceBalance > 0
+                                      ? 'orange.8'
+                                      : 'dimmed'
+                                  }
+                                >
+                                  {formatCurrency(member.cashAdvanceBalance)}
+                                </Text>
+                              </Table.Td>
+                            </Table.Tr>
+                          ))}
+                        </Table.Tbody>
+                      </Table>
+                    </ScrollArea>
+                  )}
+                </ChartCard>
+              </Grid.Col>
+
+              <Grid.Col span={{ base: 12, lg: 4 }}>
+                <ChartCard
+                  title="Team"
+                  subtitle="Active headcount by department"
+                >
+                  <Stack gap="md">
+                    {data.team.departments.length === 0 ? (
+                      <EmptyState height={120} message="No active employees." />
+                    ) : (
+                      <HorizontalBarChart
+                        data={data.team.departments.map((dept) => ({
+                          name: dept.name,
+                          value: dept.count,
+                          color: CHART_PALETTE.primary,
+                        }))}
+                        valueFormatter={formatCount}
+                        axisFormatter={formatCount}
+                        seriesName="Employees"
+                        labelWidth={100}
+                        height={Math.max(
+                          120,
+                          data.team.departments.length * 30
+                        )}
+                      />
+                    )}
+                    <SimpleGrid cols={2} spacing="xs">
+                      <Figure
+                        label="New hires"
+                        value={formatCount(data.team.newHires)}
+                      />
+                      <Figure
+                        label="Separations"
+                        value={formatCount(data.team.separations)}
+                      />
+                    </SimpleGrid>
+                    <Stack gap={6}>
+                      <SectionLabel>Employee status</SectionLabel>
+                      <StatusBadges counts={data.team.statusCounts} />
+                    </Stack>
+                    {Object.keys(data.team.employmentStatusCounts).length >
+                    0 ? (
+                      <Stack gap={6}>
+                        <SectionLabel>Employment type</SectionLabel>
+                        <StatusBadges
+                          counts={data.team.employmentStatusCounts}
+                        />
+                      </Stack>
+                    ) : null}
+                    {data.team.recentHires.length > 0 ? (
+                      <Stack gap={6}>
+                        <SectionLabel>Hired in this range</SectionLabel>
+                        {data.team.recentHires.map((hire) => (
+                          <Group
+                            key={`${hire.name}-${hire.hireDate}`}
+                            justify="space-between"
+                            wrap="nowrap"
+                          >
+                            <div style={{ minWidth: 0 }}>
+                              <Text size="sm" fw={500} truncate>
+                                {hire.name}
+                              </Text>
+                              <Text size="xs" c="dimmed" truncate>
+                                {[hire.position, hire.department]
+                                  .filter(Boolean)
+                                  .join(' · ')}
+                              </Text>
+                            </div>
+                            <Text size="xs" c="dimmed">
+                              {formatShortDate(hire.hireDate)}
+                            </Text>
+                          </Group>
+                        ))}
+                      </Stack>
+                    ) : null}
+                  </Stack>
+                </ChartCard>
+              </Grid.Col>
+
+              <Grid.Col span={{ base: 12, lg: 6 }}>
+                <ChartCard
+                  title="Leave tracker"
+                  subtitle="Requests overlapping this range"
+                  actions={
+                    <Badge variant="light" color="grape" radius="sm">
+                      {`${formatCount(data.leaves.totalDays)} day(s)`}
+                    </Badge>
+                  }
+                >
+                  <Stack gap="sm">
+                    <StatusBadges counts={data.leaves.statusCounts} />
+                    {data.leaves.byType.length > 0 ? (
+                      <Group gap="xs" wrap="wrap">
+                        {data.leaves.byType.map((type) => (
+                          <Badge
+                            key={type.type}
+                            variant="outline"
+                            color="grape"
+                            radius="sm"
+                          >
+                            {`${type.type} · ${type.requests} req · ${type.days} day(s)`}
+                          </Badge>
+                        ))}
+                      </Group>
+                    ) : null}
+                    {data.leaves.requests.length > 0 ? (
+                      <Table verticalSpacing={6} styles={tableStyles}>
+                        <Table.Thead>
+                          <Table.Tr>
+                            <Table.Th>Employee</Table.Th>
+                            <Table.Th>Type</Table.Th>
+                            <Table.Th>Dates</Table.Th>
+                            <Table.Th style={{ textAlign: 'right' }}>
+                              Days
+                            </Table.Th>
+                            <Table.Th>Status</Table.Th>
+                          </Table.Tr>
+                        </Table.Thead>
+                        <Table.Tbody>
+                          {data.leaves.requests.map((request) => (
+                            <Table.Tr key={request.id}>
+                              <Table.Td>
+                                <Text size="sm" truncate maw={160}>
+                                  {request.employeeName}
+                                </Text>
+                              </Table.Td>
+                              <Table.Td>
+                                <Text size="sm">{request.leaveType}</Text>
+                              </Table.Td>
+                              <Table.Td>
+                                <Text size="sm" c="dimmed">
+                                  {request.startDate === request.endDate
+                                    ? formatShortDate(request.startDate)
+                                    : `${formatShortDate(request.startDate)} – ${formatShortDate(request.endDate)}`}
+                                </Text>
+                              </Table.Td>
+                              <Table.Td style={{ textAlign: 'right' }}>
+                                {request.days}
+                              </Table.Td>
+                              <Table.Td>
+                                <Badge
+                                  size="sm"
+                                  variant="light"
+                                  color={getStatusColor(request.status)}
+                                >
+                                  {formatStatusLabel(request.status)}
+                                </Badge>
+                              </Table.Td>
+                            </Table.Tr>
+                          ))}
+                        </Table.Tbody>
+                      </Table>
+                    ) : null}
+                  </Stack>
+                </ChartCard>
+              </Grid.Col>
+
+              <Grid.Col span={{ base: 12, lg: 6 }}>
+                <ChartCard
+                  title="Cash advances"
+                  subtitle="Requests in range and all open balances"
+                >
+                  <Stack gap="sm">
+                    <SimpleGrid cols={3} spacing="md">
+                      <Figure
+                        label="Requested in range"
+                        value={formatCurrency(data.cashAdvance.totalRequested)}
+                      />
+                      <Figure
+                        label="Requests"
+                        value={`${formatCount(data.cashAdvance.totalRecords)} (${formatCount(data.cashAdvance.activeCount)} active)`}
+                      />
+                      <Figure
+                        label="Outstanding"
+                        value={formatCurrency(
+                          data.cashAdvance.outstandingBalance
+                        )}
+                        tone={
+                          data.cashAdvance.outstandingBalance > 0
+                            ? 'negative'
+                            : undefined
+                        }
+                      />
+                    </SimpleGrid>
+                    <StatusBadges counts={data.cashAdvance.statusCounts} />
+                    {data.cashAdvance.openBalances.length > 0 ? (
+                      <Table verticalSpacing={6} styles={tableStyles}>
+                        <Table.Thead>
+                          <Table.Tr>
+                            <Table.Th>Employee</Table.Th>
+                            <Table.Th style={{ textAlign: 'right' }}>
+                              Amount
+                            </Table.Th>
+                            <Table.Th style={{ textAlign: 'right' }}>
+                              Remaining
+                            </Table.Th>
+                            <Table.Th style={{ textAlign: 'right' }}>
+                              Monthly
+                            </Table.Th>
+                          </Table.Tr>
+                        </Table.Thead>
+                        <Table.Tbody>
+                          {data.cashAdvance.openBalances.map((advance) => (
+                            <Table.Tr key={advance.id}>
+                              <Table.Td>
+                                <Text size="sm" truncate maw={170}>
+                                  {advance.employeeName}
+                                </Text>
+                              </Table.Td>
+                              <Table.Td style={{ textAlign: 'right' }}>
+                                <Text size="sm" c="dimmed">
+                                  {formatCurrency(advance.amount)}
+                                </Text>
+                              </Table.Td>
+                              <Table.Td style={{ textAlign: 'right' }}>
+                                <Text size="sm" fw={600} c="orange.8">
+                                  {formatCurrency(advance.remainingBalance)}
+                                </Text>
+                              </Table.Td>
+                              <Table.Td style={{ textAlign: 'right' }}>
+                                <Text size="sm">
+                                  {advance.monthlyPayment > 0
+                                    ? formatCurrency(advance.monthlyPayment)
+                                    : '—'}
+                                </Text>
+                              </Table.Td>
+                            </Table.Tr>
+                          ))}
+                        </Table.Tbody>
+                      </Table>
+                    ) : (
+                      <Text size="sm" c="dimmed">
+                        No open cash-advance balances.
+                      </Text>
+                    )}
+                  </Stack>
+                </ChartCard>
+              </Grid.Col>
+
+              <Grid.Col span={12}>
+                <ChartCard
+                  title="13th month pay"
+                  subtitle={`Records for ${dayjs(data.range.from).year() === dayjs(data.range.to).year() ? dayjs(data.range.from).year() : `${dayjs(data.range.from).year()}–${dayjs(data.range.to).year()}`}`}
+                >
+                  <Stack gap="md">
+                    <SimpleGrid cols={3} spacing="md">
+                      <Figure
+                        label="Accrued"
+                        value={formatCurrency(
+                          data.thirteenthMonth.totalAccrued
+                        )}
+                      />
+                      <Figure
+                        label="Paid"
+                        value={formatCurrency(data.thirteenthMonth.totalPaid)}
+                        tone="positive"
+                      />
+                      <Figure
+                        label="Unpaid"
+                        value={formatCurrency(
+                          Math.max(
+                            0,
+                            data.thirteenthMonth.totalAccrued -
+                              data.thirteenthMonth.totalPaid
+                          )
+                        )}
+                      />
+                    </SimpleGrid>
+                    <div>
+                      <Group justify="space-between" mb={4}>
+                        <Text size="xs" c="dimmed">
+                          Paid out
+                        </Text>
+                        <Text size="xs" fw={600}>
+                          {data.thirteenthMonth.totalAccrued > 0
+                            ? `${((data.thirteenthMonth.totalPaid / data.thirteenthMonth.totalAccrued) * 100).toFixed(0)}%`
+                            : '—'}
+                        </Text>
+                      </Group>
+                      <Progress
+                        radius="xl"
+                        size="lg"
+                        color="teal"
+                        value={
+                          data.thirteenthMonth.totalAccrued > 0
+                            ? Math.min(
+                                100,
+                                (data.thirteenthMonth.totalPaid /
+                                  data.thirteenthMonth.totalAccrued) *
+                                  100
+                              )
+                            : 0
+                        }
+                      />
+                    </div>
+                    <Text size="sm" c="dimmed">
+                      {formatCount(data.thirteenthMonth.totalRecords)} record(s)
+                    </Text>
+                    <StatusBadges counts={data.thirteenthMonth.statusCounts} />
+                  </Stack>
+                </ChartCard>
+              </Grid.Col>
+            </Grid>
           </Stack>
         )}
       </Stack>
