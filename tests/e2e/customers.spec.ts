@@ -57,7 +57,9 @@ test.describe('Customers Page', () => {
       .locator('.data-grid-container')
       .or(page.getByPlaceholder(/search customers/i))
       .or(
-        page.getByText(/customer management system - import csv file to get started/i)
+        page.getByText(
+          /customer management system - import csv file to get started/i
+        )
       )
       .first();
 
@@ -91,7 +93,9 @@ test.describe('Customers Page', () => {
     const pageState = page
       .locator('.data-grid-container')
       .or(
-        page.getByText(/customer management system - import csv file to get started/i)
+        page.getByText(
+          /customer management system - import csv file to get started/i
+        )
       )
       .or(page.getByText(/showing\s+\d+\s+of\s+\d+\s+customers/i))
       .first();
@@ -213,4 +217,274 @@ test.describe('Customers Page - Error Handling', () => {
     // Page should eventually load
     await expect(page.locator('body')).toBeVisible();
   });
+});
+
+test.describe('Customers directory @directory', () => {
+  const customers = Array.from({ length: 18 }, (_, index) => ({
+    id: 90001 + index,
+    Date: '2026-10-21',
+    'Customer Name': index === 0 ? 'Maya Cruz' : `Customer ${index + 1}`,
+    'Phone Number': '09171234567',
+    'Email Address':
+      index === 0 ? 'maya@example.com' : `customer${index + 1}@example.com`,
+    Address: 'Session Road, Baguio City',
+    Facebook: 'https://facebook.com/example',
+    'Business Name': index === 0 ? 'Hidden Needle Studio' : 'Market Shop',
+    'Tax Number': '123-456',
+    'Business Address': 'Baguio City',
+    'Business Contact Number': '0741234567',
+    'Customer Status': ['Active', 'Inactive', 'Prospect', 'VIP', 'Banned'][
+      index % 5
+    ],
+  }));
+
+  const lastDrawnPosition = (page: Page, text: string) =>
+    page.evaluate((value) => {
+      const matches = (
+        window as unknown as {
+          directoryDraws: { text: string; left: number }[];
+        }
+      ).directoryDraws.filter((draw) => draw.text === value);
+      return matches[matches.length - 1]?.left;
+    }, text);
+
+  test.beforeEach(async ({ page }) => {
+    await page.route('**/api/**', async (route) => {
+      const path = new URL(route.request().url()).pathname;
+      if (path === '/api/auth/session') {
+        await route.fulfill({
+          json: {
+            user: {
+              id: 'directory-test',
+              name: 'Directory Test',
+              role: 'SUPER_ADMIN',
+              permissions: [],
+            },
+            expires: '2099-01-01T00:00:00.000Z',
+          },
+        });
+        return;
+      }
+      await route.fulfill({ json: path === '/api/customers' ? customers : [] });
+    });
+    await page.addInitScript(() => {
+      const fonts: string[] = [];
+      (window as unknown as { directoryFonts: string[] }).directoryFonts =
+        fonts;
+      const draws: { text: string; left: number }[] = [];
+      (window as unknown as { directoryDraws: typeof draws }).directoryDraws =
+        draws;
+      const original = CanvasRenderingContext2D.prototype.fillText;
+      CanvasRenderingContext2D.prototype.fillText = function (
+        text,
+        left,
+        top,
+        maxWidth
+      ) {
+        draws.push({ text, left });
+        if (['Customer Name', 'Maya Cruz', 'Active'].includes(text)) {
+          fonts.push(this.font);
+        }
+        original.call(this, text, left, top, maxWidth);
+      };
+    });
+  });
+
+  test('keeps columns aligned and supports show all and reset', async ({
+    page,
+  }) => {
+    await gotoCustomers(page);
+    const canvasWidth = await page
+      .locator('.data-grid-container canvas')
+      .first()
+      .evaluate((canvas) => canvas.getBoundingClientRect().width);
+    // Default columns fill the table, leaving the last column at the right edge.
+    await expect
+      .poll(() => lastDrawnPosition(page, 'Customer Status'))
+      .toBeGreaterThan(canvasWidth - 200);
+    const emailLeft = (await lastDrawnPosition(page, 'maya@example.com'))!;
+    await page.getByRole('button', { name: 'Columns', exact: true }).click();
+    await expect(page.getByRole('checkbox', { checked: true })).toHaveCount(5);
+    await expect(
+      page.getByRole('checkbox', { name: 'Customer Name', exact: true })
+    ).toBeDisabled();
+    await page
+      .getByRole('checkbox', { name: 'Phone Number', exact: true })
+      .uncheck();
+    await expect
+      .poll(() => lastDrawnPosition(page, 'maya@example.com'))
+      .toBeLessThan(emailLeft - 100);
+    await page.getByRole('menuitem', { name: 'Show all columns' }).click();
+    await expect(page.getByRole('checkbox', { checked: true })).toHaveCount(11);
+    await page.getByRole('menuitem', { name: 'Reset columns' }).click();
+    await expect(page.getByRole('checkbox', { checked: true })).toHaveCount(5);
+    await expect
+      .poll(() => lastDrawnPosition(page, 'maya@example.com'))
+      .toBe(emailLeft);
+  });
+
+  test('searches hidden fields and recovers from no results', async ({
+    page,
+  }) => {
+    await gotoCustomers(page);
+    const search = page.getByRole('textbox', {
+      name: 'Search customers',
+      exact: true,
+    });
+    await search.fill('Hidden Needle');
+    await expect(page.getByRole('status')).toHaveText('1 of 18 customers');
+    await expect.poll(() => lastDrawnPosition(page, 'Maya Cruz')).toBe(16.5);
+    await search.fill('no-such-customer-54321');
+    await expect(
+      page.getByText('No matching customers', { exact: true })
+    ).toBeVisible();
+    await page
+      .getByRole('button', { name: 'Clear search', exact: true })
+      .last()
+      .click();
+    await expect(page.getByRole('status')).toHaveText('18 customers');
+    await expect(
+      page.locator('.data-grid-container canvas').first()
+    ).toBeVisible();
+  });
+
+  test('preserves CSV actions and the add dialog', async ({ page }) => {
+    await gotoCustomers(page);
+    await page.getByRole('button', { name: 'Export CSV', exact: true }).click();
+    await expect(
+      page.getByRole('menuitem', { name: /Standard CSV/ })
+    ).toBeVisible();
+    await expect(
+      page.getByRole('menuitem', { name: /Detailed/ })
+    ).toBeVisible();
+    await expect(
+      page.getByRole('menuitem', { name: /For Analysis/ })
+    ).toBeVisible();
+    const download = page.waitForEvent('download');
+    await page.getByRole('menuitem', { name: /Standard CSV/ }).click();
+    expect((await download).suggestedFilename()).toMatch(/\.csv$/);
+    await page.locator('input[type="file"]').setInputFiles({
+      name: 'customers.csv',
+      mimeType: 'text/csv',
+      buffer: Buffer.from('Customer Name,Phone Number\nTest,09171234567'),
+    });
+    await expect(
+      page.getByRole('button', { name: 'Import', exact: true })
+    ).toBeVisible();
+    await page
+      .getByRole('button', { name: 'Add Customer', exact: true })
+      .click();
+    await expect(page.getByRole('dialog')).toBeVisible();
+    await expect(
+      page.getByRole('dialog').getByRole('textbox', { name: 'Customer Name' })
+    ).toBeVisible();
+    await page
+      .getByRole('dialog')
+      .getByRole('button', { name: 'Cancel', exact: true })
+      .click();
+    await expect(page.getByRole('dialog')).toHaveCount(0);
+  });
+
+  test('copies status text and opens the correct customer', async ({
+    page,
+    context,
+  }) => {
+    await context.grantPermissions(['clipboard-read', 'clipboard-write']);
+    await page.setViewportSize({ width: 1920, height: 1080 });
+    await gotoCustomers(page);
+    const canvas = page.locator('.data-grid-container canvas').first();
+    const bounds = await canvas.boundingBox();
+    expect(bounds).not.toBeNull();
+    await expect
+      .poll(() => lastDrawnPosition(page, 'Customer Status'))
+      .toBeGreaterThan(bounds!.width - 200);
+    await page.mouse.click(bounds!.x + bounds!.width - 80, bounds!.y + 68);
+    await page.keyboard.press('Control+c');
+    await expect
+      .poll(() => page.evaluate(() => navigator.clipboard.readText()))
+      .toContain('Active');
+    const currentBounds = await canvas.boundingBox();
+    expect(currentBounds).not.toBeNull();
+    await page.mouse.click(currentBounds!.x + 100, currentBounds!.y + 68, {
+      delay: 80,
+    });
+    await page.mouse.click(currentBounds!.x + 100, currentBounds!.y + 68, {
+      delay: 80,
+    });
+    await expect(page).toHaveURL(/\/clothing\/operations\/customers\/90001$/);
+  });
+
+  test('shows an actionable empty directory without hiding CSV import', async ({
+    page,
+  }) => {
+    await page.route('**/api/customers', (route) =>
+      route.fulfill({ json: [] })
+    );
+    await gotoCustomers(page);
+    await expect(
+      page.getByText('No customers yet', { exact: true })
+    ).toBeVisible();
+    await expect(
+      page.getByRole('button', { name: 'Import CSV', exact: true })
+    ).toBeVisible();
+    await page
+      .locator('.data-grid-container')
+      .getByRole('button', { name: 'Add Customer' })
+      .click();
+    await expect(page.getByRole('dialog')).toBeVisible();
+  });
+
+  for (const viewport of [
+    { width: 1440, height: 900 },
+    { width: 1920, height: 1080 },
+    { width: 390, height: 844 },
+  ]) {
+    test(`renders readable canvas text at ${viewport.width}px without page overflow`, async ({
+      page,
+    }, testInfo) => {
+      await page.setViewportSize(viewport);
+      await gotoCustomers(page);
+      if (viewport.width < 768) {
+        await page
+          .getByRole('button', { name: 'Collapse side panel', exact: true })
+          .click();
+        await expect
+          .poll(async () => {
+            const sidebar = await page.getByRole('navigation').boundingBox();
+            return sidebar ? sidebar.x + sidebar.width : 0;
+          })
+          .toBeLessThanOrEqual(0);
+      }
+      await page.evaluate(() => document.fonts.ready);
+      await expect(
+        page.getByRole('heading', { name: 'Customers', exact: true })
+      ).toBeVisible();
+      await expect(
+        page.locator('.data-grid-container canvas').first()
+      ).toBeVisible();
+      expect(
+        await page.evaluate(
+          () => document.documentElement.scrollWidth <= window.innerWidth
+        )
+      ).toBe(true);
+      const fonts = await page.evaluate(
+        () => (window as unknown as { directoryFonts: string[] }).directoryFonts
+      );
+      expect(fonts.length).toBeGreaterThan(0);
+      expect(fonts.every((font) => font.includes('sans-serif'))).toBe(true);
+      const toolbarButtons = page.getByRole('button', {
+        name: /^(Columns|Export CSV|Import CSV|Add Customer)$/,
+      });
+      for (const button of await toolbarButtons.all()) {
+        const box = await button.boundingBox();
+        expect(box).not.toBeNull();
+        expect(box!.x).toBeGreaterThanOrEqual(0);
+        expect(box!.x + box!.width).toBeLessThanOrEqual(viewport.width);
+      }
+      await page.screenshot({
+        path: testInfo.outputPath(`customers-${viewport.width}.png`),
+        fullPage: true,
+      });
+    });
+  }
 });

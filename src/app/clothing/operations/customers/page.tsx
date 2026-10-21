@@ -8,6 +8,6 @@ import { renderOperationsPage } from '@/app/operations/_shared/renderOperationsP
 export default async function Page() {
   return renderOperationsPage(
     '/clothing/operations/customers',
-    <CustomersRoutePage />
+    <CustomersRoutePage directoryView />
   );
 }

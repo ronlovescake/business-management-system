@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import dynamic from 'next/dynamic';
 import {
   Stack,
@@ -11,6 +11,11 @@ import {
   Button,
   Menu,
   FileButton,
+  Title,
+  Checkbox,
+  ActionIcon,
+  Tooltip,
+  Center,
 } from '@mantine/core';
 import {
   IconSearch,
@@ -21,23 +26,33 @@ import {
   IconChartBar,
   IconUpload,
   IconPlus,
+  IconColumns3,
+  IconX,
+  IconUsers,
+  IconSearchOff,
+  IconRefresh,
 } from '@tabler/icons-react';
 import { GridView } from '@/components/grid';
 import { PageLayout } from '@/components/layout/PageLayout';
 import { TableSkeleton } from '@/components/ui/TableSkeleton';
 import { throttle } from '@/lib/performance';
 import { showNotification } from '@mantine/notifications';
+import { useMediaQuery } from '@mantine/hooks';
 import { useCustomersData } from '../hooks/useCustomersData';
 import { useCustomerForm } from '../hooks/useCustomerForm';
 import { useCustomerDuplicateCheck } from '../hooks/useCustomerDuplicateCheck';
-import { useCustomersGrid } from '../hooks/useCustomersGrid';
+import {
+  customerColumns,
+  defaultCustomerColumnIds,
+  useCustomersGrid,
+} from '../hooks/useCustomersGrid';
 import { useCustomersCSV } from '../hooks/useCustomersCSV';
 import { CustomerStatsCards } from './CustomerStatsCards';
-import { operationsActionButtonStyles } from '../../common/buttonStyles';
 import { useCtrlFFocus } from '@/hooks/useCtrlFFocus';
 
 interface CustomersPageProps {
   apiBasePath?: string;
+  directoryView?: boolean;
 }
 
 // Lazy load modal component
@@ -52,60 +67,15 @@ const AddCustomerModal = dynamic(
   }
 );
 
-// Custom styles for larger font and center aligned headers
-const customGridStyles = `
-  .data-grid-container * {
-    font-size: 20px !important;
-    font-family: Inter, sans-serif !important;
-  }
-  .data-grid-container canvas {
-    font-size: 20px !important;
-  }
-  .data-grid-container .gdg-cell {
-    font-size: 20px !important;
-    font-family: Inter, sans-serif !important;
-  }
-  .data-grid-container .gdg-header {
-    font-size: 20px !important;
-    font-weight: 600 !important;
-    font-family: Inter, sans-serif !important;
-    text-align: center !important;
-  }
-  .data-grid-container .gdg-cell-text {
-    font-size: 20px !important;
-  }
-  .data-grid-container [role="gridcell"] {
-    font-size: 20px !important;
-  }
-  .data-grid-container [role="columnheader"] {
-    font-size: 20px !important;
-    font-weight: 600 !important;
-    text-align: center !important;
-    justify-content: center !important;
-    display: flex !important;
-    align-items: center !important;
-  }
-  .data-grid-container div {
-    font-size: 20px !important;
-  }
-  .dvn-scroller {
-    font-size: 20px !important;
-  }
-  
-  /* Make customer name column look clickable */
-  .data-grid-container canvas {
-    cursor: default;
-  }
-  .data-grid-container:hover canvas {
-    cursor: pointer;
-  }
-`;
-
 /**
  * Customers Page Component
  * Main component for customer management with grid view, search, CSV import, and CRUD operations
  */
-export function CustomersPage({ apiBasePath }: CustomersPageProps) {
+export function CustomersPage({
+  apiBasePath,
+  directoryView = true,
+}: CustomersPageProps) {
+  const isDesktop = useMediaQuery('(min-width: 48em)');
   // Data hooks
   const {
     customers,
@@ -129,9 +99,11 @@ export function CustomersPage({ apiBasePath }: CustomersPageProps) {
 
   const { checkForDuplicates } = useCustomerDuplicateCheck(apiBasePath);
 
-  // Grid logic hook
-  const { columns, getData, getRowCount, drawHeader, handleCellClick } =
-    useCustomersGrid({ filteredCustomers });
+  const [visibleColumnIds, setVisibleColumnIds] = useState<readonly string[]>(
+    defaultCustomerColumnIds
+  );
+  const { columns, getData, getRowCount, drawCell, handleCellClick } =
+    useCustomersGrid({ filteredCustomers, visibleColumnIds, directoryView });
 
   // CSV operations hook
   const {
@@ -145,24 +117,40 @@ export function CustomersPage({ apiBasePath }: CustomersPageProps) {
 
   // Local state for responsive grid height
   const [gridHeight, setGridHeight] = useState<number>(600);
+  const gridRef = useRef<HTMLDivElement>(null);
 
-  // Keep grid height at ~85vh responsively
   useEffect(() => {
+    if (isLoading || !gridRef.current) {
+      return;
+    }
+
     const updateHeight = () => {
-      const h = Math.floor(window.innerHeight * 0.85);
-      setGridHeight(Math.max(300, h));
+      if (!gridRef.current) {
+        return;
+      }
+      const top = gridRef.current.getBoundingClientRect().top + window.scrollY;
+      setGridHeight(
+        directoryView
+          ? Math.max(280, Math.floor(window.innerHeight - top - 24))
+          : Math.max(300, Math.floor(window.innerHeight * 0.85))
+      );
     };
 
     const throttledResize = throttle(updateHeight, 150);
 
     updateHeight();
     window.addEventListener('resize', throttledResize);
+    const observer = new ResizeObserver(throttledResize);
+    if (gridRef.current.parentElement) {
+      observer.observe(gridRef.current.parentElement);
+    }
 
     return () => {
       window.removeEventListener('resize', throttledResize);
-      throttledResize.cancel(); // Cancel any pending throttled calls
+      observer.disconnect();
+      throttledResize.cancel();
     };
-  }, []);
+  }, [directoryView, isLoading]);
 
   useCtrlFFocus('[data-ctrlf-target="customers-search-input"]', true);
 
@@ -212,46 +200,125 @@ export function CustomersPage({ apiBasePath }: CustomersPageProps) {
   if (isLoading) {
     return (
       <PageLayout fluid withPadding>
-        <TableSkeleton rows={15} columns={11} />
+        <TableSkeleton
+          rows={directoryView ? 10 : 15}
+          columns={directoryView ? 5 : 11}
+        />
       </PageLayout>
     );
   }
 
   return (
     <PageLayout fluid withPadding>
-      <style dangerouslySetInnerHTML={{ __html: customGridStyles }} />
-      <Stack
-        gap="md"
-        style={{ width: '100%', maxWidth: 'none', margin: '0 auto' }}
-      >
+      <Stack gap="md" style={{ width: '100%', minWidth: 0, letterSpacing: 0 }}>
+        {directoryView && (
+          <Group gap="sm" align="baseline">
+            <Title order={1} size="h3" fw={650}>
+              Customers
+            </Title>
+            <Text size="sm" c="dimmed" role="status" aria-live="polite">
+              {searchQuery
+                ? `${filteredCustomers.length.toLocaleString()} of ${customers.length.toLocaleString()} customers`
+                : `${customers.length.toLocaleString()} customers`}
+            </Text>
+          </Group>
+        )}
         {/* Stats cards */}
-        <CustomerStatsCards stats={stats} />
+        <CustomerStatsCards stats={stats} subtle={directoryView} />
 
         {/* Search and controls */}
-        <Group justify="space-between" align="flex-end" wrap="wrap" gap="md">
+        <Group justify="space-between" align="center" wrap="wrap" gap="sm">
           <TextInput
-            placeholder={'Search customers... (Ctrl+F)'}
+            placeholder="Search customers"
+            aria-label="Search customers"
             leftSection={<IconSearch size={16} />}
             value={searchQuery}
             onChange={(e) => handleSearch(e.target.value)}
-            style={{ flex: 1, minWidth: 300 }}
-            styles={{
-              input: {
-                backgroundColor: '#ffffff',
-                border: '1px solid #dee2e6',
-                '&:focus': { borderColor: '#228be6' },
-              },
-            }}
+            style={{ flex: '1 1 240px', minWidth: 0, maxWidth: 420 }}
+            radius={6}
+            rightSection={
+              searchQuery ? (
+                <Tooltip label="Clear search">
+                  <ActionIcon
+                    variant="subtle"
+                    color="gray"
+                    aria-label="Clear search"
+                    onClick={() => handleSearch('')}
+                  >
+                    <IconX size={14} />
+                  </ActionIcon>
+                </Tooltip>
+              ) : undefined
+            }
             data-ctrlf-target="customers-search-input"
           />
 
-          <Group gap="sm">
+          <Group gap="xs" wrap="wrap">
+            {directoryView && (
+              <Menu
+                shadow="sm"
+                width={260}
+                position="bottom-end"
+                closeOnItemClick={false}
+              >
+                <Menu.Target>
+                  <Button
+                    variant="default"
+                    radius={6}
+                    leftSection={<IconColumns3 size={16} />}
+                  >
+                    Columns
+                  </Button>
+                </Menu.Target>
+                <Menu.Dropdown>
+                  <Menu.Label>Visible columns</Menu.Label>
+                  {customerColumns.map((column) => (
+                    <Checkbox
+                      key={column.id}
+                      label={column.title}
+                      disabled={column.id === 'customerName'}
+                      checked={visibleColumnIds.includes(column.id ?? '')}
+                      onChange={(event) => {
+                        const checked = event.currentTarget.checked;
+                        setVisibleColumnIds((current) =>
+                          checked
+                            ? [...current, column.id ?? '']
+                            : current.filter((id) => id !== column.id)
+                        );
+                      }}
+                      size="xs"
+                      m="xs"
+                    />
+                  ))}
+                  <Menu.Divider />
+                  <Menu.Item
+                    leftSection={<IconTable size={16} />}
+                    onClick={() =>
+                      setVisibleColumnIds(
+                        customerColumns.map((column) => column.id ?? '')
+                      )
+                    }
+                  >
+                    Show all columns
+                  </Menu.Item>
+                  <Menu.Item
+                    leftSection={<IconRefresh size={16} />}
+                    onClick={() =>
+                      setVisibleColumnIds(defaultCustomerColumnIds)
+                    }
+                  >
+                    Reset columns
+                  </Menu.Item>
+                </Menu.Dropdown>
+              </Menu>
+            )}
             <Menu shadow="md" width={280} position="bottom-end">
               <Menu.Target>
                 <Button
-                  leftSection={<IconDownload size={16} color="#ffffff" />}
-                  rightSection={<IconChevronDown size={16} color="#ffffff" />}
-                  styles={operationsActionButtonStyles}
+                  leftSection={<IconDownload size={16} />}
+                  rightSection={<IconChevronDown size={14} />}
+                  variant="default"
+                  radius={6}
                 >
                   Export CSV
                 </Button>
@@ -306,18 +373,20 @@ export function CustomersPage({ apiBasePath }: CustomersPageProps) {
                 {(fileButtonProps) => (
                   <Button
                     {...fileButtonProps}
-                    leftSection={<IconUpload size={16} color="#ffffff" />}
-                    styles={operationsActionButtonStyles}
+                    leftSection={<IconUpload size={16} />}
+                    variant="default"
+                    radius={6}
                   >
-                    {file ? 'Change CSV' : 'Select CSV'}
+                    {file ? 'Change CSV' : 'Import CSV'}
                   </Button>
                 )}
               </FileButton>
               {file && (
                 <Button
                   onClick={() => handleImportCSV(file)}
-                  leftSection={<IconUpload size={16} color="#ffffff" />}
-                  styles={operationsActionButtonStyles}
+                  leftSection={<IconUpload size={16} />}
+                  variant="light"
+                  radius={6}
                 >
                   Import
                 </Button>
@@ -327,6 +396,7 @@ export function CustomersPage({ apiBasePath }: CustomersPageProps) {
             <Button
               leftSection={<IconPlus size={16} />}
               color="blue"
+              radius={6}
               onClick={openModal}
             >
               Add Customer
@@ -345,9 +415,9 @@ export function CustomersPage({ apiBasePath }: CustomersPageProps) {
         />
 
         <Card
+          ref={gridRef}
           withBorder
-          shadow="sm"
-          radius="md"
+          radius={8}
           padding={0}
           style={{
             height: gridHeight,
@@ -356,67 +426,92 @@ export function CustomersPage({ apiBasePath }: CustomersPageProps) {
             overflow: 'hidden',
             position: 'relative',
             background: '#fff',
-            fontSize: '18px',
+            borderColor: '#e2e6ea',
           }}
           className="data-grid-container"
         >
-          <GridView
-            getCellContent={getData}
-            columns={columns}
-            rows={getRowCount()}
-            height={gridHeight}
-            width={'100%'}
-            overscrollX={0}
-            smoothScrollX={true}
-            smoothScrollY={true}
-            rowHeight={70}
-            headerHeight={80}
-            rowMarkers="none"
-            isDraggable={false}
-            onCellClicked={handleCellClick}
-            experimental={{ scrollbarWidthOverride: 16 }}
-            drawHeader={drawHeader}
-            theme={{
-              accentColor: '#228be6',
-              accentLight: 'rgba(34, 139, 230, 0.1)',
-              textDark: '#212529',
-              textMedium: '#495057',
-              textLight: '#868e96',
-              textBubble: '#ffffff',
-              bgIconHeader: '#f8f9fa',
-              fgIconHeader: '#495057',
-              textHeader: '#343a40',
-              textHeaderSelected: '#228be6',
-              bgCell: '#ffffff',
-              bgCellMedium: '#ffffff',
-              bgHeader: '#f8f9fa',
-              bgHeaderHasFocus: '#e9ecef',
-              bgHeaderHovered: '#e9ecef',
-              bgBubble: '#228be6',
-              bgBubbleSelected: '#1c7ed6',
-              bgSearchResult: '#fff3cd',
-              borderColor: 'rgba(206, 212, 218, 0.5)',
-              drilldownBorder: 'rgba(34, 139, 230, 0.4)',
-              linkColor: '#228be6',
-              headerFontStyle: 'bold 17px Inter',
-              baseFontStyle: '17px Inter',
-              editorFontSize: '20',
-              fontFamily: 'Inter',
-              cellHorizontalPadding: 12,
-              cellVerticalPadding: 8,
-            }}
-            getCellsForSelection={true}
-          />
+          {filteredCustomers.length === 0 ? (
+            <Center h="100%" px="md">
+              <Stack align="center" gap="sm">
+                {searchQuery ? (
+                  <IconSearchOff size={32} color="#868e96" stroke={1.5} />
+                ) : (
+                  <IconUsers size={32} color="#868e96" stroke={1.5} />
+                )}
+                <Text fw={600}>
+                  {searchQuery ? 'No matching customers' : 'No customers yet'}
+                </Text>
+                <Button
+                  variant="light"
+                  radius={6}
+                  leftSection={
+                    searchQuery ? <IconX size={16} /> : <IconPlus size={16} />
+                  }
+                  onClick={searchQuery ? () => handleSearch('') : openModal}
+                >
+                  {searchQuery ? 'Clear search' : 'Add Customer'}
+                </Button>
+              </Stack>
+            </Center>
+          ) : (
+            <GridView
+              getCellContent={getData}
+              columns={columns}
+              rows={getRowCount()}
+              height={gridHeight}
+              width={'100%'}
+              overscrollX={0}
+              smoothScrollX={true}
+              smoothScrollY={true}
+              rowHeight={directoryView ? 48 : 70}
+              headerHeight={directoryView ? 44 : 80}
+              freezeColumns={directoryView && isDesktop ? 1 : 0}
+              verticalBorder={!directoryView}
+              rowMarkers="none"
+              isDraggable={false}
+              onCellClicked={handleCellClick}
+              experimental={{ scrollbarWidthOverride: 16 }}
+              drawCell={directoryView ? drawCell : undefined}
+              theme={{
+                accentColor: '#228be6',
+                accentLight: 'rgba(34, 139, 230, 0.1)',
+                textDark: '#27313d',
+                textMedium: '#495057',
+                textLight: '#868e96',
+                textBubble: '#ffffff',
+                bgIconHeader: '#f8f9fa',
+                fgIconHeader: '#495057',
+                textHeader: '#59636e',
+                textHeaderSelected: '#228be6',
+                bgCell: '#ffffff',
+                bgCellMedium: '#ffffff',
+                bgHeader: '#f6f8fa',
+                bgHeaderHasFocus: '#e9ecef',
+                bgHeaderHovered: '#e9ecef',
+                bgBubble: '#228be6',
+                bgBubbleSelected: '#1c7ed6',
+                bgSearchResult: '#fff3cd',
+                borderColor: '#e9edf1',
+                horizontalBorderColor: '#edf0f3',
+                drilldownBorder: 'rgba(34, 139, 230, 0.4)',
+                linkColor: '#228be6',
+                headerFontStyle: directoryView ? '600 12px' : 'bold 17px',
+                baseFontStyle: directoryView ? '14px' : '17px',
+                editorFontSize: '14px',
+                fontFamily:
+                  'Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
+                cellHorizontalPadding: 16,
+                cellVerticalPadding: 8,
+              }}
+              getCellsForSelection={true}
+            />
+          )}
         </Card>
-
-        {/* Pagination counter */}
-        <Text size="sm" c="dimmed" ta="center">
-          {customers.length > 0
-            ? `Showing ${filteredCustomers.length} of ${customers.length} customers${
-                searchQuery ? ' (filtered)' : ''
-              }`
-            : 'Customer management system - import CSV file to get started'}
-        </Text>
+        {!directoryView && (
+          <Text size="sm" c="dimmed" ta="center">
+            Showing {filteredCustomers.length} of {customers.length} customers
+          </Text>
+        )}
       </Stack>
     </PageLayout>
   );

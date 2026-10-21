@@ -1,10 +1,14 @@
 import { CustomersPage } from '@/modules/clothing/operations/customers/components/CustomersPage';
 import { CustomersErrorBoundary } from '@/modules/clothing/operations/customers/components/CustomersErrorBoundary';
 
-export function CustomersRoutePage() {
+export function CustomersRoutePage({
+  directoryView = false,
+}: {
+  directoryView?: boolean;
+}) {
   return (
     <CustomersErrorBoundary>
-      <CustomersPage />
+      <CustomersPage directoryView={directoryView} />
     </CustomersErrorBoundary>
   );
 }

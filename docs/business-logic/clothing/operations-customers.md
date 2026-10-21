@@ -76,6 +76,16 @@
 
 ## F — Search & Filtering
 
+The customer directory initially shows Customer Name, Phone Number, Email
+Address, Address, and Customer Status. The **Columns** menu can reveal the
+remaining fields, show all 11 columns, or reset the default view. Customer Name
+cannot be hidden. Column choices last until the page is unmounted and do not
+change search results or CSV exports.
+
+Customer names remain pinned during horizontal scrolling on desktop. On small
+screens, the entire table scrolls horizontally so contact details have enough
+space to remain readable. Double-click a customer name to open its detail page.
+
 | #   | Logic                                           | Explanation                                                                                                                                                                                |
 | --- | ----------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | 22  | Customer search index spans 11 fields           | The search column builder indexes: Customer Name, Phone Number, Address, Facebook, Email, Business Name, Tax Number, Business Address, Business Contact Number, Date, and Customer Status. |

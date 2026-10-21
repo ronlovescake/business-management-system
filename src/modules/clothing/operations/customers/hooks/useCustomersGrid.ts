@@ -5,6 +5,7 @@ import {
   type GridCell,
   type GridColumn,
   type Item,
+  type DataEditorProps,
 } from '@glideapps/glide-data-grid';
 import type { CustomerData } from '../types/customer.types';
 import { useBusinessStore } from '@/lib/store';
@@ -12,33 +13,67 @@ import { buildWorkspacePath } from '@/lib/routes';
 
 interface UseCustomersGridProps {
   filteredCustomers: CustomerData[];
+  visibleColumnIds?: readonly string[];
+  directoryView?: boolean;
 }
 
-export function useCustomersGrid({ filteredCustomers }: UseCustomersGridProps) {
+const spreadsheetColumns: GridColumn[] = [
+  { title: 'Date', width: 160, id: 'date' },
+  { title: 'Customer Name', width: 500, id: 'customerName' },
+  { title: 'Phone Number', width: 190, id: 'phoneNumber' },
+  { title: 'Address', width: 340, id: 'address' },
+  { title: 'Facebook', width: 220, id: 'facebook' },
+  { title: 'Email Address', width: 260, id: 'emailAddress' },
+  { title: 'Business Name', width: 500, id: 'businessName' },
+  { title: 'Tax Number', width: 170, id: 'taxNumber' },
+  { title: 'Business Address', width: 340, id: 'businessAddress' },
+  { title: 'Business Contact Number', width: 260, id: 'businessContactNumber' },
+  { title: 'Customer Status', width: 120, id: 'customerStatus', grow: 1 },
+];
+
+export const customerColumns: GridColumn[] = [
+  // `grow` shares spare width so the visible columns always fill the table.
+  { title: 'Customer Name', width: 260, id: 'customerName', grow: 1 },
+  { title: 'Phone Number', width: 160, id: 'phoneNumber' },
+  { title: 'Email Address', width: 230, id: 'emailAddress', grow: 1 },
+  { title: 'Address', width: 300, id: 'address', grow: 3 },
+  { title: 'Customer Status', width: 140, id: 'customerStatus' },
+  { title: 'Date', width: 140, id: 'date' },
+  { title: 'Facebook', width: 240, id: 'facebook', grow: 1 },
+  { title: 'Business Name', width: 260, id: 'businessName', grow: 1 },
+  { title: 'Tax Number', width: 160, id: 'taxNumber' },
+  { title: 'Business Address', width: 300, id: 'businessAddress', grow: 2 },
+  { title: 'Business Contact Number', width: 220, id: 'businessContactNumber' },
+];
+
+export const defaultCustomerColumnIds = [
+  'customerName',
+  'phoneNumber',
+  'emailAddress',
+  'address',
+  'customerStatus',
+] as const;
+
+export function useCustomersGrid({
+  filteredCustomers,
+  visibleColumnIds = defaultCustomerColumnIds,
+  directoryView = true,
+}: UseCustomersGridProps) {
   const router = useRouter();
   const { selectedBusiness } = useBusinessStore();
   const lastClickRef = useRef<{ cell: Item; time: number } | null>(null);
 
   // Customer columns
   const columns: GridColumn[] = useMemo(
-    () => [
-      { title: 'Date', width: 160, id: 'date' },
-      { title: 'Customer Name', width: 500, id: 'customerName' },
-      { title: 'Phone Number', width: 190, id: 'phoneNumber' },
-      { title: 'Address', width: 340, id: 'address' },
-      { title: 'Facebook', width: 220, id: 'facebook' },
-      { title: 'Email Address', width: 260, id: 'emailAddress' },
-      { title: 'Business Name', width: 500, id: 'businessName' },
-      { title: 'Tax Number', width: 170, id: 'taxNumber' },
-      { title: 'Business Address', width: 340, id: 'businessAddress' },
-      {
-        title: 'Business Contact Number',
-        width: 260,
-        id: 'businessContactNumber',
-      },
-      { title: 'Customer Status', width: 120, id: 'customerStatus', grow: 1 },
-    ],
-    []
+    () =>
+      directoryView
+        ? customerColumns.filter(
+            (column) =>
+              column.id === 'customerName' ||
+              visibleColumnIds.includes(column.id ?? '')
+          )
+        : spreadsheetColumns,
+    [directoryView, visibleColumnIds]
   );
 
   // Data rendering for grid
@@ -46,7 +81,7 @@ export function useCustomersGrid({ filteredCustomers }: UseCustomersGridProps) {
     (cell: Item): GridCell => {
       const [col, row] = cell;
 
-      if (row >= filteredCustomers.length) {
+      if (row < 0 || row >= filteredCustomers.length || !columns[col]) {
         return {
           kind: GridCellKind.Text,
           data: '',
@@ -110,6 +145,10 @@ export function useCustomersGrid({ filteredCustomers }: UseCustomersGridProps) {
           allowOverlay: false,
           readonly: true,
           contentAlign: 'left',
+          cursor: directoryView ? 'pointer' : undefined,
+          themeOverride: directoryView
+            ? { textDark: '#1864ab', baseFontStyle: '600 14px' }
+            : undefined,
         } as GridCell;
       }
 
@@ -119,9 +158,10 @@ export function useCustomersGrid({ filteredCustomers }: UseCustomersGridProps) {
         displayData: cellData,
         allowOverlay: false,
         readonly: true,
+        themeOverride: directoryView ? { textDark: '#59636e' } : undefined,
       };
     },
-    [filteredCustomers, columns]
+    [filteredCustomers, columns, directoryView]
   );
 
   const getRowCount = useCallback(
@@ -129,35 +169,58 @@ export function useCustomersGrid({ filteredCustomers }: UseCustomersGridProps) {
     [filteredCustomers]
   );
 
-  interface DrawHeaderArgs {
-    ctx: CanvasRenderingContext2D;
-    column: GridColumn;
-    rect: { x: number; y: number; width: number; height: number };
-    theme: {
-      bgHeader: string;
-      textHeader: string;
-      headerFontStyle: string;
-    };
-  }
+  const drawCell = useCallback<NonNullable<DataEditorProps['drawCell']>>(
+    ({ ctx, cell, col, rect, theme }, drawContent) => {
+      if (
+        columns[col]?.id !== 'customerStatus' ||
+        cell.kind !== GridCellKind.Text
+      ) {
+        drawContent();
+        return;
+      }
 
-  // Custom header renderer for center alignment
-  const drawHeader = useCallback((args: DrawHeaderArgs) => {
-    const { ctx, column, rect, theme } = args;
+      const colors: Record<string, { background: string; foreground: string }> =
+        {
+          active: { background: '#e6f4ec', foreground: '#216e43' },
+          inactive: { background: '#f1f3f5', foreground: '#59636e' },
+          prospect: { background: '#e7f1fb', foreground: '#1864ab' },
+          vip: { background: '#fff3d6', foreground: '#805b10' },
+          banned: { background: '#fce8e8', foreground: '#b42318' },
+        };
+      const palette = colors[cell.data.trim().toLowerCase()];
+      if (!palette) {
+        drawContent();
+        return;
+      }
 
-    ctx.fillStyle = theme.bgHeader;
-    ctx.fillRect(rect.x, rect.y, rect.width, rect.height);
-
-    ctx.fillStyle = theme.textHeader;
-    ctx.font = theme.headerFontStyle;
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-
-    const centerX = rect.x + rect.width / 2;
-    const centerY = rect.y + rect.height / 2;
-    ctx.fillText(column.title, centerX, centerY);
-
-    return true;
-  }, []);
+      ctx.save();
+      ctx.font = `500 12px ${theme.fontFamily}`;
+      const width = Math.min(
+        ctx.measureText(cell.displayData).width + 30,
+        rect.width - 24
+      );
+      const left = rect.x + theme.cellHorizontalPadding;
+      const top = rect.y + (rect.height - 24) / 2;
+      ctx.fillStyle = palette.background;
+      ctx.beginPath();
+      ctx.roundRect(left, top, width, 24, 5);
+      ctx.fill();
+      ctx.fillStyle = palette.foreground;
+      ctx.beginPath();
+      ctx.arc(left + 10, top + 12, 2.5, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.textAlign = 'left';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(
+        cell.displayData,
+        left + 19,
+        top + 12,
+        Math.max(1, width - 24)
+      );
+      ctx.restore();
+    },
+    [columns]
+  );
 
   // Handle cell clicks (double-click to navigate)
   const handleCellClick = useCallback(
@@ -197,7 +260,7 @@ export function useCustomersGrid({ filteredCustomers }: UseCustomersGridProps) {
     columns,
     getData,
     getRowCount,
-    drawHeader,
+    drawCell,
     handleCellClick,
   };
 }

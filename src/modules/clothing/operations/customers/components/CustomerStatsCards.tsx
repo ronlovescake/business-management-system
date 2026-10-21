@@ -12,13 +12,17 @@ import type { CustomerStats } from '../types/customer.types';
 
 interface CustomerStatsCardsProps {
   stats: CustomerStats;
+  subtle?: boolean;
 }
 
 /**
  * Customer Statistics Cards Component
  * Displays 4 stat cards: Total, Filtered, Unique Businesses, Contactable
  */
-export function CustomerStatsCards({ stats }: CustomerStatsCardsProps) {
+export function CustomerStatsCards({
+  stats,
+  subtle = false,
+}: CustomerStatsCardsProps) {
   const cards = React.useMemo<StatCard[]>(
     () => [
       {
@@ -32,7 +36,7 @@ export function CustomerStatsCards({ stats }: CustomerStatsCardsProps) {
         title: 'In current view',
         value: stats.filtered,
         icon: <IconFilter size={20} stroke={1.6} />,
-        color: 'grape',
+        color: subtle ? 'gray' : 'grape',
         backgroundColor: 'var(--mantine-color-grape-6)',
       },
       {
@@ -50,14 +54,19 @@ export function CustomerStatsCards({ stats }: CustomerStatsCardsProps) {
         backgroundColor: 'var(--mantine-color-green-6)',
       },
     ],
-    [stats]
+    [stats, subtle]
   );
 
   return (
     <StatsCardGrid
-      cards={cards}
-      variant="vibrant"
-      minCardWidth={220}
+      cards={
+        subtle
+          ? cards.map((card) => ({ ...card, backgroundColor: undefined }))
+          : cards
+      }
+      variant={subtle ? 'subtle' : 'vibrant'}
+      radius={8}
+      minCardWidth={subtle ? 200 : 220}
       spacing="md"
     />
   );
