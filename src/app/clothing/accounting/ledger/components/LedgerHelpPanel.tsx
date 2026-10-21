@@ -21,7 +21,8 @@ export function LedgerHelpPanel() {
               Ledger Help
             </Text>
             <Text c="dimmed" size="sm">
-              Quick reference for debit/credit and common entries.
+              Debit and credit effects depend on the account type. Use the
+              Business Guide for step-by-step clothing workflows.
             </Text>
           </Stack>
         </Group>
@@ -56,6 +57,38 @@ export function LedgerHelpPanel() {
             <Table.Tr>
               <Table.Td>
                 <Text size="sm" fw={600}>
+                  <Table.Tr>
+                    <Table.Td>
+                      <Text size="sm" fw={600}>
+                        Revenue
+                      </Text>
+                      <Text size="xs" c="dimmed">
+                        Sales Revenue
+                      </Text>
+                    </Table.Td>
+                    <Table.Td>
+                      <Text size="sm">Decreases</Text>
+                    </Table.Td>
+                    <Table.Td>
+                      <Text size="sm">Increases</Text>
+                    </Table.Td>
+                  </Table.Tr>
+                  <Table.Tr>
+                    <Table.Td>
+                      <Text size="sm" fw={600}>
+                        Expense
+                      </Text>
+                      <Text size="xs" c="dimmed">
+                        Interest Expense, COGS
+                      </Text>
+                    </Table.Td>
+                    <Table.Td>
+                      <Text size="sm">Increases</Text>
+                    </Table.Td>
+                    <Table.Td>
+                      <Text size="sm">Decreases</Text>
+                    </Table.Td>
+                  </Table.Tr>
                   Asset
                 </Text>
                 <Text size="xs" c="dimmed">
@@ -122,25 +155,32 @@ export function LedgerHelpPanel() {
           mt="xs"
         >
           <List.Item>
-            Customer payment (money in): Debit Cash / Credit Sales Revenue
+            Record customer payments and refunds through their transaction
+            workflows; these account entries are derived from those records.
           </List.Item>
           <List.Item>
-            Pay supplier (money out): Debit Expense or Accounts Payable / Credit
-            Cash
+            Supplier purchases, payments, and inventory receipt use Products;
+            check the ledger before entering them manually.
           </List.Item>
           <List.Item>
-            Pay a loan: Debit Loan Payable (principal) + Debit Interest Expense
-            (interest) / Credit Cash
+            Loan principal and interest are separate entries: Debit Loan Payable
+            / Credit Cash for principal; Debit Interest Expense / Credit Cash
+            for interest.
           </List.Item>
           <List.Item>
-            Transfer (not an expense): Debit Cash / Credit Cash (internal move)
+            Forwarder, courier, and packaging entries belong in Shipments →
+            Logistics Costs.
+          </List.Item>
+          <List.Item>
+            Owner contribution: Debit Cash / Credit Owner Contribution. Owner
+            withdrawal: Debit Owner Draw / Credit Cash.
           </List.Item>
         </List>
 
         <Divider my="md" />
 
         <Text fw={600} size="sm" c="gray.8">
-          Loan/AP tagging (keeps dropdown clean)
+          Loan/AP tagging
         </Text>
         <Text size="sm" c="dimmed" mt={6}>
           If you pick “Loan Payable” or “Accounts Payable”, you can add a Tag.

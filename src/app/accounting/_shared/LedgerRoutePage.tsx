@@ -20,10 +20,15 @@ import { AccountingLoadErrorAlert } from '@/app/accounting/_shared/AccountingLoa
 type LedgerRoutePageProps = {
   apiBasePath?: string;
   recurringPaymentService?: RecurringPaymentService;
+  manualEntryGuidance?: boolean;
 };
 
 export function LedgerRoutePage(props: LedgerRoutePageProps) {
-  const { apiBasePath, recurringPaymentService } = props;
+  const {
+    apiBasePath,
+    recurringPaymentService,
+    manualEntryGuidance = false,
+  } = props;
   const {
     entries,
     filteredEntries,
@@ -55,6 +60,7 @@ export function LedgerRoutePage(props: LedgerRoutePageProps) {
     saveManualEntry,
     isSavingManualEntry,
     manualEntryForm,
+    manualEntryPreset,
     handleManualEntryFieldChange,
     openingEntries,
     openingBalanceCutoverDate,
@@ -75,6 +81,7 @@ export function LedgerRoutePage(props: LedgerRoutePageProps) {
 
   const isOpeningBalanceTab = activeTab === 'opening-balance';
   const isHelpTab = activeTab === 'help';
+  const isBusinessGuideTab = activeTab === 'business-guide';
   const isRecurringPaymentsTab = activeTab === 'recurring-payments';
 
   return (
@@ -82,15 +89,18 @@ export function LedgerRoutePage(props: LedgerRoutePageProps) {
       <Stack gap="lg">
         <AccountingLoadErrorAlert message={loadError} />
 
-        {!isOpeningBalanceTab && !isHelpTab && !isRecurringPaymentsTab && (
-          <LedgerStatsCards
-            totalDebits={stats.totalDebits}
-            totalCredits={stats.totalCredits}
-            netChange={stats.netChange}
-            accounts={stats.accounts}
-            formatCurrency={formatCurrency}
-          />
-        )}
+        {!isOpeningBalanceTab &&
+          !isHelpTab &&
+          !isBusinessGuideTab &&
+          !isRecurringPaymentsTab && (
+            <LedgerStatsCards
+              totalDebits={stats.totalDebits}
+              totalCredits={stats.totalCredits}
+              netChange={stats.netChange}
+              accounts={stats.accounts}
+              formatCurrency={formatCurrency}
+            />
+          )}
 
         <LedgerControls
           activeTab={activeTab}
@@ -108,12 +118,14 @@ export function LedgerRoutePage(props: LedgerRoutePageProps) {
           onDownloadTemplate={handleDownloadTemplate}
           onExportCSV={handleExportCSV}
           onAddEntry={handleAddEntry}
+          manualEntryGuidance={manualEntryGuidance}
+          onStartGuidedEntry={handleAddEntry}
           onAddOpeningEntry={openOpeningEntryModal}
         />
 
         {isHelpTab ? (
           <LedgerHelpPanel />
-        ) : isRecurringPaymentsTab ? (
+        ) : isBusinessGuideTab ? null : isRecurringPaymentsTab ? (
           <RecurringPaymentsPanel
             accounts={accounts}
             onLedgerUpdated={refreshLedger}
@@ -165,6 +177,9 @@ export function LedgerRoutePage(props: LedgerRoutePageProps) {
           form={manualEntryForm}
           onChange={handleManualEntryFieldChange}
           accounts={accounts}
+          clothingGuided={manualEntryGuidance}
+          isEditing={Boolean(editingManualSourceId)}
+          presetId={manualEntryPreset}
           title={
             editingManualSourceId ? 'Edit Ledger Entry' : 'ADD LEDGER ENTRY'
           }

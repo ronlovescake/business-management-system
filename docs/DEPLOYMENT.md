@@ -52,9 +52,16 @@ npm run docker:prepare-storage
 4. Build and start the stack:
 
 ```bash
-docker compose --env-file .env.docker build
+npm run docker:build:all
 docker compose --env-file .env.docker up -d
 ```
+
+The repository build commands check free space on both Docker's data filesystem
+and the temporary filesystem first. They require 15 GiB by default and stop
+without pruning anything if either is below the threshold. Set
+`BMS_DOCKER_BUILD_MIN_FREE_GB` to a different positive GiB value only after
+reviewing available space. Direct `docker compose build` and `docker compose up
+--build` commands bypass this check.
 
 Repo wrapper scripts for the same flow:
 

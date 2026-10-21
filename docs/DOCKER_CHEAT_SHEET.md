@@ -26,11 +26,17 @@ docker compose --env-file .env.docker up -d db
 npm run dev:docker
 ```
 
-**Rebuild everything after pulling new code:**
+**Rebuild the app after pulling new code:**
 
 ```bash
 npm run docker:build && npm run docker:up
 ```
+
+Build commands check Docker and temporary-filesystem free space first. The
+default minimum is 15 GiB; no cache, image, or container cleanup is automatic.
+Use `npm run docker:build:all` when you need to build every Compose service.
+
+Raw `docker compose ... --build` commands bypass the preflight check.
 
 **Restart the app container without rebuilding** (image already exists):
 

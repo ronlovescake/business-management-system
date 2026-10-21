@@ -6,6 +6,7 @@ import {
   IconBuildingBank,
   IconRepeat,
   IconHelpCircle,
+  IconBook,
 } from '@tabler/icons-react';
 import {
   ControlPanelCard,
@@ -19,7 +20,8 @@ import {
   OPENING_BALANCE_PERIOD_OPTIONS,
   type OpeningBalancePeriodOption,
 } from '../hooks/useLedger';
-import { LedgerHelpPanel } from './LedgerHelpPanel';
+import { LedgerBusinessGuidePanel } from './LedgerBusinessGuidePanel';
+import type { ClothingManualEntryPresetId } from '../ledgerEntryGuidance';
 
 interface LedgerControlsProps {
   activeTab: string | null;
@@ -37,6 +39,8 @@ interface LedgerControlsProps {
   onDownloadTemplate: () => void;
   onExportCSV: () => void;
   onAddEntry: () => void;
+  manualEntryGuidance?: boolean;
+  onStartGuidedEntry?: (scenarioId: ClothingManualEntryPresetId) => void;
   onAddOpeningEntry?: () => void;
   isImporting?: boolean;
 }
@@ -57,6 +61,8 @@ export const LedgerControls = memo(function LedgerControls({
   onDownloadTemplate,
   onExportCSV,
   onAddEntry,
+  manualEntryGuidance = false,
+  onStartGuidedEntry,
   onAddOpeningEntry,
   isImporting = false,
 }: LedgerControlsProps) {
@@ -148,9 +154,18 @@ export const LedgerControls = memo(function LedgerControls({
       value: 'help',
       label: 'Help',
       leftSection: <IconHelpCircle size={16} />,
-      panel: <LedgerHelpPanel />,
+      panel: <div />,
     },
   ];
+
+  if (manualEntryGuidance && onStartGuidedEntry) {
+    tabs.push({
+      value: 'business-guide',
+      label: 'Business Guide',
+      leftSection: <IconBook size={16} />,
+      panel: <LedgerBusinessGuidePanel onStartEntry={onStartGuidedEntry} />,
+    });
+  }
 
   return (
     <ControlPanelCard

@@ -54,6 +54,17 @@
 | 13  | Update: `PUT /accounting/manual-journal`                                                    | Success: Mantine teal notification `{ title: 'Entry updated', message: '${debitAccount} / ${creditAccount}' }`. |
 | 14  | Delete: `window.confirm()` native dialog → `DELETE /accounting/manual-journal?sourceId=...` | Success: Mantine green notification `{ title: 'Entry deleted', message: '${entry.ref}' }`.                      |
 
+### Clothing guided entry and account choices
+
+- The clothing Ledger opens manual entries in guided mode. Choose what happened, enter the transaction details, and review the debit and credit lines before saving. Manual mode remains available for other two-account entries.
+- Guided manual recipes cover loan receipt, loan principal, loan interest, owner contributions, and owner withdrawals. Principal and interest are separate entries. Use the lender's breakdown and the same Loan Tag for the loan; do not guess the split.
+- Supplier and inventory activity belongs in Products. Transit Build-Up is a separate action; changing an unpaid product to paid may post its Supplier Payable settlement when a matching transit build-up exists. Shipment delivery requires a separate reclassification action.
+- Forwarder, courier, and packaging activity belongs in Shipments → Logistics Costs. That workflow tracks estimates, payable settlement, adjustments, and capitalization; do not repeat those entries from the generic Ledger form.
+- The clothing manual-entry account selector omits Sales Revenue, Sales Returns, Customer Deposits, Forfeited Deposits, Supplier Payable, Payroll, COGS, and Inventory Shrinkage from new entries because these are derived from operational records or are not the account used by the current derived calculation. Stock on Hand and Inventory in Transit belong to Products and shipment reclassification; Landed Cost Clearing and logistics payables belong to Shipments → Logistics Costs; Opening Equity belongs to the Opening Balance tab. Sales Revenue timing follows transaction-payment and deposit-recognition rules, not a universal order-completion trigger. The Inventory Shrinkage report category is calculated from inventory movements; the current journal calculation posts the shrinkage offset to Retained Earnings and Stock on Hand.
+- Hiding an account from new-entry suggestions does not remove it from the ledger, account filters, stored entries, or APIs. When editing an existing manual entry, its current account choices remain available. These selector choices are a workflow aid, not an authorization rule.
+- Before recording a transaction manually, check whether its source workflow already generated ledger entries. Manual entries do not update the source transaction, refund, inventory, payroll, or shipment records.
+- Cash represents cash, bank, and GCash equivalents in this workflow. Internal movements within that combined Cash account are not entered as Cash-to-Cash journals.
+
 ---
 
 ## E - Opening Balance Entry Modal

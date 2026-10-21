@@ -17,6 +17,7 @@ import {
   type ManualEntryField,
 } from './ledgerManualEntryForm';
 import type { LedgerEntry } from './ledgerTypes';
+import type { ClothingManualEntryPresetId } from '../ledgerEntryGuidance';
 
 interface UseLedgerManualEntriesParams {
   apiPath: (path: string) => string;
@@ -34,18 +35,35 @@ export function useLedgerManualEntries({
   const [editingManualSourceId, setEditingManualSourceId] = useState<
     string | null
   >(null);
+  const [manualEntryPreset, setManualEntryPreset] =
+    useState<ClothingManualEntryPresetId | null>(null);
   const [manualEntryForm, setManualEntryForm] = useState(
     createManualEntryFormState()
   );
 
-  const openManualEntryModal = useCallback(() => {
-    setEditingManualSourceId(null);
-    setManualEntryForm((prev) => ({
-      ...prev,
-      date: prev.date || getManualEntryDefaultDate(),
-    }));
-    setIsManualEntryModalOpen(true);
-  }, []);
+  const openManualEntryModal = useCallback(
+    (presetId?: ClothingManualEntryPresetId) => {
+      const preset = presetId
+        ? {
+            'loan-received': ['Cash', 'Loan Payable'],
+            'loan-principal': ['Loan Payable', 'Cash'],
+            'loan-interest': ['Interest Expense', 'Cash'],
+            'owner-contribution': ['Cash', 'Owner Contribution'],
+            'owner-withdrawal': ['Owner Draw', 'Cash'],
+          }[presetId]
+        : null;
+
+      setEditingManualSourceId(null);
+      setManualEntryPreset(presetId ?? null);
+      setManualEntryForm({
+        ...createManualEntryFormState(),
+        debitAccount: preset?.[0] ?? '',
+        creditAccount: preset?.[1] ?? '',
+      });
+      setIsManualEntryModalOpen(true);
+    },
+    []
+  );
 
   const openManualEntryModalForEdit = useCallback(
     (entry: LedgerEntry) => {
@@ -75,6 +93,7 @@ export function useLedgerManualEntries({
       }
 
       setEditingManualSourceId(sourceId);
+      setManualEntryPreset(null);
       setManualEntryForm(buildManualEntryFormFromLines(debitLine, creditLine));
       setIsManualEntryModalOpen(true);
     },
@@ -84,6 +103,7 @@ export function useLedgerManualEntries({
   const closeManualEntryModal = useCallback(() => {
     setIsManualEntryModalOpen(false);
     setEditingManualSourceId(null);
+    setManualEntryPreset(null);
   }, []);
 
   const handleManualEntryFieldChange = useCallback(
@@ -164,6 +184,7 @@ export function useLedgerManualEntries({
 
       setIsManualEntryModalOpen(false);
       setEditingManualSourceId(null);
+      setManualEntryPreset(null);
       await refreshLedger();
     } catch (error) {
       logger.error('Manual journal save failed', { error });
@@ -240,6 +261,7 @@ export function useLedgerManualEntries({
     isManualEntryModalOpen,
     isSavingManualEntry,
     editingManualSourceId,
+    manualEntryPreset,
     manualEntryForm,
     handleManualEntryFieldChange,
     openManualEntryModal,
