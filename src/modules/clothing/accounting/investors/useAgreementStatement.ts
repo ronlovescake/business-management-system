@@ -28,8 +28,49 @@ async function downloadAgreementStatement(
   window.setTimeout(() => window.URL.revokeObjectURL(objectUrl), 1000);
 }
 
+export function buildStatementEmail(investorName: string, reference: string) {
+  return [
+    `Subject: Investment Statement for ${reference}`,
+    '',
+    `Dear ${investorName},`,
+    '',
+    `Please find attached your investment statement for agreement ${reference}.`,
+    '',
+    'The statement includes your investment details, key contract dates, and the return schedule, including payments recorded as of the date it was generated. Please review it and contact us if you have any questions or notice any discrepancies.',
+    '',
+    'Please note that the statement reflects our records and projected return schedule. It is not a bank transfer receipt or confirmation from a financial institution.',
+    '',
+    'Thank you for your continued trust.',
+    '',
+    'Kind regards,',
+    '',
+    'Ron',
+    'Czarlie & Ron',
+  ].join('\n');
+}
+
 export function useAgreementStatement() {
   const [isDownloading, setIsDownloading] = useState(false);
+  const [downloadedAgreementId, setDownloadedAgreementId] = useState<
+    string | null
+  >(null);
+
+  const copyEmail = async (investorName: string, reference: string) => {
+    try {
+      await navigator.clipboard.writeText(
+        buildStatementEmail(investorName, reference)
+      );
+      showNotification({
+        message: 'Email message copied to clipboard',
+        color: 'green',
+      });
+    } catch {
+      showNotification({
+        message: 'Unable to copy the email message',
+        color: 'red',
+      });
+    }
+  };
 
   const download = async (
     agreementId: string,
@@ -48,6 +89,7 @@ export function useAgreementStatement() {
           ''
         )
       );
+      setDownloadedAgreementId(agreementId);
       showNotification({
         message: 'Agreement statement downloaded',
         color: 'green',
@@ -65,5 +107,5 @@ export function useAgreementStatement() {
     }
   };
 
-  return { isDownloading, download };
+  return { isDownloading, download, downloadedAgreementId, copyEmail };
 }

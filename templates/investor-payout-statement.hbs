@@ -32,6 +32,9 @@
       .hero-next { margin-top: 3mm; font-size: 20px; font-weight: 700; }
       .badge.overdue .badge-dot { background: #fca5a5; }
       .tiles.four { grid-template-columns: repeat(4, 1fr); }
+      .tiles.four .tile { display: flex; flex-direction: column; justify-content: center; text-align: center; }
+      .calc.centered .calc-part { align-self: stretch; display: flex; flex-direction: column; justify-content: center; text-align: center; }
+      .dl-row.right { text-align: right; }
       .tiles { margin-top: 7mm; display: grid; grid-template-columns: repeat(3, 1fr); gap: 4mm; }
       .tile { padding: 4.5mm 5mm; border-radius: 3.5mm; background: #f5f7f8; }
       .tile-label, .dl-label { color: #6b7780; font-size: 8.5px; font-weight: 600; letter-spacing: 1px; text-transform: uppercase; }
@@ -138,17 +141,17 @@
         <h2>Investment details</h2>
         <dl class="dl">
           <div class="dl-row"><dt class="dl-label">Investor</dt><dd>{{investorName}}</dd></div>
-          <div class="dl-row"><dt class="dl-label">Agreement reference</dt><dd>{{agreementReference}}</dd></div>
+          <div class="dl-row right"><dt class="dl-label">Agreement reference</dt><dd>{{agreementReference}}</dd></div>
           <div class="dl-row"><dt class="dl-label">Original Investment</dt><dd>{{currency principal}}</dd></div>
-          <div class="dl-row"><dt class="dl-label">Monthly rate</dt><dd>{{monthlyRate}}%</dd></div>
+          <div class="dl-row right"><dt class="dl-label">Monthly rate</dt><dd>{{monthlyRate}}%</dd></div>
           <div class="dl-row"><dt class="dl-label">Monthly return</dt><dd>{{currency contract.monthlyReturn}}</dd></div>
-          <div class="dl-row"><dt class="dl-label">Paid to date</dt><dd>{{currency returnSummary.paid.amount}} · {{returnSummary.paid.count}} payout(s)</dd></div>
+          <div class="dl-row right"><dt class="dl-label">Paid to date</dt><dd>{{currency returnSummary.paid.amount}} · {{returnSummary.paid.count}} payout(s)</dd></div>
         </dl>
       </section>
 
       <section class="card">
         <h2>How returns are calculated</h2>
-        <div class="calc">
+        <div class="calc centered">
           <div class="calc-part"><div class="tile-label">Original Investment</div><div class="calc-value">{{currency principal}}</div></div>
           <div class="calc-op" aria-hidden="true">×</div>
           <div class="calc-part"><div class="tile-label">Monthly rate</div><div class="calc-value">{{monthlyRate}}%</div></div>

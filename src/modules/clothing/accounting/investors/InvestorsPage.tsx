@@ -20,6 +20,7 @@ import {
 import {
   IconAlertCircle,
   IconArrowLeft,
+  IconCopy,
   IconDownload,
   IconEdit,
   IconPlus,
@@ -144,6 +145,8 @@ export default function InvestorsPage() {
   const {
     isDownloading: downloadingAgreementStatement,
     download: downloadAgreementStatement,
+    downloadedAgreementId,
+    copyEmail: copyStatementEmail,
   } = useAgreementStatement();
 
   const investors = query.data?.investors ?? [];
@@ -489,6 +492,21 @@ export default function InvestorsPage() {
                           >
                             Download statement
                           </Button>
+                          {downloadedAgreementId === agreement.id && (
+                            <Button
+                              variant="light"
+                              color="teal"
+                              leftSection={<IconCopy size={16} />}
+                              onClick={() =>
+                                void copyStatementEmail(
+                                  selected.name,
+                                  agreement.reference
+                                )
+                              }
+                            >
+                              Copy email
+                            </Button>
+                          )}
                         </Group>
                         <InvestorAccounting
                           key={agreement.id}
