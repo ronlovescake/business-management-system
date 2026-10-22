@@ -97,12 +97,12 @@ describe('investor agreement statement API', () => {
     expect(mocks.browserType.launch).not.toHaveBeenCalled();
   });
 
-  it('renders only the return schedule page as a PDF attachment', async () => {
+  it('renders the investment summary and return schedule as a PDF attachment', async () => {
     const response = await GET(request(), { params });
     expect(response.status).toBe(200);
     expect(response.headers.get('Content-Type')).toBe('application/pdf');
     expect(response.headers.get('Content-Disposition')).toBe(
-      'attachment; filename="CR-001-returns.pdf"'
+      `attachment; filename="Test Investor-CR-001-statement.pdf"; filename*=UTF-8''${encodeURIComponent('Test Investor-CR-001-statement.pdf')}`
     );
     expect(response.headers.get('Cache-Control')).toBe('private, no-store');
     expect(mocks.agreements.findUnique).toHaveBeenCalledWith({
@@ -118,15 +118,21 @@ describe('investor agreement statement API', () => {
 
     expect(mocks.page.setContent).toHaveBeenCalledTimes(1);
     const html = mocks.page.setContent.mock.calls[0][0] as string;
+    expect(html).toContain('INVESTMENT STATEMENT');
+    expect(html).toContain('Investment amount');
+    expect(html).toContain('Next payout · Agreement month 5 of 36');
+    expect(html).toContain('OVERDUE');
+    expect(html).toContain('Maturity date');
+    expect(html).toContain('January 25, 2028');
+    expect(html).toContain('February 24, 2028');
+    expect(html).toContain('Contract totals');
     expect(html).toContain('RETURN SCHEDULE');
     expect(html).toContain('Projected returns');
     expect(html).toContain('Test Investor');
     expect(html).toContain('INV-CR-001');
     expect(html).toContain('January 2025 – January 2028');
     expect(html).not.toContain('PAYOUT STATEMENT');
-    expect(html).not.toContain('class="statement"');
-    expect(html).not.toContain('Agreement month');
-    expect(html).not.toContain('not a bank transfer receipt');
+    expect(html).not.toContain('Amount paid');
     expect(html).not.toContain('Highlighted row');
     expect(html.match(/<tr class="[^"]*"><td class="num">/g)).toHaveLength(36);
     expect(html.match(/<table class="rs-table">/g)).toHaveLength(2);
@@ -136,5 +142,34 @@ describe('investor agreement statement API', () => {
     expect(mocks.page.pdf).toHaveBeenCalledWith(
       expect.objectContaining({ format: 'A4', preferCSSPageSize: true })
     );
+  });
+
+  it('shows the first payout for a contract with no payouts yet', async () => {
+    mocks.agreements.findUnique.mockResolvedValue({
+      ...agreement(),
+      effectiveDate: '2026-10-01',
+      payments: [],
+    });
+    await GET(request(), { params });
+    const html = mocks.page.setContent.mock.calls[0][0] as string;
+    expect(html).toContain('NO PAYOUTS YET');
+    expect(html).toContain('First payout · Agreement month 3 of 36');
+    expect(html).toContain('Due January 01, 2027');
+    expect(html).not.toContain('Next payout');
+  });
+
+  it('reports a fully paid contract when every payable month is recorded', async () => {
+    mocks.agreements.findUnique.mockResolvedValue({
+      ...agreement(),
+      payments: Array.from({ length: 36 }, (_, index) => ({
+        month: index + 1,
+        paidDate: '2025-04-28',
+      })),
+    });
+    await GET(request(), { params });
+    const html = mocks.page.setContent.mock.calls[0][0] as string;
+    expect(html).toContain('FULLY PAID');
+    expect(html).toContain('All returns paid');
+    expect(html).not.toContain('Next payout');
   });
 });

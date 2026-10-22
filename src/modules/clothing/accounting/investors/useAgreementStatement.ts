@@ -5,7 +5,7 @@ import { showNotification } from '@mantine/notifications';
 
 async function downloadAgreementStatement(
   agreementId: string,
-  reference: string
+  filename: string
 ) {
   const response = await fetch(
     `/api/clothing/investors/agreements/${encodeURIComponent(agreementId)}/statement`
@@ -21,7 +21,7 @@ async function downloadAgreementStatement(
   const objectUrl = window.URL.createObjectURL(blob);
   const link = document.createElement('a');
   link.href = objectUrl;
-  link.download = `${reference}-returns.pdf`;
+  link.download = filename;
   document.body.appendChild(link);
   link.click();
   link.remove();
@@ -31,13 +31,23 @@ async function downloadAgreementStatement(
 export function useAgreementStatement() {
   const [isDownloading, setIsDownloading] = useState(false);
 
-  const download = async (agreementId: string, reference: string) => {
+  const download = async (
+    agreementId: string,
+    reference: string,
+    investorName: string
+  ) => {
     if (isDownloading) {
       return;
     }
     setIsDownloading(true);
     try {
-      await downloadAgreementStatement(agreementId, reference);
+      await downloadAgreementStatement(
+        agreementId,
+        `${investorName}-${reference}-statement.pdf`.replace(
+          /[<>:"/\\|?*\x00-\x1F]/g,
+          ''
+        )
+      );
       showNotification({
         message: 'Agreement statement downloaded',
         color: 'green',

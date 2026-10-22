@@ -10,12 +10,12 @@ import { buildInvestmentSchedule } from '@/lib/investors/schedule';
 import {
   COMPANY_NAME,
   buildReturnSchedule,
+  formatDate,
   formatGeneratedAt,
   formatMonthYear,
   getStatementLogo,
   getStatementTemplate,
   renderStatementPdfs,
-  sanitizeFilename,
 } from '@/lib/investors/statements';
 import type { StatementPageContext } from '@/lib/investors/statements';
 import { getCurrentDateISO } from '@/utils/date';
@@ -40,7 +40,7 @@ async function authorize() {
 }
 
 /**
- * Contract-level return schedule (page 2 of the statement template only).
+ * Contract-level statement: investment summary page plus the return schedule.
  * Not tied to a payout month, so no row is highlighted.
  */
 export async function GET(
@@ -82,13 +82,20 @@ export async function GET(
       closures.map((closure) => closure.date)
     );
     const today = getCurrentDateISO();
+    const paidDates = new Map<number, string>(
+      agreement.payments.map((record) => [record.month, record.paidDate])
+    );
     const table = buildReturnSchedule({
       payouts: schedule.payouts,
-      paidDates: new Map<number, string>(
-        agreement.payments.map((record) => [record.month, record.paidDate])
-      ),
+      paidDates,
       today,
     });
+    const scheduled = schedule.payouts.filter(
+      (payout) => payout.status === 'scheduled'
+    );
+    const next = scheduled.find((payout) => !paidDates.has(payout.month));
+    const overdue = Boolean(next?.dueDate && next.dueDate < today);
+    const hasPayouts = paidDates.size > 0;
     const context: StatementPageContext = {
       companyName: COMPANY_NAME,
       logoData: getStatementLogo(),
@@ -100,17 +107,48 @@ export async function GET(
       monthlyRate: (agreement.monthlyRateBps / 100).toFixed(2),
       generatedAt: formatGeneratedAt(today, new Date()),
       contractOnly: true,
+      contract: {
+        effectiveDate: formatDate(agreement.effectiveDate),
+        firstPayoutDate: scheduled[0]?.dueDate
+          ? formatDate(scheduled[0].dueDate)
+          : '—',
+        maturityDate: formatDate(schedule.maturityDate),
+        repaymentDeadline: formatDate(schedule.principalRepaymentDeadline),
+        monthlyReturn: schedule.monthlyReturnCents / 100,
+        statusLabel: !next
+          ? 'FULLY PAID'
+          : overdue
+            ? 'OVERDUE'
+            : hasPayouts
+              ? 'ACTIVE'
+              : 'NO PAYOUTS YET',
+        nextPayout: next
+          ? {
+              label: hasPayouts ? 'Next payout' : 'First payout',
+              month: next.month,
+              bankingDate: next.dueDate ? formatDate(next.dueDate) : '—',
+              amount: next.amountCents / 100,
+              overdue,
+            }
+          : null,
+      },
       returnColumns: table.columns,
       returnSummary: table.summary,
     };
     const [pdf] = await renderStatementPdfs([getStatementTemplate()(context)]);
-    const filename = sanitizeFilename(`${agreement.reference}-returns.pdf`);
+    const filename =
+      `${agreement.investor.name}-${agreement.reference}-statement.pdf`.replace(
+        /[<>:"/\\|?*\x00-\x1F]/g,
+        ''
+      );
+    // Header values must be Latin-1; filename* carries the full UTF-8 name.
+    const asciiFilename = filename.replace(/[^\x20-\x7E]/g, '_');
 
     return new NextResponse(pdf, {
       status: 200,
       headers: {
         'Content-Type': 'application/pdf',
-        'Content-Disposition': `attachment; filename="${filename}"`,
+        'Content-Disposition': `attachment; filename="${asciiFilename}"; filename*=UTF-8''${encodeURIComponent(filename)}`,
         'Cache-Control': 'private, no-store',
       },
     });

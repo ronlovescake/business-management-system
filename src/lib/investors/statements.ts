@@ -52,6 +52,22 @@ export type ReturnSummary = {
   progress: number;
 };
 
+export type ContractSummary = {
+  effectiveDate: string;
+  firstPayoutDate: string;
+  maturityDate: string;
+  repaymentDeadline: string;
+  monthlyReturn: number;
+  statusLabel: string;
+  nextPayout: {
+    label: string;
+    month: number;
+    bankingDate: string;
+    amount: number;
+    overdue: boolean;
+  } | null;
+};
+
 /** Fields shared by every page rendered from the statement template. */
 export type StatementPageContext = {
   companyName: string;
@@ -64,6 +80,7 @@ export type StatementPageContext = {
   monthlyRate: string;
   generatedAt: string;
   contractOnly?: boolean;
+  contract?: ContractSummary;
   returnColumns: ReturnRow[][];
   returnSummary: ReturnSummary;
 };

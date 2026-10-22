@@ -29,6 +29,9 @@
       .badge { display: inline-flex; align-items: center; gap: 1.6mm; padding: 1.8mm 4mm; border-radius: 999px; background: rgba(255, 255, 255, 0.18); border: 1px solid rgba(255, 255, 255, 0.35); font-size: 10px; font-weight: 700; letter-spacing: 1.4px; }
       .badge-dot { width: 2mm; height: 2mm; border-radius: 50%; background: #5eead4; }
       .hero-month { margin-top: 3mm; font-size: 11px; color: rgba(255, 255, 255, 0.85); }
+      .hero-next { margin-top: 3mm; font-size: 20px; font-weight: 700; }
+      .badge.overdue .badge-dot { background: #fca5a5; }
+      .tiles.four { grid-template-columns: repeat(4, 1fr); }
       .tiles { margin-top: 7mm; display: grid; grid-template-columns: repeat(3, 1fr); gap: 4mm; }
       .tile { padding: 4.5mm 5mm; border-radius: 3.5mm; background: #f5f7f8; }
       .tile-label, .dl-label { color: #6b7780; font-size: 8.5px; font-weight: 600; letter-spacing: 1px; text-transform: uppercase; }
@@ -89,7 +92,89 @@
     </style>
   </head>
   <body>
-    {{#unless contractOnly}}
+    {{#if contractOnly}}
+    <main class="statement">
+      <header class="st-header">
+        <div class="brand">
+          {{#if logoData}}<img class="logo" src="data:image/png;base64,{{logoData}}" alt="Company logo" />{{/if}}
+          <div>
+            <div class="company">{{companyName}}</div>
+            <div class="subtitle">Investor Relations</div>
+          </div>
+        </div>
+        <div class="st-doc">
+          <h1 class="eyebrow">INVESTMENT STATEMENT</h1>
+          <p class="st-ref">{{statementReference}}</p>
+          <p class="st-period">{{payoutPeriod}}</p>
+        </div>
+      </header>
+
+      <section class="hero" aria-label="Investment">
+        <div>
+          <div class="hero-label">Investment amount</div>
+          <div class="hero-amount">{{currency principal}}</div>
+          <div class="hero-sub">Invested on {{contract.effectiveDate}} by {{investorName}}</div>
+        </div>
+        <div class="hero-side">
+          <span class="badge{{#if contract.nextPayout.overdue}} overdue{{/if}}"><span class="badge-dot"></span>{{contract.statusLabel}}</span>
+          {{#if contract.nextPayout}}
+          <div class="hero-month">{{contract.nextPayout.label}} · Agreement month {{contract.nextPayout.month}} of 36</div>
+          <div class="hero-next">{{currency contract.nextPayout.amount}}</div>
+          <div class="hero-month">{{#if contract.nextPayout.overdue}}Was due{{else}}Due{{/if}} {{contract.nextPayout.bankingDate}}</div>
+          {{else}}
+          <div class="hero-month">All returns paid</div>
+          {{/if}}
+        </div>
+      </section>
+
+      <section class="tiles four" aria-label="Key dates">
+        <div class="tile"><div class="tile-label">Effective date</div><div class="tile-value">{{contract.effectiveDate}}</div></div>
+        <div class="tile"><div class="tile-label">First payout date</div><div class="tile-value">{{contract.firstPayoutDate}}</div></div>
+        <div class="tile"><div class="tile-label">Maturity date</div><div class="tile-value">{{contract.maturityDate}}</div></div>
+        <div class="tile"><div class="tile-label">Investment repayment deadline</div><div class="tile-value">{{contract.repaymentDeadline}}</div></div>
+      </section>
+
+      <section class="card">
+        <h2>Investment details</h2>
+        <dl class="dl">
+          <div class="dl-row"><dt class="dl-label">Investor</dt><dd>{{investorName}}</dd></div>
+          <div class="dl-row"><dt class="dl-label">Agreement reference</dt><dd>{{agreementReference}}</dd></div>
+          <div class="dl-row"><dt class="dl-label">Original Investment</dt><dd>{{currency principal}}</dd></div>
+          <div class="dl-row"><dt class="dl-label">Monthly rate</dt><dd>{{monthlyRate}}%</dd></div>
+          <div class="dl-row"><dt class="dl-label">Monthly return</dt><dd>{{currency contract.monthlyReturn}}</dd></div>
+          <div class="dl-row"><dt class="dl-label">Paid to date</dt><dd>{{currency returnSummary.paid.amount}} · {{returnSummary.paid.count}} payout(s)</dd></div>
+        </dl>
+      </section>
+
+      <section class="card">
+        <h2>How returns are calculated</h2>
+        <div class="calc">
+          <div class="calc-part"><div class="tile-label">Original Investment</div><div class="calc-value">{{currency principal}}</div></div>
+          <div class="calc-op" aria-hidden="true">×</div>
+          <div class="calc-part"><div class="tile-label">Monthly rate</div><div class="calc-value">{{monthlyRate}}%</div></div>
+          <div class="calc-op" aria-hidden="true">=</div>
+          <div class="calc-part result"><div class="tile-label">Monthly return</div><div class="calc-value">{{currency contract.monthlyReturn}}</div></div>
+        </div>
+        <p class="card-note">Returns are simple interest on the original investment and do not compound. Investment is repaid separately at maturity.</p>
+      </section>
+
+      <section class="card">
+        <h2>Contract totals</h2>
+        <dl class="dl">
+          <div class="dl-row"><dt class="dl-label">Total projected returns (36 months)</dt><dd>{{currency returnSummary.total.amount}}</dd></div>
+          <div class="dl-row"><dt class="dl-label">Payable months</dt><dd>{{returnSummary.total.count}}</dd></div>
+        </dl>
+      </section>
+
+      <footer class="st-footer">
+        <div>
+          <p>This statement summarizes the investment agreement terms and payouts recorded in the investor records. It is not a bank transfer receipt, tax invoice, or confirmation from a financial institution.</p>
+          <div class="generated">Generated {{generatedAt}}</div>
+        </div>
+        <div class="st-next">Full return schedule on page 2 →</div>
+      </footer>
+    </main>
+    {{else}}
     <main class="statement">
       <header class="st-header">
         <div class="brand">
@@ -156,7 +241,7 @@
         <div class="st-next">Full return schedule on page 2 →</div>
       </footer>
     </main>
-    {{/unless}}
+    {{/if}}
     <main class="returns-page">
       <header class="st-header">
         <div class="brand">

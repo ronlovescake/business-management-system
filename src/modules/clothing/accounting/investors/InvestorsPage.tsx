@@ -482,7 +482,8 @@ export default function InvestorsPage() {
                             onClick={() =>
                               void downloadAgreementStatement(
                                 agreement.id,
-                                agreement.reference
+                                agreement.reference,
+                                selected.name
                               )
                             }
                           >
