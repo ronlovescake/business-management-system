@@ -16,6 +16,7 @@ import {
   getStatementLogo,
   getStatementTemplate,
   renderStatementPdfs,
+  statementFilename,
 } from '@/lib/investors/statements';
 import type { StatementPageContext } from '@/lib/investors/statements';
 import { getCurrentDateISO } from '@/utils/date';
@@ -136,11 +137,10 @@ export async function GET(
       returnSummary: table.summary,
     };
     const [pdf] = await renderStatementPdfs([getStatementTemplate()(context)]);
-    const filename =
-      `${agreement.investor.name}-${agreement.reference}-statement.pdf`.replace(
-        /[<>:"/\\|?*\x00-\x1F]/g,
-        ''
-      );
+    const filename = statementFilename(
+      agreement.investor.name,
+      agreement.reference
+    );
     // Header values must be Latin-1; filename* carries the full UTF-8 name.
     const asciiFilename = filename.replace(/[^\x20-\x7E]/g, '_');
 

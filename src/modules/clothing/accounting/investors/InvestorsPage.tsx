@@ -140,8 +140,12 @@ export default function InvestorsPage() {
     onError: (error: Error) =>
       showNotification({ message: error.message, color: 'red' }),
   });
-  const { isGenerating: generatingStatements, generate: generateStatements } =
-    useInvestorStatements();
+  const {
+    isGenerating: generatingStatements,
+    generate: generateStatements,
+    downloadedMonth: downloadedStatementMonth,
+    copyEmail: copyPayoutEmail,
+  } = useInvestorStatements();
   const {
     isDownloading: downloadingAgreementStatement,
     download: downloadAgreementStatement,
@@ -192,6 +196,11 @@ export default function InvestorsPage() {
           agreementId: item.id,
           reference: item.reference,
           investorName: item.investorName,
+          payoutNumber: item.schedule.payouts.filter(
+            (candidate) =>
+              candidate.status === 'scheduled' &&
+              candidate.month <= payout.month
+          ).length,
         }))
     )
     .sort((left, right) =>
@@ -604,12 +613,13 @@ export default function InvestorsPage() {
                       <Table.Th>Return month</Table.Th>
                       <Table.Th style={{ textAlign: 'right' }}>Return</Table.Th>
                       <Table.Th>Status</Table.Th>
+                      <Table.Th>Email</Table.Th>
                     </Table.Tr>
                   </Table.Thead>
                   <Table.Tbody>
                     {!visiblePayouts.length && (
                       <Table.Tr>
-                        <Table.Td colSpan={6}>
+                        <Table.Td colSpan={7}>
                           <Text c="dimmed" ta="center" py="xl">
                             No matching payouts.
                           </Text>
@@ -641,6 +651,36 @@ export default function InvestorsPage() {
                             today={today}
                             onMarkPaid={() => openPaymentEditor(payout)}
                           />
+                        </Table.Td>
+                        <Table.Td>
+                          {payout.payment &&
+                            downloadedStatementMonth === payoutMonth &&
+                            payout.dueDate?.startsWith(payoutMonth) && (
+                              <Button
+                                size="xs"
+                                variant="light"
+                                leftSection={<IconCopy size={14} />}
+                                onClick={() => {
+                                  const payment = payout.payment;
+                                  const bankingDate = payout.dueDate;
+                                  if (!payment || !bankingDate) {
+                                    return;
+                                  }
+                                  void copyPayoutEmail({
+                                    investorName: payout.investorName,
+                                    reference: payout.reference,
+                                    payoutNumber: payout.payoutNumber,
+                                    amount: FormatterService.formatCurrency(
+                                      Number(payment.amount)
+                                    ),
+                                    bankingDate,
+                                    paidDate: payment.paidDate,
+                                  });
+                                }}
+                              >
+                                Copy email
+                              </Button>
+                            )}
                         </Table.Td>
                       </Table.Tr>
                     ))}

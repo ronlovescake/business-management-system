@@ -147,9 +147,11 @@ describe('investor payout statement API', () => {
     const archive = await JSZip.loadAsync(
       Buffer.from(await response.arrayBuffer())
     );
-    expect(Object.keys(archive.files)).toEqual(['CR-001-month-3.pdf']);
-    expect(await archive.file('CR-001-month-3.pdf')?.async('string')).toBe(
-      'investor-pdf'
-    );
+    expect(Object.keys(archive.files)).toEqual([
+      'Test Investor-CR-001-statement.pdf',
+    ]);
+    expect(
+      await archive.file('Test Investor-CR-001-statement.pdf')?.async('string')
+    ).toBe('investor-pdf');
   });
 });

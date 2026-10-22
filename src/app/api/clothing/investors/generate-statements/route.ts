@@ -17,7 +17,7 @@ import {
   getStatementLogo,
   getStatementTemplate,
   renderStatementPdfs,
-  sanitizeFilename,
+  statementFilename,
 } from '@/lib/investors/statements';
 import type { StatementPageContext } from '@/lib/investors/statements';
 import { getCurrentDateISO } from '@/utils/date';
@@ -168,8 +168,9 @@ export async function POST(request: NextRequest) {
           body.month,
           schedule.payouts
         ),
-        filename: sanitizeFilename(
-          `${agreement.reference}-month-${payment.month}.pdf`
+        filename: statementFilename(
+          agreement.investor.name,
+          agreement.reference
         ),
       });
     }

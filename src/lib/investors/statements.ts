@@ -148,8 +148,15 @@ export function formatGeneratedAt(today: string, now: Date): string {
   return `${formatDate(today)} · ${time}`;
 }
 
-export function sanitizeFilename(value: string): string {
-  return value.replace(/[<>:"/\\|?*\x00-\x1F]/g, '').replace(/\s+/g, '-');
+/** Keeps spaces in the investor name, e.g. "Jane Doe-CR-001-statement.pdf". */
+export function statementFilename(
+  investorName: string,
+  reference: string
+): string {
+  return `${investorName}-${reference}-statement.pdf`.replace(
+    /[<>:"/\\|?*\x00-\x1F]/g,
+    ''
+  );
 }
 
 /**
