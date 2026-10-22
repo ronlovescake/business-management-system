@@ -5,6 +5,11 @@ import { withErrorHandler } from '@/core/api/middleware';
 import { validateMassDeleteConfirmation } from '@/lib/safety/mass-deletion';
 import { getCurrentDateISO } from '@/utils/date';
 import { sanitizers } from '@/lib/security/sanitize';
+import {
+  allocateLeaveRequest,
+  calculateRemainingPaidLeaveDays,
+  calculateScheduledLeaveDays,
+} from './leaveRequestCalculations';
 
 type LeaveRequestPayload = Record<string, unknown>;
 
@@ -304,6 +309,9 @@ export interface LeaveRequestRouteFactoryConfig<
   employeeModel: {
     findExistingIds: (employeeIds: string[]) => Promise<EmployeeIdsResult>;
   };
+  scheduleModel?: {
+    findDates: (employeeId: string) => Promise<Array<{ date: string }>>;
+  };
 }
 
 export function createLeaveRequestRoutes<
@@ -334,7 +342,19 @@ export function createLeaveRequestRoutes<
   const POST = withErrorHandler(
     async (request: NextRequest) => {
       const payload = await request.json();
+      const trackerAllocation =
+        !Array.isArray(payload) &&
+        typeof payload === 'object' &&
+        payload !== null &&
+        (payload as LeaveRequestPayload).allocationMode === 'tracker';
       const items = ensureArray(payload);
+
+      if (trackerAllocation && items.length !== 1) {
+        return NextResponse.json(
+          { error: 'Tracker allocation expects a single leave request' },
+          { status: 400 }
+        );
+      }
 
       if (items.length === 0) {
         return NextResponse.json(
@@ -416,11 +436,71 @@ export function createLeaveRequestRoutes<
         }
       }
 
-      const result = await config.leaveRequestModel.createMany(normalizedData);
+      let requestsToCreate = normalizedData;
+      let trackerRemainingAllocation: number | undefined;
+      if (trackerAllocation) {
+        const [trackerRequest] = normalizedData;
+        const [existingRequests, scheduleRows] = await Promise.all([
+          config.leaveRequestModel.findMany({
+            where: { employeeId: trackerRequest.employeeId },
+            orderBy: { startDate: 'desc' },
+          }),
+          config.scheduleModel?.findDates(trackerRequest.employeeId) ?? [],
+        ]);
+        const scheduleDates = scheduleRows.map((schedule) => schedule.date);
+        const numberOfDays = calculateScheduledLeaveDays(
+          trackerRequest.startDate,
+          trackerRequest.endDate,
+          scheduleDates
+        );
+        if (numberOfDays <= 0) {
+          return NextResponse.json(
+            {
+              error:
+                'The selected date range does not include any scheduled work days for this employee.',
+            },
+            { status: 400 }
+          );
+        }
+
+        const hasRequestId = Boolean((items[0] as LeaveRequestPayload).id);
+        if (hasRequestId) {
+          requestsToCreate = [{ ...trackerRequest, numberOfDays }];
+        } else {
+          const remainingAllocation = calculateRemainingPaidLeaveDays(
+            trackerRequest.employeeId,
+            existingRequests
+          );
+          trackerRemainingAllocation = remainingAllocation;
+          requestsToCreate = allocateLeaveRequest(
+            trackerRequest,
+            remainingAllocation,
+            scheduleDates
+          );
+        }
+
+        if (requestsToCreate.length === 0) {
+          return NextResponse.json(
+            {
+              error: 'Unable to split leave within the current schedule range.',
+            },
+            { status: 400 }
+          );
+        }
+      }
+
+      const result =
+        await config.leaveRequestModel.createMany(requestsToCreate);
 
       return NextResponse.json({
         message: `Successfully imported ${result.count} leave request records`,
         count: result.count,
+        ...(trackerAllocation
+          ? {
+              requests: requestsToCreate,
+              remainingAllocation: trackerRemainingAllocation,
+            }
+          : {}),
       });
     },
     {

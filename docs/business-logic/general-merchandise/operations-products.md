@@ -8,6 +8,9 @@
 > - `src/modules/general-merchandise/products/api/service.ts`
 > - `src/modules/general-merchandise/products/api/__tests__/service.transit-build.test.ts`
 > - `src/modules/general-merchandise/products/api/__tests__/service.accounting.test.ts`
+> - `src/modules/products/api/financials.ts`
+> - `src/modules/products/api/routeFactory.ts`
+> - `src/app/api/general-merchandise/products/[id]/route.ts`
 
 ---
 
@@ -52,3 +55,11 @@
 - A product shipment-code change updates the shipment code on linked transactions. It does not rewrite transaction prices or financial totals.
 - Changing `Actual Price` recalculates active linked price tiers. The highest-quantity tier uses `Actual Price`; each preceding lower-quantity tier is increased by 5 currency units. Archived tiers are left unchanged.
 - Run `npx tsx scripts/audit-general-merchandise-product-identity.ts` to report duplicate active codes, link totals, and unique, ambiguous, unmatched, or blank-code records before or after migration.
+
+## E — Product Financial Persistence
+
+The shared product form keeps its live financial cards as a browser preview.
+GM product writes use the shared financial calculation helper to recompute
+derived metrics before persistence, including direct-ID updates. The formulas
+are unchanged; this does not change GM's separate transit build-up accounting
+workflow described above.

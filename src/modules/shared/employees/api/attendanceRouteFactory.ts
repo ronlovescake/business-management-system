@@ -5,6 +5,7 @@ import { ApiResponseUtil } from '@/core/api/response';
 import { logger } from '@/lib/logger';
 import {
   type AttendanceUpdateInput,
+  calculateTotalHours,
   formatValidationErrors,
   validateAttendance,
   validateAttendanceUpdate,
@@ -255,6 +256,18 @@ export function createAttendanceRoutes<TRecord>(
       }
 
       const validatedData = validation.data;
+      const isManualEntry =
+        typeof body === 'object' &&
+        body !== null &&
+        (body as { hoursCalculationMode?: unknown }).hoursCalculationMode ===
+          'manual';
+      const calculatedHours = isManualEntry
+        ? calculateTotalHours(validatedData.timeIn, validatedData.timeOut)
+        : null;
+      const attendanceData =
+        calculatedHours && calculatedHours > 0
+          ? { ...validatedData, totalHours: calculatedHours }
+          : validatedData;
 
       if (validatedData.employeeId) {
         const employee = await config.employeeModel.findFirst({
@@ -276,7 +289,7 @@ export function createAttendanceRoutes<TRecord>(
         }
       }
 
-      const attendance = await config.attendanceModel.create(validatedData);
+      const attendance = await config.attendanceModel.create(attendanceData);
 
       logger.info(config.logMessages.created, { id: getRecordId(attendance) });
 

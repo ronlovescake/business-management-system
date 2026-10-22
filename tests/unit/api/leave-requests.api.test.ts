@@ -15,6 +15,9 @@ const mockPrisma = vi.hoisted(() => ({
   employee: {
     findMany: vi.fn(),
   },
+  schedule: {
+    findMany: vi.fn(),
+  },
 }));
 
 vi.mock('@/lib/db', () => ({
@@ -32,9 +35,13 @@ vi.mock('@/lib/logger', () => ({
 }));
 
 // Mock date utility
-vi.mock('@/utils/date', () => ({
-  getCurrentDateISO: vi.fn(() => '2025-10-22'),
-}));
+vi.mock('@/utils/date', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/utils/date')>();
+  return {
+    ...actual,
+    getCurrentDateISO: vi.fn(() => '2025-10-22'),
+  };
+});
 
 // Import route handlers after mocks
 import { GET, POST, PUT, PATCH, DELETE } from '@/app/api/leave-requests/route';
@@ -305,6 +312,71 @@ describe('Leave Requests API - POST', () => {
         expect.objectContaining({
           numberOfDays: 2,
         }),
+      ]),
+    });
+  });
+
+  it('derives tracker days and paid/unpaid split from server schedules', async () => {
+    mockPrisma.employee.findMany.mockResolvedValue([{ employeeId: 'emp1' }]);
+    mockPrisma.leaveRequest.findMany.mockResolvedValue([
+      {
+        id: 10,
+        employeeId: 'emp1',
+        employeeName: 'John Doe',
+        leaveType: 'Vacation Leave',
+        paymentStatus: 'paid',
+        startDate: '2025-01-01',
+        endDate: '2025-01-05',
+        numberOfDays: 5,
+        reason: 'Earlier leave',
+        status: 'approved',
+        appliedDate: '2025-01-01',
+      },
+    ]);
+    mockPrisma.schedule.findMany.mockResolvedValue([
+      { date: '2025-10-17' },
+      { date: '2025-10-20' },
+      { date: '2025-10-21' },
+    ]);
+    mockPrisma.leaveRequest.createMany.mockResolvedValue({ count: 2 });
+
+    const request = new NextRequest('http://localhost/api/leave-requests', {
+      method: 'POST',
+      body: JSON.stringify({
+        allocationMode: 'tracker',
+        employeeId: 'emp1',
+        employeeName: 'John Doe',
+        leaveType: 'Vacation Leave',
+        paymentStatus: 'unpaid',
+        startDate: '2025-10-17',
+        endDate: '2025-10-21',
+        numberOfDays: 999,
+        reason: 'Annual leave',
+      }),
+    });
+
+    const response = await POST(request);
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body.requests).toEqual([
+      expect.objectContaining({
+        paymentStatus: 'paid',
+        startDate: '2025-10-17',
+        endDate: '2025-10-20',
+        numberOfDays: 2,
+      }),
+      expect.objectContaining({
+        paymentStatus: 'unpaid',
+        startDate: '2025-10-21',
+        endDate: '2025-10-21',
+        numberOfDays: 1,
+      }),
+    ]);
+    expect(mockPrisma.leaveRequest.createMany).toHaveBeenCalledWith({
+      data: expect.arrayContaining([
+        expect.objectContaining({ paymentStatus: 'paid', numberOfDays: 2 }),
+        expect.objectContaining({ paymentStatus: 'unpaid', numberOfDays: 1 }),
       ]),
     });
   });

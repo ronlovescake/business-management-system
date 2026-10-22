@@ -3,6 +3,8 @@
 > **Source files:**
 >
 > - `src/app/general-merchandise/employees/attendance/page.tsx`
+> - `src/app/api/general-merchandise/attendance/route.ts`
+> - `src/modules/shared/employees/api/attendanceRouteFactory.ts`
 
 ---
 
@@ -25,3 +27,10 @@
 | 6   | Shared attendance workflow changes still affect GM operators and must be reflected here                   | Shared implementation remains the behavioral baseline for GM.               |
 | 7   | If GM receives custom attendance validation, summaries, or approvals later, document them here explicitly | This doc currently records route-shell parity plus GM API binding.          |
 | 8   | The route remains GM-specific because it presents GM employee attendance data under GM URLs and GM APIs   | Shared UI does not make the workflow generic from the operator perspective. |
+
+## C — Manual Hours Persistence
+
+For a marked manual single-record save, the shared API recalculates a positive
+hours value from the time fields before persistence. The form calculation is a
+preview. CSV/import and automatic bulk writes remain separate paths and retain
+their validated supplied totals; they do not use the manual calculation marker.

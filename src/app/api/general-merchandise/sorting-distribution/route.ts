@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { logger } from '@/lib/logger';
 import { prisma } from '@/lib/db';
+import { calculateDerivedDistributionRows } from '@/lib/sorting-distribution-calculations';
 
 // GET: Load distribution data for a product code
 export async function GET(request: Request) {
@@ -74,7 +75,16 @@ export async function POST(request: Request) {
       );
     }
 
-    const nonEmptyRows = rows.filter(
+    const estQtyReceived = rows.reduce(
+      (sum, row) => sum + (row.quantity || 0),
+      0
+    );
+    const derivedRows = calculateDerivedDistributionRows(
+      rows,
+      estQtyReceived,
+      selectedQuantity ?? null
+    );
+    const nonEmptyRows = derivedRows.filter(
       (row) =>
         row.quantity > 0 ||
         row.percentage > 0 ||

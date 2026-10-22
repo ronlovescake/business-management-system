@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import { Stack, Badge, Group } from '@mantine/core';
 // Direct imports for faster compilation (bypasses barrel export)
 import { StatsCardGrid, type StatCard } from '@/components/ui';
@@ -11,8 +11,7 @@ import type {
 } from '@/components/shared/PageTemplates/DataTable';
 import { PageLayout } from '../../../../components/layout/PageLayout';
 import { useThirteenthMonthPay } from './hooks/useThirteenthMonthPay';
-import type { ThirteenthMonthPay, ThirteenthMonthPayFormData } from './types';
-import { ThirteenthMonthPayFormDialog } from './components/ThirteenthMonthPayFormDialog';
+import type { ThirteenthMonthPay } from './types';
 import {
   IconCheck,
   IconCash,
@@ -44,18 +43,11 @@ export function EmployeesThirteenthMonthPayPage({
     formatDate,
     getStatusColor,
     getStatusLabel,
-    addRecord,
-    editRecord,
     approveRecord,
     markAsPaid,
     importFromCSV,
     exportToCSV,
   } = useThirteenthMonthPay(apiBasePath);
-
-  const [dialogOpened, setDialogOpened] = useState(false);
-  const [editingRecord, setEditingRecord] = useState<ThirteenthMonthPay | null>(
-    null
-  );
 
   const yearFilterOptions = useMemo(() => {
     const uniqueYears = Array.from(
@@ -236,23 +228,6 @@ export function EmployeesThirteenthMonthPayPage({
     },
   ];
 
-  // Handle save from dialog
-  const handleSave = (data: ThirteenthMonthPayFormData) => {
-    if (editingRecord) {
-      editRecord(editingRecord.id, data);
-    } else {
-      addRecord(data);
-    }
-    setDialogOpened(false);
-    setEditingRecord(null);
-  };
-
-  // Handle dialog close
-  const handleDialogClose = () => {
-    setDialogOpened(false);
-    setEditingRecord(null);
-  };
-
   return (
     <PageLayout fluid withPadding>
       <Stack gap="lg">
@@ -273,7 +248,6 @@ export function EmployeesThirteenthMonthPayPage({
           yearOptions={yearFilterOptions}
           onImportCSV={(file) => file && importFromCSV(file)}
           onExportCSV={exportToCSV}
-          onAddRecord={() => setDialogOpened(true)}
         />
 
         <DataTable
@@ -297,13 +271,6 @@ export function EmployeesThirteenthMonthPayPage({
               Total Amount: {formatCurrency(statsData.totalAmount)}
             </span>
           }
-        />
-
-        <ThirteenthMonthPayFormDialog
-          opened={dialogOpened}
-          editingRecord={editingRecord}
-          onClose={handleDialogClose}
-          onSave={handleSave}
         />
       </Stack>
     </PageLayout>

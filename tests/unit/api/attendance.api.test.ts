@@ -312,7 +312,8 @@ describe('Attendance API - POST', () => {
         status: 'present',
         timeIn: '08:00',
         timeOut: '17:00',
-        totalHours: 9,
+        totalHours: 99,
+        hoursCalculationMode: 'manual',
       }),
     });
 
@@ -387,7 +388,7 @@ describe('Attendance API - POST', () => {
           status: 'present',
           timeIn: '08:00',
           timeOut: '17:00',
-          totalHours: 9,
+          totalHours: 7,
         },
         {
           employeeId: 'emp2',
@@ -411,6 +412,9 @@ describe('Attendance API - POST', () => {
     expect(data.data.count).toBe(2);
     expect(data.data.records).toHaveLength(2);
     expect(mockPrisma.$transaction).toHaveBeenCalled();
+    expect(mockPrisma.attendance.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({ totalHours: 7 }),
+    });
   });
 
   it('should handle empty bulk create', async () => {

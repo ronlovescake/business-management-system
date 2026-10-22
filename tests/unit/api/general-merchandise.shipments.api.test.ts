@@ -118,6 +118,9 @@ describe('GM shipments API', () => {
         body: JSON.stringify({
           'Shipment Code': 'GM-SH-002',
           'Shipment Status': 'In Transit',
+          'Date Created': '2025-01-01',
+          'Date Delivered': '2025-01-11',
+          Duration: '999',
         }),
       })
     );
@@ -126,6 +129,9 @@ describe('GM shipments API', () => {
     expect(response.status).toBe(200);
     expect(body.success).toBe(true);
     expect(body.message).toBe('Shipment created');
+    expect(mockPrisma.generalMerchandiseShipment.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({ duration: '10' }),
+    });
   });
 
   it('imports GM shipments in bulk on POST array payloads', async () => {

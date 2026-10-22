@@ -22,6 +22,7 @@ Existing transaction prices and accounting amounts are unchanged.
 > - `src/app/api/shipments/[id]/transit-reclass/route.ts`
 > - `src/modules/shipments/api/transitBuildRouteFactory.ts`
 > - `src/modules/shipments/api/transitReclassRouteFactory.ts`
+> - `src/modules/shipments/api/shipmentUtils.ts`
 
 ---
 
@@ -102,11 +103,11 @@ Existing transaction prices and accounting amounts are unchanged.
 
 ## G — Duration Calculation
 
-| #   | Logic                                               | Explanation                                                                                                           |
-| --- | --------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------- |
-| 34  | Transit duration is always rounded up to whole days | `calculateDuration` uses `Math.ceil(diffMs / 86_400_000)`. A shipment that takes 1 day and 1 minute counts as 2 days. |
-| 35  | Duration requires both dates to be present          | If either `dateCreated` or `dateDelivered` is missing, `calculateDuration` returns `''` — no duration is shown.       |
-| 36  | Duration is in calendar days, not business days     | The calculation is a raw millisecond difference with no weekend/holiday exclusion.                                    |
+| #   | Logic                                                  | Explanation                                                                                                                             |
+| --- | ------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------- |
+| 34  | Persisted transit duration is rounded up to whole days | The shared API derives it with `Math.ceil(abs(delivered - created) / 86_400_000)`. A difference of 1 day and 1 minute counts as 2 days. |
+| 35  | Duration is derived when both dates are valid          | If either date is missing or invalid, the API retains the sanitized supplied duration, or stores `null` when none is supplied.          |
+| 36  | Duration is elapsed time, not business days            | The calculation uses the absolute millisecond difference; weekends and holidays are not excluded.                                       |
 
 ---
 

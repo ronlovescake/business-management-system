@@ -3,6 +3,8 @@
 > **Source files:**
 >
 > - `src/app/general-merchandise/employees/payroll/page.tsx`
+> - `src/modules/shared/ledger/payroll/api/routeAdapter.ts`
+> - `src/lib/payroll/form-utils.ts`
 
 ---
 
@@ -25,3 +27,11 @@
 | 6   | Shared payroll workflow changes still affect GM operators and must be reflected here                   | Shared implementation remains the behavioral baseline for GM.      |
 | 7   | If GM receives custom payroll calculations, approvals, or exports later, document them here explicitly | This doc currently records route-shell parity plus GM API binding. |
 | 8   | The route remains GM-specific because it presents GM payroll data under GM URLs and GM APIs            | Shared UI does not remove the GM business context.                 |
+
+## C — Server-Owned Payroll Totals
+
+GM uses the shared payroll formula and route adapter through its own API
+namespace. The browser summary remains a preview; the server recalculates
+`grossPay`, `totalDeductions`, and `netPay` from the submitted component fields
+on create, bulk import, and relevant updates before persistence. No GM-specific
+formula is introduced.

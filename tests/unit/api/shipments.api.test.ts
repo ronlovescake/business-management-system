@@ -244,9 +244,9 @@ describe('Shipments API - /api/shipments', () => {
         Weight: 350.5,
         Fee: 3500,
         'Shipment Status': 'In Transit',
-        'Date Created': 'Jan 10, 2025',
-        'Date Delivered': '',
-        Duration: '',
+        'Date Created': '2025-01-10',
+        'Date Delivered': '2025-01-20',
+        Duration: '999',
         Notes: 'Urgent delivery',
       };
 
@@ -260,8 +260,8 @@ describe('Shipments API - /api/shipments', () => {
         fee: 3500,
         shipmentStatus: 'In Transit',
         dateCreated: '2025-01-10',
-        dateDelivered: null,
-        duration: null,
+        dateDelivered: '2025-01-20',
+        duration: '10',
         notes: 'Urgent delivery',
       };
 
@@ -283,6 +283,9 @@ describe('Shipments API - /api/shipments', () => {
       expect(payload.data['Shipment Code']).toBe('SH-003');
       expect(payload.data['CV Number']).toBe('CV-99999');
       expect(payload.data['No. Of Sacks']).toBe(75);
+      expect(prisma.shipment.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({ duration: '10' }),
+      });
     });
 
     it('should handle currency symbols in Fee field (₱)', async () => {
@@ -460,6 +463,9 @@ describe('Shipments API - /api/shipments', () => {
           'Shipment Code': 'SH-100',
           'No. Of Sacks': 50,
           'Shipment Status': 'In Transit',
+          'Date Created': '2025-01-01',
+          'Date Delivered': '2025-01-11',
+          Duration: '999',
         },
         {
           'Shipment Code': 'SH-101',
@@ -496,6 +502,9 @@ describe('Shipments API - /api/shipments', () => {
       expect(payload.success).toBe(true);
       expect(payload.message).toBe('Shipments imported successfully');
       expect(payload.data.total).toBe(2);
+      expect(txShipmentCreate).toHaveBeenCalledWith({
+        data: expect.objectContaining({ duration: '10' }),
+      });
     });
 
     it('should handle bulk import with currency and comma cleaning', async () => {

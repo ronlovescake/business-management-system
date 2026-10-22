@@ -2,6 +2,10 @@ import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 import { withErrorHandler } from '@/core/api/middleware';
 import { sanitizers } from '@/lib/security/sanitize';
+import {
+  buildThirteenthMonthPayPersistencePayload,
+  type CalculatedThirteenthMonthPayRecord,
+} from '@/modules/shared/employees/thirteenth-month-pay/api/calculations';
 
 export interface ThirteenthMonthPayRouteFilters {
   employeeId?: string;
@@ -32,6 +36,10 @@ export interface ThirteenthMonthPayRouteService<
     recordId: string,
     status: string
   ) => Promise<TRecord>;
+}
+
+interface ThirteenthMonthPayRouteOptions {
+  calculateRecords?: () => Promise<CalculatedThirteenthMonthPayRecord[]>;
 }
 
 function buildFilters(request: NextRequest): ThirteenthMonthPayRouteFilters {
@@ -78,6 +86,15 @@ function buildFetchErrorResponse() {
   );
 }
 
+export function createThirteenthMonthPayCalculationRoute(
+  calculateRecords: () => Promise<CalculatedThirteenthMonthPayRecord[]>
+) {
+  return withErrorHandler(
+    async () => NextResponse.json(await calculateRecords()),
+    { onError: () => buildFetchErrorResponse() }
+  );
+}
+
 function buildPersistErrorResponse(error: unknown) {
   return NextResponse.json(
     {
@@ -106,7 +123,10 @@ function buildStatusErrorResponse(error: unknown) {
 export function createThirteenthMonthPayRoutes<
   TRecord extends RecordIdentity,
   TPayload,
->(service: ThirteenthMonthPayRouteService<TRecord, TPayload>) {
+>(
+  service: ThirteenthMonthPayRouteService<TRecord, TPayload>,
+  options: ThirteenthMonthPayRouteOptions = {}
+) {
   const GET = withErrorHandler(
     async (request: NextRequest) => {
       const filters = buildFilters(request);
@@ -137,6 +157,99 @@ export function createThirteenthMonthPayRoutes<
           { error: 'Record ID is required' },
           { status: 400 }
         );
+      }
+
+      const statusOnlyFields = new Set([
+        'status',
+        'calculatedDate',
+        'approvedDate',
+        'paidDate',
+        'notes',
+      ]);
+      const isStatusOnlyUpdate =
+        typeof data.status === 'string' &&
+        Object.keys(data).every((key) => statusOnlyFields.has(key));
+
+      if (options.calculateRecords && isStatusOnlyUpdate) {
+        const existing = await service.findByRecordId(recordId);
+        const existingStatus = (
+          existing as (TRecord & { status?: string | null }) | null
+        )?.status;
+        const isLocked =
+          existingStatus === 'approved' || existingStatus === 'paid';
+        const dateFields = ['calculatedDate', 'approvedDate', 'paidDate'];
+        const statusData: Record<string, unknown> = {
+          status: data.status,
+        };
+
+        dateFields.forEach((field) => {
+          if (typeof data[field] === 'string' || data[field] === null) {
+            statusData[field] = data[field];
+          }
+        });
+        if (typeof data.notes === 'string' || data.notes === null) {
+          statusData.notes = data.notes;
+        }
+
+        if (existing && isLocked) {
+          const result = await service.update(
+            String(existing.id),
+            statusData as TPayload
+          );
+          return NextResponse.json(result);
+        }
+
+        const calculatedRecord = (await options.calculateRecords()).find(
+          (record) => record.id === recordId
+        );
+        if (!calculatedRecord) {
+          if (existing) {
+            const result = await service.update(
+              String(existing.id),
+              statusData as TPayload
+            );
+            return NextResponse.json(result);
+          }
+          return NextResponse.json(
+            { error: 'Calculated record not found' },
+            { status: 404 }
+          );
+        }
+
+        const persistencePayload = buildThirteenthMonthPayPersistencePayload(
+          calculatedRecord,
+          {
+            status: data.status as CalculatedThirteenthMonthPayRecord['status'],
+            calculatedDate:
+              typeof data.calculatedDate === 'string'
+                ? data.calculatedDate
+                : calculatedRecord.calculatedDate,
+            approvedDate:
+              typeof data.approvedDate === 'string'
+                ? data.approvedDate
+                : calculatedRecord.approvedDate,
+            paidDate:
+              typeof data.paidDate === 'string'
+                ? data.paidDate
+                : calculatedRecord.paidDate,
+            notes:
+              typeof data.notes === 'string' || data.notes === null
+                ? data.notes
+                : calculatedRecord.notes,
+          }
+        );
+        const { id: _id, ...persistenceData } = persistencePayload;
+        const result = existing
+          ? await service.update(
+              String(existing.id),
+              persistenceData as TPayload
+            )
+          : await service.create({
+              recordId,
+              ...persistenceData,
+            } as TPayload);
+
+        return NextResponse.json(result);
       }
 
       const existing = await service.findByRecordId(recordId);

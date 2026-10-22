@@ -4,6 +4,8 @@
 >
 > - `src/app/clothing/employees/cash-advance/hooks/useCashAdvance.ts`
 > - `src/app/clothing/employees/cash-advance/types.ts`
+> - `src/modules/shared/employees/cash-advance/api/calculations.ts`
+> - `src/modules/employees/cash-advance/api/routeFactory.ts`
 
 ---
 
@@ -19,23 +21,23 @@
 
 ## B -- Cash Advance Status Lifecycle
 
-| #   | Logic                                                                         | Explanation                                                                                                  |
-| --- | ----------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
-| 4   | Status flow: `pending` -> `approved` -> `paid` (or `rejected` from `pending`) | No backwards transitions.                                                                                    |
-| 5   | `pending`: newly submitted, awaiting approval                                 | Default status on creation.                                                                                  |
-| 6   | `approved`: manually approved by a manager                                    | Sets `approvedBy = currentUserName`, `approvedDate = new Date().toISOString()`.                              |
-| 7   | `rejected`: rejected from `pending` with a reason                             | Sets `rejectedBy`, `rejectedDate`, `rejectionReason`; clears approval fields.                                |
-| 8   | `paid`: auto-triggered when `remainingBalance <= 0.01`                        | `useEffect` monitors all approved records; marks paid with `settledAmount = amount`, `remainingBalance = 0`. |
+| #   | Logic                                                                             | Explanation                                                                                                                                       |
+| --- | --------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 4   | Status flow: `pending` -> `approved` -> `paid` (or `rejected` from `pending`)     | No backwards transitions.                                                                                                                         |
+| 5   | `pending`: newly submitted, awaiting approval                                     | Default status on creation.                                                                                                                       |
+| 6   | `approved`: manually approved by a manager                                        | Sets `approvedBy = currentUserName`, `approvedDate = new Date().toISOString()`.                                                                   |
+| 7   | `rejected`: rejected from `pending` with a reason                                 | Sets `rejectedBy`, `rejectedDate`, `rejectionReason`; clears approval fields.                                                                     |
+| 8   | `paid`: an approved record is marked paid when its remaining balance is `<= 0.01` | The server enforces this threshold during updates, setting `settledAmount = amount` and `remainingBalance = 0`; the browser is not authoritative. |
 
 ---
 
 ## C -- Monthly Payment Calculation
 
-| #   | Logic                                                       | Explanation                                     |
-| --- | ----------------------------------------------------------- | ----------------------------------------------- |
-| 9   | `calculateMonthlyPayment(amount, terms)` = `amount / terms` | Simple equal instalment division (no interest). |
-| 10  | Returns `undefined` if `terms <= 0` or result is not finite | No division shown when terms are invalid.       |
-| 11  | Monthly payment is stored as `monthlyPayment` on the record | Computed and persisted on save.                 |
+| #   | Logic                                                                                | Explanation                                                                                                                                      |
+| --- | ------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------ |
+| 9   | `monthlyPayment = amount / termsMonths`                                              | The shared server helper applies equal instalment division (no interest) and rounds to two decimal places; the browser calculation is a preview. |
+| 10  | Returns `undefined` for invalid terms or a non-finite/non-positive result            | No monthly payment is stored when the calculation is invalid.                                                                                    |
+| 11  | Monthly payment is recalculated by the API on create and when amount or terms change | The API persists this derived value rather than trusting a client-supplied monthly payment.                                                      |
 
 ---
 

@@ -5,6 +5,7 @@
 > - `src/app/general-merchandise/operations/shipments/page.tsx`
 > - `src/app/general-merchandise/operations/_shared/renderGmOperationsPage.tsx`
 > - `src/modules/general-merchandise/operations/shipments/module.config.ts`
+> - `src/modules/shipments/api/shipmentUtils.ts`
 
 ---
 
@@ -30,9 +31,17 @@
 
 ## C — Recent Shared Workflow Changes
 
-| #   | Logic                                                                                                                  | Explanation                                                                                                                                                                                  |
-| --- | ---------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 7   | The Logistics Costs tab was rebuilt with a stepper workflow, smart action buttons, and posting history                  | See Clothing `operations-shipments.md` Section M for full documentation. The same shared tab interface applies to GM shipments.                                                               |
-| 8   | The Shipments API now returns per-product cost breakdowns                                                              | `GET /api/shipments` includes `linkedProductForwardersFee`, `linkedProductLalamove`, `linkedProductPackagingCost`, and `linkedProductGrandTotal` fields per shipment.                         |
-| 9   | Transit build-up only creates Grand Total entries                                                                      | Forwarder/Lalamove entries are disabled via the `ENABLE_TRANSIT_BUILD_LOGISTICS_COMPONENTS` feature flag. Those costs are handled separately via the Logistics Costs tab.                     |
-| 10  | Transit build-up idempotency uses transactional purge-and-recreate                                                     | Soft-deleted rows are purged before `createMany`, wrapped in a Prisma `$transaction`.                                                                                                        |
+| #   | Logic                                                                                                  | Explanation                                                                                                                                                               |
+| --- | ------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 7   | The Logistics Costs tab was rebuilt with a stepper workflow, smart action buttons, and posting history | See Clothing `operations-shipments.md` Section M for full documentation. The same shared tab interface applies to GM shipments.                                           |
+| 8   | The Shipments API now returns per-product cost breakdowns                                              | `GET /api/shipments` includes `linkedProductForwardersFee`, `linkedProductLalamove`, `linkedProductPackagingCost`, and `linkedProductGrandTotal` fields per shipment.     |
+| 9   | Transit build-up only creates Grand Total entries                                                      | Forwarder/Lalamove entries are disabled via the `ENABLE_TRANSIT_BUILD_LOGISTICS_COMPONENTS` feature flag. Those costs are handled separately via the Logistics Costs tab. |
+| 10  | Transit build-up idempotency uses transactional purge-and-recreate                                     | Soft-deleted rows are purged before `createMany`, wrapped in a Prisma `$transaction`.                                                                                     |
+
+## D — Persisted Shipment Duration
+
+The shared shipment API derives duration from valid creation and delivery dates
+using the absolute elapsed-time difference rounded up to whole days. If either
+date is missing or invalid, it retains a sanitized supplied duration, or stores
+`null` when none is supplied. This changes calculation ownership, not the
+duration formula or GM transit workflow.

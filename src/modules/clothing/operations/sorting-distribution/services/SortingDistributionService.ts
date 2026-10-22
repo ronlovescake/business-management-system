@@ -21,6 +21,7 @@ import {
 import { logger } from '@/lib/logger';
 import { api } from '@/lib/api/client';
 import { buildApiPath } from '@/lib/api/paths';
+import { calculateDerivedDistributionRows } from '@/lib/sorting-distribution-calculations';
 
 /**
  * Sorting Distribution Service
@@ -120,34 +121,11 @@ export class SortingDistributionService {
     estQtyReceived: number,
     selectedQuantity: number | null
   ): DistributionRow[] {
-    // Calculate total quantity from rows with quantity > 0
-    const totalQuantity = rows.reduce(
-      (sum, row) => sum + (row.quantity > 0 ? row.quantity : 0),
-      0
+    return calculateDerivedDistributionRows(
+      rows,
+      estQtyReceived,
+      selectedQuantity
     );
-
-    // Update percentage and distribution for each row
-    let counter = 1;
-    return rows.map((row) => {
-      if (row.quantity > 0) {
-        return {
-          ...row,
-          percentage: this.calculatePercentage(row.quantity, totalQuantity),
-          groupNumber: `Number ${counter++}`,
-          distribution: this.calculateDistribution(
-            row.quantity,
-            estQtyReceived,
-            selectedQuantity
-          ),
-        };
-      }
-      return {
-        ...row,
-        percentage: 0,
-        groupNumber: '',
-        distribution: 0,
-      };
-    });
   }
 
   /**

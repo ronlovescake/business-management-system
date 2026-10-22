@@ -346,7 +346,6 @@ export const BackupPreviewModal = ({
   restoreRunnerAvailable,
   restoreRunnerHeartbeatAt,
   restoreJobStatus,
-  restoreJobLoading,
   restoreSubmitting,
   selectedBackupTimestamp,
   selectedDumpFileName,
@@ -959,9 +958,9 @@ export const BackupPreviewModal = ({
                     2. Submit the restore job from this modal.
                   </Text>
                   <Text size="sm">
-                    3. The restore-runner validates the baseline dump,
-                    replaces the Docker database, replays any planned chain
-                    steps, and starts the app again.
+                    3. The restore-runner validates the baseline dump, replaces
+                    the Docker database, replays any planned chain steps, and
+                    starts the app again.
                   </Text>
                   <Text size="sm" c="dimmed">
                     Baseline dump:{' '}
@@ -985,7 +984,10 @@ export const BackupPreviewModal = ({
                       {restoreRunnerAvailable ? 'online' : 'offline'}
                     </Badge>
                   </Group>
-                  {restoreJobLoading ? <Progress value={100} animated /> : null}
+                  {restoreJobStatus?.phase === 'pending' ||
+                  restoreJobStatus?.phase === 'running' ? (
+                    <Progress value={100} animated />
+                  ) : null}
                   <Text size="sm" c="dimmed">
                     Last heartbeat:{' '}
                     {restoreRunnerHeartbeatAt

@@ -3,6 +3,8 @@ import type { NextRequest } from 'next/server';
 import { prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
 import { sanitizers } from '@/lib/security/sanitize';
+import { recalculateProductFinancials } from '@/modules/products/api/financials';
+import { sanitizeProductRecord } from '@/modules/products/api/sanitizers';
 import { postGmSupplierSettlementForProductPaymentChange } from '@/modules/general-merchandise/products/api/service';
 
 export async function PUT(
@@ -24,6 +26,9 @@ export async function PUT(
     });
 
     const productData = await request.json();
+    const calculatedProduct = recalculateProductFinancials(
+      sanitizeProductRecord(productData)
+    );
 
     const updatedProduct = await prisma.generalMerchandiseProduct.update({
       where: { id },
@@ -74,23 +79,10 @@ export async function PUT(
             min: 0,
             decimals: 2,
           }) || 0,
-        php:
-          sanitizers.number(productData['PHP'], { min: 0, decimals: 2 }) || 0,
-        subTotalPHP:
-          sanitizers.number(productData['Sub Total (PHP)'], {
-            min: 0,
-            decimals: 2,
-          }) || 0,
-        transactionFee:
-          sanitizers.number(productData['Transaction Fee'], {
-            min: 0,
-            decimals: 2,
-          }) || 0,
-        grandTotal:
-          sanitizers.number(productData['Grand Total'], {
-            min: 0,
-            decimals: 2,
-          }) || 0,
+        php: calculatedProduct.PHP,
+        subTotalPHP: calculatedProduct['Sub Total (PHP)'],
+        transactionFee: calculatedProduct['Transaction Fee'],
+        grandTotal: calculatedProduct['Grand Total'],
         forwardersFee:
           sanitizers.number(productData["Forwarder's Fee"], {
             min: 0,
@@ -104,37 +96,18 @@ export async function PUT(
             min: 0,
             decimals: 2,
           }) || 0,
-        suggestedPrice:
-          sanitizers.number(productData['Suggested Price'], {
-            min: 0,
-            decimals: 2,
-          }) || 0,
+        suggestedPrice: calculatedProduct['Suggested Price'],
         actualPrice:
           sanitizers.number(productData['Actual Price'], {
             min: 0,
             decimals: 2,
           }) || 0,
-        landedUnitCost:
-          sanitizers.number(productData['Landed Unit Cost'], {
-            min: 0,
-            decimals: 2,
-          }) || 0,
-        cogs:
-          sanitizers.number(productData['COGS'], { min: 0, decimals: 2 }) || 0,
-        projectedSales:
-          sanitizers.number(productData['Projected Sales'], {
-            min: 0,
-            decimals: 2,
-          }) || 0,
-        projectedProfit:
-          sanitizers.number(productData['Projected Profit'], { decimals: 2 }) ||
-          0,
-        projectedProfitPercent:
-          sanitizers.number(productData['Projected Profit (%)'], {
-            decimals: 2,
-          }) || 0,
-        totalMarkup:
-          sanitizers.number(productData['Total Markup'], { decimals: 2 }) || 0,
+        landedUnitCost: calculatedProduct['Landed Unit Cost'],
+        cogs: calculatedProduct.COGS,
+        projectedSales: calculatedProduct['Projected Sales'],
+        projectedProfit: calculatedProduct['Projected Profit'],
+        projectedProfitPercent: calculatedProduct['Projected Profit (%)'],
+        totalMarkup: calculatedProduct['Total Markup'],
         bulkQuantity:
           sanitizers.number(productData['Bulk Quantity'], {
             min: 0,
@@ -145,11 +118,7 @@ export async function PUT(
             min: 0,
             decimals: 2,
           }) || 0,
-        weightPerPiece:
-          sanitizers.number(productData['Weight Per Piece'], {
-            min: 0,
-            decimals: 2,
-          }) || 0,
+        weightPerPiece: calculatedProduct['Weight Per Piece'],
       },
     });
 

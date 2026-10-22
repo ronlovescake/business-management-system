@@ -12,6 +12,8 @@
 > - `src/app/clothing/employees/payroll/types.ts`
 > - `src/lib/payroll/payrollGenerationActions.ts`
 > - `src/lib/payroll/payrollPaidActions.ts`
+> - `src/lib/payroll/form-utils.ts`
+> - `src/modules/shared/ledger/payroll/api/routeAdapter.ts`
 
 ---
 
@@ -51,12 +53,12 @@
 
 ## D — Payroll Formulas
 
-| #   | Logic                                                                                                      | Explanation                                                        |
-| --- | ---------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------ |
-| 14  | `grossPay = basicSalary + allowance + overtime + bonuses + thirteenthMonth`                                | Calculated live in the form via `calculatePayrollTotals`.          |
-| 15  | `totalDeductions = sss + philHealth + pagIbig + tax + loans + cashAdvance + lwop + absentsLates`           | All deduction fields contribute.                                   |
-| 16  | `netPay = max(0, grossPay – totalDeductions)`                                                              | Net pay cannot go below zero.                                      |
-| 17  | The form shows a live "Gross Pay / Total Deductions / Net Pay" summary panel that updates as fields change | Computed from `form.values` via `calculateTotals` on every render. |
+| #   | Logic                                                                                                      | Explanation                                                                                                   |
+| --- | ---------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
+| 14  | `grossPay = basicSalary + allowance + overtime + bonuses + thirteenthMonth`                                | The form previews this formula; the payroll API recalculates it before create, import, and relevant updates.  |
+| 15  | `totalDeductions = sss + philHealth + pagIbig + tax + loans + cashAdvance + lwop + absentsLates`           | All deduction fields contribute.                                                                              |
+| 16  | `netPay = max(0, grossPay – totalDeductions)`                                                              | Net pay cannot go below zero.                                                                                 |
+| 17  | The form shows a live "Gross Pay / Total Deductions / Net Pay" summary panel that updates as fields change | Browser-side preview only; persisted totals are recomputed from the submitted component fields by the server. |
 
 ---
 

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { logger } from '@/lib/logger';
 import { api } from '@/lib/api/client';
@@ -13,6 +13,9 @@ import type {
 } from '../types';
 import { getCurrentDateISO, formatDisplayDate } from '@/utils/date';
 import { FormatterService } from '@/services/FormatterService';
+import { calculateCashAdvanceMonthlyPayment } from '@/modules/shared/employees/cash-advance/api/calculations';
+
+export const calculateMonthlyPayment = calculateCashAdvanceMonthlyPayment;
 
 export interface EmployeeOption {
   value: string;
@@ -22,17 +25,6 @@ export interface EmployeeOption {
 interface UseCashAdvanceOptions {
   currentUserName?: string;
 }
-
-export const calculateMonthlyPayment = (amount: number, terms: number) => {
-  if (terms <= 0) {
-    return undefined;
-  }
-  const payment = amount / terms;
-  if (!Number.isFinite(payment) || payment <= 0) {
-    return undefined;
-  }
-  return Number(payment.toFixed(2));
-};
 
 interface CashAdvanceApiRecord {
   id: string;
@@ -112,28 +104,6 @@ const mapApiRecordToCashAdvance = (
   };
 };
 
-const getSettledAmountFromRecord = (record: CashAdvance) => {
-  if (typeof record.settledAmount === 'number') {
-    return Math.max(record.settledAmount, 0);
-  }
-
-  const remaining =
-    typeof record.remainingBalance === 'number'
-      ? record.remainingBalance
-      : record.amount;
-
-  return Math.max(record.amount - remaining, 0);
-};
-
-const getRemainingBalanceFromRecord = (record: CashAdvance) => {
-  if (typeof record.remainingBalance === 'number') {
-    return Math.max(record.remainingBalance, 0);
-  }
-
-  const settled = getSettledAmountFromRecord(record);
-  return Math.max(record.amount - settled, 0);
-};
-
 export function useCashAdvance(
   apiBasePath?: string,
   options?: UseCashAdvanceOptions
@@ -147,8 +117,6 @@ export function useCashAdvance(
   );
 
   // State Management
-  const autoMarkingRef = useRef<Set<string>>(new Set());
-
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [isFormOpen, setIsFormOpen] = useState(false);
@@ -477,8 +445,7 @@ export function useCashAdvance(
   });
 
   // Utility Functions
-  const formatDate = (dateString: string) =>
-    formatDisplayDate(dateString);
+  const formatDate = (dateString: string) => formatDisplayDate(dateString);
 
   const formatCurrency = (amount: number) =>
     FormatterService.formatCurrency(amount);
@@ -532,10 +499,6 @@ export function useCashAdvance(
 
     const parsedAmount = Number.parseFloat(formData.amount);
     const parsedTerms = Number.parseInt(formData.terms, 10);
-    const monthlyPayment = calculateMonthlyPayment(
-      parsedAmount,
-      Number.isNaN(parsedTerms) ? 0 : parsedTerms
-    );
 
     if (Number.isNaN(parsedAmount) || parsedAmount <= 0) {
       await showError(
@@ -550,7 +513,6 @@ export function useCashAdvance(
       employeeName: employeeName || employeeId,
       amount: parsedAmount,
       termsMonths: Number.isNaN(parsedTerms) ? null : parsedTerms,
-      monthlyPayment: monthlyPayment ?? null,
       purpose: formData.purpose.trim() || null,
       notes: formData.notes?.trim() || null,
       requestDate: formData.requestDate || null,
@@ -558,15 +520,11 @@ export function useCashAdvance(
 
     try {
       if (editingRequest) {
-        const existingSettled = getSettledAmountFromRecord(editingRequest);
-
         saveMutation.mutate({
           isUpdate: true,
           payload: {
             id: editingRequest.id,
             status: editingRequest.status,
-            settledAmount: existingSettled,
-            remainingBalance: Math.max(parsedAmount - existingSettled, 0),
             ...payloadBase,
           },
         });
@@ -575,8 +533,6 @@ export function useCashAdvance(
           isUpdate: false,
           payload: {
             status: 'pending',
-            settledAmount: 0,
-            remainingBalance: parsedAmount,
             ...payloadBase,
           },
         });
@@ -616,32 +572,6 @@ export function useCashAdvance(
     }
   };
 
-  // Auto-mark as paid when balance reaches zero
-  useEffect(() => {
-    cashAdvances.forEach((record) => {
-      if (record.status !== 'approved') {
-        return;
-      }
-
-      const remaining = getRemainingBalanceFromRecord(record);
-      if (remaining > 0.01) {
-        return;
-      }
-
-      if (autoMarkingRef.current.has(record.id)) {
-        return;
-      }
-
-      autoMarkingRef.current.add(record.id);
-      updateStatusMutation.mutate({
-        id: record.id,
-        status: 'paid',
-        settledAmount: record.amount,
-        remainingBalance: 0,
-      });
-    });
-  }, [cashAdvances, updateStatusMutation]);
-
   const handleImportCSV = (file: File | null) => {
     if (!file) {
       return;
@@ -660,10 +590,6 @@ export function useCashAdvance(
           const trimmedEmployee = employee?.trim() || '';
           const parsedAmount = Number.parseFloat(amount?.trim() || '0');
           const parsedTerms = Number.parseInt(terms?.trim() || '', 10);
-          const monthlyPayment = calculateMonthlyPayment(
-            parsedAmount,
-            Number.isNaN(parsedTerms) ? 0 : parsedTerms
-          );
 
           return {
             employeeId: trimmedEmployee,
@@ -674,9 +600,6 @@ export function useCashAdvance(
             requestDate: requestDate?.trim() || '',
             status: (status?.trim() || 'pending') as CashAdvanceStatus,
             notes: '',
-            monthlyPayment: monthlyPayment ?? null,
-            settledAmount: 0,
-            remainingBalance: parsedAmount,
           };
         });
 

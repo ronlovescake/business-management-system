@@ -3,6 +3,10 @@
 > **Source files:**
 >
 > - `src/app/general-merchandise/employees/thirteenth-month-pay/page.tsx`
+> - `src/app/api/general-merchandise/thirteenth-month-pay/calculatedRecords.ts`
+> - `src/app/api/general-merchandise/thirteenth-month-pay/calculated/route.ts`
+> - `src/modules/shared/employees/thirteenth-month-pay/api/calculations.ts`
+> - `src/modules/shared/employees/api/thirteenthMonthPayRouteFactory.ts`
 
 ---
 
@@ -25,3 +29,14 @@
 | 6   | Shared 13th-month-pay workflow changes still affect GM operators and must be reflected here               | Shared implementation remains the behavioral baseline for GM.      |
 | 7   | If GM receives custom eligibility, computation, or approval rules later, document them here explicitly    | This doc currently records route-shell parity plus GM API binding. |
 | 8   | The route remains GM-specific because it presents GM employee compensation data under GM URLs and GM APIs | Shared UI does not remove the GM business context.                 |
+
+## C — Server Calculation And Persistence
+
+The GM calculated endpoint loads GM employees, payroll, and persisted records,
+then uses the shared server calculator. Generated pay remains
+`max(0, totalBasicSalary - totalLwop - totalAbsencesLates) / 12`; `monthsWorked`
+is informational, not the divisor. Approval persists the server-generated
+snapshot, and approved or paid values remain locked. The shared page currently
+exposes approval and payment actions, not Add, Edit, or Delete controls. The
+generated `/12` formula remains distinct from the legacy edit formula; this
+workflow does not normalize existing persisted values.

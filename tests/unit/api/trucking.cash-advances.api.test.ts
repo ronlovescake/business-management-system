@@ -4,6 +4,7 @@ import { Prisma } from '@prisma/client';
 
 const mockCashAdvanceService = vi.hoisted(() => ({
   findAll: vi.fn(),
+  findById: vi.fn(),
   findWithFilters: vi.fn(),
   create: vi.fn(),
   update: vi.fn(),

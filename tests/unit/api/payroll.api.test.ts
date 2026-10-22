@@ -321,6 +321,40 @@ describe('Payroll API', () => {
       expect(payload.data.employeeName).toBe('Bob Johnson');
     });
 
+    it('should derive aggregate totals from source amounts on create', async () => {
+      const request = createMockRequest(getTestApiUrl('/api/payroll'), {
+        method: 'POST',
+        body: {
+          ...mockPayrolls[0],
+          grossPay: 1,
+          totalDeductions: 2,
+          netPay: 3,
+        },
+      });
+
+      mockPrisma.employee.findMany.mockResolvedValue([
+        { employeeId: mockPayrolls[0].employeeId },
+      ]);
+      mockPrisma.payroll.create.mockImplementation(async ({ data }) => ({
+        id: 'payroll-derived',
+        ...data,
+        deletedAt: null,
+      }));
+
+      const response = await POST(request);
+
+      expect(response.status).toBe(201);
+      expect(mockPrisma.payroll.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            grossPay: 13000,
+            totalDeductions: 3325,
+            netPay: 9675,
+          }),
+        })
+      );
+    });
+
     it('should handle bulk payroll creation', async () => {
       const bulkPayrolls = [
         {
@@ -428,6 +462,10 @@ describe('Payroll API', () => {
         periodStart: '2025-10-16',
         periodEnd: '2025-10-31',
         basicSalary: '12000', // String
+        sss: '1000',
+        philHealth: '500',
+        pagIbig: '200',
+        tax: '800',
         grossPay: '12000',
         totalDeductions: '2500',
         netPay: '9500',
@@ -661,8 +699,9 @@ describe('Payroll API', () => {
       const updateData = {
         id: 'payroll-1',
         overtime: '1500', // String
-        grossPay: '14500',
-        netPay: '10175',
+        grossPay: '1',
+        totalDeductions: '2',
+        netPay: '3',
       };
 
       const request = createMockRequest(getTestApiUrl('/api/payroll'), {
@@ -675,7 +714,8 @@ describe('Payroll API', () => {
         ...mockPayrolls[0],
         overtime: 1500,
         grossPay: 14500,
-        netPay: 10175,
+        totalDeductions: 3325,
+        netPay: 11175,
       });
 
       const response = await PUT(request);
@@ -688,7 +728,7 @@ describe('Payroll API', () => {
           data: expect.objectContaining({
             overtime: 1500, // Should be number
             grossPay: 14500,
-            netPay: 10175,
+            netPay: 11175,
           }),
         })
       );

@@ -7,6 +7,7 @@ import { logger } from '@/lib/logger';
 import { getDatabaseUrl } from '@/lib/env';
 import type { ProductDTO } from './dto';
 import type { ProductService } from './service';
+import { recalculateProductFinancials } from './financials';
 import { sanitizeProductRecord } from './sanitizers';
 import { productDataSchema } from './schemas';
 
@@ -52,7 +53,10 @@ function validateRecords(payload: unknown[]): {
     const sanitized = sanitizeProductRecord(entry);
     const result = productDataSchema.safeParse(sanitized);
     if (result.success) {
-      valid.push({ ...sanitized, ...result.data });
+      const validated = { ...sanitized, ...result.data };
+      valid.push(
+        sanitizeProductRecord(recalculateProductFinancials(validated))
+      );
     } else {
       invalid.push({ index, issues: formatValidationErrors(result.error) });
     }

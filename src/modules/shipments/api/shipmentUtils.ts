@@ -73,12 +73,37 @@ export function convertShipmentDBToData(shipment: ShipmentDB): ShipmentData {
   };
 }
 
+function calculateShipmentDuration(
+  dateCreated: string | null,
+  dateDelivered: string | null
+): string | null {
+  if (!dateCreated || !dateDelivered) {
+    return null;
+  }
+
+  const createdTime = new Date(dateCreated).getTime();
+  const deliveredTime = new Date(dateDelivered).getTime();
+  if (!Number.isFinite(createdTime) || !Number.isFinite(deliveredTime)) {
+    return null;
+  }
+
+  return Math.ceil(
+    Math.abs(deliveredTime - createdTime) / (1000 * 60 * 60 * 24)
+  ).toString();
+}
+
 export function convertShipmentDataToDB(
   data: Partial<ShipmentData> | ShipmentRecordInput
 ) {
   const cleanNumber = (value: unknown, decimals = 2): number => {
     return sanitizers.number(value, { min: 0, decimals }) ?? 0;
   };
+  const dateCreated = sanitizers.date(data['Date Created']) || null;
+  const dateDelivered = sanitizers.date(data['Date Delivered']) || null;
+  const calculatedDuration = calculateShipmentDuration(
+    dateCreated,
+    dateDelivered
+  );
 
   return {
     shipmentCode: sanitizers.productCode(data['Shipment Code']) || '',
@@ -88,9 +113,9 @@ export function convertShipmentDataToDB(
     weight: cleanNumber(data['Weight']),
     fee: cleanNumber(data['Fee']),
     shipmentStatus: sanitizers.name(data['Shipment Status']) || '',
-    dateCreated: sanitizers.date(data['Date Created']) || null,
-    dateDelivered: sanitizers.date(data['Date Delivered']) || null,
-    duration: sanitizers.name(data['Duration']) || null,
+    dateCreated,
+    dateDelivered,
+    duration: calculatedDuration ?? (sanitizers.name(data['Duration']) || null),
     notes: sanitizers.notes(data['Notes']) || null,
   };
 }

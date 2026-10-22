@@ -111,6 +111,18 @@ describe('Products API Routes', () => {
       expect(data.success).toBe(true);
       expect(data.data.product.id).toBe(1);
       expect(mockProductService.createSingle).toHaveBeenCalledTimes(1);
+      expect(mockProductService.createSingle).toHaveBeenCalledWith(
+        expect.objectContaining({
+          PHP: 10,
+          'Sub Total (PHP)': 11,
+          'Transaction Fee': 0,
+          'Grand Total': 11,
+          'Suggested Price': 14,
+          COGS: 11,
+          'Projected Sales': 10,
+          'Projected Profit': 0,
+        })
+      );
     });
 
     it('bulk imports when payload length > 1', async () => {

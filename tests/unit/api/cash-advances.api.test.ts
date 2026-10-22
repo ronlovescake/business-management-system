@@ -5,6 +5,7 @@ import { Prisma } from '@prisma/client';
 // Mock CashAdvanceService before importing the route
 const mockCashAdvanceService = vi.hoisted(() => ({
   findAll: vi.fn(),
+  findById: vi.fn(),
   findWithFilters: vi.fn(),
   create: vi.fn(),
   update: vi.fn(),
@@ -230,7 +231,9 @@ describe('Cash Advances API - POST', () => {
         employeeName: 'John Doe',
         amount: 5000,
         termsMonths: 3,
-        monthlyPayment: 1666.67,
+        monthlyPayment: 999,
+        settledAmount: 1000,
+        remainingBalance: 0,
         purpose: 'Emergency',
         requestDate: '2025-10-01',
       }),
@@ -247,6 +250,9 @@ describe('Cash Advances API - POST', () => {
       expect.objectContaining({
         employeeId: 'emp1',
         status: 'pending',
+        monthlyPayment: 1666.67,
+        settledAmount: 0,
+        remainingBalance: 5000,
         deductionCycle: undefined,
         nextDeductionDate: undefined,
       })
@@ -511,6 +517,7 @@ describe('Cash Advances API - PUT', () => {
     };
 
     mockCashAdvanceService.update.mockResolvedValue(updatedRecord);
+    mockCashAdvanceService.findById.mockResolvedValue(existingRecord);
 
     const request = new NextRequest('http://localhost/api/cash-advances', {
       method: 'PUT',
@@ -567,6 +574,7 @@ describe('Cash Advances API - PUT', () => {
     };
 
     mockCashAdvanceService.update.mockResolvedValue(updatedRecord);
+    mockCashAdvanceService.findById.mockResolvedValue(existingRecord);
 
     const request = new NextRequest('http://localhost/api/cash-advances', {
       method: 'PUT',
@@ -744,6 +752,7 @@ describe('Cash Advances API - PUT', () => {
     };
 
     mockCashAdvanceService.update.mockResolvedValue(updatedRecord);
+    mockCashAdvanceService.findById.mockResolvedValue(existingRecord);
 
     const request = new NextRequest('http://localhost/api/cash-advances', {
       method: 'PUT',
@@ -764,6 +773,7 @@ describe('Cash Advances API - PUT', () => {
     expect(mockCashAdvanceService.update).toHaveBeenCalledWith(
       'clfhj3k8n0000xyz000000001',
       expect.objectContaining({
+        status: 'paid',
         settledAmount: 5000,
         remainingBalance: 0,
       })

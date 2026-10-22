@@ -10,6 +10,11 @@ type LeaveTrackerMutationsArgs = {
   leaveRequests: LeaveRequest[];
 };
 
+type LeaveRequestSavePayload = Omit<LeaveRequest, 'id'> & {
+  id?: string;
+  allocationMode?: 'tracker';
+};
+
 export function useLeaveTrackerMutations({
   queryClient,
   resolveApiPath,
@@ -48,10 +53,7 @@ export function useLeaveTrackerMutations({
 
   const saveMutation = useMutation({
     mutationFn: async (
-      payload:
-        | Omit<LeaveRequest, 'id'>
-        | Omit<LeaveRequest, 'id'>[]
-        | (Omit<LeaveRequest, 'id'> & { id?: string })
+      payload: LeaveRequestSavePayload | LeaveRequestSavePayload[]
     ) => {
       return api.post(resolveApiPath('/leave-requests'), payload);
     },

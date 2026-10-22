@@ -527,150 +527,43 @@ export default function useLeaveTracker(apiBasePath?: string) {
           numberOfDays,
           reason: formReason,
           notes: formNotes || undefined,
+          allocationMode: 'tracker',
         });
 
         resetFormFields();
       } else {
-        // Create new request(s)
-        const remainingAllocation =
-          calculateRemainingLeaveAllocation(formEmployeeId);
-        const requestedDays = numberOfDays;
+        const saveResult = await saveMutation.mutateAsync({
+          employeeId: formEmployeeId,
+          employeeName: formEmployeeName,
+          leaveType: formLeaveType as LeaveType,
+          paymentStatus: formPaymentStatus as PaymentStatus,
+          startDate: startISO,
+          endDate: endISO,
+          numberOfDays,
+          reason: formReason,
+          status: 'pending' as LeaveStatus,
+          appliedDate: getCurrentDateISO(),
+          notes: formNotes || undefined,
+          allocationMode: 'tracker',
+        });
 
-        const requestsToCreate: Omit<LeaveRequest, 'id'>[] = [];
-
-        // Check if we need to split into PAID and UNPAID portions
-        if (requestedDays > remainingAllocation && remainingAllocation > 0) {
-          // SPLIT LOGIC: Find the date where paid allocation ends
-          const scheduleSet = employeeScheduleIndex[formEmployeeId.trim()];
-
-          let daysCounter = 0;
-          let splitDate = '';
-          let offset = 0;
-          const maxIterations = 365;
-
-          while (offset < maxIterations) {
-            const currentDay = parsedStart.add(offset, 'day');
-            const currentDateStr = currentDay.format('YYYY-MM-DD');
-
-            const isScheduledDay =
-              !scheduleSet ||
-              scheduleSet.size === 0 ||
-              scheduleSet.has(currentDateStr);
-
-            if (isScheduledDay) {
-              daysCounter += 1;
-
-              if (daysCounter === remainingAllocation) {
-                splitDate = currentDateStr;
-                break;
-              }
-            }
-
-            offset += 1;
-          }
-
-          if (splitDate) {
-            const paidEndDate = splitDate;
-
-            // Find next scheduled day for unpaid start
-            let unpaidStartDate = '';
-            let searchOffset = 1;
-            const maxSearch = 365;
-
-            while (searchOffset < maxSearch) {
-              const nextDay = dayjs(splitDate)
-                .tz(TIMEZONE)
-                .add(searchOffset, 'day');
-              const nextDateStr = nextDay.format('YYYY-MM-DD');
-
-              const isNextScheduledDay =
-                !scheduleSet ||
-                scheduleSet.size === 0 ||
-                scheduleSet.has(nextDateStr);
-
-              if (isNextScheduledDay) {
-                unpaidStartDate = nextDateStr;
-                break;
-              }
-
-              searchOffset += 1;
-            }
-
-            if (!unpaidStartDate) {
-              unpaidStartDate = dayjs(splitDate)
-                .tz(TIMEZONE)
-                .add(1, 'day')
-                .format('YYYY-MM-DD');
-            }
-
-            // PAID portion
-            requestsToCreate.push({
-              employeeId: formEmployeeId,
-              employeeName: formEmployeeName,
-              leaveType: formLeaveType as LeaveType,
-              paymentStatus: 'paid',
-              startDate: startISO,
-              endDate: paidEndDate,
-              numberOfDays: calculateDays(
-                startISO,
-                paidEndDate,
-                formEmployeeId
-              ),
-              reason: `${formReason} (Paid portion - uses leave allocation)`,
-              status: 'pending' as LeaveStatus,
-              appliedDate: getCurrentDateISO(),
-              notes: formNotes || undefined,
-            });
-
-            // UNPAID portion
-            requestsToCreate.push({
-              employeeId: formEmployeeId,
-              employeeName: formEmployeeName,
-              leaveType: formLeaveType as LeaveType,
-              paymentStatus: 'unpaid',
-              startDate: unpaidStartDate,
-              endDate: endISO,
-              numberOfDays: calculateDays(
-                unpaidStartDate,
-                endISO,
-                formEmployeeId
-              ),
-              reason: `${formReason} (Unpaid portion - exceeds allocation)`,
-              status: 'pending' as LeaveStatus,
-              appliedDate: getCurrentDateISO(),
-              notes: formNotes || undefined,
-            });
-          }
-        } else {
-          // Single request
-          requestsToCreate.push({
-            employeeId: formEmployeeId,
-            employeeName: formEmployeeName,
-            leaveType: formLeaveType as LeaveType,
-            paymentStatus: formPaymentStatus as PaymentStatus,
-            startDate: startISO,
-            endDate: endISO,
-            numberOfDays,
-            reason: formReason,
-            status: 'pending' as LeaveStatus,
-            appliedDate: getCurrentDateISO(),
-            notes: formNotes || undefined,
-          });
-        }
-
-        // Save to API
-        await saveMutation.mutateAsync(
-          requestsToCreate.length === 1 ? requestsToCreate[0] : requestsToCreate
-        );
+        const saveResultData =
+          typeof saveResult === 'object' && saveResult !== null
+            ? (saveResult as {
+                requests?: LeaveRequest[];
+                remainingAllocation?: number;
+              })
+            : {};
+        const createdRequests = saveResultData.requests ?? [];
 
         // Show success message
-        if (requestsToCreate.length > 1) {
+        if (createdRequests.length > 1) {
           alert(
             `Leave request created successfully!\n\n` +
               `Your request has been split into:\n` +
-              `• ${requestsToCreate[0].numberOfDays} paid days (${formatDate(requestsToCreate[0].startDate)} - ${formatDate(requestsToCreate[0].endDate)})\n` +
-              `• ${requestsToCreate[1].numberOfDays} unpaid days (${formatDate(requestsToCreate[1].startDate)} - ${formatDate(requestsToCreate[1].endDate)})\n\n` +
-              `This is because you only have ${remainingAllocation} paid leave days remaining.`
+              `• ${createdRequests[0].numberOfDays} paid days (${formatDate(createdRequests[0].startDate)} - ${formatDate(createdRequests[0].endDate)})\n` +
+              `• ${createdRequests[1].numberOfDays} unpaid days (${formatDate(createdRequests[1].startDate)} - ${formatDate(createdRequests[1].endDate)})\n\n` +
+              `This is because you only have ${saveResultData.remainingAllocation ?? 0} paid leave days remaining.`
           );
         }
 
@@ -693,8 +586,6 @@ export default function useLeaveTracker(apiBasePath?: string) {
     editingRequest,
     hasLeaveOverlap,
     calculateDays,
-    calculateRemainingLeaveAllocation,
-    employeeScheduleIndex,
     getCurrentDateISO,
     formatDate,
     resetFormFields,

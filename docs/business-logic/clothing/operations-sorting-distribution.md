@@ -9,6 +9,8 @@
 > - `src/modules/clothing/operations/sorting-distribution/components/QuantityPillButtons.tsx`
 > - `src/modules/clothing/operations/sorting-distribution/hooks/useSortingDistributionData.ts`
 > - `src/modules/clothing/operations/sorting-distribution/hooks/useSortingDistributionForm.ts`
+> - `src/lib/sorting-distribution-calculations.ts`
+> - `src/app/api/sorting-distribution/route.ts`
 
 ---
 
@@ -65,13 +67,13 @@
 
 ## E — Auto-Save
 
-| #   | Logic                                                                              | Explanation                                                                                                                                                       |
-| --- | ---------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 24  | Changes are auto-saved after a 1-second debounce (AUTO_SAVE_DELAY = 1000 ms)       | Whenever `rows` or `selectedQuantity` changes and differs from the last-saved snapshot, a 1 s timeout is set. Any new change within that window resets the timer. |
-| 25  | The Distribution Summary Bar shows "Saving…" (blue) or "All changes saved" (green) | `isSaving` state (true during the API call) drives the text and color in `DistributionSummaryBar`.                                                                |
-| 26  | Auto-save calls `SortingDistributionService.saveDistributionData`                  | Saves the product code, selected quantity, and all rows. On success, `lastSavedRowsRef` and `lastSavedSelectedQuantityRef` are updated to the current snapshot.   |
-| 27  | Auto-save failures are logged only — no user-facing error notification             | `logger.error('❌ AUTO-SAVE failed:', error)` is called; no `showNotification` is triggered.                                                                      |
-| 28  | Switching product code cancels any pending auto-save                               | When `productCode` changes, `clearTimeout(saveTimeoutRef.current)` is called, refs are reset, and previously loaded rows are replaced with an empty set.          |
+| #   | Logic                                                                              | Explanation                                                                                                                                                                          |
+| --- | ---------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| 24  | Changes are auto-saved after a 1-second debounce (AUTO_SAVE_DELAY = 1000 ms)       | Whenever `rows` or `selectedQuantity` changes and differs from the last-saved snapshot, a 1 s timeout is set. Any new change within that window resets the timer.                    |
+| 25  | The Distribution Summary Bar shows "Saving…" (blue) or "All changes saved" (green) | `isSaving` state (true during the API call) drives the text and color in `DistributionSummaryBar`.                                                                                   |
+| 26  | Auto-save calls `SortingDistributionService.saveDistributionData`                  | Sends the product code, selected quantity, and rows; the API recomputes derived fields with the same helper before persistence. On success, the client records the current snapshot. |
+| 27  | Auto-save failures are logged only — no user-facing error notification             | `logger.error('❌ AUTO-SAVE failed:', error)` is called; no `showNotification` is triggered.                                                                                         |
+| 28  | Switching product code cancels any pending auto-save                               | When `productCode` changes, `clearTimeout(saveTimeoutRef.current)` is called, refs are reset, and previously loaded rows are replaced with an empty set.                             |
 
 ---
 
@@ -110,3 +112,11 @@
 | --- | --------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | 37  | All three derived columns are recomputed in a single pass | `calculateDerivedFields(rows, totalQty, selectedQty)` recomputes percentage, distribution, and group number for every row in one iteration — there is no partial update. |
 | 38  | Grid row count is fixed                                   | `GRID_ROW_COUNT` is a module constant that determines how many rows the grid always renders, even if some are empty.                                                     |
+
+## J — Persisted Derived Fields
+
+The browser preview and Clothing API use the same derived-field helper. On save,
+the API recomputes percentage, distribution, and group number from the submitted
+quantities and selected quantity before storing rows. Positive-quantity row
+order is preserved; empty rows are omitted, and rounded distributions are not
+rebalanced to force their sum to equal the selected quantity.

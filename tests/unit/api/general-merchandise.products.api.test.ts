@@ -142,6 +142,18 @@ describe('GM products API', () => {
     expect(response.status).toBe(200);
     expect(body.success).toBe(true);
     expect(body.data.updated).toBe(1);
+    expect(mockProductService.bulkUpdate).toHaveBeenCalledWith([
+      expect.objectContaining({
+        PHP: 10,
+        'Sub Total (PHP)': 11,
+        'Transaction Fee': 0,
+        'Grand Total': 11,
+        'Suggested Price': 14,
+        COGS: 11,
+        'Projected Sales': 10,
+        'Projected Profit': 0,
+      }),
+    ]);
   });
 
   it('protects GM product mass deletion on DELETE', async () => {
@@ -187,9 +199,13 @@ describe('GM products API', () => {
       buildRequest('/api/general-merchandise/products/1', {
         method: 'PUT',
         body: JSON.stringify({
-          'Shipment Code': 'GM-SHIP-1',
-          'Product Code': 'GM-PRD-1',
-          Payment: 'Paid',
+          ...sampleProduct,
+          'Transaction Fee': 1,
+          PHP: 999,
+          'Sub Total (PHP)': 999,
+          'Grand Total': 999,
+          COGS: 999,
+          'Projected Profit': 999,
         }),
       }),
       { params: { id: '1' } }
@@ -198,6 +214,23 @@ describe('GM products API', () => {
 
     expect(response.status).toBe(200);
     expect(body.message).toBe('Product updated successfully');
+    const updateData =
+      mockPrisma.generalMerchandiseProduct.update.mock.calls[0][0].data;
+    expect(updateData).toEqual(
+      expect.objectContaining({
+        php: 10,
+        subTotalPHP: 11,
+        transactionFee: 0.33,
+        grandTotal: 11.33,
+        suggestedPrice: 14,
+        landedUnitCost: 11.33,
+        cogs: 11.33,
+        projectedSales: 10,
+        projectedProfit: -1.33,
+        projectedProfitPercent: -11.73,
+        totalMarkup: 100,
+      })
+    );
     expect(mockSettlement).toHaveBeenCalledWith(
       expect.objectContaining({ productId: 1, prevPayment: 'Pending' })
     );

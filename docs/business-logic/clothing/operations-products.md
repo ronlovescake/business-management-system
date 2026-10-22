@@ -45,6 +45,9 @@ and unlinked counts before relying on historical rollups. The audit is read-only
 > - `src/modules/clothing/operations/shipments/components/TransitReclassModal.tsx`
 > - `src/modules/clothing/operations/shipments/services/ShipmentService.ts`
 > - `src/lib/productCalculations.ts`
+> - `src/modules/products/api/financials.ts`
+> - `src/modules/products/api/routeFactory.ts`
+> - `src/app/api/products/[id]/route.ts`
 
 ---
 
@@ -66,24 +69,24 @@ and unlinked counts before relying on historical rollups. The audit is read-only
 
 ## B — Financial Calculations (Costing Model)
 
-| #   | Logic                                                                 | Explanation                                                                                                                                                                       |
-| --- | --------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 10  | PHP = Unit Price × Exchange Rate                                      | CNY-to-PHP conversion: `PHP = unitPrice × exchangeRates`.                                                                                                                         |
-| 11  | Sub Total (PHP) = PHP × Quantity                                      | Total cost before logistics: `subTotalPHP = php × quantity`.                                                                                                                      |
-| 12  | Transaction fee is conditionally applied                              | If `applyTransactionFee` is true, `TRANSACTION_FEE_RATE` (2.99%) is applied. On the edit form, rate is preserved: if the stored `Transaction Fee` is 0, the fee toggle stays off. |
-| 13  | Grand Total = Sub Total + Transaction Fee + Alibaba Shipping Cost     | `grandTotal = subTotalPHP + transactionFee + alibabaShippingCost`.                                                                                                                |
-| 14  | Forwarder's fee, Lalamove, and packaging cost are tracked per-product | These three logistics costs feed the Landed Unit Cost.                                                                                                                            |
-| 15  | Landed Unit Cost = (Grand Total + Logistics Costs) ÷ Quantity         | `basePrice = (grandTotal + forwardersFee + lalamove + packagingCost) / quantity`. Accounting unit-cost basis for COGS.                                                            |
-| 16  | COGS = Landed Unit Cost × Quantity                                    | `cogs = basePrice × quantity`.                                                                                                                                                    |
-| 17  | Suggested Price uses a configurable markup                            | `suggestedPrice = landedUnitCost × (1 + SUGGESTED_PRICE_MARKUP)`. The modal displays a note: "Minimum selling price (122% markup)".                                               |
-| 18  | Projected Sales = Actual Price × Quantity                             | `projectedSales = actualPrice × quantity`.                                                                                                                                        |
-| 19  | Projected Profit = Projected Sales − COGS                             | `projectedProfit = projectedSales − cogs`.                                                                                                                                        |
-| 20  | Projected Profit % = (Projected Profit ÷ Projected Sales) × 100       | Returns 0 when Projected Sales is 0.                                                                                                                                              |
-| 21  | Total Markup = Actual Price ÷ Landed Unit Cost − 1                    | Returns 0 when Landed Unit Cost is 0.                                                                                                                                             |
-| 22  | Weight Per Piece = Bulk Weight ÷ Bulk Quantity                        | Returns 0 when Bulk Quantity is 0. Displayed as a read-only computed field in the modal.                                                                                          |
-| 23  | Exchange rate defaults to 1 if zero on load                           | When loading a product whose stored exchange rate is 0, the form initialises it to 1 to prevent cascading zero calculations.                                                      |
-| 24  | Financial calculations are live in the modal                          | `useProductForm` calls `calculateProductFinancials` on every form field change via `useMemo`; results update all seven display cards in real time.                                |
-| 25  | Profit and margin cards change colour by sign                         | "Projected Profit" card uses `red.6` when negative, `green.6` when positive. "Profit Margin" card applies the same colour rule.                                                   |
+| #   | Logic                                                                 | Explanation                                                                                                                                                                               |
+| --- | --------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 10  | PHP = Unit Price × Exchange Rate                                      | CNY-to-PHP conversion: `PHP = unitPrice × exchangeRates`.                                                                                                                                 |
+| 11  | Sub Total (PHP) = PHP × Quantity                                      | Total cost before logistics: `subTotalPHP = php × quantity`.                                                                                                                              |
+| 12  | Transaction fee is conditionally applied                              | If `applyTransactionFee` is true, `TRANSACTION_FEE_RATE` (2.99%) is applied. On the edit form, rate is preserved: if the stored `Transaction Fee` is 0, the fee toggle stays off.         |
+| 13  | Grand Total = Sub Total + Transaction Fee + Alibaba Shipping Cost     | `grandTotal = subTotalPHP + transactionFee + alibabaShippingCost`.                                                                                                                        |
+| 14  | Forwarder's fee, Lalamove, and packaging cost are tracked per-product | These three logistics costs feed the Landed Unit Cost.                                                                                                                                    |
+| 15  | Landed Unit Cost = (Grand Total + Logistics Costs) ÷ Quantity         | `basePrice = (grandTotal + forwardersFee + lalamove + packagingCost) / quantity`. Accounting unit-cost basis for COGS.                                                                    |
+| 16  | COGS = Landed Unit Cost × Quantity                                    | `cogs = basePrice × quantity`.                                                                                                                                                            |
+| 17  | Suggested Price uses a configurable markup                            | `suggestedPrice = landedUnitCost × (1 + SUGGESTED_PRICE_MARKUP)`. The modal displays a note: "Minimum selling price (122% markup)".                                                       |
+| 18  | Projected Sales = Actual Price × Quantity                             | `projectedSales = actualPrice × quantity`.                                                                                                                                                |
+| 19  | Projected Profit = Projected Sales − COGS                             | `projectedProfit = projectedSales − cogs`.                                                                                                                                                |
+| 20  | Projected Profit % = (Projected Profit ÷ Projected Sales) × 100       | Returns 0 when Projected Sales is 0.                                                                                                                                                      |
+| 21  | Total Markup = Actual Price ÷ Landed Unit Cost − 1                    | Returns 0 when Landed Unit Cost is 0.                                                                                                                                                     |
+| 22  | Weight Per Piece = Bulk Weight ÷ Bulk Quantity                        | Returns 0 when Bulk Quantity is 0. Displayed as a read-only computed field in the modal.                                                                                                  |
+| 23  | Exchange rate defaults to 1 if zero on load                           | When loading a product whose stored exchange rate is 0, the form initialises it to 1 to prevent cascading zero calculations.                                                              |
+| 24  | Financial calculations are live in the modal                          | `useProductForm` previews the shared formula as fields change; product APIs recalculate derived financial fields on create, bulk import/update, and direct-ID updates before persistence. |
+| 25  | Profit and margin cards change colour by sign                         | "Projected Profit" card uses `red.6` when negative, `green.6` when positive. "Profit Margin" card applies the same colour rule.                                                           |
 
 ---
 

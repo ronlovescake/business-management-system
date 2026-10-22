@@ -3,6 +3,9 @@
 > **Source files:**
 >
 > - `src/app/general-merchandise/employees/cash-advance/page.tsx`
+> - `src/app/api/general-merchandise/cash-advances/route.ts`
+> - `src/modules/employees/cash-advance/api/routeFactory.ts`
+> - `src/modules/shared/employees/cash-advance/api/calculations.ts`
 
 ---
 
@@ -25,3 +28,12 @@
 | 6   | Shared cash-advance workflow changes still affect GM operators and must be reflected here                 | Shared implementation remains the behavioral baseline for GM.      |
 | 7   | If GM receives custom approval, repayment, or settlement rules later, document them here explicitly       | This doc currently records route-shell parity plus GM API binding. |
 | 8   | The route remains GM-specific because it presents GM employee cash-advance data under GM URLs and GM APIs | Shared UI does not remove the GM business context.                 |
+
+## C — Server-Owned Repayment Values
+
+The GM API calculates and persists the monthly payment from amount and terms
+using equal instalments rounded to two decimal places. It recomputes that value
+when amount or terms change, derives remaining balance from amount minus settled
+amount, and marks an approved request paid when the remaining balance is at most
+`0.01`. Any browser calculation is a preview; these persisted values are
+server-derived.

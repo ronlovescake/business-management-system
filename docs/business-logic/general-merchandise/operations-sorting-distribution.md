@@ -5,6 +5,8 @@
 > - `src/app/general-merchandise/operations/sorting-distribution/page.tsx`
 > - `src/app/general-merchandise/operations/_shared/renderGmOperationsPage.tsx`
 > - `src/modules/general-merchandise/operations/sorting-distribution/module.config.ts`
+> - `src/lib/sorting-distribution-calculations.ts`
+> - `src/app/api/general-merchandise/sorting-distribution/route.ts`
 
 ---
 
@@ -34,3 +36,10 @@
 | --- | --------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------ |
 | 7   | The GM module remains an Operations module with the same general workflow surface as its shared counterpart     | The module config keeps the route inside the GM operations family. |
 | 8   | If GM receives custom distribution rules or persistence behavior later, document the divergence here explicitly | This doc currently records shared-workflow parity as the baseline. |
+
+## D — Server-Derived Persistence
+
+The GM save endpoint recomputes percentage, distribution, and group number
+from row quantities and selected quantity with the same helper used by the
+shared UI preview. It preserves populated-row order, omits empty rows, and does
+not rebalance rounded distributions to force an exact total.

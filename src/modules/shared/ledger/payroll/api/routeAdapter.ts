@@ -5,6 +5,7 @@ import { withErrorHandler } from '@/core/api/middleware';
 import { BATCH_LIMITS, HTTP_STATUS } from '@/shared/constants/api';
 import { logger } from '@/lib/logger';
 import { sanitizers } from '@/lib/security/sanitize';
+import { calculatePayrollTotals } from '@/lib/payroll/form-utils';
 import {
   formatValidationErrors,
   validatePayroll,
@@ -83,6 +84,24 @@ const ALLOWED_STATUSES: PayrollInput['status'][] = [
   'approved',
   'paid',
 ];
+
+const PAYROLL_SOURCE_FIELDS = [
+  'basicSalary',
+  'allowance',
+  'overtime',
+  'bonuses',
+  'thirteenthMonth',
+  'sss',
+  'philHealth',
+  'pagIbig',
+  'tax',
+  'loans',
+  'cashAdvance',
+  'lwop',
+  'absentsLates',
+] as const;
+
+const PAYROLL_TOTAL_FIELDS = ['grossPay', 'totalDeductions', 'netPay'] as const;
 
 type PayrollModel<TRecord extends PayrollRouteRecord> = {
   findMany: (args: {
@@ -226,6 +245,31 @@ function sanitizePayrollRecord(record: PayrollRecord): PayrollInput {
     dailyRate: sanitizeMoney(record.dailyRate),
     deduction: sanitizeMoney(record.deduction),
     notes: sanitizeOptionalNotes(record.notes),
+  };
+}
+
+function calculatePayrollInputTotals(input: PayrollInput): PayrollInput {
+  const totals = calculatePayrollTotals({
+    basicSalary: String(input.basicSalary),
+    allowance: String(input.allowance),
+    overtime: String(input.overtime),
+    bonuses: String(input.bonuses),
+    thirteenthMonth: String(input.thirteenthMonth),
+    sss: String(input.sss),
+    philHealth: String(input.philHealth),
+    pagIbig: String(input.pagIbig),
+    tax: String(input.tax),
+    loans: String(input.loans),
+    cashAdvance: String(input.cashAdvance),
+    lwop: String(input.lwop),
+    absentsLates: String(input.absentsLates),
+  });
+
+  return {
+    ...input,
+    grossPay: sanitizeMoney(totals.grossPay),
+    totalDeductions: sanitizeMoney(totals.totalDeductions),
+    netPay: sanitizeMoney(totals.netPay),
   };
 }
 
@@ -496,7 +540,7 @@ export function createPayrollRouteHandlers<TRecord extends PayrollRouteRecord>(
       const validation = validatePayroll(sanitized);
 
       if (validation.success) {
-        valid.push(validation.data);
+        valid.push(calculatePayrollInputTotals(validation.data));
         employeeIds.add(validation.data.employeeId);
       } else {
         invalid.push({
@@ -599,7 +643,7 @@ export function createPayrollRouteHandlers<TRecord extends PayrollRouteRecord>(
 
     try {
       const payroll = await config.payrollModel.create({
-        data: validation.data,
+        data: calculatePayrollInputTotals(validation.data),
       });
 
       await syncCreatedPayrollExpenses(
@@ -642,7 +686,12 @@ export function createPayrollRouteHandlers<TRecord extends PayrollRouteRecord>(
       if (!buildResult.success) {
         return ApiResponse.badRequest('Validation failed', buildResult.errors);
       }
-      updatedRecord = buildResult.payload;
+      const shouldRecalculateTotals =
+        PAYROLL_SOURCE_FIELDS.some((field) => body[field] !== undefined) ||
+        PAYROLL_TOTAL_FIELDS.some((field) => body[field] !== undefined);
+      updatedRecord = shouldRecalculateTotals
+        ? calculatePayrollInputTotals(buildResult.payload)
+        : buildResult.payload;
     } catch (error) {
       logger.error('Failed to sanitize payroll update payload', { error });
       return ApiResponse.error('Failed to update payroll record');

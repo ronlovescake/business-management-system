@@ -71,6 +71,10 @@ const cashAdvanceService = {
     gmClient.generalMerchandiseCashAdvanceRecord.findMany({
       orderBy: { requestDate: 'desc' },
     }),
+  findById: async (id: string) =>
+    gmClient.generalMerchandiseCashAdvanceRecord.findUnique({
+      where: { id },
+    }),
   findWithFilters: async (filters: CashAdvanceQuery) =>
     gmClient.generalMerchandiseCashAdvanceRecord.findMany({
       where: buildWhere(filters),

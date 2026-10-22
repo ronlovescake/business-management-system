@@ -109,8 +109,7 @@ export function useAttendance(apiBasePath?: string) {
     averageHours,
   } = useAttendanceFiltering(records, searchQuery, statusFilter, yearFilter);
 
-  const formatDate = (dateString: string) =>
-    formatDisplayDate(dateString);
+  const formatDate = (dateString: string) => formatDisplayDate(dateString);
 
   const formatTimeRange = (timeIn: string, timeOut: string) => {
     if (timeIn === '00:00' && timeOut === '00:00') {
@@ -633,6 +632,7 @@ export function useAttendance(apiBasePath?: string) {
       break2Start: recordForm.break2Start || undefined,
       break2End: recordForm.break2End || undefined,
       totalHours,
+      hoursCalculationMode: 'manual' as const,
       status: recordForm.status,
       details: recordForm.details.trim() || '',
       notes: recordForm.notes.trim() || undefined,

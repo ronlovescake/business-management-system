@@ -46,7 +46,9 @@ app_container_id="${APP_CONTAINER_ID:-$(resolve_service_container app)}"
 
 start_db_service() {
   if [[ -n "$db_container_id" ]]; then
-    docker start "$db_container_id" >/dev/null 2>&1 || true
+    if ! docker start "$db_container_id" >/dev/null; then
+      echo "Failed to start Docker database container ${db_container_id}."
+    fi
     return
   fi
 
@@ -86,6 +88,7 @@ backup_dir="${BACKUP_DIR:-${data_root}/backup}"
 target_db="${POSTGRES_DB:-business_management}"
 target_user="${POSTGRES_USER:-postgres}"
 skip_app_start="${SKIP_APP_START:-false}"
+db_ready_timeout_seconds="${DB_READY_TIMEOUT_SECONDS:-180}"
 
 dump_arg="${1:-}"
 confirm_arg="${2:-}"
@@ -148,10 +151,10 @@ trap cleanup_copied_dump EXIT
 
 echo "Preparing Docker database restore from: ${dump_file}"
 start_db_service
-stop_app_service
 
-echo "Waiting for Docker Postgres to accept connections..."
-for _ in $(seq 1 60); do
+# Wait before stopping the app so a DB startup failure leaves the app untouched.
+echo "Waiting up to ${db_ready_timeout_seconds}s for Docker Postgres to accept connections..."
+for _ in $(seq 1 "$db_ready_timeout_seconds"); do
   if docker_db_exec \
     pg_isready -U "$target_user" -d postgres >/dev/null 2>&1; then
     break
@@ -160,10 +163,20 @@ for _ in $(seq 1 60); do
 done
 
 if ! docker_db_exec \
-  pg_isready -U "$target_user" -d postgres >/dev/null 2>&1; then
-  echo "PostgreSQL did not become ready in time."
+  pg_isready -U "$target_user" -d postgres; then
+  echo "PostgreSQL did not become ready within ${db_ready_timeout_seconds}s. No data was changed and the app was not stopped."
+  if [[ -n "$db_container_id" ]]; then
+    docker inspect "$db_container_id" \
+      --format 'DB container state: {{.State.Status}} (health: {{if .State.Health}}{{.State.Health.Status}}{{else}}n/a{{end}}, exit code: {{.State.ExitCode}}, error: {{.State.Error}})' || true
+    echo "Recent DB container logs:"
+    docker logs --tail 20 "$db_container_id" 2>&1 || true
+  else
+    echo "No Docker database container was found for compose project '${COMPOSE_PROJECT_NAME}'."
+  fi
   exit 1
 fi
+
+stop_app_service
 
 docker_db_exec psql -U "$target_user" -d postgres -v ON_ERROR_STOP=1 <<SQL
 SELECT pg_terminate_backend(pid)

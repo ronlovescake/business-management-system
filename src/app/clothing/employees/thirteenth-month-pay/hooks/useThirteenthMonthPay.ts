@@ -1,106 +1,12 @@
 import { useState, useMemo, useCallback } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import type { ThirteenthMonthPay, ThirteenthMonthPayFormData } from '../types';
+import type { ThirteenthMonthPay } from '../types';
 import { getCurrentDateISO, formatDisplayDate } from '@/utils/date';
 import { logger } from '@/lib/logger';
 import { api } from '@/lib/api/client';
 import { buildApiPath } from '@/lib/api/paths';
 import { queryKeys } from '@/lib/queryKeys';
 import { getSwal } from '@/lib/alerts';
-import {
-  calculateTenureshipLabel,
-  deriveMonthFromPayroll,
-  deriveYearFromPayroll,
-} from './thirteenthMonthPayDateUtils';
-
-const normalizeValue = (value: string | null | undefined) =>
-  (value ?? '').toString().trim().replace(/\s+/g, ' ').toLowerCase();
-
-const toNumber = (value: unknown): number => {
-  if (value === null || value === undefined) {
-    return 0;
-  }
-  if (typeof value === 'number') {
-    return Number.isFinite(value) ? value : 0;
-  }
-  if (typeof value === 'string') {
-    const parsed = Number.parseFloat(value);
-    return Number.isFinite(parsed) ? parsed : 0;
-  }
-  if (typeof value === 'object' && value !== null && 'toString' in value) {
-    const parsed = Number.parseFloat(
-      (value as { toString(): string }).toString()
-    );
-    return Number.isFinite(parsed) ? parsed : 0;
-  }
-  return 0;
-};
-
-const buildPersistencePayload = (
-  base: ThirteenthMonthPay,
-  overrides: Partial<ThirteenthMonthPay> & {
-    status?: ThirteenthMonthPay['status'];
-    calculatedDate?: string | null;
-    approvedDate?: string | null;
-    paidDate?: string | null;
-  } = {}
-) => {
-  const merged: ThirteenthMonthPay = {
-    ...base,
-    ...overrides,
-  };
-
-  const yearNumber = Number.parseInt(merged.year, 10);
-  const safeYear = Number.isFinite(yearNumber)
-    ? yearNumber
-    : new Date().getFullYear();
-  const safeMonthsWorked = Math.max(1, Math.trunc(merged.monthsWorked ?? 12));
-
-  // Extract base employee ID from record ID (format: "employeeId-year")
-  // e.g., "emp-0004-2025" -> "emp-0004"
-  const extractEmployeeId = (recordId: string): string => {
-    const parts = recordId.split('-');
-    if (parts.length >= 2) {
-      // Last part is year, remove it
-      const yearPart = parts[parts.length - 1];
-      if (/^\d{4}$/.test(yearPart)) {
-        return parts.slice(0, -1).join('-');
-      }
-    }
-    return recordId;
-  };
-
-  return {
-    id: merged.id,
-    employeeId: extractEmployeeId(merged.id),
-    employeeName: merged.employee,
-    year: safeYear,
-    status: merged.status,
-    totalBasicSalary: toNumber(merged.totalBasicSalary),
-    totalLwop: toNumber(merged.totalLwop),
-    totalAbsencesLates: toNumber(merged.totalAbsencesLates),
-    netBasicSalary: toNumber(merged.netBasicSalary),
-    monthsWorked: safeMonthsWorked,
-    thirteenthMonthPay: toNumber(merged.thirteenthMonthPay),
-    notes: merged.notes ?? null,
-    calculatedDate: merged.calculatedDate ?? null,
-    approvedDate: merged.approvedDate ?? null,
-    paidDate: merged.paidDate ?? null,
-  };
-};
-
-interface AggregatedThirteenthData {
-  id: string;
-  employeeName: string;
-  employmentStatus: string;
-  year: number;
-  totalBasicSalary: number;
-  totalLwop: number;
-  totalAbsencesLates: number;
-  hireDate: string | null;
-  monthsWorked: Set<number>;
-}
-
 export function useThirteenthMonthPay(apiBasePath?: string) {
   const queryClient = useQueryClient();
   const resolveApiPath = useCallback(
@@ -131,289 +37,13 @@ export function useThirteenthMonthPay(apiBasePath?: string) {
     [apiBasePath]
   );
 
-  // Main query - fetches and calculates 13th month pay records
+  // Fetch records already calculated and merged with persisted status on the server.
   const { data: records = [], isLoading } = useQuery({
     queryKey: thirteenthQueryKey.list(filters),
-    queryFn: async () => {
-      const [allEmployees, payrollRecords, persistedRecords] =
-        await Promise.all([
-          api.get<Array<Record<string, unknown>>>(resolveApiPath('/employees')),
-          api.get<Array<Record<string, unknown>>>(resolveApiPath('/payroll')),
-          (async () => {
-            try {
-              return await api.get<Array<Record<string, unknown>>>(
-                resolveApiPath('/thirteenth-month-pay')
-              );
-            } catch (error) {
-              logger.error('Failed to fetch 13th month pay records:', error);
-              return [];
-            }
-          })(),
-        ]);
-
-      const employeeById = new Map<string, Record<string, unknown>>();
-      const employeeByName = new Map<string, Record<string, unknown>>();
-
-      allEmployees.forEach((employee) => {
-        const id = normalizeValue(employee.employeeId as string | undefined);
-        const name = normalizeValue(
-          (employee.name as string | undefined) ||
-            `${employee.firstName ?? ''} ${employee.lastName ?? ''}`
-        );
-
-        if (id) {
-          employeeById.set(id, employee);
-        }
-
-        if (name) {
-          employeeByName.set(name, employee);
-        }
-      });
-
-      const aggregated = new Map<string, AggregatedThirteenthData>();
-
-      payrollRecords.forEach((payroll) => {
-        const rawEmployeeId = normalizeValue(
-          (payroll.employeeId as string | undefined) ?? null
-        );
-        const rawEmployeeName = normalizeValue(
-          (payroll.employeeName as string | undefined) ?? null
-        );
-
-        const employeeRecord =
-          (rawEmployeeId ? employeeById.get(rawEmployeeId) : undefined) ??
-          (rawEmployeeName ? employeeByName.get(rawEmployeeName) : undefined);
-
-        const year = deriveYearFromPayroll(payroll);
-        if (year === null) {
-          return;
-        }
-
-        const normalizedEmployeeId = normalizeValue(
-          (employeeRecord?.employeeId as string | undefined) ??
-            (payroll.employeeId as string | undefined) ??
-            null
-        );
-        const normalizedEmployeeName =
-          rawEmployeeName ||
-          normalizeValue(
-            (payroll.employeeName as string | undefined) ??
-              (payroll.employee as string | undefined) ??
-              null
-          );
-
-        if (!normalizedEmployeeId && !normalizedEmployeeName) {
-          return;
-        }
-
-        const employeeName =
-          (employeeRecord?.name as string | undefined) ||
-          `${employeeRecord?.firstName ?? ''} ${employeeRecord?.lastName ?? ''}`.trim() ||
-          (payroll.employeeName as string | undefined) ||
-          (payroll.employee as string | undefined) ||
-          'Unknown Employee';
-
-        const aggregationKey = `${
-          normalizedEmployeeId || normalizedEmployeeName || 'unknown'
-        }-${year}`;
-
-        const hireDateValue =
-          (employeeRecord?.hireDate as string | undefined) ??
-          (employeeRecord?.dateHired as string | undefined) ??
-          (employeeRecord?.hiredDate as string | undefined) ??
-          (payroll.hireDate as string | undefined) ??
-          (payroll.dateHired as string | undefined) ??
-          (payroll.hiredDate as string | undefined) ??
-          null;
-
-        const employmentStatusValue =
-          (employeeRecord?.status as string | undefined) ??
-          (employeeRecord?.employmentStatus as string | undefined) ??
-          'Unknown';
-
-        if (!aggregated.has(aggregationKey)) {
-          aggregated.set(aggregationKey, {
-            id: aggregationKey,
-            employeeName,
-            employmentStatus: employmentStatusValue,
-            year,
-            totalBasicSalary: 0,
-            totalLwop: 0,
-            totalAbsencesLates: 0,
-            hireDate: hireDateValue,
-            monthsWorked: new Set<number>(),
-          });
-        }
-
-        const aggregate = aggregated.get(aggregationKey);
-        if (!aggregate) {
-          return;
-        }
-
-        if (!aggregate.hireDate && hireDateValue) {
-          aggregate.hireDate = hireDateValue;
-        }
-
-        aggregate.totalBasicSalary += toNumber(payroll.basicSalary);
-        aggregate.totalLwop += toNumber(
-          (payroll as Record<string, unknown>).lwop
-        );
-        const absencesValue = toNumber(
-          (payroll as Record<string, unknown>).absentsLates ??
-            (payroll as Record<string, unknown>).absencesLates
-        );
-        aggregate.totalAbsencesLates += absencesValue;
-
-        const month = deriveMonthFromPayroll(payroll);
-        if (month !== null) {
-          aggregate.monthsWorked.add(month);
-        }
-      });
-
-      const autoRecords: ThirteenthMonthPay[] = Array.from(
-        aggregated.values()
-      ).map((aggregate) => {
-        const totalBasicSalary = aggregate.totalBasicSalary;
-        const totalLwop = aggregate.totalLwop;
-        const totalAbsencesLates = aggregate.totalAbsencesLates;
-        const totalDeductions = totalLwop + totalAbsencesLates;
-        const netBasicSalary = Math.max(0, totalBasicSalary - totalDeductions);
-        const monthsWorkedCount = Math.max(
-          1,
-          Math.min(aggregate.monthsWorked.size, 12)
-        );
-        const hireDate = aggregate.hireDate;
-        const tenureship = calculateTenureshipLabel(hireDate, aggregate.year);
-        // Philippine DOLE formula: always divide by 12 regardless of months worked
-        const thirteenthMonthPay = netBasicSalary / 12;
-
-        return {
-          id: aggregate.id,
-          employee: aggregate.employeeName,
-          employmentStatus: aggregate.employmentStatus,
-          year: aggregate.year.toString(),
-          hireDate,
-          tenureship,
-          totalBasicSalary,
-          totalLwop,
-          totalAbsencesLates,
-          netBasicSalary,
-          thirteenthMonthPay,
-          monthsWorked: monthsWorkedCount,
-          status: 'calculated',
-        } satisfies ThirteenthMonthPay;
-      });
-
-      // Build map of persisted (approved/paid) records from database
-      const persistedMap = new Map(
-        persistedRecords.map((r) => {
-          const safeEmployeeName =
-            (r.employeeName as string | undefined) ||
-            (r.employee as string | undefined) ||
-            'Unknown Employee';
-          const safeYear = Number.isFinite(Number(r.year))
-            ? String(r.year)
-            : new Date().getFullYear().toString();
-
-          // Look up the employee record to get hire date for persisted records
-          const persistedEmpId = normalizeValue(
-            (r.employeeId as string | undefined) ?? null
-          );
-          const persistedEmpName = normalizeValue(safeEmployeeName);
-          const empRecord =
-            (persistedEmpId ? employeeById.get(persistedEmpId) : undefined) ??
-            (persistedEmpName
-              ? employeeByName.get(persistedEmpName)
-              : undefined);
-          const persistedHireDate =
-            (empRecord?.hireDate as string | undefined) ??
-            (empRecord?.dateHired as string | undefined) ??
-            null;
-          const persistedEmploymentStatus =
-            (empRecord?.status as string | undefined) ??
-            (empRecord?.employmentStatus as string | undefined) ??
-            'Unknown';
-          const persistedYear = Number.isFinite(Number(r.year))
-            ? Number(r.year)
-            : new Date().getFullYear();
-
-          return [
-            r.recordId || r.id,
-            {
-              id: (r.recordId || r.id) as string,
-              employee: safeEmployeeName,
-              employmentStatus: persistedEmploymentStatus,
-              year: safeYear,
-              hireDate: persistedHireDate,
-              tenureship: calculateTenureshipLabel(
-                persistedHireDate,
-                persistedYear
-              ),
-              totalBasicSalary: toNumber(r.totalBasicSalary),
-              totalLwop: toNumber(r.totalLwop),
-              totalAbsencesLates: toNumber(r.totalAbsencesLates),
-              netBasicSalary: toNumber(r.netBasicSalary),
-              thirteenthMonthPay: toNumber(r.thirteenthMonthPay),
-              monthsWorked: (r.monthsWorked as number) || 12,
-              status:
-                (r.status as ThirteenthMonthPay['status']) || 'calculated',
-              calculatedDate: r.calculatedDate as string | undefined,
-              approvedDate: r.approvedDate as string | undefined,
-              paidDate: r.paidDate as string | undefined,
-              notes: r.notes as string | undefined,
-            } as ThirteenthMonthPay,
-          ];
-        })
-      );
-
-      const mergedMap = new Map<string, ThirteenthMonthPay>();
-
-      // First, add all auto-calculated records
-      autoRecords.forEach((record) => {
-        mergedMap.set(record.id, record);
-      });
-
-      // Then overlay persisted records, preserving locked values
-      persistedMap.forEach((persisted, persistedId) => {
-        const id = String(persistedId);
-        const autoRecord = mergedMap.get(id);
-        const isLocked =
-          persisted.status === 'approved' || persisted.status === 'paid';
-
-        if (autoRecord && !isLocked) {
-          // Status is calculated - use fresh values but keep status/dates
-          mergedMap.set(id, {
-            ...autoRecord,
-            status: persisted.status,
-            calculatedDate: persisted.calculatedDate,
-            approvedDate: persisted.approvedDate,
-            paidDate: persisted.paidDate,
-            notes: persisted.notes,
-          });
-        } else if (isLocked) {
-          // Status is approved/paid - lock values, but update employee info
-          mergedMap.set(id, {
-            ...persisted,
-            hireDate: autoRecord?.hireDate ?? persisted.hireDate,
-            tenureship: autoRecord?.tenureship ?? persisted.tenureship,
-          });
-        } else {
-          // No auto record exists, use persisted
-          mergedMap.set(id, persisted);
-        }
-      });
-
-      const merged = Array.from(mergedMap.values());
-      merged.sort((a, b) => {
-        const nameCompare = a.employee.localeCompare(b.employee);
-        if (nameCompare !== 0) {
-          return nameCompare;
-        }
-        return b.year.localeCompare(a.year);
-      });
-
-      return merged;
-    },
+    queryFn: () =>
+      api.get<ThirteenthMonthPay[]>(
+        resolveApiPath('/thirteenth-month-pay/calculated')
+      ),
     staleTime: 30 * 1000,
   });
 
@@ -466,101 +96,6 @@ export function useThirteenthMonthPay(apiBasePath?: string) {
     };
   }, [filteredRecords]);
 
-  // Edit record mutation
-  const editRecordMutation = useMutation({
-    mutationFn: async ({
-      id,
-      data,
-    }: {
-      id: string;
-      data: ThirteenthMonthPayFormData;
-    }) => {
-      const record = records.find((r) => r.id === id);
-      if (!record) {
-        throw new Error('Record not found');
-      }
-
-      const totalBasicSalary = parseFloat(data.totalBasicSalary) || 0;
-      const totalLwop = parseFloat(data.totalLwop) || 0;
-      const totalAbsencesLates = parseFloat(data.totalAbsencesLates) || 0;
-      const thirteenthMonthPay = Math.max(
-        0,
-        totalBasicSalary - totalLwop - totalAbsencesLates
-      );
-
-      const updatedRecord: ThirteenthMonthPay = {
-        ...record,
-        employee: data.employee,
-        year: data.year,
-        totalBasicSalary,
-        totalLwop,
-        totalAbsencesLates,
-        netBasicSalary: thirteenthMonthPay,
-        thirteenthMonthPay,
-        notes: data.notes,
-      };
-
-      const payload = buildPersistencePayload(updatedRecord);
-      await api.patch(resolveApiPath('/thirteenth-month-pay'), payload);
-
-      return updatedRecord;
-    },
-    onMutate: async ({ id, data }) => {
-      await queryClient.cancelQueries({
-        queryKey: thirteenthQueryKey.lists(),
-      });
-
-      const previous = queryClient.getQueryData<ThirteenthMonthPay[]>(
-        thirteenthQueryKey.list(filters)
-      );
-
-      if (previous) {
-        const totalBasicSalary = parseFloat(data.totalBasicSalary) || 0;
-        const totalLwop = parseFloat(data.totalLwop) || 0;
-        const totalAbsencesLates = parseFloat(data.totalAbsencesLates) || 0;
-        const thirteenthMonthPay = Math.max(
-          0,
-          totalBasicSalary - totalLwop - totalAbsencesLates
-        );
-
-        queryClient.setQueryData<ThirteenthMonthPay[]>(
-          thirteenthQueryKey.list(filters),
-          previous.map((r) =>
-            r.id === id
-              ? {
-                  ...r,
-                  employee: data.employee,
-                  year: data.year,
-                  totalBasicSalary,
-                  totalLwop,
-                  totalAbsencesLates,
-                  netBasicSalary: thirteenthMonthPay,
-                  thirteenthMonthPay,
-                  notes: data.notes,
-                }
-              : r
-          )
-        );
-      }
-
-      return { previous };
-    },
-    onError: (error, variables, context) => {
-      if (context?.previous) {
-        queryClient.setQueryData(
-          thirteenthQueryKey.list(filters),
-          context.previous
-        );
-      }
-      logger.error('Error editing record:', error);
-    },
-    onSettled: () => {
-      queryClient.invalidateQueries({
-        queryKey: thirteenthQueryKey.lists(),
-      });
-    },
-  });
-
   // Delete record mutation
   const deleteRecordMutation = useMutation({
     mutationFn: async (id: string) => {
@@ -606,18 +141,12 @@ export function useThirteenthMonthPay(apiBasePath?: string) {
   // Approve record mutation
   const approveRecordMutation = useMutation({
     mutationFn: async (id: string) => {
-      const record = records.find((r) => r.id === id);
-      if (!record) {
-        throw new Error('Record not found');
-      }
-
       const approvedDate = getCurrentDateISO();
-      const payload = buildPersistencePayload(record, {
+      await api.patch(resolveApiPath('/thirteenth-month-pay'), {
+        id,
         status: 'approved',
         approvedDate,
       });
-
-      await api.patch(resolveApiPath('/thirteenth-month-pay'), payload);
 
       return { id, approvedDate };
     },
@@ -685,18 +214,12 @@ export function useThirteenthMonthPay(apiBasePath?: string) {
   // Mark as paid mutation
   const markAsPaidMutation = useMutation({
     mutationFn: async (id: string) => {
-      const record = records.find((r) => r.id === id);
-      if (!record) {
-        throw new Error('Record not found');
-      }
-
       const paidDate = getCurrentDateISO();
-      const payload = buildPersistencePayload(record, {
+      await api.patch(resolveApiPath('/thirteenth-month-pay'), {
+        id,
         status: 'paid',
         paidDate,
       });
-
-      await api.patch(resolveApiPath('/thirteenth-month-pay'), payload);
 
       return { id, paidDate };
     },
@@ -762,10 +285,6 @@ export function useThirteenthMonthPay(apiBasePath?: string) {
   });
 
   // Wrapper functions
-  const editRecord = (id: string, data: ThirteenthMonthPayFormData) => {
-    editRecordMutation.mutate({ id, data });
-  };
-
   const deleteRecord = (id: string) => {
     deleteRecordMutation.mutate(id);
   };
@@ -901,12 +420,6 @@ export function useThirteenthMonthPay(apiBasePath?: string) {
     }
   };
 
-  const addRecord = (_data: ThirteenthMonthPayFormData) => {
-    logger.debug(
-      'Add record not implemented with React Query - records are auto-calculated'
-    );
-  };
-
   const importFromCSV = (file: File) => {
     logger.debug('Importing CSV:', file.name);
     // CSV import logic would go here
@@ -974,8 +487,6 @@ export function useThirteenthMonthPay(apiBasePath?: string) {
     formatDate,
     getStatusColor,
     getStatusLabel,
-    addRecord,
-    editRecord,
     deleteRecord,
     approveRecord,
     markAsPaid,

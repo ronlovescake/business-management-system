@@ -5,7 +5,6 @@ import {
   IconSearch,
   IconUpload,
   IconDownload,
-  IconPlus,
 } from '@tabler/icons-react';
 import {
   ControlPanelCard,
@@ -24,8 +23,6 @@ interface ThirteenthMonthPayControlsProps {
   yearOptions: string[];
   onImportCSV: (file: File | null) => void;
   onExportCSV: () => void;
-  onAddRecord: () => void;
-  addButtonLabel?: string;
   isImporting?: boolean;
 }
 
@@ -40,8 +37,6 @@ export const ThirteenthMonthPayControls = memo(
     yearOptions,
     onImportCSV,
     onExportCSV,
-    onAddRecord,
-    addButtonLabel = 'Add Record',
     isImporting,
   }: ThirteenthMonthPayControlsProps) {
     useCtrlFFocus('[data-ctrlf-target="thirteenth-controls-search"]', true);
@@ -103,15 +98,6 @@ export const ThirteenthMonthPayControls = memo(
               onClick={onExportCSV}
             >
               Export
-            </Button>
-            <Button
-              leftSection={<IconPlus size={16} />}
-              size="sm"
-              radius="sm"
-              color="green"
-              onClick={onAddRecord}
-            >
-              {addButtonLabel}
             </Button>
           </Group>
         ),

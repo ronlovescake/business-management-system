@@ -8,6 +8,8 @@
 > - `src/app/clothing/employees/leave-tracker/hooks/leaveTrackerUtils.ts`
 > - `src/app/clothing/employees/leave-tracker/hooks/leaveTrackerCsvUtils.ts`
 > - `src/app/clothing/employees/leave-tracker/types.ts`
+> - `src/modules/shared/employees/api/leaveRequestCalculations.ts`
+> - `src/modules/shared/employees/api/leaveRequestRouteFactory.ts`
 
 ---
 
@@ -53,22 +55,22 @@
 
 ## E — Day Count Calculation
 
-| #   | Logic                                                         | Explanation                                                                                             |
-| --- | ------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------- |
-| 13  | `calculateDays` counts scheduled work days, not calendar days | If the employee has a schedule index, only days where a schedule entry exists in the range are counted. |
-| 14  | Fallback to calendar days when no schedule exists             | If `employeeScheduleIndex[employeeId]` is empty or missing, `end.diff(start, 'day') + 1` is used.       |
-| 15  | Single-day requests where start equals end count as 1 day     | `end.isSame(start, 'day')` returns 1.                                                                   |
-| 16  | Invalid or backwards date ranges return 0 days                | If `end.isBefore(start)`, 0 is returned.                                                                |
+| #   | Logic                                                                                            | Explanation                                                                              |
+| --- | ------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------- |
+| 13  | The tracker previews scheduled work days, and the server recalculates them on tracker-mode saves | The shared API uses the employee's schedule dates and `Asia/Manila` calendar boundaries. |
+| 14  | Fallback to inclusive calendar days when no schedule exists                                      | If the employee has no schedule dates, the server counts every date in the valid range.  |
+| 15  | Single-day requests where start equals end count as 1 day                                        | `end.isSame(start, 'day')` returns 1.                                                    |
+| 16  | Invalid or backwards date ranges return 0 days                                                   | If `end.isBefore(start)`, 0 is returned.                                                 |
 
 ---
 
 ## F — Leave Allocation
 
-| #   | Logic                                                         | Explanation                                                                                                                                  |
-| --- | ------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
-| 17  | Annual leave entitlement is 7 paid days per employee per year | `ANNUAL_LEAVE_ENTITLEMENT = 7`.                                                                                                              |
-| 18  | Remaining allocation counts only approved paid leaves         | `calculateRemainingLeaveAllocation` sums `numberOfDays` for all `status === 'approved' && paymentStatus === 'paid'` leaves for the employee. |
-| 19  | Remaining allocation floors at 0                              | `Math.max(ANNUAL_LEAVE_ENTITLEMENT - usedPaidLeaveDays, 0)`. Negative is not shown.                                                          |
+| #   | Logic                                                         | Explanation                                                                                                                                    |
+| --- | ------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| 17  | Annual leave entitlement is 7 paid days per employee per year | The shared server allocator enforces `ANNUAL_LEAVE_ENTITLEMENT = 7`.                                                                           |
+| 18  | Remaining allocation counts only approved paid leaves         | The server sums approved paid days, then splits a tracker-mode request into paid and unpaid portions when it exceeds the remaining allocation. |
+| 19  | Remaining allocation floors at 0                              | `Math.max(ANNUAL_LEAVE_ENTITLEMENT - usedPaidLeaveDays, 0)`. Negative is not shown.                                                            |
 
 ---
 
@@ -148,3 +150,10 @@
 | 40  | Import uses `parseImportedLeaveRequests`                 | Parsed rows call `saveMutation` as a bulk array payload.                              |
 | 41  | Import overlap checks are applied per-row during parsing | Each imported row is validated against existing requests and other rows in the batch. |
 | 42  | `isImporting` flag prevents concurrent import operations | Set to `true` during import, `false` on completion.                                   |
+
+## O — Persistence Calculation Ownership
+
+| #   | Logic                                               | Explanation                                                                                                                                                            |
+| --- | --------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 43  | Tracker-mode saves send `allocationMode: 'tracker'` | The server recalculates scheduled days from persisted schedules and applies the existing 7-day paid allocation and paid/unpaid split.                                  |
+| 44  | CSV/import batches use a separate path              | Batch imports do not invoke tracker allocation; supplied day counts are retained, with the existing inclusive calendar-day fallback when a count is absent or invalid. |

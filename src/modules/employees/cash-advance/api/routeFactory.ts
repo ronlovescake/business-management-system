@@ -4,6 +4,10 @@ import { ApiResponse } from '@/core/api/response';
 import { withErrorHandler } from '@/core/api/middleware';
 import { sanitizeNumber, sanitizeString } from '@/lib/security/sanitize';
 import { logger } from '@/lib/logger';
+import {
+  calculateCashAdvanceMonthlyPayment,
+  calculateCashAdvanceRemainingBalance,
+} from '@/modules/shared/employees/cash-advance/api/calculations';
 
 export interface CashAdvanceRouteConfig<
   TRecord,
@@ -13,6 +17,7 @@ export interface CashAdvanceRouteConfig<
 > {
   service: {
     findAll: () => Promise<TRecord[]>;
+    findById: (id: string) => Promise<TRecord | null>;
     findWithFilters: (filters: TQuery) => Promise<TRecord[]>;
     create: (data: TCreateInput) => Promise<TRecord>;
     update: (id: string, data: Partial<TUpdateInput>) => Promise<TRecord>;
@@ -129,6 +134,14 @@ const sanitizeStringField = (
   }
   return sanitized || undefined;
 };
+
+function getFiniteNumber(value: unknown): number | undefined {
+  if (value === null || value === undefined || value === '') {
+    return undefined;
+  }
+  const numberValue = Number(value);
+  return Number.isFinite(numberValue) ? numberValue : undefined;
+}
 
 const sanitizeNullableStringField = (
   value: unknown,
@@ -359,7 +372,15 @@ export function createCashAdvanceRoutes<
         );
       }
 
-      const result = await service.create(validation.data);
+      const validatedData = validation.data as Record<string, unknown>;
+      const amount = getFiniteNumber(validatedData.amount) ?? 0;
+      const termsMonths = getFiniteNumber(validatedData.termsMonths);
+      const result = await service.create({
+        ...validatedData,
+        monthlyPayment: calculateCashAdvanceMonthlyPayment(amount, termsMonths),
+        settledAmount: 0,
+        remainingBalance: amount,
+      } as TCreateInput);
 
       logger.info(`[${loggerScope}] Cash advance created`, {
         employeeId: sanitized.employeeId,
@@ -399,9 +420,81 @@ export function createCashAdvanceRoutes<
         );
       }
 
-      const { id, ...updateData } = validation.data as {
+      const { id, ...validatedUpdateData } = validation.data as {
         id: string;
       } & Partial<TUpdateInput>;
+
+      const updateData = validatedUpdateData as Record<string, unknown>;
+      const hasAmountChange = updateData.amount !== undefined;
+      const hasTermsChange = updateData.termsMonths !== undefined;
+      const hasSettlementChange = updateData.settledAmount !== undefined;
+      const existingRecord = await service.findById(id);
+      const existing = (existingRecord ?? {}) as Record<string, unknown>;
+      const amount =
+        updateData.amount !== undefined
+          ? getFiniteNumber(updateData.amount)
+          : getFiniteNumber(existing.amount);
+      const termsMonths =
+        updateData.termsMonths !== undefined
+          ? getFiniteNumber(updateData.termsMonths)
+          : getFiniteNumber(existing.termsMonths);
+      const settledAmount =
+        updateData.settledAmount !== undefined
+          ? getFiniteNumber(updateData.settledAmount)
+          : getFiniteNumber(existing.settledAmount);
+
+      delete updateData.monthlyPayment;
+      delete updateData.remainingBalance;
+
+      if (hasAmountChange || hasTermsChange) {
+        const monthlyPayment =
+          amount === undefined
+            ? undefined
+            : calculateCashAdvanceMonthlyPayment(amount, termsMonths);
+        if (monthlyPayment !== undefined) {
+          updateData.monthlyPayment = monthlyPayment;
+        }
+      }
+
+      if (
+        (hasAmountChange || hasSettlementChange) &&
+        amount !== undefined &&
+        settledAmount !== undefined
+      ) {
+        updateData.settledAmount = settledAmount;
+        updateData.remainingBalance = calculateCashAdvanceRemainingBalance(
+          amount,
+          settledAmount
+        );
+      }
+
+      const existingRemaining = getFiniteNumber(existing.remainingBalance);
+      const remainingBalance =
+        hasAmountChange || hasSettlementChange
+          ? amount !== undefined && settledAmount !== undefined
+            ? calculateCashAdvanceRemainingBalance(amount, settledAmount)
+            : undefined
+          : (existingRemaining ??
+            (amount !== undefined && settledAmount !== undefined
+              ? calculateCashAdvanceRemainingBalance(amount, settledAmount)
+              : undefined));
+      const nextStatus =
+        typeof updateData.status === 'string'
+          ? updateData.status
+          : typeof existing.status === 'string'
+            ? existing.status
+            : undefined;
+
+      if (
+        nextStatus === 'approved' &&
+        remainingBalance !== undefined &&
+        remainingBalance <= 0.01 &&
+        amount !== undefined
+      ) {
+        updateData.status = 'paid';
+        updateData.settledAmount = amount;
+        updateData.remainingBalance = 0;
+      }
 
       const result = await service.update(
         id,

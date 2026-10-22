@@ -5,6 +5,11 @@ import {
   validateBatchCreate,
   formatZodError,
 } from '@/modules/clothing/employees/leave-requests/api/validation';
+import {
+  allocateLeaveRequest,
+  calculateRemainingPaidLeaveDays,
+  calculateScheduledLeaveDays,
+} from '@/modules/shared/employees/api/leaveRequestCalculations';
 import { z } from 'zod';
 
 const validCreate = {
@@ -15,6 +20,84 @@ const validCreate = {
   endDate: '2026-03-12',
   reason: 'Medical appointment',
 };
+
+describe('server-side leave allocation calculations', () => {
+  const request = {
+    employeeId: 'emp-001',
+    paymentStatus: 'unpaid' as const,
+    startDate: '2025-10-17',
+    endDate: '2025-10-21',
+    numberOfDays: 999,
+    reason: 'Annual leave',
+  };
+
+  it('counts scheduled days and falls back to inclusive calendar days', () => {
+    expect(
+      calculateScheduledLeaveDays(request.startDate, request.endDate, [
+        '2025-10-17',
+        '2025-10-20',
+        '2025-10-21',
+      ])
+    ).toBe(3);
+    expect(
+      calculateScheduledLeaveDays(request.startDate, request.endDate, [])
+    ).toBe(5);
+  });
+
+  it('splits paid and unpaid dates on scheduled workdays', () => {
+    const allocated = allocateLeaveRequest(request, 2, [
+      '2025-10-17',
+      '2025-10-20',
+      '2025-10-21',
+    ]);
+
+    expect(allocated).toEqual([
+      expect.objectContaining({
+        paymentStatus: 'paid',
+        startDate: '2025-10-17',
+        endDate: '2025-10-20',
+        numberOfDays: 2,
+        reason: 'Annual leave (Paid portion - uses leave allocation)',
+      }),
+      expect.objectContaining({
+        paymentStatus: 'unpaid',
+        startDate: '2025-10-21',
+        endDate: '2025-10-21',
+        numberOfDays: 1,
+        reason: 'Annual leave (Unpaid portion - exceeds allocation)',
+      }),
+    ]);
+  });
+
+  it('overwrites client day/payment values with remaining allocation', () => {
+    const allocated = allocateLeaveRequest(request, 7, []);
+    expect(allocated).toEqual([
+      expect.objectContaining({ paymentStatus: 'paid', numberOfDays: 5 }),
+    ]);
+    expect(
+      allocateLeaveRequest(request, 0, []).map((item) => item.paymentStatus)
+    ).toEqual(['unpaid']);
+  });
+
+  it('preserves the fixed seven-day entitlement and approved paid filter', () => {
+    expect(
+      calculateRemainingPaidLeaveDays('emp-001', [
+        {
+          employeeId: 'emp-001',
+          status: 'approved',
+          paymentStatus: 'paid',
+          numberOfDays: 3,
+        },
+        {
+          employeeId: 'emp-001',
+          status: 'pending',
+          paymentStatus: 'paid',
+          numberOfDays: 2,
+        },
+      ])
+    ).toBe(4);
+  });
+});
 
 // ──────────────────────────────────────────────────────────
 // validateCreateLeaveRequest

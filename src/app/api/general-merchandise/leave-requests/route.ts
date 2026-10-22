@@ -36,6 +36,13 @@ const { GET, POST, PUT, PATCH, DELETE } = createLeaveRequestRoutes({
         select: { employeeId: true },
       }),
   },
+  scheduleModel: {
+    findDates: (employeeId) =>
+      prisma.generalMerchandiseSchedule.findMany({
+        where: { employeeId, deletedAt: null },
+        select: { date: true },
+      }),
+  },
 });
 
 export { GET, POST, PUT, PATCH, DELETE };
