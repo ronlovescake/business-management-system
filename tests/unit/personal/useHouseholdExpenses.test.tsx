@@ -61,6 +61,22 @@ describe('useHouseholdExpenses', () => {
     }) as typeof fetch;
   });
 
+  it('includes household purchase categories in the dropdown options', async () => {
+    const { result } = renderHook(() => useHouseholdExpenses());
+
+    await waitFor(() => {
+      expect(result.current.accountOptions).toHaveLength(1);
+    });
+
+    expect(result.current.categories).toEqual(
+      expect.arrayContaining([
+        'Equipment & Furniture',
+        'Office Supplies',
+        'Electronics & Gadgets',
+      ])
+    );
+  });
+
   it('supports consecutive save-and-add-new submissions without losing default account', async () => {
     const { result } = renderHook(() => useHouseholdExpenses());
 

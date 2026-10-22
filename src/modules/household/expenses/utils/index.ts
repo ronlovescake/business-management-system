@@ -1,7 +1,9 @@
 export const householdExpenseCategoryOptions = [
   'Debt Payments',
   'Education',
+  'Electronics & Gadgets',
   'Entertainment',
+  'Equipment & Furniture',
   'Excercise',
   'Food',
   'Food - Grab',
@@ -16,6 +18,7 @@ export const householdExpenseCategoryOptions = [
   'Insurance',
   'Loans/Payables',
   'Miscellaneous',
+  'Office Supplies',
   'Personal Care',
   'Pets',
   'Restaurants',

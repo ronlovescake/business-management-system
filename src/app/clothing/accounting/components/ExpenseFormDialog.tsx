@@ -134,136 +134,131 @@ export const ExpenseFormDialog = React.memo(function ExpenseFormDialog({
       title={titleText}
       size="lg"
     >
-      <div style={{ maxHeight: '65vh', overflowY: 'auto' }}>
-        <Stack gap="lg">
-          <Text size="sm" c="dimmed" style={{ textAlign: 'center' }}>
-            {subtitleText}
-          </Text>
-          <Group grow align="flex-start">
-            <DateInput
-              label="Date"
-              required
-              value={toDate(formDate)}
-              onChange={(value) => setFormDate(toISODate(value))}
-              {...dateField.handlers}
-              styles={dateField.styles}
-              {...COMMON_DATE_INPUT_PROPS}
-            />
+      <Stack gap="lg">
+        <Text size="sm" c="dimmed" style={{ textAlign: 'center' }}>
+          {subtitleText}
+        </Text>
+        <Group grow align="flex-start">
+          <DateInput
+            label="Date"
+            required
+            value={toDate(formDate)}
+            onChange={(value) => setFormDate(toISODate(value))}
+            {...dateField.handlers}
+            styles={dateField.styles}
+            {...COMMON_DATE_INPUT_PROPS}
+          />
+          <Select
+            label="Category"
+            data={categories}
+            value={formCategory || null}
+            onChange={(value) => setFormCategory(value || '')}
+            required
+            searchable
+            maxDropdownHeight={400}
+            {...categorySelect.handlers}
+            styles={categorySelect.styles}
+            withCheckIcon={false}
+            comboboxProps={{ withinPortal: true, zIndex: 500 }}
+          />
+        </Group>
+
+        <Group grow align="flex-start">
+          <NumberInput
+            label="Amount"
+            prefix="₱ "
+            decimalScale={2}
+            value={formAmount}
+            onChange={(value) =>
+              setFormAmount(typeof value === 'number' ? value : '')
+            }
+            required
+            min={0}
+            {...amountField.handlers}
+            styles={amountField.styles}
+          />
+          {accountOptions && (
             <Select
-              label="Category"
-              data={categories}
-              value={formCategory || null}
-              onChange={(value) => setFormCategory(value || '')}
-              required
+              label="Account"
+              data={accountOptions}
+              value={formAccountId}
+              onChange={(value) => setFormAccountId(value || null)}
               searchable
+              required
               maxDropdownHeight={400}
-              {...categorySelect.handlers}
-              styles={categorySelect.styles}
+              {...(accountSelect ? accountSelect.handlers : {})}
+              styles={accountSelect?.styles}
               withCheckIcon={false}
               comboboxProps={{ withinPortal: true, zIndex: 500 }}
             />
-          </Group>
-
-          <Group grow align="flex-start">
-            <NumberInput
-              label="Amount"
-              prefix="₱ "
-              decimalScale={2}
-              value={formAmount}
-              onChange={(value) =>
-                setFormAmount(typeof value === 'number' ? value : '')
-              }
-              required
-              min={0}
-              {...amountField.handlers}
-              styles={amountField.styles}
+          )}
+          {showTripId && (
+            <TextInput
+              label="Trip ID (Optional)"
+              value={formTripId}
+              onChange={(e) => setFormTripId(e.target.value)}
+              {...(tripIdField ? tripIdField.handlers : {})}
+              styles={tripIdField?.styles}
             />
-            {accountOptions && (
-              <Select
-                label="Account"
-                data={accountOptions}
-                value={formAccountId}
-                onChange={(value) => setFormAccountId(value || null)}
-                searchable
-                required
-                maxDropdownHeight={400}
-                {...(accountSelect ? accountSelect.handlers : {})}
-                styles={accountSelect?.styles}
-                withCheckIcon={false}
-                comboboxProps={{ withinPortal: true, zIndex: 500 }}
-              />
-            )}
-            {showTripId && (
-              <TextInput
-                label="Trip ID (Optional)"
-                value={formTripId}
-                onChange={(e) => setFormTripId(e.target.value)}
-                {...(tripIdField ? tripIdField.handlers : {})}
-                styles={tripIdField?.styles}
-              />
-            )}
-          </Group>
+          )}
+        </Group>
 
-          <TextInput
-            label="Description"
-            value={formDescription}
-            onChange={(e) => setFormDescription(e.target.value)}
-            required
-            {...descriptionField.handlers}
-            styles={descriptionField.styles}
-          />
+        <TextInput
+          label="Description"
+          value={formDescription}
+          onChange={(e) => setFormDescription(e.target.value)}
+          required
+          {...descriptionField.handlers}
+          styles={descriptionField.styles}
+        />
 
-          <Textarea
-            label="Notes (Optional)"
-            value={formNotes}
-            onChange={(e) => setFormNotes(e.target.value)}
-            minRows={3}
-            {...notesField.handlers}
-            styles={notesField.styles}
-          />
+        <Textarea
+          label="Notes (Optional)"
+          value={formNotes}
+          onChange={(e) => setFormNotes(e.target.value)}
+          minRows={3}
+          {...notesField.handlers}
+          styles={notesField.styles}
+        />
 
-          <FileButton
-            onChange={setFormReceipt}
-            accept="image/*,application/pdf"
-          >
-            {(props) => (
-              <Button
-                {...props}
-                fullWidth
-                leftSection={<IconReceipt size={16} />}
-                variant="default"
-              >
-                {formReceipt
-                  ? `Selected: ${formReceipt.name}`
-                  : 'Click to upload receipt (Optional)'}
-              </Button>
-            )}
-          </FileButton>
-
-          <Group justify="flex-end" gap="sm" mt="sm">
-            <Button variant="default" onClick={onClose}>
-              Cancel
+        <FileButton onChange={setFormReceipt} accept="image/*,application/pdf">
+          {(props) => (
+            <Button
+              {...props}
+              fullWidth
+              leftSection={<IconReceipt size={16} />}
+              variant="default"
+            >
+              {formReceipt
+                ? `Selected: ${formReceipt.name}`
+                : 'Click to upload receipt (Optional)'}
             </Button>
-            {!editingExpense && onSaveAndAddNew && (
-              // =================================================================
-              // ⚠️ SAVE + ADD NEW
-              // =================================================================
-              // Keeps the modal open and clears the form after creating.
-              // =================================================================
-              <Button
-                variant="default"
-                onClick={onSaveAndAddNew}
-                disabled={!isValid}
-              >
-                Save and add new
-              </Button>
-            )}
-            <Button onClick={onSave} disabled={!isValid}>
-              {editingExpense ? 'Update Expense' : 'Add Expense'}
+          )}
+        </FileButton>
+
+        <Group justify="flex-end" gap="sm" mt="sm">
+          <Button variant="default" onClick={onClose}>
+            Cancel
+          </Button>
+          {!editingExpense && onSaveAndAddNew && (
+            // =================================================================
+            // ⚠️ SAVE + ADD NEW
+            // =================================================================
+            // Keeps the modal open and clears the form after creating.
+            // =================================================================
+            <Button
+              variant="default"
+              onClick={onSaveAndAddNew}
+              disabled={!isValid}
+            >
+              Save and add new
             </Button>
-          </Group>
-        </Stack>
-      </div>
+          )}
+          <Button onClick={onSave} disabled={!isValid}>
+            {editingExpense ? 'Update Expense' : 'Add Expense'}
+          </Button>
+        </Group>
+      </Stack>
     </UniversalModal>
   );
 });

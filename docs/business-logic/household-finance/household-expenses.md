@@ -23,12 +23,12 @@
 
 ## B - Expense Status & Balance Impact
 
-| #   | Logic                                                                | Explanation                                                                                     |
-| --- | -------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------- |
-| 4   | New Household expenses created from the current UI save flow default to `paid` | `useHouseholdExpenses.ts` explicitly submits `status: 'paid'` on create and save-and-add-new. |
-| 5   | Supported statuses are `pending`, `approved`, `rejected`, and `paid` | Status is enum-validated in the module schema.                                                  |
+| #   | Logic                                                                                         | Explanation                                                                                                                                                                                                            |
+| --- | --------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 4   | New Household expenses created from the current UI save flow default to `paid`                | `useHouseholdExpenses.ts` explicitly submits `status: 'paid'` on create and save-and-add-new.                                                                                                                          |
+| 5   | Supported statuses are `pending`, `approved`, `rejected`, and `paid`                          | Status is enum-validated in the module schema.                                                                                                                                                                         |
 | 6   | The broader Household expense model still supports the full status workflow and balance rules | Even though the current create UI seeds `paid`, the schema and service layer still recognize `pending`, `approved`, `rejected`, and `paid`, and linked balance impact still depends on the service-layer status rules. |
-| 7   | Expense source tracking is preserved                                 | `sourceType`, `sourceId`, `sourceLineKey`, and `systemGenerated` are part of the stored record. |
+| 7   | Expense source tracking is preserved                                                          | `sourceType`, `sourceId`, `sourceLineKey`, and `systemGenerated` are part of the stored record.                                                                                                                        |
 
 ---
 
@@ -40,6 +40,14 @@
 | 9   | Edit opens Household update mode                                      | Modal title: `Edit Household Expense`.                   |
 | 10  | Save-and-add-new keeps the modal open and preserves the selected date | This supports rapid entry of multiple same-day expenses. |
 | 11  | Household expense form includes account selection                     | Household expenses can be linked to a Household account. |
+
+The form uses its natural height without an internal scrolling region. On short
+screens, normal modal scrolling keeps the fields and action buttons reachable.
+
+Expense categories come from `householdExpenseCategoryOptions` in
+`src/modules/household/expenses/utils/index.ts`. The list includes
+`Equipment & Furniture`, `Office Supplies`, and `Electronics & Gadgets`, and is
+shared by the dropdown and API create, update, and category-filter validation.
 
 ---
 

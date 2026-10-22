@@ -24,8 +24,34 @@ import {
 import { HouseholdIncomeCreateSchema } from '@/modules/household/income/api/schemas';
 
 import {
+  HouseholdExpenseCreateSchema,
+  HouseholdExpenseQuerySchema,
   HouseholdExpenseStatusSchema,
+  HouseholdExpenseUpdateSchema,
 } from '@/modules/household/expenses/api/schemas';
+
+describe('Household expense purchase categories', () => {
+  it.each([
+    'Equipment & Furniture',
+    'Office Supplies',
+    'Electronics & Gadgets',
+  ])('accepts "%s" for creation, updates and filtering', (category) => {
+    expect(
+      HouseholdExpenseCreateSchema.safeParse({
+        date: '2026-10-23',
+        amount: 100,
+        description: 'Household purchase',
+        category,
+      }).success
+    ).toBe(true);
+    expect(
+      HouseholdExpenseUpdateSchema.safeParse({ id: 1, category }).success
+    ).toBe(true);
+    expect(HouseholdExpenseQuerySchema.safeParse({ category }).success).toBe(
+      true
+    );
+  });
+});
 
 // =========================================================================
 // Accounts — Rules C8-C10
@@ -177,8 +203,12 @@ describe('Budgets — Derived status computation (Rules B6-B7)', () => {
     actual: number,
     planned: number
   ): 'over' | 'under' | 'on-track' {
-    if (actual > planned) return 'over';
-    if (actual < planned) return 'under';
+    if (actual > planned) {
+      return 'over';
+    }
+    if (actual < planned) {
+      return 'under';
+    }
     return 'on-track';
   }
 
@@ -277,9 +307,9 @@ describe('Expenses — Schema validation', () => {
     );
 
     it('rejects invalid status', () => {
-      expect(
-        HouseholdExpenseStatusSchema.safeParse('cancelled').success
-      ).toBe(false);
+      expect(HouseholdExpenseStatusSchema.safeParse('cancelled').success).toBe(
+        false
+      );
     });
   });
 });
