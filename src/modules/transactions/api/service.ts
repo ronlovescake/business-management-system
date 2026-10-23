@@ -23,7 +23,12 @@ export {
   TransactionReferenceError,
   TransactionValidationError,
 } from './referenceValidation';
-import { computeLineTotalForUpdate } from './service-calculations';
+import {
+  computeLineTotalForUpdate,
+  computeRemainingBalance,
+} from './service-calculations';
+import { calculateAccountsReceivableDueDate } from '@/lib/transactions/accounts-receivable';
+import { isClothingAccountsReceivableStatus } from '@/lib/transactions/order-status';
 import { transactionDataSchema, transactionUpdateSchema } from './schemas';
 import {
   buildUpdatePayload,
@@ -60,6 +65,83 @@ interface TransactionUpdateSummary {
 
 interface TransactionUpdateResult {
   transaction: TransactionDTO;
+}
+
+type AccountsReceivableDateSource = {
+  shippedAt?: Date | null;
+  accountsReceivableDueAt?: Date | null;
+  packedDate?: string | null;
+  statusChanges?: Array<{ newStatus: string | null; changedAt: Date }>;
+};
+
+function getAccountsReceivableDateData(source: AccountsReceivableDateSource): {
+  shippedAt: Date;
+  accountsReceivableDueAt: Date;
+} {
+  const packedDate = source.packedDate ? new Date(source.packedDate) : null;
+  const validPackedDate =
+    packedDate && Number.isFinite(packedDate.getTime()) ? packedDate : null;
+  const statusChangeDate = source.statusChanges?.find((change) =>
+    isClothingAccountsReceivableStatus(change.newStatus)
+  )?.changedAt;
+  const shippedAt =
+    source.shippedAt ?? statusChangeDate ?? validPackedDate ?? new Date();
+
+  return {
+    shippedAt,
+    accountsReceivableDueAt:
+      source.accountsReceivableDueAt ??
+      calculateAccountsReceivableDueDate(shippedAt),
+  };
+}
+
+function assertAccountsReceivableHasBalance(params: {
+  nextStatus: string | null | undefined;
+  existing: Pick<
+    Transaction,
+    'lineTotal' | 'quantity' | 'unitPrice' | 'discount' | 'adjustment'
+  >;
+  updateValues: TransactionUpdateRecord['values'];
+}) {
+  if (!isClothingAccountsReceivableStatus(params.nextStatus)) {
+    return;
+  }
+
+  const balance = computeRemainingBalance({
+    lineTotal: params.updateValues['Line Total'] ?? params.existing.lineTotal,
+    quantity: params.updateValues.Quantity ?? params.existing.quantity,
+    unitPrice: params.updateValues['Unit Price'] ?? params.existing.unitPrice,
+    discount: params.updateValues.Discount ?? params.existing.discount,
+    adjustment: params.updateValues.Adjustment ?? params.existing.adjustment,
+  });
+
+  if (balance <= 0.01) {
+    throw new TransactionValidationError(
+      'Accounts Receivable requires a positive outstanding balance.'
+    );
+  }
+}
+
+function resolveOrderStatusForLineTotal(params: {
+  requestedStatus: string | null | undefined;
+  existingStatus: string | null;
+  lineTotal: number | null;
+}): string | null | undefined {
+  const statusToEvaluate =
+    params.requestedStatus === undefined
+      ? params.existingStatus
+      : params.requestedStatus;
+  const lineTotal = Number(params.lineTotal ?? 0);
+
+  if (
+    isClothingAccountsReceivableStatus(statusToEvaluate) &&
+    Number.isFinite(lineTotal) &&
+    Math.round(lineTotal * 100) === 0
+  ) {
+    return 'Shipped';
+  }
+
+  return params.requestedStatus;
 }
 
 async function handleNotificationBatch(
@@ -159,7 +241,21 @@ export const transactionService: TransactionService = {
         shipmentCode: validation.data['Shipment Code'],
       });
 
-      preparedRows.push(buildCreateInput(validation.data, priceTiers));
+      const createInput = buildCreateInput(validation.data, priceTiers);
+      if (isClothingAccountsReceivableStatus(createInput.orderStatus)) {
+        if (Number(createInput.lineTotal ?? 0) <= 0.01) {
+          throw new TransactionValidationError(
+            'Accounts Receivable requires a positive outstanding balance.'
+          );
+        }
+        Object.assign(createInput, {
+          orderStatus: 'Accounts Receivable',
+          ...getAccountsReceivableDateData({
+            packedDate: createInput.packedDate,
+          }),
+        });
+      }
+      preparedRows.push(createInput);
     }
 
     const skippedEmptyRows = emptyRows.length;
@@ -284,31 +380,70 @@ export const transactionService: TransactionService = {
         // Unit Price, or Adjustment changes during bulk updates.
         // ==================================================================
         const recalcLineTotal = shouldRecalculateLineTotal(update.values);
-        const computedLineTotal = recalcLineTotal
-          ? computeLineTotalForUpdate({
-              existing,
-              updateValues: update.values,
-            })
-          : existing.lineTotal;
+        const computedLineTotal =
+          recalcLineTotal ||
+          existing.lineTotal === null ||
+          existing.lineTotal === undefined
+            ? computeLineTotalForUpdate({
+                existing,
+                updateValues: update.values,
+              })
+            : existing.lineTotal;
 
-        if (recalcLineTotal) {
+        if (
+          recalcLineTotal ||
+          existing.lineTotal === null ||
+          existing.lineTotal === undefined
+        ) {
           dbData.lineTotal = computedLineTotal;
         }
 
-        if (update.values['Order Status'] !== undefined) {
+        const effectiveUpdateValues = {
+          ...update.values,
+          'Line Total': computedLineTotal,
+        };
+        const resolvedOrderStatus = resolveOrderStatusForLineTotal({
+          requestedStatus: update.values['Order Status'],
+          existingStatus: existing.orderStatus,
+          lineTotal: computedLineTotal,
+        });
+
+        if (resolvedOrderStatus !== undefined) {
           assertCanSetPaidStatus({
-            nextStatus: update.values['Order Status'],
+            nextStatus: resolvedOrderStatus,
             existing,
-            updateValues: update.values,
+            updateValues: effectiveUpdateValues,
           });
 
-          await assertOrderStatusNotBackwardToInTransit({
-            client: tx,
-            nextStatus: update.values['Order Status'],
-            productCode: update.values['Product Code'] ?? existing.productCode,
-            shipmentCode:
-              update.values['Shipment Code'] ?? existing.shipmentCode,
+          assertAccountsReceivableHasBalance({
+            nextStatus: resolvedOrderStatus,
+            existing,
+            updateValues: effectiveUpdateValues,
           });
+
+          if (isClothingAccountsReceivableStatus(resolvedOrderStatus)) {
+            dbData.orderStatus = 'Accounts Receivable';
+            Object.assign(dbData, getAccountsReceivableDateData(existing));
+          } else if (
+            update.values['Order Status'] !== undefined ||
+            resolvedOrderStatus !== existing.orderStatus
+          ) {
+            dbData.orderStatus = resolvedOrderStatus;
+          }
+
+          if (
+            update.values['Order Status'] !== undefined ||
+            resolvedOrderStatus !== existing.orderStatus
+          ) {
+            await assertOrderStatusNotBackwardToInTransit({
+              client: tx,
+              nextStatus: resolvedOrderStatus,
+              productCode:
+                update.values['Product Code'] ?? existing.productCode,
+              shipmentCode:
+                update.values['Shipment Code'] ?? existing.shipmentCode,
+            });
+          }
         }
 
         const changes: string[] = [];
@@ -369,15 +504,23 @@ export const transactionService: TransactionService = {
             );
           }
         }
-        if (recalcLineTotal) {
+        if (
+          recalcLineTotal ||
+          existing.lineTotal === null ||
+          existing.lineTotal === undefined
+        ) {
           if ((existing.lineTotal ?? 0) !== computedLineTotal) {
             changes.push(
               describeChange('lineTotal', existing.lineTotal, computedLineTotal)
             );
           }
         }
-        if (update.values['Order Status'] !== undefined) {
-          const newValue = update.values['Order Status'] ?? '';
+        if (
+          resolvedOrderStatus !== undefined &&
+          (update.values['Order Status'] !== undefined ||
+            resolvedOrderStatus !== existing.orderStatus)
+        ) {
+          const newValue = resolvedOrderStatus ?? '';
           if ((existing.orderStatus || '') !== newValue) {
             changes.push(
               describeChange('orderStatus', existing.orderStatus, newValue)
@@ -483,25 +626,20 @@ export const transactionService: TransactionService = {
 
     const existing = await prisma.transaction.findUnique({
       where: { id: update.id },
+      include: {
+        statusChanges: {
+          where: {
+            newStatus: { in: ['Accounts Receivable', 'Pending Payment'] },
+          },
+          orderBy: { changedAt: 'asc' },
+          take: 1,
+          select: { newStatus: true, changedAt: true },
+        },
+      },
     });
 
     if (!existing) {
       throw new TransactionNotFoundError('Transaction not found');
-    }
-
-    if (update.values['Order Status'] !== undefined) {
-      assertCanSetPaidStatus({
-        nextStatus: update.values['Order Status'],
-        existing,
-        updateValues: update.values,
-      });
-
-      await assertOrderStatusNotBackwardToInTransit({
-        client: prisma,
-        nextStatus: update.values['Order Status'],
-        productCode: update.values['Product Code'] ?? existing.productCode,
-        shipmentCode: update.values['Shipment Code'] ?? existing.shipmentCode,
-      });
     }
 
     const dbData = buildUpdatePayload(update.values);
@@ -512,15 +650,68 @@ export const transactionService: TransactionService = {
     // Unit Price, or Adjustment changes during single-record updates.
     // ========================================================================
     const recalcLineTotal = shouldRecalculateLineTotal(update.values);
-    const computedLineTotal = recalcLineTotal
-      ? computeLineTotalForUpdate({
-          existing,
-          updateValues: update.values,
-        })
-      : existing.lineTotal;
+    const computedLineTotal =
+      recalcLineTotal ||
+      existing.lineTotal === null ||
+      existing.lineTotal === undefined
+        ? computeLineTotalForUpdate({
+            existing,
+            updateValues: update.values,
+          })
+        : existing.lineTotal;
 
-    if (recalcLineTotal) {
+    if (
+      recalcLineTotal ||
+      existing.lineTotal === null ||
+      existing.lineTotal === undefined
+    ) {
       dbData.lineTotal = computedLineTotal;
+    }
+
+    const effectiveUpdateValues = {
+      ...update.values,
+      'Line Total': computedLineTotal,
+    };
+    const resolvedOrderStatus = resolveOrderStatusForLineTotal({
+      requestedStatus: update.values['Order Status'],
+      existingStatus: existing.orderStatus,
+      lineTotal: computedLineTotal,
+    });
+
+    if (resolvedOrderStatus !== undefined) {
+      assertCanSetPaidStatus({
+        nextStatus: resolvedOrderStatus,
+        existing,
+        updateValues: effectiveUpdateValues,
+      });
+
+      assertAccountsReceivableHasBalance({
+        nextStatus: resolvedOrderStatus,
+        existing,
+        updateValues: effectiveUpdateValues,
+      });
+
+      if (isClothingAccountsReceivableStatus(resolvedOrderStatus)) {
+        dbData.orderStatus = 'Accounts Receivable';
+        Object.assign(dbData, getAccountsReceivableDateData(existing));
+      } else if (
+        update.values['Order Status'] !== undefined ||
+        resolvedOrderStatus !== existing.orderStatus
+      ) {
+        dbData.orderStatus = resolvedOrderStatus;
+      }
+
+      if (
+        update.values['Order Status'] !== undefined ||
+        resolvedOrderStatus !== existing.orderStatus
+      ) {
+        await assertOrderStatusNotBackwardToInTransit({
+          client: prisma,
+          nextStatus: resolvedOrderStatus,
+          productCode: update.values['Product Code'] ?? existing.productCode,
+          shipmentCode: update.values['Shipment Code'] ?? existing.shipmentCode,
+        });
+      }
     }
 
     const updatedTransaction = await prisma.transaction.update({
@@ -544,9 +735,13 @@ export const transactionService: TransactionService = {
     }> = [];
 
     Object.entries(update.values).forEach(([field, value]) => {
+      const effectiveValue =
+        field === 'Order Status' && resolvedOrderStatus !== undefined
+          ? resolvedOrderStatus
+          : value;
       const oldValue =
         (existing as Record<string, unknown>)[mapFieldName(field)] ?? 'empty';
-      const newValue = value ?? 'empty';
+      const newValue = effectiveValue ?? 'empty';
       if (String(oldValue) !== String(newValue)) {
         changes.push({
           field,
@@ -556,7 +751,24 @@ export const transactionService: TransactionService = {
       }
     });
 
-    if (recalcLineTotal && update.values['Line Total'] === undefined) {
+    if (
+      update.values['Order Status'] === undefined &&
+      resolvedOrderStatus !== undefined &&
+      resolvedOrderStatus !== existing.orderStatus
+    ) {
+      changes.push({
+        field: 'Order Status',
+        oldValue: String(existing.orderStatus ?? 'empty'),
+        newValue: resolvedOrderStatus ?? '',
+      });
+    }
+
+    if (
+      (recalcLineTotal ||
+        existing.lineTotal === null ||
+        existing.lineTotal === undefined) &&
+      update.values['Line Total'] === undefined
+    ) {
       if (String(existing.lineTotal ?? '') !== String(computedLineTotal)) {
         changes.push({
           field: 'Line Total',

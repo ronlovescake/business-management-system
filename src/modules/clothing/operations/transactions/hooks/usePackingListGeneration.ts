@@ -765,7 +765,7 @@ export function usePackingListGeneration(
 
               const orderStatus =
                 remainingBalance > 0
-                  ? 'Pending Payment'
+                  ? 'Accounts Receivable'
                   : isInDispatch
                     ? 'Checked Out'
                     : 'Ready For Dispatch';

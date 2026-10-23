@@ -93,6 +93,7 @@ async function computeInventorySeedAndShrinkageByDate(params: {
       postingDate: true,
       productCode: true,
       quantity: true,
+      unitCost: true,
       fromBucket: true,
       toBucket: true,
       notes: true,
@@ -205,7 +206,11 @@ async function computeInventorySeedAndShrinkageByDate(params: {
     }
 
     const code = (m.productCode ?? '').trim();
-    const unitCost = unitCostByProductCode.get(code) ?? 0;
+    const snapshotUnitCost = Number(m.unitCost ?? 0);
+    const unitCost =
+      Number.isFinite(snapshotUnitCost) && snapshotUnitCost > 0
+        ? snapshotUnitCost
+        : (unitCostByProductCode.get(code) ?? 0);
     const value = qty * unitCost;
     if (!Number.isFinite(value) || value === 0) {
       continue;
@@ -277,6 +282,7 @@ async function computeInventoryMovementEntries(params: {
       postingDate: true,
       productCode: true,
       quantity: true,
+      unitCost: true,
       fromBucket: true,
       toBucket: true,
       notes: true,

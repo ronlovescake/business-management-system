@@ -10,19 +10,27 @@ const prismaMock = vi.hoisted(() => ({
   transaction: {
     findMany: vi.fn(),
   },
+  shipment: {
+    findMany: vi.fn(),
+  },
 }));
 
 vi.mock('@/lib/db', () => ({
   prisma: prismaMock,
 }));
 
-import { buildCogsAndInventoryEntries } from '../inventory-cogs';
+import {
+  buildCogsAndInventoryEntries,
+  buildInventorySeedAndShrinkageEntries,
+} from '../inventory-cogs';
 
 describe('buildCogsAndInventoryEntries', () => {
   beforeEach(() => {
     prismaMock.inventoryMovement.findMany.mockReset();
     prismaMock.product.findMany.mockReset();
     prismaMock.transaction.findMany.mockReset();
+    prismaMock.shipment.findMany.mockReset();
+    prismaMock.shipment.findMany.mockResolvedValue([]);
   });
 
   it('nets COGS down when returns move sold -> stock', async () => {
@@ -212,6 +220,50 @@ describe('buildCogsAndInventoryEntries', () => {
     expect(result.entries).toHaveLength(2);
     expect(prismaMock.transaction.findMany).toHaveBeenCalledWith(
       expect.objectContaining({ where: { id: { in: [456] } } })
+    );
+  });
+
+  it('posts inventory shrinkage as an expense instead of directly to equity', async () => {
+    prismaMock.inventoryMovement.findMany.mockResolvedValue([
+      {
+        id: 50,
+        createdAt: new Date('2026-01-25T01:00:00.000Z'),
+        postingDate: '2026-01-25',
+        productCode: 'SKU-1',
+        quantity: 1,
+        fromBucket: 'sellable',
+        toBucket: 'scrap',
+      },
+    ]);
+    prismaMock.product.findMany.mockResolvedValue([
+      {
+        productCode: 'SKU-1',
+        shipmentCode: 'SHIP-1',
+        shipmentStatus: 'Delivered',
+        landedUnitCost: 100,
+        cogs: 100,
+        quantity: 1,
+      },
+    ]);
+
+    const result = await buildInventorySeedAndShrinkageEntries({
+      from: new Date('2026-01-01T00:00:00.000Z'),
+      to: null,
+    });
+
+    expect(result.entries).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          account: 'Inventory Shrinkage',
+          debit: 100,
+          credit: 0,
+        }),
+        expect.objectContaining({
+          account: 'Stock on Hand',
+          debit: 0,
+          credit: 100,
+        }),
+      ])
     );
   });
 });

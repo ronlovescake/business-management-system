@@ -257,7 +257,7 @@ export function useTransactionPaymentsState({
 
     const shouldDefaultToReservation =
       singleSelectedStatusForDefaults === 'Prepared' ||
-      singleSelectedStatusForDefaults === 'Pending Payment';
+      (singleSelectedStatusForDefaults as string | null) === 'Pending Payment';
 
     setIsReservation(shouldDefaultToReservation);
 

@@ -16,7 +16,7 @@ interface HandleOrderStatusColumnEditParams {
   notify: (options: NotificationData) => void;
   updateTransactionData: (data: {
     'Order Status': string;
-  }) => void | Promise<void>;
+  }) => void | Promise<Pick<TransactionData, 'Order Status'> | void>;
   logNotification: (
     message: string,
     metadata?: Record<string, unknown>
@@ -48,7 +48,7 @@ export async function handleOrderStatusColumnEdit({
   if (isPaidOrderStatus(dropdownValue) && remaining > 0.01) {
     await fireAlert({
       title: 'Payment not complete',
-      html: `Remaining balance: <strong>₱${remaining.toLocaleString()}</strong>.<br />Record full payment first, or use <strong>Pending Payment</strong> for shipped-but-unpaid orders.`,
+      html: `Remaining balance: <strong>₱${remaining.toLocaleString()}</strong>.<br />Record full payment first, or use <strong>Accounts Receivable</strong> for shipped-but-unpaid orders.`,
       icon: 'warning',
       confirmButtonColor: '#3085d6',
       confirmButtonText: 'OK',
@@ -91,7 +91,23 @@ export async function handleOrderStatusColumnEdit({
     }
   }
 
-  updateTransactionData({ 'Order Status': dropdownValue });
+  let savedStatus = dropdownValue;
+  try {
+    const savedTransaction = await updateTransactionData({
+      'Order Status': dropdownValue,
+    });
+    if (savedTransaction) {
+      savedStatus = savedTransaction['Order Status'] ?? '';
+    }
+  } catch (error) {
+    notify({
+      title: 'Order Status not saved',
+      message:
+        error instanceof Error ? error.message : 'Unable to save Order Status',
+      color: 'red',
+    });
+    return true;
+  }
 
   notify({
     title: 'Success',
@@ -101,7 +117,7 @@ export async function handleOrderStatusColumnEdit({
 
   if (shouldLog) {
     const previousStatus = transaction['Order Status'] ?? 'Unspecified';
-    const nextStatus = dropdownValue || 'Unspecified';
+    const nextStatus = savedStatus || 'Unspecified';
 
     if (previousStatus !== nextStatus) {
       logNotification(
@@ -110,7 +126,7 @@ export async function handleOrderStatusColumnEdit({
           column: 'Order Status',
           transactionId: transaction.id,
           previousValue: transaction['Order Status'] ?? '',
-          newValue: dropdownValue,
+          newValue: savedStatus,
         }
       );
     }

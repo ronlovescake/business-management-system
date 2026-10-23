@@ -3,6 +3,7 @@ import { NextRequest } from 'next/server';
 import { getTestApiUrl } from '@/core/testing/test-helpers';
 import { Prisma } from '@prisma/client';
 import { investorPostingLines } from '@/lib/investors/accounting';
+import { getTransactionPaymentDebitAccount } from '@/lib/accounting/transaction-recognition';
 
 const {
   mockFetchers,
@@ -255,6 +256,59 @@ describe('Accounting Journal API - GET /api/accounting/journal', () => {
     expect(
       entries.some((e) => e.id === 'INV-SEED-2026-01-02-inventory-debit')
     ).toBe(true);
+  });
+
+  it('debits the recorded payment account for A/R collections', async () => {
+    mockFetchers.fetchPaidTransactions.mockResolvedValue([]);
+    const payment = {
+      id: 44,
+      transactionId: 44,
+      paymentDate: '2026-01-22',
+      amount: 75,
+      method: 'Bank Transfer',
+      notes: null,
+      isReservation: false,
+      transaction: {
+        id: 44,
+        productCode: 'AR-44',
+        customers: 'Customer A',
+        orderDate: '2026-01-20',
+        orderStatus: 'Accounts Receivable',
+        shippedAt: new Date('2026-01-20T00:00:00.000Z'),
+        statusChanges: [],
+      },
+    };
+    expect(getTransactionPaymentDebitAccount(payment)).toBe('Bank');
+    mockFetchers.fetchTransactionPayments.mockResolvedValue([payment]);
+
+    const response = await GET(
+      buildRequest('/api/accounting/journal?from=2026-01-01&to=2026-01-31')
+    );
+    const payload = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(payload.data.entries).toContainEqual(
+      expect.objectContaining({
+        id: 'PM-44-cash',
+        account: 'Bank',
+        debit: 75,
+        credit: 0,
+      })
+    );
+    expect(payload.data.entries).toContainEqual(
+      expect.objectContaining({
+        id: 'PM-44-receivable',
+        account: 'Accounts Receivable',
+        debit: 0,
+        credit: 75,
+      })
+    );
+    expect(
+      payload.data.entries.some(
+        (entry: { id: string; account: string }) =>
+          entry.id === 'PM-44-cash' && entry.account === 'Cash'
+      )
+    ).toBe(false);
   });
 
   it('posts reservation payments to Customer Deposits and reclasses to Sales Revenue when paid', async () => {

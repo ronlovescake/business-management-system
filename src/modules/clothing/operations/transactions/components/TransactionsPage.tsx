@@ -170,6 +170,8 @@ export function TransactionsPage({ apiBasePath }: TransactionsPageProps) {
     handleStatusFilter,
     bulkUpdate,
     update,
+    saveOrderStatus,
+    saveBulkUpdate,
   } = useTransactionsData({
     apiBasePath,
     productCodeSearchQuery: tabProductCodeSearchQueries[activeTab] ?? '',
@@ -301,6 +303,8 @@ export function TransactionsPage({ apiBasePath }: TransactionsPageProps) {
     productToShipmentStatusMap,
     bulkUpdate,
     update,
+    saveOrderStatus,
+    saveBulkUpdate,
     apiBasePath,
     onCustomerWarning: (data) => {
       setCustomerWarningData({

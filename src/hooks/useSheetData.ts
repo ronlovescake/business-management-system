@@ -208,17 +208,32 @@ export function useTransactionData({
       // Return context with the previous value
       return { previousTransactions };
     },
-    onError: (_err, _variables, context) => {
+    onError: (_err, variables, context) => {
       // If the mutation fails, rollback to the previous value
       if (context?.previousTransactions) {
-        queryClient.setQueryData(
+        const previous = context.previousTransactions.find(
+          (transaction) => transaction.id === variables.id
+        );
+        queryClient.setQueryData<TransactionDTO[]>(
           resolvedQueryKey,
-          context.previousTransactions
+          (current = []) =>
+            current.map((transaction) =>
+              transaction.id === variables.id && previous
+                ? previous
+                : transaction
+            )
         );
       }
     },
-    // Removed onSettled - optimistic updates are sufficient for single edits
-    // Only refetch on error (handled by onError rollback)
+    onSuccess: (savedTransaction, variables) => {
+      queryClient.setQueryData<TransactionDTO[]>(
+        resolvedQueryKey,
+        (current = []) =>
+          current.map((transaction) =>
+            transaction.id === variables.id ? savedTransaction : transaction
+          )
+      );
+    },
   });
 
   const bulkUpdateMutation = useMutation({
@@ -247,17 +262,35 @@ export function useTransactionData({
 
       return { previousTransactions };
     },
-    onError: (_err, _variables, context) => {
+    onError: (_err, variables, context) => {
       // Rollback on error
       if (context?.previousTransactions) {
-        queryClient.setQueryData(
+        const updatedIds = new Set(
+          variables.map((transaction) => transaction.id)
+        );
+        const previousById = new Map(
+          context.previousTransactions.map((transaction) => [
+            transaction.id,
+            transaction,
+          ])
+        );
+        queryClient.setQueryData<TransactionDTO[]>(
           resolvedQueryKey,
-          context.previousTransactions
+          (current = []) =>
+            current.map((transaction) =>
+              updatedIds.has(transaction.id)
+                ? (previousById.get(transaction.id) ?? transaction)
+                : transaction
+            )
         );
       }
     },
-    // Removed onSettled - optimistic updates are sufficient for bulk edits
-    // Only refetch on error (handled by onError rollback)
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({
+        queryKey: resolvedQueryKey,
+        exact: true,
+      });
+    },
   });
 
   return {
@@ -267,6 +300,8 @@ export function useTransactionData({
     refetch,
     update: updateMutation.mutate,
     bulkUpdate: bulkUpdateMutation.mutate,
+    updateAsync: updateMutation.mutateAsync,
+    bulkUpdateAsync: bulkUpdateMutation.mutateAsync,
     isUpdating: updateMutation.isPending,
     isBulkUpdating: bulkUpdateMutation.isPending,
   };

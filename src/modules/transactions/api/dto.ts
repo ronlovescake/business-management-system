@@ -14,6 +14,8 @@ export interface TransactionDTO {
   Notes: string | null;
   'Invoice Date': string | null;
   'Packed Date': string | null;
+  'Shipped At': string | null;
+  'Accounts Receivable Due Date': string | null;
   'Shipment Code': string | null;
 }
 
@@ -36,10 +38,16 @@ export function mapToDTO(
     Discount: transaction.discount ?? 0,
     Adjustment: transaction.adjustment ?? 0,
     'Line Total': transaction.lineTotal ?? 0,
-    'Order Status': transaction.orderStatus ?? '',
+    'Order Status':
+      (transaction.orderStatus ?? '').trim().toLowerCase() === 'pending payment'
+        ? 'Accounts Receivable'
+        : (transaction.orderStatus ?? ''),
     Notes: transaction.notes ?? null,
     'Invoice Date': transaction.invoiceDate ?? null,
     'Packed Date': transaction.packedDate ?? null,
+    'Shipped At': transaction.shippedAt?.toISOString() ?? null,
+    'Accounts Receivable Due Date':
+      transaction.accountsReceivableDueAt?.toISOString() ?? null,
     'Shipment Code':
       transaction.product?.shipmentCode ?? transaction.shipmentCode ?? null,
   };

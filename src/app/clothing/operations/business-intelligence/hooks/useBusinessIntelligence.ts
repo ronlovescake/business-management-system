@@ -158,7 +158,7 @@ const PIPELINE_STATUSES = [
   'Ready For Dispatch',
   'Checked Out',
   'On-Hold',
-  'Pending Payment',
+  'Accounts Receivable',
   'Shipped',
 ] as const;
 

@@ -43,20 +43,44 @@ function mapToDTO(c: Customer): CustomerDTO {
   };
 }
 
-function mapFromDTO(d: CustomerDTO): Prisma.CustomerUpdateInput {
-  return {
-    date: sanitizers.date(d.Date ?? ''),
-    customerName: sanitizers.name(d['Customer Name'] ?? ''),
-    phoneNumber: sanitizers.phone(d['Phone Number'] ?? ''),
-    address: sanitizers.address(d.Address ?? ''),
-    facebook: sanitizers.name(d.Facebook ?? ''),
-    emailAddress: sanitizers.email(d['Email Address'] ?? ''),
-    businessName: sanitizers.name(d['Business Name'] ?? ''),
-    taxNumber: sanitizers.name(d['Tax Number'] ?? ''),
-    businessAddress: sanitizers.address(d['Business Address'] ?? ''),
-    businessContactNumber: sanitizers.phone(d['Business Contact Number'] ?? ''),
-    customerStatus: sanitizers.name(d['Customer Status'] ?? ''),
-  };
+function mapFromDTO(d: Partial<CustomerDTO>): Prisma.CustomerUpdateInput {
+  const data: Prisma.CustomerUpdateInput = {};
+
+  if (d.Date !== undefined) {
+    data.date = sanitizers.date(d.Date);
+  }
+  if (d['Customer Name'] !== undefined) {
+    data.customerName = sanitizers.name(d['Customer Name']);
+  }
+  if (d['Phone Number'] !== undefined) {
+    data.phoneNumber = sanitizers.phone(d['Phone Number']);
+  }
+  if (d.Address !== undefined) {
+    data.address = sanitizers.address(d.Address);
+  }
+  if (d.Facebook !== undefined) {
+    data.facebook = sanitizers.name(d.Facebook);
+  }
+  if (d['Email Address'] !== undefined) {
+    data.emailAddress = sanitizers.email(d['Email Address']);
+  }
+  if (d['Business Name'] !== undefined) {
+    data.businessName = sanitizers.name(d['Business Name']);
+  }
+  if (d['Tax Number'] !== undefined) {
+    data.taxNumber = sanitizers.name(d['Tax Number']);
+  }
+  if (d['Business Address'] !== undefined) {
+    data.businessAddress = sanitizers.address(d['Business Address']);
+  }
+  if (d['Business Contact Number'] !== undefined) {
+    data.businessContactNumber = sanitizers.phone(d['Business Contact Number']);
+  }
+  if (d['Customer Status'] !== undefined) {
+    data.customerStatus = sanitizers.name(d['Customer Status']);
+  }
+
+  return data;
 }
 
 type RouteContext = { params: { id: string } };

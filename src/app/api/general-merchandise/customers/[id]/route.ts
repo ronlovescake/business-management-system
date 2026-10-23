@@ -1,5 +1,5 @@
 import type { NextRequest } from 'next/server';
-import type { Customer, Prisma } from '@prisma/client';
+import type { Prisma } from '@prisma/client';
 import { ApiResponse } from '@/core/api';
 import { withErrorHandler } from '@/core/api/middleware';
 import { prisma } from '@/lib/db';
@@ -26,7 +26,9 @@ export type CustomerDTO = {
   'Customer Status': string;
 };
 
-function mapToDTO(c: Customer): CustomerDTO {
+function mapToDTO(
+  c: Prisma.GeneralMerchandiseCustomerGetPayload<object>
+): CustomerDTO {
   return {
     id: c.id,
     Date: c.date ?? '',

@@ -10,6 +10,7 @@ export const ORDER_STATUS_OPTIONS = [
   'Ready For Dispatch',
   'Checked Out',
   'On-Hold',
+  'Accounts Receivable',
   'Pending Payment',
   'Shipped',
   'Cancelled',
@@ -23,6 +24,15 @@ export function normalizeOrderStatus(value: string | null | undefined): string {
   return (value ?? '').trim().toLowerCase().replace(/\s+/g, ' ');
 }
 
+export function isClothingAccountsReceivableStatus(
+  value: string | null | undefined
+): boolean {
+  const normalized = normalizeOrderStatus(value);
+  return (
+    normalized === 'accounts receivable' || normalized === 'pending payment'
+  );
+}
+
 const ORDER_STATUS_CANONICAL_MAP: Record<string, KnownOrderStatus> = {
   'in transit': 'In Transit',
   warehouse: 'Warehouse',
@@ -31,6 +41,7 @@ const ORDER_STATUS_CANONICAL_MAP: Record<string, KnownOrderStatus> = {
   'checked out': 'Checked Out',
   'on-hold': 'On-Hold',
   'on hold': 'On-Hold',
+  'accounts receivable': 'Accounts Receivable',
   'pending payment': 'Pending Payment',
   shipped: 'Shipped',
   cancelled: 'Cancelled',

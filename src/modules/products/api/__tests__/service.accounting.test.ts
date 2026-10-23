@@ -162,6 +162,7 @@ describe('productService accounting automation', () => {
     ]);
 
     mockPrisma.product.update.mockResolvedValue({ id: 789 });
+    mockPrisma.product.findUnique.mockResolvedValue({ paymentMethod: 'BANK' });
     mockPrisma.inventoryMovement.findFirst.mockResolvedValue({
       id: 'existing',
     });
@@ -179,6 +180,7 @@ describe('productService accounting automation', () => {
     await productService.bulkUpdate([
       buildDto({
         Payment: 'Paid',
+        'Payment Method': 'BANK',
         'Product Code': 'TP-003',
         COGS: 155.5,
       }),
@@ -198,7 +200,7 @@ describe('productService accounting automation', () => {
     const debitCall = calls.find(
       ([arg]) => arg.create.account === 'Supplier Payable'
     );
-    const creditCall = calls.find(([arg]) => arg.create.account === 'Cash');
+    const creditCall = calls.find(([arg]) => arg.create.account === 'Bank');
 
     expect(debitCall).toBeTruthy();
     expect(creditCall).toBeTruthy();

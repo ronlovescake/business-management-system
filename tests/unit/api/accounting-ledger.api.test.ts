@@ -238,6 +238,58 @@ describe('Accounting Ledger API - GET /api/accounting/ledger', () => {
     expect(stockBalances[stockBalances.length - 1]).toBe(80);
   });
 
+  it('debits the recorded payment account for A/R collections', async () => {
+    mockFetchers.fetchTransactionPayments.mockResolvedValue([
+      {
+        id: 44,
+        transactionId: 44,
+        paymentDate: '2026-01-22',
+        amount: 75,
+        method: 'Bank Transfer',
+        notes: null,
+        isReservation: false,
+        transaction: {
+          id: 44,
+          productCode: 'AR-44',
+          customers: 'Customer A',
+          orderDate: '2026-01-20',
+          orderStatus: 'Accounts Receivable',
+          shippedAt: new Date('2026-01-20T00:00:00.000Z'),
+          statusChanges: [],
+        },
+      },
+    ]);
+
+    const response = await GET(
+      buildRequest('/api/accounting/ledger?from=2026-01-01&to=2026-01-31')
+    );
+    const payload = await response.json();
+    const entries = payload.data.entries as Array<{
+      id: string;
+      account: string;
+      debit: number;
+      credit: number;
+    }>;
+
+    expect(response.status).toBe(200);
+    expect(entries).toContainEqual(
+      expect.objectContaining({
+        id: 'PM-44-cash',
+        account: 'Bank',
+        debit: 75,
+        credit: 0,
+      })
+    );
+    expect(entries).toContainEqual(
+      expect.objectContaining({
+        id: 'PM-44-receivable',
+        account: 'Accounts Receivable',
+        debit: 0,
+        credit: 75,
+      })
+    );
+  });
+
   it('includes reservation payment (Customer Deposits) and reclass to Sales Revenue on paid status', async () => {
     mockFetchers.fetchPaidTransactions.mockResolvedValue([
       {

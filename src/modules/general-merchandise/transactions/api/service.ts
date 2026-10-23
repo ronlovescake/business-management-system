@@ -1,5 +1,6 @@
 import type { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/db';
+import { pickUnitCostFromProductRow } from '@/lib/accounting/inventoryCogsShared';
 import { logger } from '@/lib/logger';
 import type { TransactionDTO } from '@/modules/transactions/api/dto';
 import { mapToDTO } from '@/modules/transactions/api/dto';
@@ -137,6 +138,7 @@ type TransactionForInventorySync = {
 type AutoMovementRecord = {
   id: number;
   deletedAt: Date | null;
+  unitCost: number | null;
 };
 
 type AutoMovementMetadata = {
@@ -152,7 +154,7 @@ async function findLatestAutoMovement(
   return client.generalMerchandiseInventoryMovement.findFirst({
     where: { notes: note },
     orderBy: { createdAt: 'desc' },
-    select: { id: true, deletedAt: true },
+    select: { id: true, deletedAt: true, unitCost: true },
   }) as Promise<AutoMovementRecord | null>;
 }
 
@@ -161,6 +163,7 @@ async function setAutoMovementActive(params: {
   existing: AutoMovementRecord | null;
   productCode: string;
   quantity: number;
+  unitCost?: number | null;
   fromBucket: Prisma.InventoryMovementCreateInput['fromBucket'];
   toBucket: Prisma.InventoryMovementCreateInput['toBucket'];
   postingDate: string | null;
@@ -172,6 +175,7 @@ async function setAutoMovementActive(params: {
     existing,
     productCode,
     quantity,
+    unitCost,
     fromBucket,
     toBucket,
     postingDate,
@@ -189,6 +193,7 @@ async function setAutoMovementActive(params: {
         deletedAt: null,
         productCode,
         quantity,
+        unitCost: existing.unitCost ?? unitCost,
         fromBucket,
         toBucket,
         postingDate,
@@ -205,6 +210,7 @@ async function setAutoMovementActive(params: {
       data: {
         productCode,
         quantity,
+        unitCost: unitCost ?? null,
         fromBucket,
         toBucket,
         postingDate,
@@ -287,6 +293,17 @@ async function syncInventoryMovementsForTransaction(
     isFulfilledStatus(transaction.orderStatus) ||
     treatedAsFulfilledBecausePaidAndPrepared;
 
+  const product = fulfilled
+    ? await client.generalMerchandiseProduct.findFirst({
+        where: {
+          deletedAt: null,
+          productCode: { equals: productCode, mode: 'insensitive' },
+        },
+        select: { landedUnitCost: true, cogs: true, quantity: true },
+      })
+    : null;
+  const unitCost = product ? pickUnitCostFromProductRow(product) || null : null;
+
   const shouldKeepReserveActive =
     reserved ||
     (fulfilled && Boolean(existingReserve && !existingReserve.deletedAt));
@@ -319,6 +336,7 @@ async function syncInventoryMovementsForTransaction(
       existing: existingSale,
       productCode,
       quantity,
+      unitCost,
       fromBucket: reserveIsActive ? 'reserved' : 'sellable',
       toBucket: 'sold',
       postingDate,

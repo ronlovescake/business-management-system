@@ -53,7 +53,10 @@ export function computeLineTotalForUpdate(params: {
     params.updateValues['Unit Price'] ?? params.existing.unitPrice,
     0
   );
-  const adjustment = toFiniteNumber(params.existing.adjustment, 0);
+  const adjustment = toFiniteNumber(
+    params.updateValues.Adjustment ?? params.existing.adjustment,
+    0
+  );
 
   return quantity * unitPrice - adjustment;
 }

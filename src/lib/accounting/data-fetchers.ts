@@ -4,7 +4,7 @@
 
 import { prisma } from '@/lib/db';
 import {
-  ACCOUNTS_RECEIVABLE_STATUSES,
+  CLOTHING_ACCOUNTS_RECEIVABLE_STATUSES,
   PAID_STATUSES,
 } from '@/lib/accounting/constants';
 import { parseDate } from '@/lib/accounting/date-utils';
@@ -21,6 +21,11 @@ type TransactionWithStatusChanges = Awaited<
 >[number] & {
   statusChanges?: { newStatus: string | null; changedAt: Date }[];
 };
+
+const RECOGNIZED_TRANSACTION_STATUSES = [
+  ...PAID_STATUSES,
+  ...CLOTHING_ACCOUNTS_RECEIVABLE_STATUSES,
+] as const;
 
 type TransactionRefundWithTransaction = {
   id: number;
@@ -52,6 +57,8 @@ type TransactionPaymentWithTransaction = {
     productCode: string | null;
     orderDate: string | Date | null;
     orderStatus: string | null;
+    shippedAt?: Date | null;
+    statusChanges?: { newStatus: string | null; changedAt: Date }[];
   };
 };
 
@@ -83,7 +90,9 @@ export async function fetchPaidTransactions(): Promise<
         where: baseWhere,
         include: {
           statusChanges: {
-            where: { newStatus: { in: [...PAID_STATUSES] } },
+            where: {
+              newStatus: { in: [...RECOGNIZED_TRANSACTION_STATUSES] },
+            },
             orderBy: { changedAt: 'asc' },
           },
         },
@@ -97,18 +106,13 @@ export async function fetchPaidTransactions(): Promise<
 export async function fetchRecognizedTransactions(): Promise<
   TransactionWithStatusChanges[]
 > {
-  const recognizedStatuses = [
-    ...PAID_STATUSES,
-    ...ACCOUNTS_RECEIVABLE_STATUSES,
-  ] as const;
-
   const baseWhere = {
     deletedAt: null,
     NOT: {
       orderStatus: { equals: 'Cancelled' },
     },
     OR: [
-      { orderStatus: { in: [...recognizedStatuses] } },
+      { orderStatus: { in: [...RECOGNIZED_TRANSACTION_STATUSES] } },
       // Cash-basis support: include any transaction that has recorded payment
       // so Balance Sheet cash reflects actual receipts even if ops status is
       // not tagged as Pending Payment / Paid yet.
@@ -131,7 +135,9 @@ export async function fetchRecognizedTransactions(): Promise<
         where: baseWhere,
         include: {
           statusChanges: {
-            where: { newStatus: { in: [...PAID_STATUSES] } },
+            where: {
+              newStatus: { in: [...RECOGNIZED_TRANSACTION_STATUSES] },
+            },
             orderBy: { changedAt: 'asc' },
           },
         },
@@ -142,6 +148,49 @@ export async function fetchRecognizedTransactions(): Promise<
   });
 
   return rows.filter((tx) => !isCancelledOrderStatus(tx.orderStatus));
+}
+
+export async function fetchAccountsReceivableTransactions(): Promise<
+  TransactionWithStatusChanges[]
+> {
+  const lifecycleStatuses = [...CLOTHING_ACCOUNTS_RECEIVABLE_STATUSES];
+
+  return fetchWithStatusChangesFallback({
+    fetchWithChanges: () =>
+      prisma.transaction.findMany({
+        where: {
+          deletedAt: null,
+          OR: [
+            { orderStatus: { in: lifecycleStatuses } },
+            { shippedAt: { not: null } },
+            {
+              statusChanges: {
+                some: { newStatus: { in: lifecycleStatuses } },
+              },
+            },
+          ],
+        },
+        include: {
+          statusChanges: {
+            where: { newStatus: { in: lifecycleStatuses } },
+            orderBy: { changedAt: 'asc' },
+          },
+        },
+      }),
+    fetchWithoutChanges: () =>
+      prisma.transaction.findMany({
+        where: {
+          deletedAt: null,
+          OR: [
+            {
+              orderStatus: { in: [...CLOTHING_ACCOUNTS_RECEIVABLE_STATUSES] },
+            },
+            { shippedAt: { not: null } },
+          ],
+        },
+      }),
+    logMessage: 'Falling back to transactions without statusChanges',
+  });
 }
 
 export async function fetchApprovedExpenses() {
@@ -204,6 +253,16 @@ export async function fetchTransactionPayments(): Promise<
               productCode: true,
               orderDate: true,
               orderStatus: true,
+              shippedAt: true,
+              statusChanges: {
+                where: {
+                  newStatus: {
+                    in: [...CLOTHING_ACCOUNTS_RECEIVABLE_STATUSES],
+                  },
+                },
+                orderBy: { changedAt: 'asc' },
+                select: { newStatus: true, changedAt: true },
+              },
             },
           },
         },

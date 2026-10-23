@@ -7,6 +7,7 @@ import {
   parseDate,
 } from '@/lib/accounting/date-utils';
 import {
+  fetchAccountsReceivableTransactions,
   fetchPaidTransactions,
   fetchApprovedExpenses,
   fetchTransactionRefunds,
@@ -17,6 +18,13 @@ import {
   isWithinDateRange,
 } from '@/lib/accounting/data-fetchers';
 import { normalizeTransactionAmountsForAccounting } from '@/lib/accounting/transaction-normalization';
+import { getExpenseCreditAccount } from '@/lib/accounting/payment-accounts';
+import {
+  buildAccountsReceivableShipmentEntries,
+  getAccountsReceivableRecognitionDate,
+  getTransactionPaymentCreditAccount,
+  getTransactionPaymentDebitAccount,
+} from '@/lib/accounting/transaction-recognition';
 import {
   buildCogsAndInventoryEntries,
   buildInventorySeedAndShrinkageEntries,
@@ -48,7 +56,10 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
   const effectiveFrom = clampFrom(from, cutover);
   const effectiveTo = to ?? null;
 
-  const transactions = await fetchPaidTransactions();
+  const [transactions, accountsReceivableTransactions] = await Promise.all([
+    fetchPaidTransactions(),
+    fetchAccountsReceivableTransactions(),
+  ]);
   const payments = await fetchTransactionPayments();
   const expenses = await fetchApprovedExpenses();
   const refunds = await fetchTransactionRefunds();
@@ -69,6 +80,9 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
   });
 
   const paymentTransactionIds = new Set(payments.map((p) => p.transactionId));
+  const accountsReceivableTransactionIds = new Set(
+    accountsReceivableTransactions.map((transaction) => transaction.id)
+  );
 
   const paidAtByTxId = new Map<number, Date | null>();
   for (const tx of transactions) {
@@ -110,6 +124,7 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
     }
   }
 
+  const accountsReceivablePaymentDebitIds = new Set<string>();
   const paymentEntries = payments
     .map((payment) => {
       const isReservation = isReservationPayment(payment);
@@ -147,18 +162,24 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
         ? `${descriptionBase} • ${suffix}`
         : descriptionBase;
 
-      const creditAccount = isReservation
-        ? 'Customer Deposits'
-        : 'Sales Revenue';
-
-      const creditId = isReservation ? `${idBase}-deposits` : `${idBase}-sales`;
+      const creditAccount = getTransactionPaymentCreditAccount(payment);
+      const creditSuffix = isReservation
+        ? 'deposits'
+        : creditAccount === 'Accounts Receivable'
+          ? 'receivable'
+          : 'sales';
+      const creditId = `${idBase}-${creditSuffix}`;
+      const debitAccount = getTransactionPaymentDebitAccount(payment);
+      if (creditAccount === 'Accounts Receivable') {
+        accountsReceivablePaymentDebitIds.add(`${idBase}-cash`);
+      }
 
       return [
         {
           id: `${idBase}-cash`,
           date: dateStr,
           ref,
-          account: 'Cash',
+          account: debitAccount,
           debit: Math.max(amt, 0),
           credit: 0,
           description,
@@ -187,6 +208,7 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
 
   const legacyTxEntries = transactions
     .filter((tx) => !paymentTransactionIds.has(tx.id))
+    .filter((tx) => !accountsReceivableTransactionIds.has(tx.id))
     .map((tx) => {
       const { paymentReceived } = normalizeTransactionAmountsForAccounting(tx);
       const amount = paymentReceived;
@@ -317,6 +339,14 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
     description: string;
   }>;
 
+  const accountsReceivableShipmentEntries =
+    accountsReceivableTransactions.flatMap((transaction) => {
+      const recognitionAt = getAccountsReceivableRecognitionDate(transaction);
+      return isWithinDateRange(recognitionAt, effectiveFrom, effectiveTo)
+        ? buildAccountsReceivableShipmentEntries(transaction)
+        : [];
+    });
+
   const expenseEntries = expenses
     .map((exp) => {
       const amount = Number(exp.amount ?? 0);
@@ -331,6 +361,11 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
 
       const dateStr = (expDate ?? new Date()).toISOString();
       const ref = `EXP-${exp.id}`;
+      const creditAccount = getExpenseCreditAccount(exp);
+      const creditDescription =
+        creditAccount === 'Accounts Payable'
+          ? 'Approved expense payable'
+          : `${creditAccount} expense settlement`;
 
       return [
         {
@@ -343,13 +378,13 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
           description: exp.description ?? exp.notes ?? 'Expense',
         },
         {
-          id: `${ref}-cash-credit`,
+          id: `${ref}-${creditAccount}-credit`,
           date: dateStr,
           ref,
-          account: 'Cash',
+          account: creditAccount,
           debit: 0,
           credit: Math.max(amount, 0),
-          description: exp.description ?? exp.notes ?? 'Cash payment',
+          description: exp.description ?? exp.notes ?? creditDescription,
         },
       ];
     })
@@ -698,6 +733,7 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
     ...reclassEntries,
     ...transitBuildEntries,
     ...paymentEntries,
+    ...accountsReceivableShipmentEntries,
     ...reservationReclassEntries,
     ...legacyTxEntries,
     ...refundEntries,
@@ -709,7 +745,9 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
 
   const normalizedEntries = entries.map((entry) => ({
     ...entry,
-    account: normalizeAccountForReporting(entry.account),
+    account: accountsReceivablePaymentDebitIds.has(entry.id)
+      ? entry.account
+      : normalizeAccountForReporting(entry.account),
   }));
 
   const totalDebits = normalizedEntries.reduce((sum, e) => sum + e.debit, 0);

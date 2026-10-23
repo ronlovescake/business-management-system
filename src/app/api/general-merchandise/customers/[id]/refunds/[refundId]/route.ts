@@ -59,36 +59,44 @@ export const DELETE = withErrorHandler<RouteContext>(
       return ApiResponse.notFound('Customer');
     }
 
-    const existing =
-      (await prisma.generalMerchandiseTransactionRefund.findFirst({
-        where: {
-          id: parsed.refundId,
-          deletedAt: null,
-          transaction: {
+    const result = await prisma.$transaction(async (txClient) => {
+      const existing =
+        (await txClient.generalMerchandiseTransactionRefund.findFirst({
+          where: {
+            id: parsed.refundId,
             deletedAt: null,
-            customerId: customer.id,
+            transaction: {
+              deletedAt: null,
+              customerId: customer.id,
+            },
           },
-        },
-        select: { id: true },
-      })) as RefundRow | null;
+          select: { id: true },
+        })) as RefundRow | null;
 
-    if (!existing) {
+      if (!existing) {
+        return false;
+      }
+
+      const deletedAt = new Date();
+      await txClient.generalMerchandiseTransactionRefund.update({
+        where: { id: parsed.refundId },
+        data: { deletedAt },
+      });
+
+      await txClient.generalMerchandiseInventoryMovement.updateMany({
+        where: {
+          deletedAt: null,
+          notes: buildAutoReturnMovementNote(parsed.refundId),
+        },
+        data: { deletedAt },
+      });
+
+      return true;
+    });
+
+    if (!result) {
       return ApiResponse.notFound('Refund');
     }
-
-    await prisma.generalMerchandiseTransactionRefund.update({
-      where: { id: parsed.refundId },
-      data: { deletedAt: new Date() },
-    });
-
-    // Keep the inventory sub-ledger consistent: hide any auto-created return movement.
-    await prisma.generalMerchandiseInventoryMovement.updateMany({
-      where: {
-        deletedAt: null,
-        notes: buildAutoReturnMovementNote(parsed.refundId),
-      },
-      data: { deletedAt: new Date() },
-    });
 
     logger.info('GM transaction refund deleted (soft)', {
       customerId: customer.id,

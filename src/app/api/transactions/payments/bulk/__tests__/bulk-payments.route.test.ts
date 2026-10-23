@@ -11,6 +11,9 @@ const mockPrisma = vi.hoisted(() => ({
     createMany: vi.fn(),
     groupBy: vi.fn(),
   },
+  transactionStatusChange: {
+    create: vi.fn(),
+  },
   $queryRaw: vi.fn(),
   $transaction: vi.fn(),
 }));
@@ -42,8 +45,8 @@ describe('POST /api/transactions/payments/bulk', () => {
 
     mockPrisma.transactionPayment.createMany.mockResolvedValue({ count: 2 });
     mockPrisma.transactionPayment.groupBy.mockResolvedValue([
-      { transactionId: 10, _sum: { amount: 25 } },
-      { transactionId: 11, _sum: { amount: 10 } },
+      { transactionId: 10, _sum: { amount: 0 } },
+      { transactionId: 11, _sum: { amount: 0 } },
     ]);
 
     mockPrisma.transaction.update.mockImplementation(async (args: unknown) => {
@@ -163,7 +166,7 @@ describe('POST /api/transactions/payments/bulk', () => {
 
     mockPrisma.transactionPayment.createMany.mockResolvedValue({ count: 1 });
     mockPrisma.transactionPayment.groupBy.mockResolvedValue([
-      { transactionId: 10, _sum: { amount: 25 } },
+      { transactionId: 10, _sum: { amount: 0 } },
     ]);
 
     mockPrisma.transaction.update.mockResolvedValue({
@@ -199,6 +202,163 @@ describe('POST /api/transactions/payments/bulk', () => {
       transactionId: 10,
       amount: 25,
       isReservation: true,
+    });
+  });
+
+  it('rejects a payment that exceeds the outstanding balance without writing', async () => {
+    mockPrisma.transaction.findMany.mockResolvedValue([
+      { id: 10, quantity: 2, unitPrice: 50, adjustment: 0 },
+    ]);
+    mockPrisma.transactionPayment.groupBy.mockResolvedValue([]);
+    mockPrisma.$transaction.mockImplementation(
+      async (callback: (tx: unknown) => unknown) => {
+        const tx = {
+          transaction: mockPrisma.transaction,
+          transactionPayment: mockPrisma.transactionPayment,
+        };
+        return callback(tx);
+      }
+    );
+
+    const request = mockNextRequest({
+      method: 'POST',
+      url: getTestApiUrl('/api/transactions/payments/bulk'),
+      body: {
+        payments: [
+          {
+            transactionId: 10,
+            paymentDate: '2026-01-17',
+            amount: 101,
+            method: 'Cash',
+          },
+        ],
+      },
+    });
+
+    const response = await POST(request);
+    const body = await response.json();
+
+    expect(response.status).toBe(400);
+    expect(body.error).toBe('Payment validation failed');
+    expect(mockPrisma.transactionPayment.createMany).not.toHaveBeenCalled();
+    expect(mockPrisma.transaction.update).not.toHaveBeenCalled();
+  });
+
+  it('rejects reservation deposits for Accounts Receivable transactions', async () => {
+    mockPrisma.transaction.findMany.mockResolvedValue([
+      {
+        id: 10,
+        quantity: 2,
+        unitPrice: 50,
+        adjustment: 0,
+        orderStatus: 'Accounts Receivable',
+      },
+    ]);
+    mockPrisma.transactionPayment.groupBy.mockResolvedValue([]);
+    mockPrisma.$transaction.mockImplementation(
+      async (callback: (tx: unknown) => unknown) => {
+        const tx = {
+          transaction: mockPrisma.transaction,
+          transactionPayment: mockPrisma.transactionPayment,
+        };
+        return callback(tx);
+      }
+    );
+
+    const request = mockNextRequest({
+      method: 'POST',
+      url: getTestApiUrl('/api/transactions/payments/bulk'),
+      body: {
+        payments: [
+          {
+            transactionId: 10,
+            paymentDate: '2026-01-17',
+            amount: 25,
+            method: 'Cash',
+            isReservation: true,
+          },
+        ],
+      },
+    });
+
+    const response = await POST(request);
+    const body = await response.json();
+
+    expect(response.status).toBe(400);
+    expect(body.error).toBe('Payment validation failed');
+    expect(mockPrisma.transactionPayment.createMany).not.toHaveBeenCalled();
+    expect(mockPrisma.transaction.update).not.toHaveBeenCalled();
+  });
+
+  it('moves a fully collected A/R transaction to Shipped and records status history', async () => {
+    mockPrisma.transaction.findMany.mockResolvedValue([
+      {
+        id: 10,
+        quantity: 1,
+        unitPrice: 100,
+        adjustment: 0,
+        orderStatus: 'Accounts Receivable',
+      },
+    ]);
+    mockPrisma.transactionPayment.groupBy.mockResolvedValue([]);
+    mockPrisma.transactionPayment.createMany.mockResolvedValue({ count: 1 });
+    mockPrisma.transaction.update.mockImplementation(
+      async (args: {
+        where: { id: number };
+        data: Record<string, unknown>;
+      }) => ({
+        id: args.where.id,
+        adjustment: args.data.adjustment,
+        lineTotal: args.data.lineTotal,
+        orderStatus: args.data.orderStatus ?? 'Accounts Receivable',
+      })
+    );
+    mockPrisma.transactionStatusChange.create.mockResolvedValue({ id: 1 });
+    mockPrisma.$transaction.mockImplementation(
+      async (callback: (tx: unknown) => unknown) => {
+        const tx = {
+          transaction: mockPrisma.transaction,
+          transactionPayment: mockPrisma.transactionPayment,
+          transactionStatusChange: mockPrisma.transactionStatusChange,
+        };
+        return callback(tx);
+      }
+    );
+
+    const request = mockNextRequest({
+      method: 'POST',
+      url: getTestApiUrl('/api/transactions/payments/bulk'),
+      body: {
+        payments: [
+          {
+            transactionId: 10,
+            paymentDate: '2026-01-17',
+            amount: 100,
+            method: 'Cash',
+          },
+        ],
+      },
+    });
+
+    const response = await POST(request);
+
+    expect(response.status).toBe(200);
+    expect(mockPrisma.transaction.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: 10 },
+        data: expect.objectContaining({
+          adjustment: 100,
+          lineTotal: 0,
+          orderStatus: 'Shipped',
+        }),
+      })
+    );
+    expect(mockPrisma.transactionStatusChange.create).toHaveBeenCalledWith({
+      data: {
+        transactionId: 10,
+        previousStatus: 'Accounts Receivable',
+        newStatus: 'Shipped',
+      },
     });
   });
 });

@@ -31,6 +31,7 @@ import type {
 } from '../types/transaction.types';
 import { logger } from '@/lib/logger';
 import {
+  isClothingAccountsReceivableStatus,
   isCancelledOrderStatus,
   normalizeOrderStatus,
 } from '@/lib/transactions/order-status';
@@ -343,10 +344,8 @@ export class TransactionService {
       .filter((t) => normalizeOrderStatus(t['Order Status']) === 'prepared')
       .reduce((sum, t) => sum + (t['Line Total'] || 0), 0);
 
-    const pendingPaymentTotal = filteredData
-      .filter(
-        (t) => normalizeOrderStatus(t['Order Status']) === 'pending payment'
-      )
+    const accountsReceivableTotal = filteredData
+      .filter((t) => isClothingAccountsReceivableStatus(t['Order Status']))
       .reduce((sum, t) => sum + (t['Line Total'] || 0), 0);
 
     const uniqueCustomers = new Set(
@@ -373,7 +372,7 @@ export class TransactionService {
       inTransitTotal,
       warehouseTotal,
       preparedTotal,
-      pendingPaymentTotal,
+      accountsReceivableTotal,
       uniqueCustomers,
       adjustmentTotal,
       shippedOrders,

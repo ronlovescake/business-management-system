@@ -103,6 +103,7 @@ type TransactionRecord = {
 const AUTO_HANDLED_TRANSACTION_STATUSES = new Set([
   'ready for dispatch',
   'checked out',
+  'accounts receivable',
   'pending payment',
 ]);
 

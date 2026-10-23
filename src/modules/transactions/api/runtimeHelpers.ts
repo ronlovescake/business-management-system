@@ -39,10 +39,21 @@ export async function fetchExistingTransaction(
       adjustment: true,
       lineTotal: true,
       orderStatus: true,
+      customerId: true,
       notes: true,
       invoiceDate: true,
       packedDate: true,
+      shippedAt: true,
+      accountsReceivableDueAt: true,
       shipmentCode: true,
+      statusChanges: {
+        where: {
+          newStatus: { in: ['Accounts Receivable', 'Pending Payment'] },
+        },
+        orderBy: { changedAt: 'asc' },
+        take: 1,
+        select: { newStatus: true, changedAt: true },
+      },
     },
   });
 }

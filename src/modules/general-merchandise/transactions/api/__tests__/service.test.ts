@@ -12,6 +12,7 @@ const mockPrisma = vi.hoisted(() => ({
     update: vi.fn(),
   },
   generalMerchandiseProduct: {
+    findFirst: vi.fn(),
     findMany: vi.fn(),
   },
   generalMerchandiseShipment: {
@@ -75,6 +76,7 @@ describe('generalMerchandiseTransactionService', () => {
     mockPrisma.generalMerchandiseProduct.findMany.mockResolvedValue([
       { productCode: 'GM-001' },
     ]);
+    mockPrisma.generalMerchandiseProduct.findFirst.mockResolvedValue(null);
     mockPrisma.generalMerchandiseShipment.findMany.mockResolvedValue([
       { shipmentCode: 'GM-SHIP-001' },
     ]);
@@ -249,6 +251,11 @@ describe('generalMerchandiseTransactionService', () => {
   it('treats prepared fully paid GM transactions as fulfilled when line totals must be recomputed', async () => {
     vi.resetModules();
     const { generalMerchandiseTransactionService } = await import('../service');
+    mockPrisma.generalMerchandiseProduct.findFirst.mockResolvedValue({
+      landedUnitCost: 45,
+      cogs: 90,
+      quantity: 2,
+    });
 
     mockPrisma.generalMerchandiseTransaction.update.mockResolvedValue({
       id: 7,
@@ -295,6 +302,7 @@ describe('generalMerchandiseTransactionService', () => {
         quantity: 2,
         fromBucket: 'reserved',
         toBucket: 'sold',
+        unitCost: 45,
         postingDate: '2026-03-18',
         notes: 'auto-sale txn 7',
       }),

@@ -55,6 +55,11 @@ interface UseTransactionOperationsProps {
   productToShipmentStatusMap: Record<string, string>;
   bulkUpdate: (data: TransactionData[]) => void;
   update: (data: { id: number; data: Partial<TransactionData> }) => void;
+  saveOrderStatus?: (
+    id: number,
+    status: string
+  ) => Promise<Pick<TransactionData, 'Order Status'>>;
+  saveBulkUpdate?: (data: TransactionData[]) => Promise<{ count: number }>;
   apiBasePath?: string;
   onCustomerWarning?: (data: {
     customerName: string;
@@ -94,6 +99,8 @@ export function useTransactionOperations(
     productToShipmentStatusMap,
     bulkUpdate,
     update,
+    saveOrderStatus,
+    saveBulkUpdate,
     apiBasePath,
     onCustomerWarning,
   } = props;
@@ -167,6 +174,7 @@ export function useTransactionOperations(
   const { isBatchModeRef, batchUpdatesRef } = useTransactionBatchMode({
     transactions,
     bulkUpdate,
+    saveBulkUpdate,
     logNotification,
   });
 
@@ -779,7 +787,17 @@ export function useTransactionOperations(
         isVoidedOrderStatus,
         formatCurrencyValue,
         notify,
-        updateTransactionData: (data) => updateTransactionData(data),
+        updateTransactionData: (data) => {
+          if (
+            transaction.id &&
+            !isBatchEdit &&
+            !isBatchModeRef.current &&
+            saveOrderStatus
+          ) {
+            return saveOrderStatus(transaction.id, data['Order Status']);
+          }
+          return updateTransactionData(data);
+        },
         logNotification,
         fireAlert: (options) => Swal.fire(options),
       });
@@ -794,6 +812,7 @@ export function useTransactionOperations(
       productToShipmentMap,
       productToShipmentStatusMap,
       update,
+      saveOrderStatus,
       onCustomerWarning,
       logNotification,
       ensureDraftRow,

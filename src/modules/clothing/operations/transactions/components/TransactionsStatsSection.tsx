@@ -88,8 +88,8 @@ const cardDefinitions: CardDefinition[] = [
     backgroundColor: 'var(--mantine-color-green-6)',
   },
   {
-    title: 'Pending Payment',
-    key: 'pendingPaymentTotal',
+    title: 'Accounts Receivable',
+    key: 'accountsReceivableTotal',
     formatter: formatCurrency,
     icon: <IconAdjustments size={18} />,
     color: 'orange',

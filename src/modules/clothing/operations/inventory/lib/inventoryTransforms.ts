@@ -50,7 +50,7 @@ export function buildInventoryItems(
   // Operational inventory source of truth:
   // - baseline supply from Products quantity
   // - minus reserved demand where RESERVED is any non-cancelled order status
-  //   except Ready For Dispatch, Checked Out, and Shipped.
+  //   except fulfilled, including Accounts Receivable shipments.
   // Accounting posting/recognition rules remain unchanged elsewhere.
   const committedQtyByProduct = new Map<string, number>();
 
@@ -67,6 +67,7 @@ export function buildInventoryItems(
   const soldOrderStatuses = new Set([
     'ready for dispatch',
     'checked out',
+    'accounts receivable',
     'shipped',
   ]);
 
@@ -104,8 +105,12 @@ export function buildInventoryItems(
     const shouldCountAsReserved = !soldOrderStatuses.has(normalizedOrderStatus);
 
     if (shouldCountAsReserved) {
-      const currentCommitted = committedQtyByProduct.get(normalizedProductCode) || 0;
-      committedQtyByProduct.set(normalizedProductCode, currentCommitted + quantity);
+      const currentCommitted =
+        committedQtyByProduct.get(normalizedProductCode) || 0;
+      committedQtyByProduct.set(
+        normalizedProductCode,
+        currentCommitted + quantity
+      );
     }
 
     if (soldOrderStatuses.has(normalizedOrderStatus)) {
@@ -117,7 +122,8 @@ export function buildInventoryItems(
     // This inventory view treats sellable availability as the source of truth.
 
     if (shouldCountAsRevenue) {
-      const currentTotalSales = totalSalesByProduct.get(normalizedProductCode) || 0;
+      const currentTotalSales =
+        totalSalesByProduct.get(normalizedProductCode) || 0;
       totalSalesByProduct.set(
         normalizedProductCode,
         currentTotalSales + unitPrice * quantity
@@ -138,8 +144,7 @@ export function buildInventoryItems(
     isReservedStatus: (status) => {
       const normalizedStatus = (status ?? '').trim().toLowerCase();
       return (
-        !soldOrderStatuses.has(normalizedStatus) &&
-        isReservedStatus(status)
+        !soldOrderStatuses.has(normalizedStatus) && isReservedStatus(status)
       );
     },
     isRevenueStatus: (status) =>

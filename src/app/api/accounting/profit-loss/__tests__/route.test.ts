@@ -11,12 +11,16 @@ vi.mock('@/lib/accounting/cutover', () => ({
 vi.mock('@/lib/accounting/inventory-cogs', () => ({
   computeCogsTotal: vi.fn().mockResolvedValue(0),
   buildCogsAndInventoryEntries: vi.fn().mockResolvedValue({ entries: [] }),
+  buildInventorySeedAndShrinkageEntries: vi
+    .fn()
+    .mockResolvedValue({ entries: [], seedTotal: 0, shrinkageTotal: 0 }),
   computeInventorySeedAndShrinkageTotals: vi
     .fn()
     .mockResolvedValue({ seedTotal: 0, shrinkageTotal: 0 }),
 }));
 
 const mockFetchers = vi.hoisted(() => ({
+  fetchAccountsReceivableTransactions: vi.fn(),
   fetchPaidTransactions: vi.fn(),
   fetchApprovedExpenses: vi.fn(),
   fetchInvestorReturnExpenses: vi.fn(),
@@ -56,6 +60,7 @@ describe('GET /api/accounting/profit-loss', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockFetchers.isWithinDateRange.mockImplementation(within);
+    mockFetchers.fetchAccountsReceivableTransactions.mockResolvedValue([]);
     mockFetchers.fetchPaidTransactions.mockResolvedValue([]);
     mockFetchers.fetchApprovedExpenses.mockResolvedValue([]);
     mockFetchers.fetchInvestorReturnExpenses.mockResolvedValue([]);
@@ -106,6 +111,77 @@ describe('GET /api/accounting/profit-loss', () => {
 
     expect(sales?.amount).toBe(1000);
     expect(body.data.stats.revenueTotal).toBe(1000);
+  });
+
+  it('recognizes A/R revenue at shipment and excludes later collections from revenue', async () => {
+    const shippedAt = new Date('2026-01-19T12:00:00.000Z');
+    const statusChanges = [
+      { newStatus: 'Accounts Receivable', changedAt: shippedAt },
+    ];
+    const receivableTransaction = {
+      id: 20,
+      quantity: 2,
+      unitPrice: 100,
+      adjustment: 50,
+      lineTotal: 150,
+      orderStatus: 'Accounts Receivable',
+      shippedAt,
+      customers: 'Customer B',
+      productCode: 'SKU-20',
+      statusChanges,
+    };
+    mockFetchers.fetchAccountsReceivableTransactions.mockResolvedValue([
+      receivableTransaction,
+    ]);
+    mockFetchers.fetchTransactionPayments.mockResolvedValue([
+      {
+        id: 2,
+        transactionId: 20,
+        paymentDate: '2026-01-21',
+        amount: 50,
+        method: 'Cash',
+        notes: 'Partial collection',
+        isReservation: false,
+        createdAt: new Date('2026-01-21T00:00:00.000Z'),
+        transaction: {
+          id: 20,
+          customers: 'Customer B',
+          productCode: 'SKU-20',
+          orderDate: '2026-01-10',
+          orderStatus: 'Accounts Receivable',
+          shippedAt,
+          statusChanges,
+        },
+      },
+    ]);
+
+    const { GET } = await import('@/app/api/accounting/profit-loss/route');
+    const { GET: details } = await import(
+      '@/app/api/accounting/profit-loss/details/route'
+    );
+    const request = mockNextRequest({
+      method: 'GET',
+      url: getTestApiUrl(
+        '/api/accounting/profit-loss?from=2026-01-01&to=2026-01-31'
+      ),
+    });
+
+    const response = await GET(request);
+    const body = await response.json();
+    const detailBody = await (await details(request)).json();
+
+    expect(body.data.stats.revenueTotal).toBe(200);
+    expect(
+      (body.data.rows as Array<{ category: string; amount: number }>).find(
+        (row) => row.category === 'Sales Revenue'
+      )?.amount
+    ).toBe(200);
+    expect(detailBody.data.rows).toEqual([
+      expect.objectContaining({
+        sourceType: 'AccountsReceivableShipment',
+        amount: 200,
+      }),
+    ]);
   });
 
   it('includes investor returns in net profit and expense details, not revenue', async () => {

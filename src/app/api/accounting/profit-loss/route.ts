@@ -11,6 +11,7 @@ import {
   isDepositForfeitureOrderStatus,
 } from '@/lib/transactions/order-status';
 import {
+  fetchAccountsReceivableTransactions,
   fetchPaidTransactions,
   fetchApprovedExpenses,
   fetchInvestorReturnExpenses,
@@ -25,6 +26,10 @@ import {
   computeInventorySeedAndShrinkageTotals,
 } from '@/lib/accounting/inventory-cogs';
 import { normalizeTransactionAmountsForAccounting } from '@/lib/accounting/transaction-normalization';
+import {
+  getAccountsReceivableRecognitionDate,
+  hasAccountsReceivableShipment,
+} from '@/lib/accounting/transaction-recognition';
 import { getRuntimeAccountingCutoverDate } from '@/lib/accounting/cutover';
 import { prisma } from '@/lib/db';
 
@@ -48,12 +53,18 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
   // or "Checked Out", it is expected to be shipped within the same day (not left sitting
   // in the warehouse for days). Accounting revenue for the P&L is therefore anchored to
   // paid/shipped statuses and payment events.
-  const transactions = await fetchPaidTransactions();
+  const [transactions, accountsReceivableTransactions] = await Promise.all([
+    fetchPaidTransactions(),
+    fetchAccountsReceivableTransactions(),
+  ]);
   const expenses = await fetchApprovedExpenses();
   const refunds = await fetchTransactionRefunds();
   const payments = await fetchTransactionPayments();
 
   const paymentTransactionIds = new Set(payments.map((p) => p.transactionId));
+  const accountsReceivableTransactionIds = new Set(
+    accountsReceivableTransactions.map((transaction) => transaction.id)
+  );
 
   const paidAtByTxId = new Map<number, Date | null>();
   for (const tx of transactions) {
@@ -107,6 +118,10 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
       Reflect.get(payment as object, 'isReservation') === true;
 
     if (isCancelledOrderStatus(payment.transaction?.orderStatus)) {
+      return sum;
+    }
+
+    if (hasAccountsReceivableShipment(payment.transaction)) {
       return sum;
     }
 
@@ -189,6 +204,7 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
   // ============================================================================
   const transactionsWithPaidAt = transactions
     .filter((tx) => !paymentTransactionIds.has(tx.id))
+    .filter((tx) => !accountsReceivableTransactionIds.has(tx.id))
     .filter((tx) => !isCancelledOrderStatus(tx.orderStatus))
     .map((tx) => {
       const paidAt = getPaidAtDate(tx);
@@ -204,8 +220,25 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
     return sum + paymentReceived;
   }, 0);
 
+  const accountsReceivableRevenueTotal = accountsReceivableTransactions.reduce(
+    (sum, transaction) => {
+      const recognitionAt = getAccountsReceivableRecognitionDate(transaction);
+      if (!isWithinDateRange(recognitionAt, effectiveFrom, effectiveTo)) {
+        return sum;
+      }
+
+      return (
+        sum + normalizeTransactionAmountsForAccounting(transaction).grossSale
+      );
+    },
+    0
+  );
+
   const salesRevenueTotal =
-    paymentRevenueTotal + legacyRevenueTotal + recognizedDepositRevenueTotal;
+    paymentRevenueTotal +
+    legacyRevenueTotal +
+    accountsReceivableRevenueTotal +
+    recognizedDepositRevenueTotal;
   const revenueTotal = salesRevenueTotal + forfeitedDepositsTotal;
 
   const refundTotal = refunds.reduce((sum, refund) => {

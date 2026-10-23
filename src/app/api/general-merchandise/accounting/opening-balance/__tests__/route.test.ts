@@ -8,6 +8,7 @@ vi.mock('@/lib/accounting/cutover', () => ({
 }));
 
 const mockPrisma = vi.hoisted(() => ({
+  $transaction: vi.fn(),
   generalMerchandiseAccountingOpeningBalance: {
     findMany: vi.fn(),
     create: vi.fn(),
@@ -28,6 +29,9 @@ const buildRequest = (
 describe('GM accounting opening balance route', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockPrisma.$transaction.mockImplementation(async (work) =>
+      work(mockPrisma)
+    );
     mockPrisma.generalMerchandiseAccountingOpeningBalance.findMany.mockResolvedValue(
       []
     );
@@ -126,6 +130,93 @@ describe('GM accounting opening balance route', () => {
         credit: 0,
       }),
     });
+  });
+
+  it('creates a balanced pair within one database transaction', async () => {
+    const { POST } = await import(
+      '@/app/api/general-merchandise/accounting/opening-balance/route'
+    );
+
+    const response = await POST(
+      buildRequest('/api/general-merchandise/accounting/opening-balance', {
+        method: 'POST',
+        body: JSON.stringify({
+          entries: [
+            { account: 'Cash', ref: 'OPENING', debit: 450, credit: 0 },
+            {
+              account: 'Opening Equity',
+              ref: 'OPENING',
+              debit: 0,
+              credit: 450,
+            },
+          ],
+        }),
+      })
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body.success).toBe(true);
+    expect(body.data.entries).toHaveLength(2);
+    expect(mockPrisma.$transaction).toHaveBeenCalledTimes(1);
+    expect(
+      mockPrisma.generalMerchandiseAccountingOpeningBalance.create
+    ).toHaveBeenCalledTimes(2);
+  });
+
+  it('updates a balanced pair within one database transaction', async () => {
+    const { PUT } = await import(
+      '@/app/api/general-merchandise/accounting/opening-balance/route'
+    );
+
+    const response = await PUT(
+      buildRequest('/api/general-merchandise/accounting/opening-balance', {
+        method: 'PUT',
+        body: JSON.stringify({
+          entries: [
+            {
+              id: 'debit-1',
+              account: 'Cash',
+              ref: 'OPENING',
+              debit: 450,
+              credit: 0,
+            },
+            {
+              id: 'credit-1',
+              account: 'Opening Equity',
+              ref: 'OPENING',
+              debit: 0,
+              credit: 450,
+            },
+          ],
+        }),
+      })
+    );
+
+    expect(response.status).toBe(200);
+    expect(mockPrisma.$transaction).toHaveBeenCalledTimes(1);
+    expect(
+      mockPrisma.generalMerchandiseAccountingOpeningBalance.update
+    ).toHaveBeenCalledTimes(2);
+  });
+
+  it('deletes a paired opening balance in one database transaction', async () => {
+    const { DELETE } = await import(
+      '@/app/api/general-merchandise/accounting/opening-balance/route'
+    );
+
+    const response = await DELETE(
+      buildRequest(
+        '/api/general-merchandise/accounting/opening-balance?id=gm-ob-1&id=gm-ob-2',
+        { method: 'DELETE' }
+      )
+    );
+
+    expect(response.status).toBe(200);
+    expect(mockPrisma.$transaction).toHaveBeenCalledTimes(1);
+    expect(
+      mockPrisma.generalMerchandiseAccountingOpeningBalance.update
+    ).toHaveBeenCalledTimes(2);
   });
 
   it('returns an empty list for GET when the GM opening balance model is unavailable', async () => {

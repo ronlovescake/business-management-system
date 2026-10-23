@@ -4,9 +4,10 @@ import { createOpeningBalanceRouteHandlers } from '@/modules/shared/ledger/openi
 import type { OpeningBalanceModel } from '@/modules/shared/ledger/opening-balance/api/routeAdapter';
 
 function getOpeningBalanceModel(
+  client: object,
   modelName: string
 ): OpeningBalanceModel | undefined {
-  const candidate = Reflect.get(prisma, modelName);
+  const candidate = Reflect.get(client, modelName);
   if (!candidate || typeof candidate !== 'object') {
     return undefined;
   }
@@ -30,7 +31,19 @@ function getOpeningBalanceModel(
 
 const handlers = createOpeningBalanceRouteHandlers({
   cutover: () => getRuntimeAccountingCutoverDate(),
-  getModel: () => getOpeningBalanceModel('clothingAccountingOpeningBalance'),
+  getModel: () =>
+    getOpeningBalanceModel(prisma, 'clothingAccountingOpeningBalance'),
+  runInTransaction: (work) =>
+    prisma.$transaction(async (tx) => {
+      const model = getOpeningBalanceModel(
+        tx,
+        'clothingAccountingOpeningBalance'
+      );
+      if (!model) {
+        throw new Error('Opening balance model is unavailable in transaction.');
+      }
+      return work(model);
+    }),
   modelUnavailableMessage:
     'Opening balances are not enabled in this database yet',
   modelUnavailableDetail:

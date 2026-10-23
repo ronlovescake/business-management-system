@@ -19,6 +19,11 @@ export const PAID_STATUSES = [
 // They should be treated as Accounts Receivable on the balance sheet.
 export const ACCOUNTS_RECEIVABLE_STATUSES = ['Pending Payment'] as const;
 
+export const CLOTHING_ACCOUNTS_RECEIVABLE_STATUSES = [
+  'Accounts Receivable',
+  'Pending Payment',
+] as const;
+
 export const PERIOD_OPTIONS = [
   'All Time',
   'This Month',

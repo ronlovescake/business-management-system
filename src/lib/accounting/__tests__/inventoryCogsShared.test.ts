@@ -77,4 +77,52 @@ describe('buildCogsEntriesFromMovements', () => {
       }),
     ]);
   });
+
+  it('does not reverse COGS when returned goods are moved to scrap', () => {
+    const result = buildCogsEntriesFromMovements({
+      movements: [
+        {
+          createdAt: new Date('2026-01-21T01:00:00.000Z'),
+          postingDate: '2026-01-21',
+          productCode: 'SKU-1',
+          quantity: 1,
+          fromBucket: 'sold',
+          toBucket: 'scrap',
+          when: new Date('2026-01-21T01:00:00.000Z'),
+        },
+      ],
+      unitCostByProductCode: new Map([['SKU-1', 75]]),
+      customerNameByTransactionId: new Map(),
+      cogsAccount: 'COGS',
+      inventoryAccount: 'Stock on Hand',
+      cogsDescriptionStyle: 'short',
+    });
+
+    expect(result.totalCogs).toBe(0);
+    expect(result.entries).toEqual([]);
+  });
+
+  it('uses the movement cost snapshot instead of the latest product cost', () => {
+    const result = buildCogsEntriesFromMovements({
+      movements: [
+        {
+          createdAt: new Date('2026-01-20T01:00:00.000Z'),
+          postingDate: '2026-01-20',
+          productCode: 'SKU-1',
+          quantity: 2,
+          unitCost: 75,
+          fromBucket: 'sellable',
+          toBucket: 'sold',
+          when: new Date('2026-01-20T01:00:00.000Z'),
+        },
+      ],
+      unitCostByProductCode: new Map([['SKU-1', 125]]),
+      customerNameByTransactionId: new Map(),
+      cogsAccount: 'COGS',
+      inventoryAccount: 'Stock on Hand',
+      cogsDescriptionStyle: 'short',
+    });
+
+    expect(result.totalCogs).toBe(150);
+  });
 });

@@ -242,6 +242,8 @@ describe('Accounting Balance Sheet API - GET /api/accounting/balance-sheet', () 
       {
         id: 10,
         date: '2026-01-11',
+        status: 'Paid',
+        paymentMethod: 'Cash',
         category: 'Rent',
         amount: 25,
         description: 'Rent',

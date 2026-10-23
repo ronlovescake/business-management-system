@@ -29,6 +29,7 @@ const INVENTORY_ACCOUNT = 'Stock on Hand';
 const INVENTORY_IN_TRANSIT_ACCOUNT = 'Inventory in Transit';
 const OPENING_EQUITY_ACCOUNT = 'Opening Equity';
 const CURRENT_PERIOD_EARNINGS_ACCOUNT = 'Current Period Earnings';
+const INVENTORY_SHRINKAGE_ACCOUNT = 'Inventory Shrinkage';
 
 async function getUnitCostByProductCode(productCodes: string[]) {
   const codes = Array.from(
@@ -91,6 +92,7 @@ async function computeInventorySeedAndShrinkageByDate(params: {
       postingDate: true,
       productCode: true,
       quantity: true,
+      unitCost: true,
       fromBucket: true,
       toBucket: true,
       notes: true,
@@ -203,7 +205,11 @@ async function computeInventorySeedAndShrinkageByDate(params: {
     }
 
     const code = (m.productCode ?? '').trim();
-    const unitCost = unitCostByProductCode.get(code) ?? 0;
+    const snapshotUnitCost = Number(m.unitCost ?? 0);
+    const unitCost =
+      Number.isFinite(snapshotUnitCost) && snapshotUnitCost > 0
+        ? snapshotUnitCost
+        : (unitCostByProductCode.get(code) ?? 0);
     const value = qty * unitCost;
     if (!Number.isFinite(value) || value === 0) {
       continue;
@@ -281,6 +287,7 @@ export async function buildCogsAndInventoryEntries(params: {
       postingDate: true,
       productCode: true,
       quantity: true,
+      unitCost: true,
       fromBucket: true,
       toBucket: true,
       notes: true,
@@ -437,10 +444,10 @@ export async function buildInventorySeedAndShrinkageEntries(params: {
 
       return [
         {
-          id: `${idBase}-retained-earnings-debit`,
+          id: `${idBase}-shrinkage-expense-debit`,
           date,
           ref,
-          account: 'Retained Earnings',
+          account: INVENTORY_SHRINKAGE_ACCOUNT,
           debit: shrinkAmt,
           credit: 0,
           description,

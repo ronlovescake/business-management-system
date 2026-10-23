@@ -38,11 +38,13 @@ describe('Customer Refunds API - POST /api/customers/:id/refunds', () => {
     mockPrisma.$transaction.mockImplementation(
       async (
         callback: (tx: {
+          transaction: typeof mockPrisma.transaction;
           transactionRefund: typeof mockPrisma.transactionRefund;
           inventoryMovement: typeof mockPrisma.inventoryMovement;
         }) => unknown
       ) =>
         callback({
+          transaction: mockPrisma.transaction,
           transactionRefund: mockPrisma.transactionRefund,
           inventoryMovement: mockPrisma.inventoryMovement,
         })
@@ -53,7 +55,12 @@ describe('Customer Refunds API - POST /api/customers/:id/refunds', () => {
       id: 10,
       productCode: 'P-100',
       quantity: 2,
+      lineTotal: 100,
+      adjustment: 0,
+      unitPrice: 50,
+      discount: 0,
     });
+    mockPrisma.transactionRefund.findMany.mockResolvedValue([]);
   });
 
   const createMockRequest = (

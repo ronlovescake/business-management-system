@@ -23,6 +23,11 @@ describe('account classification', () => {
     );
   });
 
+  it('classifies supplier payables as liabilities', () => {
+    expect(detectAccountType('Supplier Payable')).toBe('Liability');
+    expect(detectAccountType('Supplier Payable - Vendor 12')).toBe('Liability');
+  });
+
   it('classifies landed cost clearing as an asset', () => {
     expect(detectAccountType('Landed Cost Clearing')).toBe('Asset');
   });

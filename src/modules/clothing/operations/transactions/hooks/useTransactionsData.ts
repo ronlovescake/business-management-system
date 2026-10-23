@@ -81,6 +81,11 @@ interface UseTransactionsDataReturn {
   // Transaction operations from abstraction layer (using service wrappers)
   bulkUpdate: (data: TransactionData[]) => void;
   update: (data: { id: number; data: Partial<TransactionData> }) => void;
+  saveOrderStatus: (
+    id: number,
+    status: string
+  ) => Promise<Pick<TransactionData, 'Order Status'>>;
+  saveBulkUpdate: (data: TransactionData[]) => Promise<{ count: number }>;
 }
 
 /**
@@ -172,6 +177,8 @@ export function useTransactionsData({
     isLoading: transactionsLoading,
     bulkUpdate: bulkUpdateTransactions,
     update: updateTransaction,
+    updateAsync: updateTransactionAsync,
+    bulkUpdateAsync: bulkUpdateTransactionsAsync,
   } = useTransactionData({
     service: transactionService,
     queryKey: transactionQueryKey,
@@ -779,6 +786,20 @@ export function useTransactionsData({
     [bulkUpdateTransactions]
   );
 
+  const saveOrderStatus = useCallback(
+    (id: number, status: string) =>
+      updateTransactionAsync({ id, data: { 'Order Status': status } }),
+    [updateTransactionAsync]
+  );
+
+  const saveBulkUpdate = useCallback(
+    (data: TransactionData[]) =>
+      bulkUpdateTransactionsAsync(
+        TransactionService.sanitizeTransactions(data) as never
+      ),
+    [bulkUpdateTransactionsAsync]
+  );
+
   const update = useCallback(
     (params: { id: number; data: Partial<TransactionData> }) => {
       // Convert partial TransactionData to DTO format
@@ -841,5 +862,7 @@ export function useTransactionsData({
     // Operations
     bulkUpdate,
     update,
+    saveOrderStatus,
+    saveBulkUpdate,
   };
 }

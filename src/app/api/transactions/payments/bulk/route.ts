@@ -3,6 +3,7 @@ import { ApiResponse } from '@/core/api';
 import { withErrorHandler } from '@/core/api/middleware';
 import { prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
+import { isClothingAccountsReceivableStatus } from '@/lib/transactions/order-status';
 import { sanitizers } from '@/lib/security/sanitize';
 import {
   transactionPaymentBulkCreateSchema,
@@ -14,6 +15,8 @@ type TransactionRow = {
   id: number;
   quantity: number;
   unitPrice: number;
+  adjustment?: number | null;
+  orderStatus?: string | null;
 };
 
 type PaymentCreateRow = {
@@ -126,6 +129,8 @@ export const POST = withErrorHandler(async (request: NextRequest) => {
       id: true,
       quantity: true,
       unitPrice: true,
+      adjustment: true,
+      orderStatus: true,
     },
   })) as TransactionRow[];
 
@@ -138,13 +143,97 @@ export const POST = withErrorHandler(async (request: NextRequest) => {
     });
   }
 
-  const transactionMetaById = new Map(
-    existingTransactions.map((t) => [t.id, t] as const)
-  );
-
   const hasReservationFlag = await supportsReservationFlag();
 
   const result = await prisma.$transaction(async (tx) => {
+    const currentTransactions = (await tx.transaction.findMany({
+      where: { id: { in: transactionIds }, deletedAt: null },
+      select: {
+        id: true,
+        quantity: true,
+        unitPrice: true,
+        adjustment: true,
+        orderStatus: true,
+      },
+    })) as TransactionRow[];
+    const currentTransactionById = new Map(
+      currentTransactions.map((transaction) => [transaction.id, transaction])
+    );
+    const currentPaymentSums = await tx.transactionPayment.groupBy({
+      by: ['transactionId'],
+      where: {
+        transactionId: { in: transactionIds },
+        deletedAt: null,
+      },
+      _sum: { amount: true },
+    });
+    const paymentEventsByTransactionId = new Map(
+      currentPaymentSums.map(
+        (row) => [row.transactionId, row._sum.amount ?? 0] as const
+      )
+    );
+    const incomingPaymentsByTransactionId = new Map<number, number>();
+
+    for (const payment of sanitized.payments) {
+      const incoming =
+        (incomingPaymentsByTransactionId.get(payment.transactionId) ?? 0) +
+        payment.amount;
+      incomingPaymentsByTransactionId.set(payment.transactionId, incoming);
+
+      const transaction = currentTransactionById.get(payment.transactionId);
+      if (!transaction) {
+        return {
+          validationError: `Transaction ${payment.transactionId} is no longer available.`,
+        };
+      }
+
+      if (
+        payment.isReservation &&
+        isClothingAccountsReceivableStatus(transaction.orderStatus)
+      ) {
+        return {
+          validationError:
+            'Accounts Receivable collections cannot be recorded as reservation deposits.',
+        };
+      }
+    }
+
+    const computedBalances = new Map<
+      number,
+      { adjustment: number; lineTotal: number }
+    >();
+
+    for (const transactionId of transactionIds) {
+      const transaction = currentTransactionById.get(transactionId);
+      if (!transaction) {
+        return {
+          validationError: `Transaction ${transactionId} is no longer available.`,
+        };
+      }
+
+      const grossSale =
+        (transaction.quantity ?? 0) * (transaction.unitPrice ?? 0);
+      const paymentEventsTotal =
+        paymentEventsByTransactionId.get(transactionId) ?? 0;
+      const currentPaid = Math.max(
+        paymentEventsTotal,
+        transaction.adjustment ?? 0
+      );
+      const adjustment =
+        currentPaid + (incomingPaymentsByTransactionId.get(transactionId) ?? 0);
+
+      if (adjustment > grossSale + 0.01) {
+        return {
+          validationError: `Payment exceeds the remaining balance for transaction ${transactionId}.`,
+        };
+      }
+
+      computedBalances.set(transactionId, {
+        adjustment,
+        lineTotal: Math.max(grossSale - adjustment, 0),
+      });
+    }
+
     await tx.transactionPayment.createMany({
       data: sanitized.payments.map((p) => ({
         transactionId: p.transactionId,
@@ -156,44 +245,63 @@ export const POST = withErrorHandler(async (request: NextRequest) => {
       })),
     });
 
-    const paymentSums = await tx.transactionPayment.groupBy({
-      by: ['transactionId'],
-      where: {
-        transactionId: { in: transactionIds },
-        deletedAt: null,
-      },
-      _sum: {
-        amount: true,
-      },
-    });
-
-    const sumByTransactionId = new Map(
-      paymentSums.map(
-        (row) => [row.transactionId, row._sum.amount ?? 0] as const
-      )
-    );
-
     const updates: Array<{
       id: number;
       adjustment: number;
       lineTotal: number;
+      orderStatus: string | null;
     }> = [];
 
     for (const transactionId of transactionIds) {
-      const adjustment = sumByTransactionId.get(transactionId) ?? 0;
-      const meta = transactionMetaById.get(transactionId);
-      const quantity = meta?.quantity ?? 0;
-      const unitPrice = meta?.unitPrice ?? 0;
-      const lineTotal = quantity * unitPrice - adjustment;
+      const balance = computedBalances.get(transactionId);
+      if (!balance) {
+        throw new Error(
+          `Payment balance missing for transaction ${transactionId}`
+        );
+      }
+      const transaction = currentTransactionById.get(transactionId);
+      if (!transaction) {
+        throw new Error(
+          `Transaction ${transactionId} disappeared during payment`
+        );
+      }
 
+      const nextStatus =
+        isClothingAccountsReceivableStatus(transaction.orderStatus) &&
+        balance.lineTotal <= 0.01
+          ? 'Shipped'
+          : transaction.orderStatus;
       const updated = (await tx.transaction.update({
         where: { id: transactionId },
         data: {
-          adjustment,
-          lineTotal,
+          adjustment: balance.adjustment,
+          lineTotal: balance.lineTotal,
+          ...(nextStatus !== transaction.orderStatus
+            ? { orderStatus: nextStatus }
+            : {}),
         },
-        select: { id: true, adjustment: true, lineTotal: true },
-      })) as { id: number; adjustment: number; lineTotal: number };
+        select: {
+          id: true,
+          adjustment: true,
+          lineTotal: true,
+          orderStatus: true,
+        },
+      })) as {
+        id: number;
+        adjustment: number;
+        lineTotal: number;
+        orderStatus: string | null;
+      };
+
+      if (nextStatus !== transaction.orderStatus) {
+        await tx.transactionStatusChange.create({
+          data: {
+            transactionId,
+            previousStatus: transaction.orderStatus,
+            newStatus: nextStatus,
+          },
+        });
+      }
 
       updates.push(updated);
     }
@@ -205,9 +313,20 @@ export const POST = withErrorHandler(async (request: NextRequest) => {
     };
   });
 
+  if (!('transactionIds' in result)) {
+    return ApiResponse.badRequest('Payment validation failed', {
+      payments: result.validationError ?? 'Unable to validate payment totals.',
+    });
+  }
+
+  const updatedTransactionIds = result.transactionIds;
+  if (!updatedTransactionIds) {
+    return ApiResponse.badRequest('Payment validation failed');
+  }
+
   logger.info('Bulk transaction payments created', {
     paymentsCreated: result.paymentsCreated,
-    transactionsUpdated: result.transactionIds.length,
+    transactionsUpdated: updatedTransactionIds.length,
   });
 
   return ApiResponse.success(result, 'Payments recorded');

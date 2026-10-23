@@ -27,21 +27,38 @@ vi.mock('@/services/FormatterService', () => ({
 }));
 vi.mock('@/services/ValidationService', () => ({
   ValidationService: {
-    validateCustomer: vi.fn().mockResolvedValue({ isValid: true, warnings: [], errors: [] }),
+    validateCustomer: vi
+      .fn()
+      .mockResolvedValue({ isValid: true, warnings: [], errors: [] }),
   },
 }));
 
 import { TransactionService } from '@/modules/clothing/operations/transactions/services/TransactionService';
-import type { TransactionData, PriceTier } from '@/modules/clothing/operations/transactions/types/transaction.types';
+import type {
+  TransactionData,
+  PriceTier,
+} from '@/modules/clothing/operations/transactions/types/transaction.types';
 
 // ---------------------------------------------------------------------------
 // Helper Factories
 // ---------------------------------------------------------------------------
-function makeTier(productCode: string, lower: number, upper: number, price: number): PriceTier {
-  return { 'Product Code': productCode, 'Lower Limit': lower, 'Upper Limit': upper, Prices: price } as PriceTier;
+function makeTier(
+  productCode: string,
+  lower: number,
+  upper: number,
+  price: number
+): PriceTier {
+  return {
+    'Product Code': productCode,
+    'Lower Limit': lower,
+    'Upper Limit': upper,
+    Prices: price,
+  } as PriceTier;
 }
 
-function makeTransaction(overrides: Partial<TransactionData> = {}): TransactionData {
+function makeTransaction(
+  overrides: Partial<TransactionData> = {}
+): TransactionData {
   return {
     Customers: 'Test Customer',
     'Product Code': 'PC-001',
@@ -72,33 +89,57 @@ describe('TransactionService', () => {
     ];
 
     it('Rule B-13: returns correct tier price for quantity in range', () => {
-      expect(TransactionService.getUnitPriceForQuantity('PC-001', 5, tiers)).toBe(150);
-      expect(TransactionService.getUnitPriceForQuantity('PC-001', 25, tiers)).toBe(120);
-      expect(TransactionService.getUnitPriceForQuantity('PC-001', 75, tiers)).toBe(100);
+      expect(
+        TransactionService.getUnitPriceForQuantity('PC-001', 5, tiers)
+      ).toBe(150);
+      expect(
+        TransactionService.getUnitPriceForQuantity('PC-001', 25, tiers)
+      ).toBe(120);
+      expect(
+        TransactionService.getUnitPriceForQuantity('PC-001', 75, tiers)
+      ).toBe(100);
     });
 
     it('Rule B-13: returns null for unknown product code', () => {
-      expect(TransactionService.getUnitPriceForQuantity('PC-999', 5, tiers)).toBeNull();
+      expect(
+        TransactionService.getUnitPriceForQuantity('PC-999', 5, tiers)
+      ).toBeNull();
     });
 
     it('Rule B-13: returns null for zero or negative quantity', () => {
-      expect(TransactionService.getUnitPriceForQuantity('PC-001', 0, tiers)).toBeNull();
-      expect(TransactionService.getUnitPriceForQuantity('PC-001', -1, tiers)).toBeNull();
+      expect(
+        TransactionService.getUnitPriceForQuantity('PC-001', 0, tiers)
+      ).toBeNull();
+      expect(
+        TransactionService.getUnitPriceForQuantity('PC-001', -1, tiers)
+      ).toBeNull();
     });
 
     it('Rule B-13: returns null for empty product code', () => {
-      expect(TransactionService.getUnitPriceForQuantity('', 5, tiers)).toBeNull();
+      expect(
+        TransactionService.getUnitPriceForQuantity('', 5, tiers)
+      ).toBeNull();
     });
 
     it('Rule B-13: finds matching tier at boundaries', () => {
-      expect(TransactionService.getUnitPriceForQuantity('PC-001', 1, tiers)).toBe(150);
-      expect(TransactionService.getUnitPriceForQuantity('PC-001', 10, tiers)).toBe(150);
-      expect(TransactionService.getUnitPriceForQuantity('PC-001', 11, tiers)).toBe(120);
-      expect(TransactionService.getUnitPriceForQuantity('PC-001', 50, tiers)).toBe(120);
+      expect(
+        TransactionService.getUnitPriceForQuantity('PC-001', 1, tiers)
+      ).toBe(150);
+      expect(
+        TransactionService.getUnitPriceForQuantity('PC-001', 10, tiers)
+      ).toBe(150);
+      expect(
+        TransactionService.getUnitPriceForQuantity('PC-001', 11, tiers)
+      ).toBe(120);
+      expect(
+        TransactionService.getUnitPriceForQuantity('PC-001', 50, tiers)
+      ).toBe(120);
     });
 
     it('Rule B-13: returns null when quantity exceeds all tiers', () => {
-      expect(TransactionService.getUnitPriceForQuantity('PC-001', 200, tiers)).toBeNull();
+      expect(
+        TransactionService.getUnitPriceForQuantity('PC-001', 200, tiers)
+      ).toBeNull();
     });
   });
 
@@ -109,19 +150,27 @@ describe('TransactionService', () => {
     const tiers = [makeTier('PC-001', 1, 100, 150)];
 
     it('Rule B-11: unitPrice = tierPrice - discount', () => {
-      expect(TransactionService.calculateUnitPrice('PC-001', 10, 20, tiers)).toBe(130);
+      expect(
+        TransactionService.calculateUnitPrice('PC-001', 10, 20, tiers)
+      ).toBe(130);
     });
 
     it('Rule B-11: returns 0 when product not found', () => {
-      expect(TransactionService.calculateUnitPrice('MISSING', 10, 0, tiers)).toBe(0);
+      expect(
+        TransactionService.calculateUnitPrice('MISSING', 10, 0, tiers)
+      ).toBe(0);
     });
 
     it('Rule B-11: allows negative result (discount > tier)', () => {
-      expect(TransactionService.calculateUnitPrice('PC-001', 10, 200, tiers)).toBe(-50);
+      expect(
+        TransactionService.calculateUnitPrice('PC-001', 10, 200, tiers)
+      ).toBe(-50);
     });
 
     it('Rule B-11: zero discount returns full tier price', () => {
-      expect(TransactionService.calculateUnitPrice('PC-001', 10, 0, tiers)).toBe(150);
+      expect(
+        TransactionService.calculateUnitPrice('PC-001', 10, 0, tiers)
+      ).toBe(150);
     });
   });
 
@@ -151,7 +200,9 @@ describe('TransactionService', () => {
   // =========================================================================
   describe('getOrderStatusFromShipmentStatus()', () => {
     it('Rule C-22: blank → In Transit', () => {
-      expect(TransactionService.getOrderStatusFromShipmentStatus('')).toBe('In Transit');
+      expect(TransactionService.getOrderStatusFromShipmentStatus('')).toBe(
+        'In Transit'
+      );
     });
 
     it.each([
@@ -160,7 +211,9 @@ describe('TransactionService', () => {
       ['With Pier Gatepass', 'In Transit'],
       ['PH Warehouse', 'In Transit'],
     ])('Rule C-22: "%s" → "%s"', (input, expected) => {
-      expect(TransactionService.getOrderStatusFromShipmentStatus(input)).toBe(expected);
+      expect(TransactionService.getOrderStatusFromShipmentStatus(input)).toBe(
+        expected
+      );
     });
 
     it.each([
@@ -168,16 +221,24 @@ describe('TransactionService', () => {
       ['Sorting', 'Warehouse'],
       ['Delivered', 'Warehouse'],
     ])('Rule C-22: "%s" → "%s"', (input, expected) => {
-      expect(TransactionService.getOrderStatusFromShipmentStatus(input)).toBe(expected);
+      expect(TransactionService.getOrderStatusFromShipmentStatus(input)).toBe(
+        expected
+      );
     });
 
     it('Rule C-22: unknown status defaults to In Transit', () => {
-      expect(TransactionService.getOrderStatusFromShipmentStatus('UNKNOWN-STATUS')).toBe('In Transit');
+      expect(
+        TransactionService.getOrderStatusFromShipmentStatus('UNKNOWN-STATUS')
+      ).toBe('In Transit');
     });
 
     it('Rule C-22: case insensitive matching', () => {
-      expect(TransactionService.getOrderStatusFromShipmentStatus('manila port')).toBe('In Transit');
-      expect(TransactionService.getOrderStatusFromShipmentStatus('FOR PICKUP')).toBe('Warehouse');
+      expect(
+        TransactionService.getOrderStatusFromShipmentStatus('manila port')
+      ).toBe('In Transit');
+      expect(
+        TransactionService.getOrderStatusFromShipmentStatus('FOR PICKUP')
+      ).toBe('Warehouse');
     });
   });
 
@@ -241,8 +302,16 @@ describe('TransactionService', () => {
   describe('calculateStatistics()', () => {
     it('Rule H-47: excludes cancelled from revenue', () => {
       const data = [
-        makeTransaction({ Quantity: 10, 'Unit Price': 100, 'Order Status': 'Shipped' }),
-        makeTransaction({ Quantity: 5, 'Unit Price': 200, 'Order Status': 'Cancelled' }),
+        makeTransaction({
+          Quantity: 10,
+          'Unit Price': 100,
+          'Order Status': 'Shipped',
+        }),
+        makeTransaction({
+          Quantity: 5,
+          'Unit Price': 200,
+          'Order Status': 'Cancelled',
+        }),
       ];
 
       const stats = TransactionService.calculateStatistics(data);
@@ -251,9 +320,21 @@ describe('TransactionService', () => {
 
     it('Rule H-47: excludes forfeited and voided from revenue', () => {
       const data = [
-        makeTransaction({ Quantity: 10, 'Unit Price': 100, 'Order Status': 'Shipped' }),
-        makeTransaction({ Quantity: 5, 'Unit Price': 200, 'Order Status': 'Forfeited' }),
-        makeTransaction({ Quantity: 3, 'Unit Price': 100, 'Order Status': 'Voided' }),
+        makeTransaction({
+          Quantity: 10,
+          'Unit Price': 100,
+          'Order Status': 'Shipped',
+        }),
+        makeTransaction({
+          Quantity: 5,
+          'Unit Price': 200,
+          'Order Status': 'Forfeited',
+        }),
+        makeTransaction({
+          Quantity: 3,
+          'Unit Price': 100,
+          'Order Status': 'Voided',
+        }),
       ];
 
       const stats = TransactionService.calculateStatistics(data);
@@ -285,7 +366,14 @@ describe('TransactionService', () => {
         makeTransaction({ 'Line Total': 500, 'Order Status': 'In Transit' }),
         makeTransaction({ 'Line Total': 300, 'Order Status': 'Warehouse' }),
         makeTransaction({ 'Line Total': 200, 'Order Status': 'Prepared' }),
-        makeTransaction({ 'Line Total': 100, 'Order Status': 'Pending Payment' }),
+        makeTransaction({
+          'Line Total': 100,
+          'Order Status': 'Accounts Receivable',
+        }),
+        makeTransaction({
+          'Line Total': 50,
+          'Order Status': 'Pending Payment',
+        }),
         makeTransaction({ 'Line Total': 800, 'Order Status': 'Shipped' }),
       ];
 
@@ -293,7 +381,7 @@ describe('TransactionService', () => {
       expect(stats.inTransitTotal).toBe(500);
       expect(stats.warehouseTotal).toBe(300);
       expect(stats.preparedTotal).toBe(200);
-      expect(stats.pendingPaymentTotal).toBe(100);
+      expect(stats.accountsReceivableTotal).toBe(150);
       expect(stats.shippedOrders).toBe(1);
     });
 
@@ -334,38 +422,72 @@ describe('TransactionService', () => {
   // Sync Transactions with Shipment Status (Rule C-25)
   // =========================================================================
   describe('syncTransactionsWithShipmentStatus()', () => {
+    it('preserves operator-selected Accounts Receivable during shipment sync', () => {
+      const transactions = [
+        makeTransaction({
+          'Product Code': 'PC-1',
+          'Order Status': 'Accounts Receivable',
+        }),
+      ];
+      const [updated, count] =
+        TransactionService.syncTransactionsWithShipmentStatus(transactions, {
+          'PC-1': 'Delivered',
+        });
+
+      expect(count).toBe(0);
+      expect(updated[0]['Order Status']).toBe('Accounts Receivable');
+    });
+
     it('Rule C-25: updates blank status to mapped status', () => {
-      const txs = [makeTransaction({ 'Product Code': 'PC-1', 'Order Status': '' })];
+      const txs = [
+        makeTransaction({ 'Product Code': 'PC-1', 'Order Status': '' }),
+      ];
       const statusMap = { 'PC-1': 'Delivered' };
 
-      const [updated, count] = TransactionService.syncTransactionsWithShipmentStatus(txs, statusMap);
+      const [updated, count] =
+        TransactionService.syncTransactionsWithShipmentStatus(txs, statusMap);
       expect(count).toBe(1);
       expect(updated[0]['Order Status']).toBe('Warehouse');
     });
 
     it('Rule C-25: does NOT override manual status (Shipped)', () => {
-      const txs = [makeTransaction({ 'Product Code': 'PC-1', 'Order Status': 'Shipped' })];
+      const txs = [
+        makeTransaction({ 'Product Code': 'PC-1', 'Order Status': 'Shipped' }),
+      ];
       const statusMap = { 'PC-1': 'In Transit' };
 
-      const [updated, count] = TransactionService.syncTransactionsWithShipmentStatus(txs, statusMap);
+      const [updated, count] =
+        TransactionService.syncTransactionsWithShipmentStatus(txs, statusMap);
       expect(count).toBe(0);
       expect(updated[0]['Order Status']).toBe('Shipped');
     });
 
     it('Rule C-25: does NOT override Cancelled status', () => {
-      const txs = [makeTransaction({ 'Product Code': 'PC-1', 'Order Status': 'Cancelled' })];
+      const txs = [
+        makeTransaction({
+          'Product Code': 'PC-1',
+          'Order Status': 'Cancelled',
+        }),
+      ];
       const statusMap = { 'PC-1': 'Delivered' };
 
-      const [updated, count] = TransactionService.syncTransactionsWithShipmentStatus(txs, statusMap);
+      const [updated, count] =
+        TransactionService.syncTransactionsWithShipmentStatus(txs, statusMap);
       expect(count).toBe(0);
       expect(updated[0]['Order Status']).toBe('Cancelled');
     });
 
     it('Rule C-25: updates In Transit → Warehouse when shipment changes', () => {
-      const txs = [makeTransaction({ 'Product Code': 'PC-1', 'Order Status': 'In Transit' })];
+      const txs = [
+        makeTransaction({
+          'Product Code': 'PC-1',
+          'Order Status': 'In Transit',
+        }),
+      ];
       const statusMap = { 'PC-1': 'For Pickup' };
 
-      const [updated, count] = TransactionService.syncTransactionsWithShipmentStatus(txs, statusMap);
+      const [updated, count] =
+        TransactionService.syncTransactionsWithShipmentStatus(txs, statusMap);
       expect(count).toBe(1);
       expect(updated[0]['Order Status']).toBe('Warehouse');
     });
@@ -374,15 +496,23 @@ describe('TransactionService', () => {
       const txs = [makeTransaction({ 'Product Code': '', 'Order Status': '' })];
       const statusMap = { 'PC-1': 'Delivered' };
 
-      const [, count] = TransactionService.syncTransactionsWithShipmentStatus(txs, statusMap);
+      const [, count] = TransactionService.syncTransactionsWithShipmentStatus(
+        txs,
+        statusMap
+      );
       expect(count).toBe(0);
     });
 
     it('Rule C-25: skips when shipment status not in map', () => {
-      const txs = [makeTransaction({ 'Product Code': 'PC-1', 'Order Status': '' })];
+      const txs = [
+        makeTransaction({ 'Product Code': 'PC-1', 'Order Status': '' }),
+      ];
       const statusMap = {};
 
-      const [, count] = TransactionService.syncTransactionsWithShipmentStatus(txs, statusMap);
+      const [, count] = TransactionService.syncTransactionsWithShipmentStatus(
+        txs,
+        statusMap
+      );
       expect(count).toBe(0);
     });
   });

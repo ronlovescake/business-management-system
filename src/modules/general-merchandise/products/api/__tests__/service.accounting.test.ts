@@ -167,6 +167,9 @@ describe('generalMerchandiseProductService accounting automation', () => {
     });
 
     mockPrisma.generalMerchandiseProduct.update.mockResolvedValue({ id: 789 });
+    mockPrisma.generalMerchandiseProduct.findUnique.mockResolvedValue({
+      paymentMethod: 'GCASH',
+    });
 
     mockPrisma.generalMerchandiseInventoryTransitBuildEntry.findMany.mockResolvedValue(
       [
@@ -185,6 +188,7 @@ describe('generalMerchandiseProductService accounting automation', () => {
     await generalMerchandiseProductService.bulkUpdate([
       buildDto({
         Payment: 'Paid',
+        'Payment Method': 'GCASH',
         'Product Code': 'GM-TP-003',
         COGS: 155.5,
       }),
@@ -204,7 +208,7 @@ describe('generalMerchandiseProductService accounting automation', () => {
     const debitCall = calls.find(
       ([arg]) => arg.create.account === 'Supplier Payable'
     );
-    const creditCall = calls.find(([arg]) => arg.create.account === 'Cash');
+    const creditCall = calls.find(([arg]) => arg.create.account === 'GCash');
 
     expect(debitCall).toBeTruthy();
     expect(creditCall).toBeTruthy();

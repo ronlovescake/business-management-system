@@ -93,4 +93,89 @@ describe('handleOrderStatusColumnEdit', () => {
     expect(updateTransactionData).not.toHaveBeenCalled();
     expect(notify).not.toHaveBeenCalled();
   });
+
+  it('does not notify success until the status save completes', async () => {
+    const notify = vi.fn();
+    const logNotification = vi.fn();
+    const deferred = { resolve: () => {} };
+    const save = new Promise<void>((resolve) => {
+      deferred.resolve = resolve;
+    });
+    const result = handleOrderStatusColumnEdit({
+      columnId: 'orderStatus',
+      rawValue: 'Accounts Receivable',
+      transaction: baseTransaction,
+      transactionDescriptor: 'TX-101',
+      shouldLog: true,
+      isPaidOrderStatus: () => false,
+      isVoidedOrderStatus: () => false,
+      formatCurrencyValue: String,
+      notify,
+      updateTransactionData: () => save,
+      logNotification,
+      fireAlert: vi.fn(),
+    });
+
+    expect(notify).not.toHaveBeenCalled();
+    expect(logNotification).not.toHaveBeenCalled();
+    deferred.resolve();
+    await result;
+    expect(notify).toHaveBeenCalledWith(
+      expect.objectContaining({ color: 'green' })
+    );
+  });
+
+  it('shows a rejected save without reporting success or logging a status change', async () => {
+    const notify = vi.fn();
+    const logNotification = vi.fn();
+    await handleOrderStatusColumnEdit({
+      columnId: 'orderStatus',
+      rawValue: 'Accounts Receivable',
+      transaction: baseTransaction,
+      transactionDescriptor: 'TX-101',
+      shouldLog: true,
+      isPaidOrderStatus: () => false,
+      isVoidedOrderStatus: () => false,
+      formatCurrencyValue: String,
+      notify,
+      updateTransactionData: vi
+        .fn()
+        .mockRejectedValue(new Error('Failed to save transaction')),
+      logNotification,
+      fireAlert: vi.fn(),
+    });
+
+    expect(notify).toHaveBeenCalledTimes(1);
+    expect(notify).toHaveBeenCalledWith({
+      title: 'Order Status not saved',
+      message: 'Failed to save transaction',
+      color: 'red',
+    });
+    expect(logNotification).not.toHaveBeenCalled();
+  });
+
+  it('logs the canonical status returned by the server', async () => {
+    const logNotification = vi.fn();
+    await handleOrderStatusColumnEdit({
+      columnId: 'orderStatus',
+      rawValue: 'Accounts Receivable',
+      transaction: { ...baseTransaction, 'Line Total': 0 },
+      transactionDescriptor: 'TX-101',
+      shouldLog: true,
+      isPaidOrderStatus: () => false,
+      isVoidedOrderStatus: () => false,
+      formatCurrencyValue: String,
+      notify: vi.fn(),
+      updateTransactionData: vi
+        .fn()
+        .mockResolvedValue({ 'Order Status': 'Shipped' }),
+      logNotification,
+      fireAlert: vi.fn(),
+    });
+
+    expect(logNotification).toHaveBeenCalledWith(
+      expect.stringContaining('to Shipped'),
+      expect.objectContaining({ newValue: 'Shipped' })
+    );
+  });
 });

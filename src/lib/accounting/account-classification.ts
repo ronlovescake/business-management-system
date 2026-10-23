@@ -25,6 +25,8 @@ const ACCOUNT_MAP: Record<AccountType, Set<string>> = {
   Liability: new Set([
     'accounts payable',
     'a/p',
+    'supplier payable',
+    'supplier payables',
     'taxes payable',
     'withholding payable',
     'accrued freight',

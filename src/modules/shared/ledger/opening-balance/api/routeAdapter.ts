@@ -49,9 +49,21 @@ export type OpeningBalanceModel = {
   delete?: (args: { where: { id: string } }) => Promise<unknown>;
 };
 
+type OpeningBalanceBatchValue = {
+  id?: string;
+  account: string;
+  ref: string;
+  description: string | null;
+  debit: number;
+  credit: number;
+};
+
 type OpeningBalanceAdapterConfig = {
   cutover: Date | (() => Date | Promise<Date>);
   getModel: () => OpeningBalanceModel | undefined;
+  runInTransaction?: <T>(
+    work: (model: OpeningBalanceModel) => Promise<T>
+  ) => Promise<T>;
   modelUnavailableMessage: string;
   modelUnavailableDetail: string;
   getReturnsEmptyWhenModelMissing: boolean;
@@ -141,6 +153,59 @@ function validateOpeningBalancePayload(body: unknown):
   };
 }
 
+function validateOpeningBalanceBatch(
+  body: unknown,
+  allowExistingIds: boolean
+):
+  | { ok: true; values: OpeningBalanceBatchValue[] }
+  | { ok: false; errorMessage: string } {
+  const payload = (body as Record<string, unknown>) ?? {};
+  const rawEntries = payload.entries;
+  if (!Array.isArray(rawEntries) || rawEntries.length < 2) {
+    return {
+      ok: false,
+      errorMessage: 'At least two balanced opening balance lines are required.',
+    };
+  }
+
+  const values: OpeningBalanceBatchValue[] = [];
+  for (const rawEntry of rawEntries) {
+    const validation = validateOpeningBalancePayload(rawEntry);
+    if (!validation.ok) {
+      return validation;
+    }
+
+    const entry = (rawEntry as Record<string, unknown>) ?? {};
+    const id = String(entry.id ?? '').trim();
+    if (id && !allowExistingIds) {
+      return {
+        ok: false,
+        errorMessage: 'New opening balance lines cannot include ids.',
+      };
+    }
+
+    values.push({ ...validation.value, ...(id ? { id } : {}) });
+  }
+
+  if (allowExistingIds && !values.some((entry) => entry.id)) {
+    return {
+      ok: false,
+      errorMessage: 'At least one opening balance id is required for updates.',
+    };
+  }
+
+  const totalDebit = values.reduce((total, entry) => total + entry.debit, 0);
+  const totalCredit = values.reduce((total, entry) => total + entry.credit, 0);
+  if (Math.round(totalDebit * 100) !== Math.round(totalCredit * 100)) {
+    return {
+      ok: false,
+      errorMessage: 'Opening balance lines must have equal debits and credits.',
+    };
+  }
+
+  return { ok: true, values };
+}
+
 function modelUnavailable(config: OpeningBalanceAdapterConfig) {
   return ApiResponse.error(
     config.modelUnavailableMessage,
@@ -190,6 +255,47 @@ export function createOpeningBalanceRouteHandlers(
     const cutover = await resolveCutover(config.cutover);
     const body = (await req.json().catch(() => null)) ?? {};
 
+    if (Array.isArray((body as Record<string, unknown>).entries)) {
+      const batch = validateOpeningBalanceBatch(body, false);
+      if (!batch.ok) {
+        return ApiResponse.badRequest(batch.errorMessage);
+      }
+
+      if (!config.runInTransaction) {
+        return ApiResponse.error(
+          'Atomic opening balance posting is unavailable.',
+          503
+        );
+      }
+
+      const entries = await config.runInTransaction(async (model) => {
+        const create = model.create;
+        if (!create) {
+          throw new Error('Opening balance create is unavailable.');
+        }
+
+        return Promise.all(
+          batch.values.map((entry) =>
+            create({
+              data: {
+                date: normalizedCutoverDate(cutover),
+                ref: entry.ref,
+                account: entry.account,
+                debit: entry.debit,
+                credit: entry.credit,
+                description: entry.description,
+              },
+            })
+          )
+        );
+      });
+
+      return ApiResponse.success(
+        { entries: entries.map(serialize) },
+        'Opening balance entry saved'
+      );
+    }
+
     const validation = validateOpeningBalancePayload(body);
     if (!validation.ok) {
       return ApiResponse.badRequest(validation.errorMessage);
@@ -221,6 +327,51 @@ export function createOpeningBalanceRouteHandlers(
   const PUT = withErrorHandler(async (req: NextRequest) => {
     const cutover = await resolveCutover(config.cutover);
     const body = (await req.json().catch(() => null)) ?? {};
+
+    if (Array.isArray((body as Record<string, unknown>).entries)) {
+      const batch = validateOpeningBalanceBatch(body, true);
+      if (!batch.ok) {
+        return ApiResponse.badRequest(batch.errorMessage);
+      }
+
+      if (!config.runInTransaction) {
+        return ApiResponse.error(
+          'Atomic opening balance updates are unavailable.',
+          503
+        );
+      }
+
+      const entries = await config.runInTransaction(async (model) => {
+        const update = model.update;
+        const create = model.create;
+        if (!update || !create) {
+          throw new Error('Opening balance writes are unavailable.');
+        }
+
+        return Promise.all(
+          batch.values.map((entry) => {
+            const data = {
+              date: normalizedCutoverDate(cutover),
+              ref: entry.ref,
+              account: entry.account,
+              debit: entry.debit,
+              credit: entry.credit,
+              description: entry.description,
+            };
+
+            return entry.id
+              ? update({ where: { id: entry.id }, data })
+              : create({ data });
+          })
+        );
+      });
+
+      return ApiResponse.success(
+        { entries: entries.map(serialize) },
+        'Opening balance entry updated'
+      );
+    }
+
     const id = (body.id ?? '').trim();
 
     if (!id) {
@@ -257,13 +408,47 @@ export function createOpeningBalanceRouteHandlers(
   });
 
   const DELETE = withErrorHandler(async (req: NextRequest) => {
-    const id = (req.nextUrl.searchParams.get('id') ?? '').trim();
+    const ids = req.nextUrl.searchParams
+      .getAll('id')
+      .map((id) => id.trim())
+      .filter(Boolean);
+    const id = ids[0] ?? '';
 
     if (!id) {
       return ApiResponse.badRequest('Opening balance id is required.');
     }
 
     const model = config.getModel();
+    if (ids.length > 1) {
+      if (!config.runInTransaction) {
+        return ApiResponse.error(
+          'Atomic opening balance deletion is unavailable.',
+          503
+        );
+      }
+      if (!model?.update) {
+        return modelUnavailable(config);
+      }
+
+      await config.runInTransaction(async (transactionModel) => {
+        const update = transactionModel.update;
+        if (!update) {
+          throw new Error('Opening balance update is unavailable.');
+        }
+        const deletedAt = new Date();
+        await Promise.all(
+          Array.from(new Set(ids)).map((entryId) =>
+            update({
+              where: { id: entryId },
+              data: { deletedAt },
+            })
+          )
+        );
+      });
+
+      return ApiResponse.success({ ids }, 'Opening balance entries deleted');
+    }
+
     // Prefer soft-delete via update so the opening-balance row history is
     // preserved (deletedAt column added 2026-04-19). Fall back to hard delete
     // only if update is unavailable on this delegate.

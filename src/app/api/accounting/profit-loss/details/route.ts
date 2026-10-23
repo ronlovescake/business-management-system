@@ -13,6 +13,7 @@ import {
 import { getRuntimeAccountingCutoverDate } from '@/lib/accounting/cutover';
 import {
   fetchApprovedExpenses,
+  fetchAccountsReceivableTransactions,
   fetchInvestorReturnExpenses,
   fetchPaidTransactions,
   fetchTransactionPayments,
@@ -21,8 +22,15 @@ import {
   getCancelledAtDate,
   isWithinDateRange,
 } from '@/lib/accounting/data-fetchers';
-import { buildCogsAndInventoryEntries } from '@/lib/accounting/inventory-cogs';
+import {
+  buildCogsAndInventoryEntries,
+  buildInventorySeedAndShrinkageEntries,
+} from '@/lib/accounting/inventory-cogs';
 import { normalizeTransactionAmountsForAccounting } from '@/lib/accounting/transaction-normalization';
+import {
+  getAccountsReceivableRecognitionDate,
+  hasAccountsReceivableShipment,
+} from '@/lib/accounting/transaction-recognition';
 import { prisma } from '@/lib/db';
 
 export const dynamic = 'force-dynamic';
@@ -55,8 +63,15 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
   const effectiveFrom = clampFrom(from, cutover);
   const effectiveTo = to ?? null;
 
-  const [transactions, expenses, refunds, payments] = await Promise.all([
+  const [
+    transactions,
+    accountsReceivableTransactions,
+    expenses,
+    refunds,
+    payments,
+  ] = await Promise.all([
     fetchPaidTransactions(),
+    fetchAccountsReceivableTransactions(),
     fetchApprovedExpenses(),
     fetchTransactionRefunds(),
     fetchTransactionPayments(),
@@ -133,12 +148,19 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
   // ==========================================================================
   // Revenue: payment events
   const paymentTransactionIds = new Set(payments.map((p) => p.transactionId));
+  const accountsReceivableTransactionIds = new Set(
+    accountsReceivableTransactions.map((transaction) => transaction.id)
+  );
 
   for (const payment of payments) {
     const isReservation =
       Reflect.get(payment as object, 'isReservation') === true;
 
     if (isCancelledOrderStatus(payment.transaction?.orderStatus)) {
+      continue;
+    }
+
+    if (hasAccountsReceivableShipment(payment.transaction)) {
       continue;
     }
 
@@ -240,6 +262,10 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
       continue;
     }
 
+    if (accountsReceivableTransactionIds.has(tx.id)) {
+      continue;
+    }
+
     if (isCancelledOrderStatus(tx.orderStatus)) {
       continue;
     }
@@ -266,6 +292,34 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
       amount: paymentReceived,
       customer: (tx.customers ?? '').trim() || null,
       productCode: (tx.productCode ?? '').trim() || null,
+      method: null,
+    });
+  }
+
+  for (const transaction of accountsReceivableTransactions) {
+    const recognitionAt = getAccountsReceivableRecognitionDate(transaction);
+    if (!isWithinDateRange(recognitionAt, effectiveFrom, effectiveTo)) {
+      continue;
+    }
+
+    const grossSale =
+      normalizeTransactionAmountsForAccounting(transaction).grossSale;
+    if (!Number.isFinite(grossSale) || grossSale === 0) {
+      continue;
+    }
+
+    rows.push({
+      id: `tx-ar-${transaction.id}`,
+      date: (recognitionAt ?? new Date()).toISOString(),
+      category: 'Sales Revenue',
+      type: 'Revenue',
+      sourceType: 'AccountsReceivableShipment',
+      sourceId: String(transaction.id),
+      ref: `TX-${transaction.id}`,
+      description: 'Revenue recognized when goods shipped on credit',
+      amount: grossSale,
+      customer: (transaction.customers ?? '').trim() || null,
+      productCode: (transaction.productCode ?? '').trim() || null,
       method: null,
     });
   }
@@ -353,6 +407,38 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
       ref: entry.ref,
       description: entry.description ?? 'COGS (inventory movements)',
       amount: amt,
+      customer: null,
+      productCode: null,
+      method: null,
+    });
+  }
+
+  const { entries: inventoryEntries } =
+    await buildInventorySeedAndShrinkageEntries({
+      from: effectiveFrom,
+      to: effectiveTo,
+    });
+
+  for (const entry of inventoryEntries) {
+    if (entry.account !== 'Inventory Shrinkage') {
+      continue;
+    }
+
+    const amount = Number(entry.debit ?? 0) - Number(entry.credit ?? 0);
+    if (!Number.isFinite(amount) || amount === 0) {
+      continue;
+    }
+
+    rows.push({
+      id: `shrinkage-${entry.id}`,
+      date: entry.date,
+      category: 'Inventory Shrinkage',
+      type: 'Expense',
+      sourceType: 'InventoryMovement',
+      sourceId: entry.id,
+      ref: entry.ref,
+      description: entry.description,
+      amount,
       customer: null,
       productCode: null,
       method: null,

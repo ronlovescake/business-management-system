@@ -43,6 +43,7 @@ function createMockClient(options: MockClientOptions = {}) {
     },
     product: {
       findMany: vi.fn().mockResolvedValue(options.products ?? []),
+      findFirst: vi.fn().mockResolvedValue(null),
     },
   };
 
@@ -53,6 +54,34 @@ function createMockClient(options: MockClientOptions = {}) {
 }
 
 describe('syncInventoryMovementsForTransaction', () => {
+  it('creates a sale movement for accounts-receivable shipments', async () => {
+    const { client, inventoryMovement } = createMockClient();
+
+    await syncInventoryMovementsForTransaction(client, {
+      id: 100,
+      productCode: 'SKU-AR',
+      quantity: 2,
+      unitPrice: 125,
+      discount: 0,
+      lineTotal: 250,
+      orderDate: '2026-10-23',
+      packedDate: null,
+      orderStatus: 'Accounts Receivable',
+      adjustment: 0,
+    });
+
+    expect(inventoryMovement.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        productCode: 'SKU-AR',
+        quantity: 2,
+        fromBucket: 'sellable',
+        toBucket: 'sold',
+        notes: 'auto-sale txn 100',
+      }),
+      select: { id: true },
+    });
+  });
+
   it('creates a standard reserve movement for warehouse transactions', async () => {
     const { client, inventoryMovement } = createMockClient();
 

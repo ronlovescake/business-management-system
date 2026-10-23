@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { NextRequest } from 'next/server';
 import { getTestApiUrl, mockLogger } from '@/core/testing/test-helpers';
 
-const { mockPrisma } = vi.hoisted(() => {
+const { mockPrisma, mockGetServerSession } = vi.hoisted(() => {
   return {
     mockPrisma: {
       customer: {
@@ -11,8 +11,12 @@ const { mockPrisma } = vi.hoisted(() => {
         delete: vi.fn(),
       },
     },
+    mockGetServerSession: vi.fn(),
   };
 });
+
+vi.mock('next-auth', () => ({ getServerSession: mockGetServerSession }));
+vi.mock('@/lib/auth/auth', () => ({ authOptions: {} }));
 
 vi.mock('@/lib/db', () => ({
   prisma: mockPrisma,
@@ -27,6 +31,7 @@ import { GET, PUT, DELETE } from '@/app/api/customers/[id]/route';
 describe('Customers By ID API Routes', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockGetServerSession.mockResolvedValue({ user: { role: 'USER' } });
   });
 
   describe('GET /api/customers/[id]', () => {
@@ -162,6 +167,36 @@ describe('Customers By ID API Routes', () => {
       expect(response.status).toBe(400);
       expect(payload.success).toBe(false);
       expect(payload.error).toBe('Invalid customer ID');
+    });
+
+    it('ignores the retired credit approval field during ordinary customer updates', async () => {
+      mockPrisma.customer.findUnique.mockResolvedValue({
+        id: 1,
+        creditApproved: false,
+      });
+      mockPrisma.customer.update.mockResolvedValue({
+        id: 1,
+        customerName: 'Joseph Bautista | Aya Ole',
+        creditApproved: false,
+      });
+
+      const request = new NextRequest(getTestApiUrl('/api/customers/1'), {
+        method: 'PUT',
+        body: JSON.stringify({
+          'Customer Name': 'Joseph Bautista | Aya Ole',
+          creditApproved: true,
+        }),
+      });
+
+      const response = await PUT(request, { params: { id: '1' } });
+      const payload = await response.json();
+
+      expect(response.status).toBe(200);
+      expect(payload.data).not.toHaveProperty('creditApproved');
+      expect(mockPrisma.customer.update).toHaveBeenCalledWith({
+        where: { id: 1 },
+        data: { customerName: 'Joseph Bautista | Aya Ole' },
+      });
     });
   });
 

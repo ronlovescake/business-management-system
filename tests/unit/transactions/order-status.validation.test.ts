@@ -43,6 +43,9 @@ describe('transaction order status validation', () => {
 
   it('canonicalizes known free-form status variants', () => {
     expect(canonicalizeOrderStatus('warehouse')).toBe('Warehouse');
+    expect(canonicalizeOrderStatus('accounts receivable')).toBe(
+      'Accounts Receivable'
+    );
     expect(canonicalizeOrderStatus(' pending payment ')).toBe(
       'Pending Payment'
     );

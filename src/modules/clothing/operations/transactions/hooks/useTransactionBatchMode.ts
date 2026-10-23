@@ -7,6 +7,7 @@ import { buildBatchedTransactions } from './transactionOperationUtils';
 interface UseTransactionBatchModeParams {
   transactions: TransactionData[];
   bulkUpdate: (data: TransactionData[]) => void;
+  saveBulkUpdate?: (data: TransactionData[]) => Promise<{ count: number }>;
   logNotification: (
     message: string,
     metadata?: Record<string, unknown>
@@ -23,6 +24,7 @@ interface UseTransactionBatchModeResult {
 export function useTransactionBatchMode({
   transactions,
   bulkUpdate,
+  saveBulkUpdate,
   logNotification,
 }: UseTransactionBatchModeParams): UseTransactionBatchModeResult {
   const isBatchModeRef = useRef(false);
@@ -37,7 +39,7 @@ export function useTransactionBatchMode({
       batchUpdatesRef.current.clear();
     };
 
-    const handleBatchComplete = (event: Event) => {
+    const handleBatchComplete = async (event: Event) => {
       const customEvent = event as CustomEvent<{ count?: number }>;
       const batchedUpdates = buildBatchedTransactions(
         transactions,
@@ -57,31 +59,46 @@ export function useTransactionBatchMode({
         });
       }
 
+      isBatchModeRef.current = false;
+      batchUpdatesRef.current.clear();
+
       if (batchedUpdates.length > 0) {
         logger.debug(
           `📤 Flushing ${batchedUpdates.length} batched updates (cells edited: ${customEvent.detail?.count ?? 0})`
         );
-        bulkUpdate(batchedUpdates);
-        showNotification({
-          title: 'Success',
-          message: `Saved ${batchedUpdates.length} transactions from paste`,
-          color: 'green',
-        });
-
-        logNotification(
-          `Batched edit applied to ${batchedUpdates.length} transactions (${customEvent.detail?.count ?? 0} cells).`,
-          {
-            type: 'batch-update',
-            transactionIds: batchedUpdates
-              .map((update) => update.id)
-              .filter((id): id is number => Number.isFinite(id)),
-            cellsEdited: customEvent.detail?.count ?? null,
+        try {
+          if (saveBulkUpdate) {
+            await saveBulkUpdate(batchedUpdates);
+          } else {
+            bulkUpdate(batchedUpdates);
           }
-        );
-      }
+          showNotification({
+            title: 'Success',
+            message: `Saved ${batchedUpdates.length} transactions from paste`,
+            color: 'green',
+          });
 
-      isBatchModeRef.current = false;
-      batchUpdatesRef.current.clear();
+          logNotification(
+            `Batched edit applied to ${batchedUpdates.length} transactions (${customEvent.detail?.count ?? 0} cells).`,
+            {
+              type: 'batch-update',
+              transactionIds: batchedUpdates
+                .map((update) => update.id)
+                .filter((id): id is number => Number.isFinite(id)),
+              cellsEdited: customEvent.detail?.count ?? null,
+            }
+          );
+        } catch (error) {
+          showNotification({
+            title: 'Transactions not saved',
+            message:
+              error instanceof Error
+                ? error.message
+                : 'Unable to save pasted transactions',
+            color: 'red',
+          });
+        }
+      }
     };
 
     window.addEventListener('handsontable-batch-start', handleBatchStart);
@@ -94,7 +111,7 @@ export function useTransactionBatchMode({
         handleBatchComplete
       );
     };
-  }, [transactions, bulkUpdate, logNotification]);
+  }, [transactions, bulkUpdate, saveBulkUpdate, logNotification]);
 
   return {
     isBatchModeRef,

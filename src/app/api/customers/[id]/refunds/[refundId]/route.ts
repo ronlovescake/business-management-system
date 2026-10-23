@@ -59,37 +59,44 @@ export const DELETE = withErrorHandler<RouteContext>(
       return ApiResponse.notFound('Customer');
     }
 
-    const transactionRefund = prisma.transactionRefund;
-
-    const existing = (await transactionRefund.findFirst({
-      where: {
-        id: parsed.refundId,
-        deletedAt: null,
-        transaction: {
+    const result = await prisma.$transaction(async (txClient) => {
+      const transactionRefund = txClient.transactionRefund;
+      const existing = (await transactionRefund.findFirst({
+        where: {
+          id: parsed.refundId,
           deletedAt: null,
-          customerId: parsed.customerId,
+          transaction: {
+            deletedAt: null,
+            customerId: parsed.customerId,
+          },
         },
-      },
-      select: { id: true },
-    })) as RefundRow | null;
+        select: { id: true },
+      })) as RefundRow | null;
 
-    if (!existing) {
+      if (!existing) {
+        return false;
+      }
+
+      const deletedAt = new Date();
+      await transactionRefund.update({
+        where: { id: parsed.refundId },
+        data: { deletedAt },
+      });
+
+      await txClient.inventoryMovement.updateMany({
+        where: {
+          deletedAt: null,
+          notes: buildAutoReturnMovementNote(parsed.refundId),
+        },
+        data: { deletedAt },
+      });
+
+      return true;
+    });
+
+    if (!result) {
       return ApiResponse.notFound('Refund');
     }
-
-    await transactionRefund.update({
-      where: { id: parsed.refundId },
-      data: { deletedAt: new Date() },
-    });
-
-    // Keep the inventory sub-ledger consistent: hide any auto-created return movement.
-    await prisma.inventoryMovement.updateMany({
-      where: {
-        deletedAt: null,
-        notes: buildAutoReturnMovementNote(parsed.refundId),
-      },
-      data: { deletedAt: new Date() },
-    });
 
     logger.info('Transaction refund deleted (soft)', {
       customerId: parsed.customerId,

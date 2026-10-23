@@ -5,7 +5,8 @@ import type {
   PriceTier,
   TransactionData,
 } from '@/modules/clothing/operations/transactions/types/transaction.types';
-import { notifications } from '@mantine/notifications';
+import { notifications, showNotification } from '@mantine/notifications';
+import { useTransactionBatchMode } from '@/modules/clothing/operations/transactions/hooks/useTransactionBatchMode';
 import type {
   CellEditEvent,
   HandsontableColumn,
@@ -69,6 +70,7 @@ const createProps = () => {
 describe('useTransactionOperations', () => {
   beforeEach(() => {
     vi.mocked(notifications.show).mockClear();
+    vi.mocked(showNotification).mockClear();
 
     const fetchMock = vi.fn().mockResolvedValue({
       ok: true,
@@ -81,6 +83,117 @@ describe('useTransactionOperations', () => {
     });
 
     global.fetch = fetchMock as typeof fetch;
+  });
+
+  it('awaits the confirmed status save rather than the fire-and-forget mutation', async () => {
+    const props = createProps();
+    const deferred = {
+      resolve: (_value: Pick<TransactionData, 'Order Status'>) => {},
+    };
+    const saved = new Promise<Pick<TransactionData, 'Order Status'>>(
+      (resolve) => {
+        deferred.resolve = resolve;
+      }
+    );
+    const saveOrderStatus = vi.fn().mockReturnValue(saved);
+    const { result } = renderHook(() =>
+      useTransactionOperations({ ...props, saveOrderStatus })
+    );
+    let edit: void | boolean | Promise<void | boolean>;
+    act(() => {
+      edit = result.current.handleCellEdited({
+        column: { id: 'orderStatus', title: 'ORDER STATUS' },
+        columnId: 'orderStatus',
+        columnIndex: 8,
+        row: 0,
+        rowData: props.filteredData[0],
+        value: 'Accounts Receivable',
+        oldValue: 'Prepared',
+        isBatch: false,
+        source: 'edit',
+      });
+    });
+    await waitFor(() =>
+      expect(saveOrderStatus).toHaveBeenCalledWith(1, 'Accounts Receivable')
+    );
+    expect(props.update).not.toHaveBeenCalled();
+    expect(showNotification).not.toHaveBeenCalled();
+    await act(async () => {
+      deferred.resolve({ 'Order Status': 'Accounts Receivable' });
+      await edit;
+    });
+    expect(showNotification).toHaveBeenCalledWith(
+      expect.objectContaining({ color: 'green' })
+    );
+  });
+
+  it('reports batch success only after the confirmed bulk save completes', async () => {
+    const props = createProps();
+    const deferred = { resolve: (_value: { count: number }) => {} };
+    const saved = new Promise<{ count: number }>((resolve) => {
+      deferred.resolve = resolve;
+    });
+    const saveBulkUpdate = vi.fn().mockReturnValue(saved);
+    const logNotification = vi.fn();
+    const { result } = renderHook(() =>
+      useTransactionBatchMode({
+        transactions: props.transactions,
+        bulkUpdate: props.bulkUpdate,
+        saveBulkUpdate,
+        logNotification,
+      })
+    );
+    act(() => {
+      window.dispatchEvent(new Event('handsontable-batch-start'));
+      result.current.batchUpdatesRef.current.set(1, {
+        'Order Status': 'Accounts Receivable',
+      });
+      window.dispatchEvent(
+        new CustomEvent('handsontable-batch-complete', { detail: { count: 1 } })
+      );
+    });
+    expect(saveBulkUpdate).toHaveBeenCalledTimes(1);
+    expect(showNotification).not.toHaveBeenCalled();
+    expect(logNotification).not.toHaveBeenCalled();
+    expect(result.current.isBatchModeRef.current).toBe(false);
+    await act(async () => {
+      deferred.resolve({ count: 1 });
+    });
+    expect(showNotification).toHaveBeenCalledWith(
+      expect.objectContaining({ color: 'green' })
+    );
+    expect(logNotification).toHaveBeenCalledTimes(1);
+  });
+
+  it('shows a batch rejection without success or a persisted-change log', async () => {
+    const props = createProps();
+    const logNotification = vi.fn();
+    const { result } = renderHook(() =>
+      useTransactionBatchMode({
+        transactions: props.transactions,
+        bulkUpdate: props.bulkUpdate,
+        saveBulkUpdate: vi
+          .fn()
+          .mockRejectedValue(new Error('Batch save rejected')),
+        logNotification,
+      })
+    );
+    await act(async () => {
+      window.dispatchEvent(new Event('handsontable-batch-start'));
+      result.current.batchUpdatesRef.current.set(1, {
+        'Order Status': 'Accounts Receivable',
+      });
+      window.dispatchEvent(
+        new CustomEvent('handsontable-batch-complete', { detail: { count: 1 } })
+      );
+    });
+    expect(showNotification).toHaveBeenCalledTimes(1);
+    expect(showNotification).toHaveBeenCalledWith(
+      expect.objectContaining({ color: 'red', message: 'Batch save rejected' })
+    );
+    expect(logNotification).not.toHaveBeenCalled();
+    expect(result.current.isBatchModeRef.current).toBe(false);
+    expect(result.current.batchUpdatesRef.current.size).toBe(0);
   });
 
   it('auto-populates shipment code, status, and unit price when product code changes', async () => {

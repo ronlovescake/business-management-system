@@ -3,6 +3,7 @@ import type { Prisma, PrismaClient } from '@prisma/client';
 export type AutoMovementRecord = {
   id: number;
   deletedAt: Date | null;
+  unitCost: number | null;
 };
 
 export type AutoMovementMetadata = {
@@ -40,7 +41,7 @@ export async function findLatestAutoMovement(
   return client.inventoryMovement.findFirst({
     where: { notes: note },
     orderBy: { createdAt: 'desc' },
-    select: { id: true, deletedAt: true },
+    select: { id: true, deletedAt: true, unitCost: true },
   });
 }
 
@@ -49,6 +50,7 @@ export async function setAutoMovementActive(params: {
   existing: AutoMovementRecord | null;
   productCode: string;
   quantity: number;
+  unitCost?: number | null;
   fromBucket: Prisma.InventoryMovementCreateInput['fromBucket'];
   toBucket: Prisma.InventoryMovementCreateInput['toBucket'];
   postingDate: string | null;
@@ -60,6 +62,7 @@ export async function setAutoMovementActive(params: {
     existing,
     productCode,
     quantity,
+    unitCost,
     fromBucket,
     toBucket,
     postingDate,
@@ -78,6 +81,7 @@ export async function setAutoMovementActive(params: {
         deletedAt: null,
         productCode,
         quantity,
+        unitCost: existing.unitCost ?? unitCost,
         fromBucket,
         toBucket,
         postingDate,
@@ -94,6 +98,7 @@ export async function setAutoMovementActive(params: {
       data: {
         productCode,
         quantity,
+        unitCost: unitCost ?? null,
         fromBucket,
         toBucket,
         postingDate,

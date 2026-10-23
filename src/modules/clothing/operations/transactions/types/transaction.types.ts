@@ -33,6 +33,8 @@ export interface TransactionData {
   Notes: string;
   'Invoice Date': string;
   'Packed Date': string;
+  'Shipped At'?: string | null;
+  'Accounts Receivable Due Date'?: string | null;
   'Shipment Code': string;
   version?: number; // For optimistic locking
 }
@@ -134,7 +136,7 @@ export interface TransactionStatistics {
   inTransitTotal: number;
   warehouseTotal: number;
   preparedTotal: number;
-  pendingPaymentTotal: number;
+  accountsReceivableTotal: number;
   uniqueCustomers: number;
   adjustmentTotal: number;
   shippedOrders: number;
@@ -162,7 +164,7 @@ export const ORDER_STATUS_OPTIONS = [
   'Ready For Dispatch',
   'Checked Out',
   'On-Hold',
-  'Pending Payment',
+  'Accounts Receivable',
   'Shipped',
   'Cancelled',
   'Forfeited',
@@ -192,7 +194,7 @@ export const ALL_STATUS_CONTROLLED_STATUSES: OrderStatus[] = [
   'Ready For Dispatch',
   'Checked Out',
   'On-Hold',
-  'Pending Payment',
+  'Accounts Receivable',
 ];
 
 // ============================================================================

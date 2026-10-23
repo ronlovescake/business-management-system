@@ -4,6 +4,7 @@ import { prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
 import { getAccountingCutoverDate } from '@/lib/accounting/cutover';
 import { parseDate } from '@/lib/accounting/date-utils';
+import { getSupplierSettlementCreditAccount } from '@/lib/accounting/payment-accounts';
 import { mapFromDTO, mapToDTO } from './dto';
 import type { ProductDTO } from './dto';
 import { expenseService } from '@/modules/clothing/ledger/api/service';
@@ -54,6 +55,25 @@ async function postSupplierSettlementForProduct(params: {
 
   const today = normalizeToUtcMidnight(new Date());
   if (!isOnOrAfterAccountingCutover(today)) {
+    return;
+  }
+
+  const product = await prisma.product.findUnique({
+    where: { id: productId },
+    select: { paymentMethod: true },
+  });
+  const settlementCreditAccount = getSupplierSettlementCreditAccount(
+    product?.paymentMethod
+  );
+  if (!settlementCreditAccount) {
+    logger.warn(
+      'Skip supplier settlement: payment method is missing or unknown',
+      {
+        productId,
+        productCode,
+        shipmentCode,
+      }
+    );
     return;
   }
 
@@ -138,7 +158,7 @@ async function postSupplierSettlementForProduct(params: {
       create: {
         date: today,
         ref,
-        account: CASH_ACCOUNT,
+        account: settlementCreditAccount,
         debit: 0,
         credit: amount,
         description,
@@ -150,7 +170,7 @@ async function postSupplierSettlementForProduct(params: {
       update: {
         date: today,
         ref,
-        account: CASH_ACCOUNT,
+        account: settlementCreditAccount,
         debit: 0,
         credit: amount,
         description,

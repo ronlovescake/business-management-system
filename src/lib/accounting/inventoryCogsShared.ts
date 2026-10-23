@@ -15,6 +15,7 @@ export type CogsMovementInput = {
   postingDate: string | null;
   productCode: string;
   quantity: number;
+  unitCost?: number | null;
   fromBucket: string;
   toBucket: string;
   notes?: string | null;
@@ -209,7 +210,8 @@ export function buildCogsEntriesFromMovements(params: {
     const sign =
       movement.toBucket === 'sold'
         ? 1
-        : movement.fromBucket === 'sold'
+        : movement.fromBucket === 'sold' &&
+            INVENTORY_ASSET_BUCKETS.has(movement.toBucket)
           ? -1
           : 0;
     if (sign === 0) {
@@ -217,7 +219,11 @@ export function buildCogsEntriesFromMovements(params: {
     }
 
     const code = (movement.productCode ?? '').trim();
-    const unitCost = unitCostByProductCode.get(code) ?? 0;
+    const recordedUnitCost = Number(movement.unitCost ?? 0);
+    const unitCost =
+      Number.isFinite(recordedUnitCost) && recordedUnitCost > 0
+        ? recordedUnitCost
+        : (unitCostByProductCode.get(code) ?? 0);
     const cost = sign * qty * unitCost;
 
     if (!Number.isFinite(cost) || cost === 0) {

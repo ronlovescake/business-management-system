@@ -31,6 +31,7 @@ import {
   type AutoMovementRecord,
 } from './movementStateHelpers';
 import { TransactionValidationError } from './referenceValidation';
+import { pickUnitCostFromProductRow } from '@/lib/accounting/inventoryCogsShared';
 
 const WAREHOUSE_SHIPMENT_STATUSES = new Set([
   'for pickup',
@@ -76,6 +77,21 @@ type DerivedMovementState = {
   reserved: boolean;
   fulfilled: boolean;
 };
+
+async function getProductUnitCost(
+  client: TransactionClientLike,
+  productCode: string
+) {
+  const product = await client.product.findFirst({
+    where: {
+      deletedAt: null,
+      productCode: { equals: productCode, mode: 'insensitive' },
+    },
+    select: { landedUnitCost: true, cogs: true, quantity: true },
+  });
+
+  return product ? pickUnitCostFromProductRow(product) || null : null;
+}
 
 function buildAutoMovementNotes(transactionId: number): AutoMovementNotes {
   return {
@@ -235,11 +251,13 @@ async function syncSimpleReserveAndSaleMovements(params: {
   }
 
   if (fulfilled) {
+    const unitCost = await getProductUnitCost(client, productCode);
     await setAutoMovementActive({
       client,
       existing: existingSale,
       productCode,
       quantity,
+      unitCost,
       fromBucket: shouldKeepReserveActive ? 'reserved' : 'sellable',
       toBucket: 'sold',
       postingDate,
@@ -283,7 +301,6 @@ async function syncAllocatedComponentMovements(params: {
     reserve: reserveNote,
     sale: saleNote,
   });
-
   await syncSimpleReserveAndSaleMovements({
     client,
     existingReserve: existingMovements.reserve,
@@ -386,7 +403,7 @@ export function assertCanSetPaidStatus(params: {
     throw new TransactionValidationError(
       `Cannot set Order Status to "${nextStatus}" while balance is unpaid (remaining: ${remaining.toFixed(
         2
-      )}). Record full payment first, or use "Pending Payment" for shipped-but-unpaid orders.`
+      )}). Record full payment first, or use "Accounts Receivable" for shipped-but-unpaid orders.`
     );
   }
 }

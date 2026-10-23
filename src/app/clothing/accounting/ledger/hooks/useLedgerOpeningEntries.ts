@@ -28,79 +28,48 @@ async function readJson(response: Response) {
   return response.json().catch(() => null);
 }
 
-async function updateOpeningEntryLine(params: {
-  apiPath: (path: string) => string;
-  id: string;
+type OpeningBalanceLineInput = {
+  id?: string;
   date: string;
   ref: string;
   account: string;
   debit: number;
   credit: number;
   description: string;
+};
+
+async function saveOpeningBalanceLines(params: {
+  apiPath: (path: string) => string;
+  method: 'POST' | 'PUT';
+  entries: OpeningBalanceLineInput[];
 }) {
   const res = await fetch(params.apiPath('/accounting/opening-balance'), {
-    method: 'PUT',
+    method: params.method,
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      id: params.id,
-      date: params.date,
-      ref: params.ref,
-      account: params.account,
-      debit: params.debit,
-      credit: params.credit,
-      description: params.description,
-    }),
+    body: JSON.stringify({ entries: params.entries }),
   });
 
   const body = await readJson(res);
   if (!res.ok) {
-    throw new Error(body?.error || 'Failed to update opening entry');
+    throw new Error(body?.error || 'Failed to save opening balance lines');
   }
 }
 
-async function createOpeningEntryLine(params: {
+async function deleteOpeningBalanceLines(params: {
   apiPath: (path: string) => string;
-  date: string;
-  ref: string;
-  account: string;
-  debit: number;
-  credit: number;
-  description: string;
+  ids: string[];
 }) {
-  const res = await fetch(params.apiPath('/accounting/opening-balance'), {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      date: params.date,
-      ref: params.ref,
-      account: params.account,
-      debit: params.debit,
-      credit: params.credit,
-      description: params.description,
-    }),
-  });
-
-  const body = await readJson(res);
-  if (!res.ok) {
-    throw new Error(body?.error || 'Failed to save opening entry');
-  }
-
-  return body?.entry?.id as string | undefined;
-}
-
-async function deleteOpeningEntryLine(params: {
-  apiPath: (path: string) => string;
-  id: string;
-  throwOnFailure?: boolean;
-}) {
+  const query = params.ids
+    .map((id) => `id=${encodeURIComponent(id)}`)
+    .join('&');
   const res = await fetch(
-    `${params.apiPath('/accounting/opening-balance')}?id=${encodeURIComponent(params.id)}`,
+    `${params.apiPath('/accounting/opening-balance')}?${query}`,
     { method: 'DELETE' }
   );
 
-  if (!res.ok && params.throwOnFailure) {
+  if (!res.ok) {
     const payload = await readJson(res);
-    throw new Error(payload?.error || 'Failed to delete opening entry');
+    throw new Error(payload?.error || 'Failed to delete opening balance lines');
   }
 }
 
@@ -292,28 +261,30 @@ export function useLedgerOpeningEntries({
     try {
       if (editingOpeningEntryId) {
         if (editingOpeningEntryDebitId && editingOpeningEntryCreditId) {
-          await Promise.all([
-            updateOpeningEntryLine({
-              apiPath,
-              id: editingOpeningEntryDebitId,
-              date,
-              ref,
-              account: debitAccount,
-              debit: amount,
-              credit: 0,
-              description,
-            }),
-            updateOpeningEntryLine({
-              apiPath,
-              id: editingOpeningEntryCreditId,
-              date,
-              ref,
-              account: creditAccount,
-              debit: 0,
-              credit: amount,
-              description,
-            }),
-          ]);
+          await saveOpeningBalanceLines({
+            apiPath,
+            method: 'PUT',
+            entries: [
+              {
+                id: editingOpeningEntryDebitId,
+                date,
+                ref,
+                account: debitAccount,
+                debit: amount,
+                credit: 0,
+                description,
+              },
+              {
+                id: editingOpeningEntryCreditId,
+                date,
+                ref,
+                account: creditAccount,
+                debit: 0,
+                credit: amount,
+                description,
+              },
+            ],
+          });
         } else {
           const side = editingOpeningEntrySide;
           const existingId = editingOpeningEntryId;
@@ -322,35 +293,29 @@ export function useLedgerOpeningEntries({
             throw new Error('Missing opening entry context for edit');
           }
 
-          const createdId = await createOpeningEntryLine({
+          await saveOpeningBalanceLines({
             apiPath,
-            date,
-            ref,
-            account: side === 'debit' ? creditAccount : debitAccount,
-            debit: side === 'debit' ? 0 : amount,
-            credit: side === 'debit' ? amount : 0,
-            description,
+            method: 'PUT',
+            entries: [
+              {
+                date,
+                ref,
+                account: side === 'debit' ? creditAccount : debitAccount,
+                debit: side === 'debit' ? 0 : amount,
+                credit: side === 'debit' ? amount : 0,
+                description,
+              },
+              {
+                id: existingId,
+                date,
+                ref,
+                account: side === 'debit' ? debitAccount : creditAccount,
+                debit: side === 'debit' ? amount : 0,
+                credit: side === 'debit' ? 0 : amount,
+                description,
+              },
+            ],
           });
-
-          try {
-            await updateOpeningEntryLine({
-              apiPath,
-              id: existingId,
-              date,
-              ref,
-              account: side === 'debit' ? debitAccount : creditAccount,
-              debit: side === 'debit' ? amount : 0,
-              credit: side === 'debit' ? 0 : amount,
-              description,
-            });
-          } catch (error) {
-            if (createdId) {
-              await deleteOpeningEntryLine({ apiPath, id: createdId }).catch(
-                () => null
-              );
-            }
-            throw error;
-          }
         }
 
         showNotification({
@@ -359,34 +324,28 @@ export function useLedgerOpeningEntries({
           message: `${debitAccount} → ${creditAccount}`,
         });
       } else {
-        const createdDebitId = await createOpeningEntryLine({
+        await saveOpeningBalanceLines({
           apiPath,
-          date,
-          ref,
-          account: debitAccount,
-          debit: amount,
-          credit: 0,
-          description,
+          method: 'POST',
+          entries: [
+            {
+              date,
+              ref,
+              account: debitAccount,
+              debit: amount,
+              credit: 0,
+              description,
+            },
+            {
+              date,
+              ref,
+              account: creditAccount,
+              debit: 0,
+              credit: amount,
+              description,
+            },
+          ],
         });
-
-        try {
-          await createOpeningEntryLine({
-            apiPath,
-            date,
-            ref,
-            account: creditAccount,
-            debit: 0,
-            credit: amount,
-            description,
-          });
-        } catch (error) {
-          if (createdDebitId) {
-            await deleteOpeningEntryLine({ apiPath, id: createdDebitId }).catch(
-              () => null
-            );
-          }
-          throw error;
-        }
 
         showNotification({
           color: 'teal',
@@ -427,15 +386,7 @@ export function useLedgerOpeningEntries({
     async (id: string) => {
       try {
         const deleteIds = buildOpeningEntryDeleteIds(id, openingEntries);
-        await Promise.all(
-          deleteIds.map((deleteId) =>
-            deleteOpeningEntryLine({
-              apiPath,
-              id: deleteId,
-              throwOnFailure: true,
-            })
-          )
-        );
+        await deleteOpeningBalanceLines({ apiPath, ids: deleteIds });
 
         await fetchOpeningEntries();
         await refreshLedger();

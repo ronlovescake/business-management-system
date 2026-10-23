@@ -101,7 +101,12 @@ describe('order-status utilities', () => {
   describe('canonicalizeOrderStatus()', () => {
     it('Rule C-19: returns canonical label', () => {
       expect(canonicalizeOrderStatus('in transit')).toBe('In Transit');
-      expect(canonicalizeOrderStatus('pending payment')).toBe('Pending Payment');
+      expect(canonicalizeOrderStatus('accounts receivable')).toBe(
+        'Accounts Receivable'
+      );
+      expect(canonicalizeOrderStatus('pending payment')).toBe(
+        'Pending Payment'
+      );
       expect(canonicalizeOrderStatus('on-hold')).toBe('On-Hold');
     });
 
@@ -123,8 +128,8 @@ describe('order-status utilities', () => {
   // ORDER_STATUS_OPTIONS constant
   // =========================================================================
   describe('ORDER_STATUS_OPTIONS', () => {
-    it('contains 11 known statuses', () => {
-      expect(ORDER_STATUS_OPTIONS).toHaveLength(11);
+    it('contains 12 known statuses', () => {
+      expect(ORDER_STATUS_OPTIONS).toHaveLength(12);
     });
 
     it('includes all terminal statuses', () => {

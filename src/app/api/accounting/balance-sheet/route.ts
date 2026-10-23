@@ -3,7 +3,7 @@ import { ApiResponse } from '@/core/api';
 import { withErrorHandler } from '@/core/api/middleware';
 import { endOfDay, parseDate } from '@/lib/accounting/date-utils';
 import {
-  ACCOUNTS_RECEIVABLE_STATUSES,
+  CLOTHING_ACCOUNTS_RECEIVABLE_STATUSES,
   PAID_STATUSES,
 } from '@/lib/accounting/constants';
 import {
@@ -24,6 +24,12 @@ import {
 import { prisma } from '@/lib/db';
 import { getRuntimeAccountingCutoverDate } from '@/lib/accounting/cutover';
 import { normalizeAccountForReporting } from '@/lib/accounting/account-normalization';
+import { getExpenseCreditAccount } from '@/lib/accounting/payment-accounts';
+import {
+  calculateAccountsReceivableBalances,
+  getAccountsReceivableRecognitionDate,
+  hasAccountsReceivableShipment,
+} from '@/lib/accounting/transaction-recognition';
 import {
   detectAccountType,
   type AccountType,
@@ -491,9 +497,9 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
 
   const isReceivableStatus = (status: string | null | undefined): boolean => {
     const normalized = (status ?? '').trim();
-    return (ACCOUNTS_RECEIVABLE_STATUSES as readonly string[]).includes(
-      normalized
-    );
+    return (
+      CLOTHING_ACCOUNTS_RECEIVABLE_STATUSES as readonly string[]
+    ).includes(normalized);
   };
 
   const isPaidStatus = (status: string | null | undefined): boolean => {
@@ -506,6 +512,10 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
       typeof getPaidAtDate
     >[0]
   ) => {
+    if (hasAccountsReceivableShipment(tx)) {
+      return getAccountsReceivableRecognitionDate(tx);
+    }
+
     if (isPaidStatus(tx.orderStatus)) {
       return getPaidAtDate(tx);
     }
@@ -522,6 +532,7 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
     .map((tx) => {
       const normalized = normalizeTransactionAmountsForAccounting(tx);
       const grossSale = Number(normalized.grossSale ?? 0);
+      const hasAccountsReceivableLifecycle = hasAccountsReceivableShipment(tx);
 
       // If we have explicit payment events, prefer them for cash received for
       // non-paid statuses to avoid missing cash on the balance sheet.
@@ -552,18 +563,31 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
         (isPaidStatus(tx.orderStatus)
           ? earliestIncludedPaymentAtByTxId.get(tx.id)
           : earliestPaymentAtByTxId.get(tx.id)) ?? null;
-      const recognizedAt =
-        usePaymentEvents && paymentAnchor ? paymentAnchor : getRecognizedAt(tx);
+      const recognizedAt = hasAccountsReceivableLifecycle
+        ? getAccountsReceivableRecognitionDate(tx)
+        : usePaymentEvents && paymentAnchor
+          ? paymentAnchor
+          : getRecognizedAt(tx);
       if (!isWithinDateRange(recognizedAt, cutover, asOf)) {
         return null;
       }
 
       const cash = Math.max(Number(resolvedPaymentReceived) || 0, 0);
 
-      const ar = isReceivableStatus(tx.orderStatus)
-        ? Math.max(Number(balanceDue) || 0, 0)
-        : 0;
-      const saleAmount = cash + ar;
+      const receivableBalances = hasAccountsReceivableLifecycle
+        ? calculateAccountsReceivableBalances(
+            Number(grossSale),
+            resolvedPaymentReceived
+          )
+        : null;
+      const ar = receivableBalances
+        ? receivableBalances.receivable
+        : isReceivableStatus(tx.orderStatus)
+          ? Math.max(Number(balanceDue) || 0, 0)
+          : 0;
+      const saleAmount = receivableBalances
+        ? receivableBalances.recognizedSale
+        : cash + ar;
 
       if (!Number.isFinite(saleAmount) || saleAmount <= 0) {
         return null;
@@ -667,12 +691,13 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
       }
 
       const amt = Math.max(amount, 0);
+      const creditAccount = getExpenseCreditAccount(exp);
 
-      addCashDetail(`Expenses – ${exp.category}`, CASH_ACCOUNT, -amt);
+      addCashDetail(`Expenses – ${exp.category}`, creditAccount, -amt);
       return [
         // Expenses reduce Equity on the balance sheet.
         { account: 'Retained Earnings', amount: amt },
-        { account: CASH_ACCOUNT, amount: -amt },
+        { account: creditAccount, amount: -amt },
       ];
     })
     .flat()
@@ -704,7 +729,9 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
     });
 
   const inventorySeedEntries = inventorySeedAndShrinkEntries.map((entry) => ({
-    account: entry.account,
+    account: detectAccountType(entry.account)
+      ? entry.account
+      : 'Retained Earnings',
     amount: Number(entry.debit ?? 0) - Number(entry.credit ?? 0),
   }));
 

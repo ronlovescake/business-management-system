@@ -9,6 +9,7 @@ export const FULFILLED_STATUSES = [
   'Ready For Dispatch',
   'Checked Out',
   'Shipped',
+  'Accounts Receivable',
   'Pending Payment',
 ] as const;
 
