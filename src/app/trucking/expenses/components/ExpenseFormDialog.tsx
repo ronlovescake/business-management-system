@@ -140,110 +140,105 @@ export const ExpenseFormDialog = React.memo(function ExpenseFormDialog({
       title={modalTitle}
       size="lg"
     >
-      <div style={{ maxHeight: '65vh', overflowY: 'auto' }}>
-        <Stack gap="lg">
-          <Group grow align="flex-start">
-            <DateInput
-              label="Date"
-              required
-              value={toDate(formDate)}
-              onChange={(value) => setFormDate(toISODate(value))}
-              {...dateField.handlers}
-              styles={dateField.styles}
-              {...COMMON_DATE_INPUT_PROPS}
-            />
-            <Select
-              label="Category"
-              data={categories}
-              value={formCategory}
-              onChange={(value) => setFormCategory(value || '')}
-              required
-              searchable
-              maxDropdownHeight={420}
-              {...categorySelect.handlers}
-              styles={categorySelect.styles}
-              withCheckIcon={false}
-              comboboxProps={{ withinPortal: true, zIndex: 500 }}
-            />
-          </Group>
-
-          <Group grow align="flex-start">
-            <NumberInput
-              label="Amount"
-              prefix="₱ "
-              decimalScale={2}
-              value={formAmount}
-              onChange={(value) =>
-                setFormAmount(typeof value === 'number' ? value : '')
-              }
-              required
-              min={0}
-              {...amountField.handlers}
-              styles={amountField.styles}
-            />
-            <Select
-              label="Vehicle ID (Optional)"
-              placeholder={
-                vehicleOptions.length ? 'Select vehicle' : 'No vehicles found'
-              }
-              data={vehicleOptions}
-              value={formVehicleId || null}
-              onChange={(value) => setFormVehicleId(value || '')}
-              searchable
-              allowDeselect
-              {...vehicleSelect.handlers}
-              styles={vehicleSelect.styles}
-              withCheckIcon={false}
-              comboboxProps={{ withinPortal: true, zIndex: 500 }}
-            />
-          </Group>
-
-          <TextInput
-            label="Description"
-            value={formDescription}
-            onChange={(e) => setFormDescription(e.target.value)}
+      <Stack gap="lg">
+        <Group grow align="flex-start">
+          <DateInput
+            label="Date"
             required
-            {...descriptionField.handlers}
-            styles={descriptionField.styles}
+            value={toDate(formDate)}
+            onChange={(value) => setFormDate(toISODate(value))}
+            {...dateField.handlers}
+            styles={dateField.styles}
+            {...COMMON_DATE_INPUT_PROPS}
           />
-
-          <Textarea
-            label="Notes (Optional)"
-            value={formNotes}
-            onChange={(e) => setFormNotes(e.target.value)}
-            minRows={3}
-            {...notesField.handlers}
-            styles={notesField.styles}
+          <Select
+            label="Category"
+            data={categories}
+            value={formCategory}
+            onChange={(value) => setFormCategory(value || '')}
+            required
+            searchable
+            maxDropdownHeight={420}
+            {...categorySelect.handlers}
+            styles={categorySelect.styles}
+            withCheckIcon={false}
+            comboboxProps={{ withinPortal: true, zIndex: 500 }}
           />
+        </Group>
 
-          <FileButton
-            onChange={setFormReceipt}
-            accept="image/*,application/pdf"
-          >
-            {(props) => (
-              <Button
-                {...props}
-                fullWidth
-                leftSection={<IconReceipt size={16} />}
-                radius="md"
-              >
-                {formReceipt
-                  ? `Selected: ${formReceipt.name}`
-                  : 'Click to upload receipt (Optional)'}
-              </Button>
-            )}
-          </FileButton>
+        <Group grow align="flex-start">
+          <NumberInput
+            label="Amount"
+            prefix="₱ "
+            decimalScale={2}
+            value={formAmount}
+            onChange={(value) =>
+              setFormAmount(typeof value === 'number' ? value : '')
+            }
+            required
+            min={0}
+            {...amountField.handlers}
+            styles={amountField.styles}
+          />
+          <Select
+            label="Vehicle ID (Optional)"
+            placeholder={
+              vehicleOptions.length ? 'Select vehicle' : 'No vehicles found'
+            }
+            data={vehicleOptions}
+            value={formVehicleId || null}
+            onChange={(value) => setFormVehicleId(value || '')}
+            searchable
+            allowDeselect
+            {...vehicleSelect.handlers}
+            styles={vehicleSelect.styles}
+            withCheckIcon={false}
+            comboboxProps={{ withinPortal: true, zIndex: 500 }}
+          />
+        </Group>
 
-          <Group justify="flex-end" gap="sm" mt="sm">
-            <Button radius="md" variant="default" onClick={onClose}>
-              Cancel
+        <TextInput
+          label="Description"
+          value={formDescription}
+          onChange={(e) => setFormDescription(e.target.value)}
+          required
+          {...descriptionField.handlers}
+          styles={descriptionField.styles}
+        />
+
+        <Textarea
+          label="Notes (Optional)"
+          value={formNotes}
+          onChange={(e) => setFormNotes(e.target.value)}
+          minRows={3}
+          {...notesField.handlers}
+          styles={notesField.styles}
+        />
+
+        <FileButton onChange={setFormReceipt} accept="image/*,application/pdf">
+          {(props) => (
+            <Button
+              {...props}
+              fullWidth
+              leftSection={<IconReceipt size={16} />}
+              radius="md"
+            >
+              {formReceipt
+                ? `Selected: ${formReceipt.name}`
+                : 'Click to upload receipt (Optional)'}
             </Button>
-            <Button radius="md" onClick={onSave} disabled={!isValid}>
-              {editingExpense ? 'Update Expense' : 'Add Expense'}
-            </Button>
-          </Group>
-        </Stack>
-      </div>
+          )}
+        </FileButton>
+
+        <Group justify="flex-end" gap="sm" mt="sm">
+          <Button radius="md" variant="default" onClick={onClose}>
+            Cancel
+          </Button>
+          <Button radius="md" onClick={onSave} disabled={!isValid}>
+            {editingExpense ? 'Update Expense' : 'Add Expense'}
+          </Button>
+        </Group>
+      </Stack>
     </UniversalModal>
   );
 });

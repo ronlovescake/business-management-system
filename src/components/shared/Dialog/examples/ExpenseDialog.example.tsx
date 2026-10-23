@@ -122,7 +122,6 @@ export function ExpenseDialog({
       }}
       body={{
         padding: 'md',
-        maxHeight: '65vh', // Scrollable if form is long
       }}
       footer={{
         layout: 'flex-end',

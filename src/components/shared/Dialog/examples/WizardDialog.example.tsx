@@ -66,7 +66,7 @@ export function WizardDialog({
         iconColor="blue"
       />
 
-      <DialogBody maxHeight="60vh">
+      <DialogBody>
         <Stepper active={active} onStepClick={setActive} mb="xl">
           <Stepper.Step label="Personal Info" description="Basic details">
             <Stack gap="md">

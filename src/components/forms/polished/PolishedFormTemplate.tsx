@@ -1,4 +1,3 @@
-import { forwardRef } from 'react';
 import { Button, Group, Stack, Text } from '@mantine/core';
 import { UniversalModal } from '@/components/modals/UniversalModal';
 import { usePolishedFieldStyles } from '@/components/modals/usePolishedFieldStyles';
@@ -7,16 +6,6 @@ import { PolishedFormStylesProvider } from './PolishedFormContext';
 import './polishedFormTemplate.css';
 
 type TextProps = React.ComponentProps<typeof Text>;
-
-const PlainScrollArea = forwardRef<HTMLDivElement, React.ComponentProps<'div'>>(
-  ({ children, ...rest }, ref) => (
-    <div ref={ref} {...rest}>
-      {children}
-    </div>
-  )
-);
-
-PlainScrollArea.displayName = 'PlainScrollArea';
 
 const renderTextContent = (content: React.ReactNode, textProps: TextProps) => {
   if (content === null || content === undefined) {
@@ -55,7 +44,6 @@ interface PolishedFormTemplateProps
   children: PolishedFormChildren;
   primaryAction: PolishedFormAction;
   secondaryAction?: PolishedFormAction;
-  maxBodyHeight?: number | string;
   bodyClassName?: string;
 }
 
@@ -63,7 +51,7 @@ interface PolishedFormTemplateProps
  * Renders a polished Mantine modal with the exact styling of the Trucking Add
  * Employee form so other teams can drop in the same look & feel without
  * rewiring every field. Consumers still render their own form content but get a
- * consistent header, scroll container, and footer action bar.
+ * consistent header, natural-height body, and footer action bar.
  */
 export function PolishedFormTemplate({
   opened,
@@ -75,7 +63,6 @@ export function PolishedFormTemplate({
   children,
   primaryAction,
   secondaryAction,
-  maxBodyHeight = '82vh',
   bodyClassName,
   ...modalProps
 }: PolishedFormTemplateProps) {
@@ -120,7 +107,6 @@ export function PolishedFormTemplate({
         opened={opened}
         onClose={onClose}
         title={headerContent}
-        scrollAreaComponent={PlainScrollArea}
         size={modalProps.size ?? 1750}
         radius={modalProps.radius ?? 8}
         {...modalProps}
@@ -129,9 +115,6 @@ export function PolishedFormTemplate({
           <div
             className={scrollBodyClassName || undefined}
             style={{
-              maxHeight: maxBodyHeight,
-              overflowY: 'auto',
-              overflowX: 'hidden',
               width: '100%',
             }}
           >

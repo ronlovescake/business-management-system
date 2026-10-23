@@ -92,11 +92,6 @@ export function TransactionPaymentsModal({
           zIndex: 10,
           backgroundColor: '#ffffff',
         },
-        body: {
-          // Increase usable height and keep header fixed.
-          maxHeight: 'calc(100vh - 120px)',
-          overflowY: 'auto',
-        },
       }}
       closeOnClickOutside={false}
       closeOnEscape={false}

@@ -489,147 +489,143 @@ export function RecurringPaymentsPanel(props: {
         title={modalTitle}
         size="lg"
       >
-        <div style={{ maxHeight: '65vh', overflowY: 'auto' }}>
-          <Stack gap="lg">
-            <Group grow align="flex-start">
-              <DateInput
-                label="Payment Start"
-                required
-                value={startDate}
-                onChange={setStartDate}
-                {...startDateField.handlers}
-                styles={startDateField.styles}
-                {...COMMON_DATE_INPUT_PROPS}
-              />
-              <Select
-                label="Category"
-                data={categories}
-                value={category}
-                onChange={setCategory}
-                required
-                searchable
-                maxDropdownHeight={400}
-                {...categorySelect.handlers}
-                styles={categorySelect.styles}
-                withCheckIcon={false}
-                comboboxProps={{ withinPortal: true, zIndex: 500 }}
-              />
-            </Group>
-
-            <Group grow align="flex-start">
-              <NumberInput
-                label="Monthly Amount"
-                prefix="₱ "
-                decimalScale={2}
-                value={amount}
-                onChange={(value) =>
-                  setAmount(typeof value === 'number' ? value : '')
-                }
-                required
-                min={0}
-                {...amountField.handlers}
-                styles={amountField.styles}
-              />
-              <Select
-                label="Account"
-                data={accountOptions}
-                value={accountId}
-                onChange={setAccountId}
-                searchable
-                required
-                maxDropdownHeight={400}
-                {...accountSelect.handlers}
-                styles={accountSelect.styles}
-                withCheckIcon={false}
-                comboboxProps={{ withinPortal: true, zIndex: 500 }}
-              />
-            </Group>
-
-            <TextInput
-              label="Name"
-              placeholder="e.g., Rent, Spotify, Fridge Installment"
-              value={name}
-              onChange={(e) => setName(e.currentTarget.value)}
+        <Stack gap="lg">
+          <Group grow align="flex-start">
+            <DateInput
+              label="Payment Start"
               required
-              {...nameField.handlers}
-              styles={nameField.styles}
+              value={startDate}
+              onChange={setStartDate}
+              {...startDateField.handlers}
+              styles={startDateField.styles}
+              {...COMMON_DATE_INPUT_PROPS}
             />
-
-            <Group grow align="flex-start">
-              <NumberInput
-                label="Months (Optional)"
-                description="Leave blank for subscriptions with no end date"
-                value={monthsCount}
-                onChange={(value) =>
-                  setMonthsCount(typeof value === 'number' ? value : '')
-                }
-                min={1}
-                allowDecimal={false}
-                {...monthsCountField.handlers}
-                styles={monthsCountField.styles}
-              />
-              <Stack gap={10} style={{ flex: 1 }}>
-                <Text size="sm" fw={500} c="#101828">
-                  Options
-                </Text>
-                <Switch
-                  label="Active"
-                  checked={isActive}
-                  onChange={(e) => setIsActive(e.currentTarget.checked)}
-                />
-                <Switch
-                  label="Deduct on generate (Auto-paid)"
-                  description="If off, this generates as pending and won't deduct until you mark it paid"
-                  checked={deductOnGenerate}
-                  onChange={(e) => setDeductOnGenerate(e.currentTarget.checked)}
-                />
-              </Stack>
-            </Group>
-
-            <Textarea
-              label="Notes (Optional)"
-              value={notes}
-              onChange={(e) => setNotes(e.currentTarget.value)}
-              minRows={3}
-              {...notesField.handlers}
-              styles={notesField.styles}
+            <Select
+              label="Category"
+              data={categories}
+              value={category}
+              onChange={setCategory}
+              required
+              searchable
+              maxDropdownHeight={400}
+              {...categorySelect.handlers}
+              styles={categorySelect.styles}
+              withCheckIcon={false}
+              comboboxProps={{ withinPortal: true, zIndex: 500 }}
             />
+          </Group>
 
-            {createMutation.isError || updateMutation.isError ? (
-              <Text c="red" size="sm">
-                {updateMutation.error instanceof Error
-                  ? updateMutation.error.message
-                  : createMutation.error instanceof Error
-                    ? createMutation.error.message
-                    : 'Failed to save recurring payment'}
+          <Group grow align="flex-start">
+            <NumberInput
+              label="Monthly Amount"
+              prefix="₱ "
+              decimalScale={2}
+              value={amount}
+              onChange={(value) =>
+                setAmount(typeof value === 'number' ? value : '')
+              }
+              required
+              min={0}
+              {...amountField.handlers}
+              styles={amountField.styles}
+            />
+            <Select
+              label="Account"
+              data={accountOptions}
+              value={accountId}
+              onChange={setAccountId}
+              searchable
+              required
+              maxDropdownHeight={400}
+              {...accountSelect.handlers}
+              styles={accountSelect.styles}
+              withCheckIcon={false}
+              comboboxProps={{ withinPortal: true, zIndex: 500 }}
+            />
+          </Group>
+
+          <TextInput
+            label="Name"
+            placeholder="e.g., Rent, Spotify, Fridge Installment"
+            value={name}
+            onChange={(e) => setName(e.currentTarget.value)}
+            required
+            {...nameField.handlers}
+            styles={nameField.styles}
+          />
+
+          <Group grow align="flex-start">
+            <NumberInput
+              label="Months (Optional)"
+              description="Leave blank for subscriptions with no end date"
+              value={monthsCount}
+              onChange={(value) =>
+                setMonthsCount(typeof value === 'number' ? value : '')
+              }
+              min={1}
+              allowDecimal={false}
+              {...monthsCountField.handlers}
+              styles={monthsCountField.styles}
+            />
+            <Stack gap={10} style={{ flex: 1 }}>
+              <Text size="sm" fw={500} c="#101828">
+                Options
               </Text>
-            ) : null}
+              <Switch
+                label="Active"
+                checked={isActive}
+                onChange={(e) => setIsActive(e.currentTarget.checked)}
+              />
+              <Switch
+                label="Deduct on generate (Auto-paid)"
+                description="If off, this generates as pending and won't deduct until you mark it paid"
+                checked={deductOnGenerate}
+                onChange={(e) => setDeductOnGenerate(e.currentTarget.checked)}
+              />
+            </Stack>
+          </Group>
 
-            <Group justify="flex-end" gap="sm" mt="sm">
-              <Button
-                radius="md"
-                variant="default"
-                onClick={() => setOpened(false)}
-              >
-                Cancel
-              </Button>
-              <Button
-                radius="md"
-                onClick={() =>
-                  isEditing ? updateMutation.mutate() : createMutation.mutate()
-                }
-                loading={
-                  isEditing
-                    ? updateMutation.isPending
-                    : createMutation.isPending
-                }
-                disabled={!isValid}
-              >
-                {isEditing ? 'Update' : 'Save'}
-              </Button>
-            </Group>
-          </Stack>
-        </div>
+          <Textarea
+            label="Notes (Optional)"
+            value={notes}
+            onChange={(e) => setNotes(e.currentTarget.value)}
+            minRows={3}
+            {...notesField.handlers}
+            styles={notesField.styles}
+          />
+
+          {createMutation.isError || updateMutation.isError ? (
+            <Text c="red" size="sm">
+              {updateMutation.error instanceof Error
+                ? updateMutation.error.message
+                : createMutation.error instanceof Error
+                  ? createMutation.error.message
+                  : 'Failed to save recurring payment'}
+            </Text>
+          ) : null}
+
+          <Group justify="flex-end" gap="sm" mt="sm">
+            <Button
+              radius="md"
+              variant="default"
+              onClick={() => setOpened(false)}
+            >
+              Cancel
+            </Button>
+            <Button
+              radius="md"
+              onClick={() =>
+                isEditing ? updateMutation.mutate() : createMutation.mutate()
+              }
+              loading={
+                isEditing ? updateMutation.isPending : createMutation.isPending
+              }
+              disabled={!isValid}
+            >
+              {isEditing ? 'Update' : 'Save'}
+            </Button>
+          </Group>
+        </Stack>
       </UniversalModal>
     </Stack>
   );

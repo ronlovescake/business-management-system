@@ -28,14 +28,12 @@ export function CustomerDetailsModal({
       closeOnClickOutside
       closeOnEscape
     >
-      <div style={{ maxHeight: '82vh', overflowY: 'auto' }}>
-        <CustomerDetailsView
-          customerId={customerId}
-          apiBasePath={apiBasePath}
-          customerApiBasePath={customerApiBasePath}
-          onBack={onClose}
-        />
-      </div>
+      <CustomerDetailsView
+        customerId={customerId}
+        apiBasePath={apiBasePath}
+        customerApiBasePath={customerApiBasePath}
+        onBack={onClose}
+      />
     </UniversalModal>
   );
 }

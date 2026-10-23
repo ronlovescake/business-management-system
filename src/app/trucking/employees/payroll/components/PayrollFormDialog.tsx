@@ -116,7 +116,6 @@ export const PayrollFormDialog = React.memo(function PayrollFormDialog({
       }}
       body={{
         padding: 'md',
-        maxHeight: '75vh',
       }}
       footer={{
         layout: 'flex-end',

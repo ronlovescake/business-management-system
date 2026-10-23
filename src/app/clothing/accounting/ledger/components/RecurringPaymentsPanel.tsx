@@ -629,197 +629,193 @@ export function RecurringPaymentsPanel(props: {
         title="New recurring payment template"
         size="lg"
       >
-        <div style={{ maxHeight: '65vh', overflowY: 'auto' }}>
-          <Stack gap="sm">
-            <TextInput
-              label="Name"
-              placeholder="e.g., GCASH Loan 1"
-              value={form.name}
-              onChange={(e) => setForm((p) => ({ ...p, name: e.target.value }))}
-              {...nameField.handlers}
-              styles={nameField.styles}
-            />
+        <Stack gap="sm">
+          <TextInput
+            label="Name"
+            placeholder="e.g., GCASH Loan 1"
+            value={form.name}
+            onChange={(e) => setForm((p) => ({ ...p, name: e.target.value }))}
+            {...nameField.handlers}
+            styles={nameField.styles}
+          />
 
-            <Group grow align="flex-end">
-              <Select
-                label="Kind"
-                data={[
-                  { value: 'LOAN', label: 'Loan (principal only)' },
-                  { value: 'EXPENSE', label: 'Expense / Subscription' },
-                ]}
-                value={form.kind}
-                onChange={(value) =>
-                  setForm((p) => ({
-                    ...p,
-                    kind: (value as TemplateKind) ?? 'LOAN',
-                  }))
-                }
-                maxDropdownHeight={400}
-                {...kindSelect.handlers}
-                styles={kindSelect.styles}
-                withCheckIcon={false}
-                comboboxProps={{ withinPortal: true, zIndex: 500 }}
-              />
-              <NumberInput
-                label="Amount"
-                min={0}
-                value={form.amount}
-                onChange={(value) =>
-                  setForm((p) => ({
-                    ...p,
-                    amount: typeof value === 'number' ? value : 0,
-                  }))
-                }
-                {...amountField.handlers}
-                styles={amountField.styles}
-              />
-            </Group>
-
-            <Group grow align="flex-end">
-              <NumberInput
-                label="Day of month"
-                description="Used to compute the next due date after generation"
-                min={1}
-                max={31}
-                value={form.dayOfMonth}
-                onChange={(value) =>
-                  setForm((p) => ({
-                    ...p,
-                    dayOfMonth: typeof value === 'number' ? value : 1,
-                  }))
-                }
-                {...dayOfMonthField.handlers}
-                styles={dayOfMonthField.styles}
-              />
-
-              <DateInput
-                label="Next due date"
-                value={parseDateValue(form.nextDueDate)}
-                onChange={(value) =>
-                  setForm((p) => ({
-                    ...p,
-                    nextDueDate: value
-                      ? formatDateForInput(value)
-                      : buildDefaultForm().nextDueDate,
-                  }))
-                }
-                {...nextDueDateField.handlers}
-                styles={nextDueDateField.styles}
-                {...COMMON_DATE_INPUT_PROPS}
-              />
-
-              <DateInput
-                label="End date (optional)"
-                value={parseDateValue(form.endDate)}
-                onChange={(value) =>
-                  setForm((p) => ({
-                    ...p,
-                    endDate: value ? formatDateForInput(value) : '',
-                  }))
-                }
-                clearable
-                {...endDateField.handlers}
-                styles={endDateField.styles}
-                {...COMMON_DATE_INPUT_PROPS}
-              />
-            </Group>
-
-            <Divider />
-
-            <Group grow align="flex-end">
-              <Select
-                label="Debit account"
-                data={accountOptions}
-                searchable
-                value={form.debitAccount}
-                onChange={(value) =>
-                  setForm((p) => ({ ...p, debitAccount: value ?? '' }))
-                }
-                maxDropdownHeight={400}
-                {...debitAccountSelect.handlers}
-                styles={debitAccountSelect.styles}
-                withCheckIcon={false}
-                comboboxProps={{ withinPortal: true, zIndex: 500 }}
-              />
-              <TextInput
-                label="Debit tag (optional)"
-                disabled={!isTaggableAccountParent(form.debitAccount)}
-                value={form.debitTag}
-                onChange={(e) =>
-                  setForm((p) => ({ ...p, debitTag: e.target.value }))
-                }
-                {...debitTagField.handlers}
-                styles={debitTagField.styles}
-              />
-            </Group>
-
-            <Group grow align="flex-end">
-              <Select
-                label="Credit account"
-                data={accountOptions}
-                searchable
-                value={form.creditAccount}
-                onChange={(value) =>
-                  setForm((p) => ({ ...p, creditAccount: value ?? '' }))
-                }
-                maxDropdownHeight={400}
-                {...creditAccountSelect.handlers}
-                styles={creditAccountSelect.styles}
-                withCheckIcon={false}
-                comboboxProps={{ withinPortal: true, zIndex: 500 }}
-              />
-              <TextInput
-                label="Credit tag (optional)"
-                disabled={!isTaggableAccountParent(form.creditAccount)}
-                value={form.creditTag}
-                onChange={(e) =>
-                  setForm((p) => ({ ...p, creditTag: e.target.value }))
-                }
-                {...creditTagField.handlers}
-                styles={creditTagField.styles}
-              />
-            </Group>
-
-            <TextInput
-              label="Description (optional)"
-              placeholder="Shown as the draft/journal description (leave blank for simple subscriptions)"
-              value={form.notes}
-              onChange={(e) =>
-                setForm((p) => ({ ...p, notes: e.target.value }))
+          <Group grow align="flex-end">
+            <Select
+              label="Kind"
+              data={[
+                { value: 'LOAN', label: 'Loan (principal only)' },
+                { value: 'EXPENSE', label: 'Expense / Subscription' },
+              ]}
+              value={form.kind}
+              onChange={(value) =>
+                setForm((p) => ({
+                  ...p,
+                  kind: (value as TemplateKind) ?? 'LOAN',
+                }))
               }
-              {...notesField.handlers}
-              styles={notesField.styles}
+              maxDropdownHeight={400}
+              {...kindSelect.handlers}
+              styles={kindSelect.styles}
+              withCheckIcon={false}
+              comboboxProps={{ withinPortal: true, zIndex: 500 }}
             />
-
-            <Switch
-              checked={form.isActive}
-              onChange={(e) =>
-                setForm((p) => ({ ...p, isActive: e.currentTarget.checked }))
+            <NumberInput
+              label="Amount"
+              min={0}
+              value={form.amount}
+              onChange={(value) =>
+                setForm((p) => ({
+                  ...p,
+                  amount: typeof value === 'number' ? value : 0,
+                }))
               }
-              label="Active"
+              {...amountField.handlers}
+              styles={amountField.styles}
+            />
+          </Group>
+
+          <Group grow align="flex-end">
+            <NumberInput
+              label="Day of month"
+              description="Used to compute the next due date after generation"
+              min={1}
+              max={31}
+              value={form.dayOfMonth}
+              onChange={(value) =>
+                setForm((p) => ({
+                  ...p,
+                  dayOfMonth: typeof value === 'number' ? value : 1,
+                }))
+              }
+              {...dayOfMonthField.handlers}
+              styles={dayOfMonthField.styles}
             />
 
-            <Group justify="flex-end" mt="sm">
-              <Button
-                radius="md"
-                variant="default"
-                onClick={() => {
-                  setIsCreateModalOpen(false);
-                  resetForm();
-                }}
-              >
-                Cancel
-              </Button>
-              <Button
-                radius="md"
-                loading={isSavingTemplate}
-                onClick={handleCreateTemplate}
-              >
-                Create
-              </Button>
-            </Group>
-          </Stack>
-        </div>
+            <DateInput
+              label="Next due date"
+              value={parseDateValue(form.nextDueDate)}
+              onChange={(value) =>
+                setForm((p) => ({
+                  ...p,
+                  nextDueDate: value
+                    ? formatDateForInput(value)
+                    : buildDefaultForm().nextDueDate,
+                }))
+              }
+              {...nextDueDateField.handlers}
+              styles={nextDueDateField.styles}
+              {...COMMON_DATE_INPUT_PROPS}
+            />
+
+            <DateInput
+              label="End date (optional)"
+              value={parseDateValue(form.endDate)}
+              onChange={(value) =>
+                setForm((p) => ({
+                  ...p,
+                  endDate: value ? formatDateForInput(value) : '',
+                }))
+              }
+              clearable
+              {...endDateField.handlers}
+              styles={endDateField.styles}
+              {...COMMON_DATE_INPUT_PROPS}
+            />
+          </Group>
+
+          <Divider />
+
+          <Group grow align="flex-end">
+            <Select
+              label="Debit account"
+              data={accountOptions}
+              searchable
+              value={form.debitAccount}
+              onChange={(value) =>
+                setForm((p) => ({ ...p, debitAccount: value ?? '' }))
+              }
+              maxDropdownHeight={400}
+              {...debitAccountSelect.handlers}
+              styles={debitAccountSelect.styles}
+              withCheckIcon={false}
+              comboboxProps={{ withinPortal: true, zIndex: 500 }}
+            />
+            <TextInput
+              label="Debit tag (optional)"
+              disabled={!isTaggableAccountParent(form.debitAccount)}
+              value={form.debitTag}
+              onChange={(e) =>
+                setForm((p) => ({ ...p, debitTag: e.target.value }))
+              }
+              {...debitTagField.handlers}
+              styles={debitTagField.styles}
+            />
+          </Group>
+
+          <Group grow align="flex-end">
+            <Select
+              label="Credit account"
+              data={accountOptions}
+              searchable
+              value={form.creditAccount}
+              onChange={(value) =>
+                setForm((p) => ({ ...p, creditAccount: value ?? '' }))
+              }
+              maxDropdownHeight={400}
+              {...creditAccountSelect.handlers}
+              styles={creditAccountSelect.styles}
+              withCheckIcon={false}
+              comboboxProps={{ withinPortal: true, zIndex: 500 }}
+            />
+            <TextInput
+              label="Credit tag (optional)"
+              disabled={!isTaggableAccountParent(form.creditAccount)}
+              value={form.creditTag}
+              onChange={(e) =>
+                setForm((p) => ({ ...p, creditTag: e.target.value }))
+              }
+              {...creditTagField.handlers}
+              styles={creditTagField.styles}
+            />
+          </Group>
+
+          <TextInput
+            label="Description (optional)"
+            placeholder="Shown as the draft/journal description (leave blank for simple subscriptions)"
+            value={form.notes}
+            onChange={(e) => setForm((p) => ({ ...p, notes: e.target.value }))}
+            {...notesField.handlers}
+            styles={notesField.styles}
+          />
+
+          <Switch
+            checked={form.isActive}
+            onChange={(e) =>
+              setForm((p) => ({ ...p, isActive: e.currentTarget.checked }))
+            }
+            label="Active"
+          />
+
+          <Group justify="flex-end" mt="sm">
+            <Button
+              radius="md"
+              variant="default"
+              onClick={() => {
+                setIsCreateModalOpen(false);
+                resetForm();
+              }}
+            >
+              Cancel
+            </Button>
+            <Button
+              radius="md"
+              loading={isSavingTemplate}
+              onClick={handleCreateTemplate}
+            >
+              Create
+            </Button>
+          </Group>
+        </Stack>
       </UniversalModal>
     </Stack>
   );

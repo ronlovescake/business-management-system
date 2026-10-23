@@ -281,6 +281,18 @@ const max_retry = 3; // Mixed convention
 
 ### Code Organization
 
+#### Modal Entry Forms
+
+Keep entry-form bodies at their natural height. Do not add an internal
+height-limited scrolling region around fields or footer actions. Use the outer
+modal's normal viewport scrolling on short screens so every field and action
+remains reachable and keyboard focus outlines are not clipped.
+
+The polished form template follows this convention. Keep scrolling where it
+serves a bounded data view, such as dropdown options, transaction tables,
+permission trees, record histories, document viewers, or backup previews. Avoid
+wrapping these views in another whole-form scrolling container.
+
 #### Import Order
 
 ```typescript
