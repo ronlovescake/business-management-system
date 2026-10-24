@@ -4,7 +4,10 @@ import { useQueryClient } from '@tanstack/react-query';
 import { getSwal } from '@/lib/alerts';
 import { api } from '@/lib/api/client';
 import { buildApiPath } from '@/lib/api/paths';
-import { isCancelledOrderStatus } from '@/lib/transactions/order-status';
+import {
+  isCancelledOrderStatus,
+  normalizeOrderStatus,
+} from '@/lib/transactions/order-status';
 import { queryKeys } from '@/lib/queryKeys';
 import {
   STATUS_FILTER_OPTIONS,
@@ -51,7 +54,6 @@ export function useTransactionPaymentsState({
   opened,
   onClose,
   transactions,
-  customerNames,
   defaultCustomerName,
   onCustomerChange,
   defaultProductCode,
@@ -132,8 +134,46 @@ export function useTransactionPaymentsState({
     [onProductCodeChange]
   );
 
+  const customerOptions = useMemo(() => {
+    const names = new Set<string>();
+
+    transactions.forEach((transaction) => {
+      const status = transaction['Order Status'];
+      if (
+        !transaction.id ||
+        transaction.id <= 0 ||
+        normalizeOrderStatus(status) === 'shipped' ||
+        isCancelledOrderStatus(status)
+      ) {
+        return;
+      }
+
+      const name = (transaction.Customers ?? '').trim();
+      if (name) {
+        names.add(name);
+      }
+    });
+
+    return Array.from(names)
+      .sort((left, right) => left.localeCompare(right))
+      .map((name) => ({ value: name, label: name }));
+  }, [transactions]);
+
   useEffect(() => {
-    if (!opened || !defaultCustomerName || selectedCustomer) {
+    if (!opened) {
+      return;
+    }
+
+    if (selectedCustomer) {
+      if (
+        !customerOptions.some((option) => option.value === selectedCustomer)
+      ) {
+        setSelectedCustomer(null);
+      }
+      return;
+    }
+
+    if (!defaultCustomerName) {
       return;
     }
 
@@ -142,19 +182,14 @@ export function useTransactionPaymentsState({
       return;
     }
 
-    const match = customerNames.find(
-      (name) => name.trim().toLowerCase() === normalizedDefault
+    const match = customerOptions.find(
+      (option) => option.value.toLowerCase() === normalizedDefault
     );
 
     if (match) {
-      setSelectedCustomer(match);
+      setSelectedCustomer(match.value);
     }
-  }, [customerNames, defaultCustomerName, opened, selectedCustomer]);
-
-  const customerOptions = useMemo(
-    () => customerNames.map((name) => ({ value: name, label: name })),
-    [customerNames]
-  );
+  }, [customerOptions, defaultCustomerName, opened, selectedCustomer]);
 
   const productCodeOptions = useMemo(() => {
     const unique = new Set<string>();

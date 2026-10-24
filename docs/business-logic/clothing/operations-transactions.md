@@ -41,6 +41,21 @@ rollups continue to refer to the same product.
 
 ---
 
+### Record Payments Customer Filter
+
+The customer dropdown lists each customer once when they have at least one
+saved order whose status is not `Shipped`, `Cancelled`, `Voided`, or
+`Forfeited`. Customers with no orders or only closed orders are excluded.
+The customer list is independent of the selected status pills and product
+filter; those filters still control the payment table. A default customer
+must meet the same open-order rule, and a selected customer is cleared when
+their last open order closes.
+
+The implementation lives in
+`src/modules/clothing/operations/transactions/components/useTransactionPaymentsState.ts`.
+
+---
+
 ## C — Order Status Rules
 
 | #   | Logic                                                                                                          | Explanation                                                             |

@@ -1,9 +1,10 @@
 import React from 'react';
 import { describe, expect, it, vi } from 'vitest';
-import { render, waitFor } from '@testing-library/react';
+import { render, renderHook, waitFor } from '@testing-library/react';
 import { MantineProvider } from '@mantine/core';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { TransactionPaymentsModal } from '@/modules/clothing/operations/transactions/components/TransactionPaymentsModal';
+import { useTransactionPaymentsState } from '@/modules/clothing/operations/transactions/components/useTransactionPaymentsState';
 import type { TransactionData } from '@/modules/clothing/operations/transactions/types/transaction.types';
 
 interface MockUniversalModalProps {
@@ -53,6 +54,127 @@ function createTransaction(
 }
 
 describe('TransactionPaymentsModal default prefill sync', () => {
+  it('lists only unique customers with open orders, regardless of the selected status pills', () => {
+    const transactions = [
+      ...[
+        'In Transit',
+        'Warehouse',
+        'Prepared',
+        'Ready For Dispatch',
+        'Checked Out',
+        'On-Hold',
+        'Accounts Receivable',
+        'Pending Payment',
+      ].map((status, index) =>
+        createTransaction({
+          id: index + 1,
+          Customers: status,
+          'Order Status': status,
+        })
+      ),
+      ...[
+        'Shipped',
+        'Cancelled',
+        'Voided',
+        'Forfeited',
+        ' SHIPPED ',
+        ' cancelled ',
+        ' VOIDED ',
+        ' forfeited ',
+      ].map((status, index) =>
+        createTransaction({
+          id: index + 20,
+          Customers: `Closed ${index}`,
+          'Order Status': status,
+        })
+      ),
+      createTransaction({
+        id: 40,
+        Customers: 'Prepared',
+        'Order Status': 'Cancelled',
+      }),
+      createTransaction({ id: 41, Customers: 'Prepared' }),
+      createTransaction({ id: 42, Customers: '   ' }),
+      createTransaction({ id: undefined, Customers: 'Unsaved Customer' }),
+    ];
+    const queryClient = new QueryClient();
+    const { result } = renderHook(
+      () =>
+        useTransactionPaymentsState({
+          opened: true,
+          onClose: vi.fn(),
+          transactions,
+          customerNames: ['Directory Only Customer', 'Closed 0', 'Prepared'],
+          selectedStatuses: new Set(['Prepared']),
+          onStatusFilter: vi.fn(),
+        }),
+      {
+        wrapper: ({ children }) => (
+          <QueryClientProvider client={queryClient}>
+            {children}
+          </QueryClientProvider>
+        ),
+      }
+    );
+
+    expect(
+      result.current.customerOptions.map((option) => option.value)
+    ).toEqual(
+      [
+        'In Transit',
+        'Warehouse',
+        'Prepared',
+        'Ready For Dispatch',
+        'Checked Out',
+        'On-Hold',
+        'Accounts Receivable',
+        'Pending Payment',
+      ].sort((left, right) => left.localeCompare(right))
+    );
+  });
+
+  it('does not prefill a closed-order customer and clears selections when their last open order closes', async () => {
+    const queryClient = new QueryClient();
+    const onCustomerChange = vi.fn();
+    const { result, rerender } = renderHook(
+      ({ status }) =>
+        useTransactionPaymentsState({
+          opened: true,
+          onClose: vi.fn(),
+          transactions: [
+            createTransaction({
+              Customers: 'Customer',
+              'Order Status': status,
+            }),
+          ],
+          customerNames: ['Customer'],
+          defaultCustomerName: 'Customer',
+          onCustomerChange,
+          selectedStatuses: new Set(['Prepared']),
+          onStatusFilter: vi.fn(),
+        }),
+      {
+        initialProps: { status: 'Shipped' },
+        wrapper: ({ children }) => (
+          <QueryClientProvider client={queryClient}>
+            {children}
+          </QueryClientProvider>
+        ),
+      }
+    );
+
+    expect(result.current.selectedCustomer).toBeNull();
+    expect(result.current.customerOptions).toEqual([]);
+    rerender({ status: 'Prepared' });
+    await waitFor(() =>
+      expect(result.current.selectedCustomer).toBe('Customer')
+    );
+    rerender({ status: 'Forfeited' });
+    await waitFor(() => expect(result.current.selectedCustomer).toBeNull());
+    expect(result.current.customerOptions).toEqual([]);
+    expect(onCustomerChange).not.toHaveBeenCalled();
+  });
+
   it.each([
     ['https://m.me/lyn.domingo', 'https://m.me/lyn.domingo'],
     ['m.me/lyn.domingo', 'https://m.me/lyn.domingo'],
