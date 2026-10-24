@@ -12,6 +12,25 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 60
 
+    env:
+      INTEGRATION_ENV_FILE: .env.test.example
+      TEST_ENV_FILE: .env.test.example
+
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_USER: test
+          POSTGRES_PASSWORD: test
+          POSTGRES_DB: business_management_test
+        ports:
+          - 5433:5432
+        options: >-
+          --health-cmd "pg_isready -U test -d business_management_test"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -41,6 +60,9 @@ jobs:
 
       - name: Unit tests
         run: npm run test:unit
+
+      - name: Prepare integration database
+        run: node scripts/reset-test-db.js --seed
 
       - name: Integration tests
         run: npm run test:integration

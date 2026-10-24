@@ -36,6 +36,9 @@ description: 'Repository-wide developer instructions for the Business Management
 
 ## 3. Domain Model Expectations
 
+- Before changing business behavior, read `docs/BUSINESS_LOGIC_DOCUMENTATION_STANDARD.md` and the affected domain policy/contracts. Follow its required business-rule change protocol for clothing, general merchandise, trucking, household/personal finance, and shared/platform behavior.
+- Identify the approved invariant, accountable policy owner, owning enforcement code, and every affected UI/API/job/bulk/import path before editing. Check shared consumers and sibling domains; do not infer approved policy from conflicting implementations or silently homogenize intentional domain differences. Ask the business owner when policy is unresolved.
+- Prefer the existing domain enforcement boundary over independent copies of the same rule. Test failure, retry, concurrency, and alternate entry points where relevant. Record intentional differences and approvals, updated contract paths, actual test results, and remaining risks in the PR's required business-rule record. Formatting-only changes still need an explicit non-business rationale.
 - This repository serves multiple business areas in one application: clothing, general merchandise, trucking, household finance, and platform/admin.
 - Clothing and general merchandise often follow parallel patterns. When changing one side, check whether the other side should also change or whether the difference is intentional and should be documented.
 - Respect schema and domain boundaries. Do not assume all business areas share the same tables, workflows, or employee records.

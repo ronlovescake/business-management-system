@@ -2,6 +2,7 @@
 /* eslint-disable no-console */
 
 const { execSync } = require('child_process');
+const { readFileSync } = require('fs');
 const path = require('path');
 const dotenv = require('dotenv');
 
@@ -53,11 +54,12 @@ if (
   process.exit(1);
 }
 
-function run(command, description) {
+function run(command, description, input) {
   try {
     console.log(`▶ ${description}`);
     execSync(command, {
-      stdio: 'inherit',
+      stdio: input === undefined ? 'inherit' : ['pipe', 'inherit', 'inherit'],
+      input,
       env: {
         ...process.env,
         DATABASE_URL: process.env.DATABASE_URL,
@@ -71,12 +73,23 @@ function run(command, description) {
 
 const shouldSeed = process.argv.includes('--seed');
 
-// For Playwright we need the database shape to match the current Prisma
-// multi-schema model exactly. On the dedicated test database only, force-reset
-// the schema and recreate it from the current Prisma schema before seeding.
 run(
-  `${prismaArgs.join(' ')} db push --force-reset --schema prisma/schema.prisma --skip-generate`,
-  'reset and align test database schema'
+  `${prismaArgs.join(' ')} db execute --stdin --schema prisma/schema.prisma`,
+  'reset test schemas and bootstrap the investor-code sequence',
+  [
+    'BEGIN;',
+    'DROP SCHEMA IF EXISTS general_merchandise CASCADE;',
+    'DROP SCHEMA IF EXISTS public CASCADE;',
+    'CREATE SCHEMA public;',
+    'CREATE SCHEMA general_merchandise;',
+    'CREATE SEQUENCE public."ClothingInvestorCodeSequence" START WITH 1 INCREMENT BY 1 NO MINVALUE NO MAXVALUE CACHE 1;',
+    'COMMIT;',
+  ].join('\n')
+);
+
+run(
+  `${prismaArgs.join(' ')} db push --schema prisma/schema.prisma --skip-generate`,
+  'align test database schema'
 );
 
 run(
@@ -88,6 +101,45 @@ run(
   `${prismaArgs.join(' ')} db execute --file prisma/migrations/20261019100000_link_gm_customers_to_clothing/migration.sql --schema prisma/schema.prisma`,
   'install canonical Clothing-to-GM customer links'
 );
+
+for (const [migration, definition] of [
+  [
+    '20261020120000_clothing_product_identity',
+    'CREATE FUNCTION public.resolve_clothing_product_identity()',
+  ],
+  [
+    '20261020130000_general_merchandise_product_identity',
+    'CREATE FUNCTION general_merchandise.resolve_product_identity()',
+  ],
+]) {
+  const sql = readFileSync(
+    path.join(
+      __dirname,
+      '..',
+      'prisma',
+      'migrations',
+      migration,
+      'migration.sql'
+    ),
+    'utf8'
+  );
+  const start = sql.indexOf(definition);
+  if (
+    start === -1 ||
+    start !== sql.lastIndexOf(definition) ||
+    !sql.trimEnd().endsWith('COMMIT;')
+  ) {
+    console.error(
+      `Cannot locate the test trigger definitions in ${migration}.`
+    );
+    process.exit(1);
+  }
+  run(
+    `${prismaArgs.join(' ')} db execute --stdin --schema prisma/schema.prisma`,
+    `install test product-identity rules from ${migration}`,
+    `BEGIN;\n${sql.slice(start)}`
+  );
+}
 
 if (shouldSeed) {
   run(

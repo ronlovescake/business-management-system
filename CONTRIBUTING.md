@@ -100,6 +100,8 @@ git checkout -b feature/your-feature-name
    - Read relevant ADRs
    - Check similar implementations
 
+- Before business-behavior edits, follow the [business-rule change protocol](docs/BUSINESS_LOGIC_DOCUMENTATION_STANDARD.md#required-business-rule-change-protocol): identify approved policy and ownership, trace all affected entry points and sibling domains, and test the invariant across those paths.
+
 2. **Write tests**
    - Unit tests for services
    - Integration tests for APIs
@@ -759,6 +761,9 @@ Types:
    - What changed
    - Why it changed
    - How to test
+
+- Complete the marked JSON business-rule record in the PR template. Business changes require invariant/owner, affected domains and paths, policy/test/doc evidence, and intentional-difference decisions. Non-business changes require a rationale. Keep results honest; a structurally complete record is not proof that tests ran or policy is correct.
+- The PR-only `Business Rule Declaration` check runs when the description or code changes; `Guardrails + Validation` runs the existing quality suite. Both checks must be required by the GitHub `main` rule before the gate is enforceable. Push branches normally; wait for checks before merging. Do not push directly to protected `main`.
 
 2. **Link to issue** (if applicable)
 

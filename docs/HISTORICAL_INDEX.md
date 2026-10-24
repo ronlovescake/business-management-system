@@ -12,6 +12,11 @@ Use the files below only when you need historical refactor context, dated audit 
 
 ## Retained Historical Documents
 
+- [Refactor audit cycles and coverage evidence](./reports/archive/REFACTOR_AUDIT_CYCLES_2026-03-17_TO_2026-04-06.md)
+  Purpose: dated March-April 2026 audit sections extracted from the canonical tracker without deleting its evidence.
+- [Date/time refactor audit](./reports/archive/DATE_TIME_REFACTOR_AUDIT_2026-04-12.md)
+  Purpose: retained April 2026 timezone and display-format findings and completion labels.
+
 - [REFACTOR_EXEC_SUMMARY_2026-02-14.md](./reports/REFACTOR_EXEC_SUMMARY_2026-02-14.md)
   Purpose: append-only historical refactor log and execution trail.
 
