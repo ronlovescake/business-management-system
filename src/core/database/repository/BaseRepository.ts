@@ -27,6 +27,7 @@
  */
 
 import { prisma } from '@/lib/db';
+import type { Prisma } from '@prisma/client';
 import { logger } from '@/lib/logger';
 import type { PrismaModelName } from '@/types/prisma';
 
@@ -90,6 +91,8 @@ export interface FindOptions<T> {
  * @template TUpdateInput - The input type for updating entities
  */
 export abstract class BaseRepository<TEntity, TCreateInput, TUpdateInput> {
+  constructor(private readonly client: Prisma.TransactionClient = prisma) {}
+
   /**
    * The Prisma model name (e.g., 'user', 'product', 'leaveRequest')
    * Must be set by child classes. Type restricted to known Prisma models.
@@ -107,9 +110,10 @@ export abstract class BaseRepository<TEntity, TCreateInput, TUpdateInput> {
     TCreateInput,
     TUpdateInput
   > {
-    const delegate = Reflect.get(prisma as object, this.modelName) as Partial<
-      DynamicModelDelegate<TEntity, TCreateInput, TUpdateInput>
-    >;
+    const delegate = Reflect.get(
+      this.client as object,
+      this.modelName
+    ) as Partial<DynamicModelDelegate<TEntity, TCreateInput, TUpdateInput>>;
 
     if (
       !delegate ||

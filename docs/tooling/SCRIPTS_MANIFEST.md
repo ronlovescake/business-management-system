@@ -151,7 +151,6 @@ Add the date you last ran a script in the **Last Used** column when known.
 | `ensure-playwright-browsers.js` | Ensures Playwright browsers are installed. | ⚙️   |
 | `start-playwright-dev.js`       | Starts the Playwright dev session.         | ⚙️   |
 | `test-enterprise-features.sh`   | Smoke test for enterprise features.        | 🟢   |
-| `test-google-drive.sh`          | Smoke test for Google Drive integration.   | 🟢   |
 | `test-p2-constraints.js`        | Tests P2 schema constraints.               | 🟢   |
 
 ## Docker / Infra

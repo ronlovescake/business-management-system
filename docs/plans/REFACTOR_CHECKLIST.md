@@ -4,6 +4,11 @@ Last updated: 2026-04-06 (completed large-surface controller extractions, reconc
 
 This file is the canonical tracker for repo-wide refactor work.
 
+Documentation location updated 2026-10-25. The dated scans, counts and completed
+items below are historical evidence, not a fresh certification. Consult current
+source/tests and the [clothing audit](../reports/CLOTHING_INTEGRITY_AUDIT_2026-10-24.md)
+for its separately scoped follow-up outcomes.
+
 ## Refactor Contract
 
 These rules apply to every future refactor in this repository.
@@ -920,8 +925,6 @@ Purpose: keep one verified queue of remaining route-family refactors so future b
 - [x] Do not count a family as complete until route-level tests are added or updated for every touched domain.
 - [x] Keep this section API-first; large-hook and large-component decomposition work remains tracked in the rest of this checklist and should not be mixed into this route queue.
 
-
-
 ## Date/Time And Timezone Consistency (2026-04-12)
 
 Source: 3-pass repo-wide audit of all date/time/timezone handling. Target timezone is `Asia/Manila` (PHT, UTC+8).
@@ -1035,8 +1038,9 @@ No fix needed now, but document the convention so future work doesn't break it.
 Source: 3-pass repo-wide audit of all date/time display formatting in UI, PDFs, and API responses.
 
 **Target format**: `April 01, 2026 · 12:00 AM`
+
 - Date part: full month name, zero-padded day, 4-digit year (`month: 'long'`, `day: '2-digit'`, `year: 'numeric'`)
-- Separator: ` · ` (middle dot U+00B7, not a period)
+- Separator: `·` (middle dot U+00B7, not a period)
 - Time part: zero-padded 12-hour, minutes, AM/PM (`hour: '2-digit'`, `minute: '2-digit'`, `hour12: true`)
 - Always with `timeZone: 'Asia/Manila'`
 - Date-only contexts: `April 01, 2026`
@@ -1049,33 +1053,40 @@ For dayjs: `'MMMM DD, YYYY'` (date-only), `'MMMM DD, YYYY · hh:mm A'` (datetime
 ~~These are the core formatters imported by many modules. Fixing these propagates across all consumers.~~
 
 **`src/utils/dateFormatters.ts`** — 5 formatters:
+
 - [x] `dateFormatter`: now `month:'long', day:'2-digit'` ✅
 - [x] `timeFormatter`: now `hour:'2-digit', minute:'2-digit'`, no seconds ✅
 - [x] `timeFormatterShort`: now alias to `timeFormatter` ✅
 - [x] `dateFormatterShort`: now alias to `dateFormatter` ✅
-- [x] `dateTimeFormatter`: now custom `.format()` joining date+time with ` · ` ✅
+- [x] `dateTimeFormatter`: now custom `.format()` joining date+time with `·` ✅
 - [x] `formatDateParts()` and `formatTimeString()` helpers updated ✅
 
 **`src/services/FormatterService.ts`** — 4 methods:
+
 - [x] `formatDate()`: now `day:'2-digit'` + `timeZone: 'Asia/Manila'` ✅
 - [x] `formatDateShort()`: now `month:'long', day:'2-digit'` ✅
 - [x] `formatTime()`: now `hour:'2-digit'` + timezone ✅
-- [x] `formatDateTime()`: now joins with ` · ` separator ✅
+- [x] `formatDateTime()`: now joins with `·` separator ✅
 
 **`src/lib/formatters.ts`**:
+
 - [x] `formatDateTime()`: added `STANDARD_DATE_OPTIONS` and `STANDARD_TIME_OPTIONS` constants ✅
 
 **`src/lib/transactions/constants.ts`** — 2 formatters:
-- [x] `MANILA_TIME_FORMATTER`: now custom `.format()` joining with ` · ` ✅
+
+- [x] `MANILA_TIME_FORMATTER`: now custom `.format()` joining with `·` ✅
 - [x] `MANILA_DATE_FORMATTER`: now `month:'long', day:'2-digit'` ✅
 
 **`src/lib/payroll/formatters.ts`**:
+
 - [x] `formatPayrollDate()`: now `month:'long', day:'2-digit'` + timezone ✅
 
 **`src/lib/accounting/formatters.ts`**:
+
 - [x] `formatLongDateUS()`: dropped `weekday`, now `day:'2-digit'` + timezone ✅
 
 **`src/utils/date.ts`** — dayjs-based:
+
 - [x] `DATE_DISPLAY_FORMAT`: now `'MMMM DD, YYYY'` ✅
 - [x] `formatDisplayDate()`: uses corrected default ✅
 - [x] `formatDate()`: callers fixed to use standard patterns ✅
@@ -1086,6 +1097,7 @@ For dayjs: `'MMMM DD, YYYY'` (date-only), `'MMMM DD, YYYY · hh:mm A'` (datetime
 ~~All produce formats like "Oct 5, 2025" or "Oct 05, 2025" instead of target "October 05, 2025".~~
 
 **Trucking tables** (define own inline `formatDate`):
+
 - [x] `src/modules/trucking/operations/vehicle-assignments/components/VehicleAssignmentsTable.tsx` ✅
 - [x] `src/modules/trucking/operations/fleet-registry/components/FleetRegistryTable.tsx` ✅
 - [x] `src/modules/trucking/operations/fleet-registry/hooks/useFleetVehicleDetails.ts` ✅
@@ -1093,6 +1105,7 @@ For dayjs: `'MMMM DD, YYYY'` (date-only), `'MMMM DD, YYYY · hh:mm A'` (datetime
 - [x] `src/modules/_template/components/TemplateTable.tsx` ✅
 
 **Clothing/GM payroll and employees:**
+
 - [x] `src/modules/clothing/employees/payroll/components/EmployeePayrollPage.tsx` ✅
 - [x] `src/modules/clothing/employees/payroll/hooks/payrollHookUtils.ts` ✅
 - [x] `src/modules/clothing/operations/transactions/hooks/transactionDraftUtils.ts` ✅
@@ -1103,14 +1116,17 @@ For dayjs: `'MMMM DD, YYYY'` (date-only), `'MMMM DD, YYYY · hh:mm A'` (datetime
 - [x] `src/app/clothing/employees/team/hooks/useTeam.ts` ✅
 
 **Trucking other:**
+
 - [x] `src/app/trucking/analytics/profitability/page.tsx` ✅
 - [x] `src/app/trucking/employees/payroll/lib/formatters.ts` ✅
 
 **Accounting:**
+
 - [x] `src/lib/accounting/date-utils.ts` (`buildPeriodLabel`) ✅
 - [x] `src/app/clothing/accounting/profit-loss/components/ProfitLossDetailsTable.tsx` ✅
 
 **Notifications/Settings:**
+
 - [x] `src/modules/clothing/operations/checkout-links/components/tabs/LocalInvoicingTab.tsx` ✅
 - [x] `src/modules/clothing/operations/settings/components/TransactionsSettingsTab.tsx` ✅
 - [x] `src/app/clothing/operations/notifications/NotificationsClientPage.tsx` ✅
@@ -1118,6 +1134,7 @@ For dayjs: `'MMMM DD, YYYY'` (date-only), `'MMMM DD, YYYY · hh:mm A'` (datetime
 - [x] `src/app/api/general-merchandise/operations/notifications/route.ts` ✅
 
 **Backup UI:**
+
 - [x] `src/modules/clothing/operations/settings/backup/types.ts` (`formatBackupTimestamp`) ✅
 
 ### ~~3. Inline Formatters With `month: 'long'` But Wrong Day/Separator/Timezone~~ ✅ ALL FIXED (2026-04-12)
@@ -1152,25 +1169,31 @@ For dayjs: `'MMMM DD, YYYY'` (date-only), `'MMMM DD, YYYY · hh:mm A'` (datetime
 ### ~~6. dayjs `.format()` With Wrong Pattern~~ ✅ ALL FIXED (2026-04-12)
 
 **Leave tracker (dayjs with `Asia/Manila`):**
+
 - [x] `src/app/clothing/employees/leave-tracker/hooks/useLeaveTracker.ts` ✅
 
 **Employee dashboard (dayjs with `Asia/Manila`):**
+
 - [x] `src/app/clothing/employees/dashboard/hooks/useEmployeeDashboard.ts` ✅
 - [x] `src/modules/clothing/employees/dashboard/hooks/useEmployeeDashboard.tsx` ✅
 
 **`formatDisplayDate()` callers overriding with `'MMM D, YYYY'`:**
+
 - [x] `src/app/clothing/employees/attendance/hooks/useAttendance.ts` ✅
 - [x] `src/app/clothing/employees/cash-advance/hooks/useCashAdvance.ts` ✅
 - [x] `src/app/clothing/employees/thirteenth-month-pay/hooks/useThirteenthMonthPay.ts` ✅
 
 **Profit-loss chart labels:**
+
 - [x] `src/app/clothing/accounting/profit-loss/components/ProfitLossBreakdownsPanel.tsx` ✅
 
 **Dispatch ship timestamps:**
+
 - [x] `src/modules/clothing/operations/dispatch/components/RecentlyUpdatedTab.tsx` ✅
 - [x] `src/modules/clothing/operations/dispatch/components/CheckoutUpdateTab.tsx` ✅
 
 **Customer detail page:**
+
 - [x] `src/app/clothing/operations/customers/[id]/utils.tsx` ✅
 
 ### ~~7. Accounting Hooks Wrapping `formatLongDateUS()` — Includes Weekday~~ ✅ ALL FIXED (2026-04-12)
@@ -1209,7 +1232,7 @@ These have legitimate reasons to use non-standard formats:
 
 1. ~~**Fix centralized formatters FIRST** (§1) — this propagates to all consumers automatically~~
 2. ~~**Replace inline formatters with centralized imports** (§2–§6) — eliminate duplication~~
-3. ~~**For `Intl.DateTimeFormat`**: format date and time separately, join with ` · ` since Intl doesn't support custom separators~~
+3. ~~**For `Intl.DateTimeFormat`**: format date and time separately, join with `·` since Intl doesn't support custom separators~~
 4. ~~**For dayjs**: update `DATE_DISPLAY_FORMAT` to `'MMMM DD, YYYY'` and create `DATETIME_DISPLAY_FORMAT = 'MMMM DD, YYYY · hh:mm A'`~~
 5. ~~**Update test assertions** that match old format strings (test files in leave-tracker, employee-loans, schedules, team tests)~~
 

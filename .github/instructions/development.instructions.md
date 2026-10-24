@@ -127,5 +127,5 @@ npm run test:hardening
 - Contributor workflow: `CONTRIBUTING.md`
 - Business-domain index: `docs/BUSINESS_LOGIC_INDEX.md`
 - Verified architecture summary: `docs/reports/archive/REPO_VERIFIED_EXEC_SUMMARY_2026-03-29.md`
-- Repo-wide improvement checklist: `IMPROVEMENTS_CHECKLIST.md`
-- Full validated repo analysis: archived under `archives/root-scratch-2026-04-19/`
+- Repo-wide improvement checklist: `docs/plans/IMPROVEMENTS_CHECKLIST.md`
+- Full validated repo analysis: `docs/reports/archive/REPO_WIDE_ANALYSIS_ARCHIVED_2026-04-19.md` (dated evidence, not a current certification)

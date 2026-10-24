@@ -77,15 +77,41 @@ busy through persistence and reload.
 
 ---
 
-## F - Available Invoice And Drive API Boundaries
+## F - Manual Invoice And API Boundaries
 
-The served component does not mount a Google Drive sync button or the legacy
-Drive invoicing panel. Do not infer a working browser sync flow from retained
-API routes or the generic InvoicingTab component.
+Automatic Google Drive sync was retired on 2026-10-25. Its API endpoint,
+service-account configuration, dependency and smoke script were removed. The
+served component continues to use LocalInvoicingTab; no invoice records or
+manually configured URLs were removed.
 
-`GET /api/google-drive/sync-files` validates folder IDs, follows every
-nextPageToken, and returns failure instead of partial data if a later page
-fails. The tests mock Google; credentials and real remote results were not used.
+The `{DRIVE_FILES}` message placeholder remains supported for manual messaging,
+including templates and settings. The local invoicing caller passes an empty
+Drive-link override. Copying a message and opening Messenger is not evidence
+that a customer received it; real external delivery remains unverified.
+
+### Development Browser Evidence (2026-10-25)
+
+The [isolated browser check](../../../tests/e2e/manual-invoice-message.safe.ts)
+passed against the existing port-5002 bundle without rebuilding it. It uses
+normal credentials authentication for a uniquely named temporary development
+account, synthetic customer/order/settings responses, and intercepted clipboard
+and Messenger handoffs. It verifies missing-Messenger behavior, no tick after a
+failed copy, weight-matched checkout/payment links, placeholder replacement,
+local tick state, and desktop/mobile visibility after closing mobile navigation.
+No automatic Drive request or customer/invoice write is made. A background CSP
+report is intercepted too. Only the created test account is removed in finally;
+the default Playwright reset/seed setup is never used.
+
+Re-running this check creates and removes a development test account and needs
+explicit operational approval. It refuses a Docker container outside the
+development checkout or a port other than 5002. After approval, run
+`npx tsx tests/e2e/manual-invoice-message.safe.ts`. Screenshots are generated in
+`test-results/`; no credentials or customer data are stored in them.
+
+This is browser copy/handoff evidence, not real external delivery, PDF creation,
+or certification that the running bundle contains newly edited server code.
+The manual workflow passes an empty Drive override: `{DRIVE_FILES}` is still a
+valid template token, but the local invoice-date value is never sent as a URL.
 
 Clothing invoice replacement is `POST /api/invoices`, not
 `/api/clothing/invoices`. It validates the whole replacement list before writes,

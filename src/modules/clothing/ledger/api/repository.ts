@@ -4,7 +4,7 @@
  * Data access layer for expenses
  */
 
-import type { Expense } from '@prisma/client';
+import type { Expense, Prisma } from '@prisma/client';
 import { ExpenseRepositoryBase } from '@/modules/shared/ledger/expenses/api/repositoryBase';
 import type { ExpenseCreateInput, ExpenseUpdateInput } from './schemas';
 
@@ -13,8 +13,8 @@ export class ExpenseRepository extends ExpenseRepositoryBase<
   ExpenseCreateInput,
   ExpenseUpdateInput
 > {
-  constructor() {
-    super('expense');
+  constructor(client?: Prisma.TransactionClient) {
+    super('expense', client);
   }
 }
 

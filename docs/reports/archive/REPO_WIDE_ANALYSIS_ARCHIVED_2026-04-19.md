@@ -1,5 +1,10 @@
 # Repo-Wide Analysis — Business Management System
 
+Archived evidence, relocated under docs on 2026-10-25. The dates and claims below
+describe their original review, not current certification. References to the old
+root CHECKLIST refer to the [retained refactor tracker](../../plans/REFACTOR_CHECKLIST.md).
+Use the [documentation hub](../../README.md) and current source/tests first.
+
 **Stack:** Next.js 14 (App Router) · TypeScript (strict) · Prisma 5 + PostgreSQL (multi-schema) · React Query v5 · Mantine 7 · Zustand · Vitest · Playwright · Zod · Sentry · Docker
 
 **Verification note (2026-03-29):** This report has been rechecked against the current repository. Earlier stale or overstated claims have been corrected below. Where clone ratios are cited, they are explicitly sourced from `CHECKLIST.md` rather than presented as freshly recomputed metrics.

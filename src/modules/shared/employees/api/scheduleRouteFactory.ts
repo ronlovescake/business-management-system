@@ -72,6 +72,9 @@ interface ScheduleRouteLogMessages {
 }
 
 export interface ScheduleRouteFactoryConfig {
+  withTransaction?: <T>(
+    operation: (store: ScheduleRouteFactoryConfig) => Promise<T>
+  ) => Promise<T>;
   scheduleModel: {
     findAll: () => Promise<ScheduleEntity[]>;
     findByIds: (ids: string[]) => Promise<ScheduleEntity[]>;
@@ -120,6 +123,12 @@ function mapScheduleMutationError(
 
   if (options.includeNotFound && error.code === 'P2025') {
     return ApiResponseUtil.error('Schedule not found or already deleted', 404);
+  }
+  if (error.code === 'P2034') {
+    return ApiResponseUtil.error(
+      'Schedule changed concurrently; refresh and retry',
+      409
+    );
   }
 
   if (error.code === 'P2002') {
@@ -187,6 +196,13 @@ async function extractScheduleId(request: NextRequest) {
 }
 
 export function createScheduleRoutes(config: ScheduleRouteFactoryConfig) {
+  const runMutation = <T>(
+    operation: (store: ScheduleRouteFactoryConfig) => Promise<T>
+  ) =>
+    config.withTransaction
+      ? config.withTransaction(operation)
+      : operation(config);
+
   const GET = withErrorHandler(
     async () => {
       const schedules = await config.scheduleModel.findAll();
@@ -200,150 +216,152 @@ export function createScheduleRoutes(config: ScheduleRouteFactoryConfig) {
   const POST = withErrorHandler(
     async (request: NextRequest) => {
       const payload = await request.json();
-      const items = ensureScheduleArray(payload);
+      return runMutation(async (store) => {
+        const items = ensureScheduleArray(payload);
 
-      if (items.length === 0) {
-        return ApiResponseUtil.error(
-          'Request body must contain schedule data',
-          400
-        );
-      }
+        if (items.length === 0) {
+          return ApiResponseUtil.error(
+            'Request body must contain schedule data',
+            400
+          );
+        }
 
-      if (items.length > SCHEDULE_BULK_LIMIT) {
-        return ApiResponseUtil.payloadTooLarge(
-          items.length,
-          SCHEDULE_BULK_LIMIT
-        );
-      }
+        if (items.length > SCHEDULE_BULK_LIMIT) {
+          return ApiResponseUtil.payloadTooLarge(
+            items.length,
+            SCHEDULE_BULK_LIMIT
+          );
+        }
 
-      const validationErrors: Array<{
-        index: number;
-        errors: Record<string, string>;
-      }> = [];
-      const validatedInputs: PersistableScheduleInput[] = [];
-      const employeeIds = new Set<string>();
+        const validationErrors: Array<{
+          index: number;
+          errors: Record<string, string>;
+        }> = [];
+        const validatedInputs: PersistableScheduleInput[] = [];
+        const employeeIds = new Set<string>();
 
-      items.forEach((item, index) => {
-        try {
-          const createInput = toScheduleCreateInput(item);
-          const validation = validateSchedule(createInput);
+        items.forEach((item, index) => {
+          try {
+            const createInput = toScheduleCreateInput(item);
+            const validation = validateSchedule(createInput);
 
-          if (!validation.success) {
+            if (!validation.success) {
+              validationErrors.push({
+                index,
+                errors: formatValidationErrors(validation.error),
+              });
+              return;
+            }
+
+            validatedInputs.push({
+              id: randomUUID(),
+              ...validation.data,
+              notes: validation.data.notes ?? null,
+              templateId: validation.data.templateId ?? null,
+              recurrenceId: validation.data.recurrenceId ?? null,
+            });
+            employeeIds.add(createInput.employeeId);
+          } catch (error) {
             validationErrors.push({
               index,
-              errors: formatValidationErrors(validation.error),
+              errors: {
+                _error:
+                  error instanceof Error
+                    ? error.message
+                    : 'Invalid schedule data',
+              },
             });
-            return;
           }
+        });
 
-          validatedInputs.push({
-            id: randomUUID(),
-            ...validation.data,
-            notes: validation.data.notes ?? null,
-            templateId: validation.data.templateId ?? null,
-            recurrenceId: validation.data.recurrenceId ?? null,
-          });
-          employeeIds.add(createInput.employeeId);
-        } catch (error) {
-          validationErrors.push({
-            index,
-            errors: {
-              _error:
-                error instanceof Error
-                  ? error.message
-                  : 'Invalid schedule data',
-            },
-          });
+        if (validationErrors.length > 0) {
+          return ApiResponseUtil.error(
+            'Validation failed for multiple records',
+            400,
+            `Valid: ${validatedInputs.length}, Invalid: ${validationErrors.length}`,
+            {
+              meta: {
+                details: validationErrors,
+                validCount: validatedInputs.length,
+                invalidCount: validationErrors.length,
+              },
+            }
+          );
         }
+
+        const duplicateEntries = findDuplicateEntries(validatedInputs);
+        if (duplicateEntries.length > 0) {
+          return ApiResponseUtil.error(
+            'Duplicate schedules in request',
+            409,
+            'Each employee can only have one schedule per date. Remove duplicates and try again.',
+            {
+              meta: { duplicates: duplicateEntries },
+            }
+          );
+        }
+
+        const pairs = validatedInputs.map(({ employeeId, date }) => ({
+          employeeId,
+          date,
+        }));
+
+        if (pairs.length > 0) {
+          const existingConflicts =
+            await store.scheduleModel.findExistingConflicts(pairs);
+
+          if (existingConflicts.length > 0) {
+            return ApiResponseUtil.error(
+              'Duplicate schedules exist',
+              409,
+              'A schedule already exists for one or more employee/date combinations.',
+              {
+                meta: { conflicts: existingConflicts },
+              }
+            );
+          }
+        }
+
+        if (employeeIds.size > 0) {
+          const existingIds = new Set(
+            await store.employeeModel.findExistingIds(Array.from(employeeIds))
+          );
+          const missingIds = Array.from(employeeIds).filter(
+            (employeeId) => !existingIds.has(employeeId)
+          );
+
+          if (missingIds.length > 0) {
+            return ApiResponseUtil.error(
+              'Referenced employees not found',
+              409,
+              `The following employee IDs do not exist: ${missingIds.join(', ')}`,
+              {
+                suggestion:
+                  'Please ensure all employees exist before importing schedules',
+                meta: { missingEmployeeIds: missingIds },
+              }
+            );
+          }
+        }
+
+        await store.scheduleModel.createMany(validatedInputs);
+
+        const created = await store.scheduleModel.findByIds(
+          validatedInputs.map((record) => record.id)
+        );
+        const schedules = created.map(mapScheduleToResponse);
+
+        logger.info(config.logMessages.created, { count: schedules.length });
+
+        return ApiResponseUtil.success(
+          {
+            count: schedules.length,
+            schedules,
+          },
+          `Successfully saved ${schedules.length} schedule(s)`,
+          201
+        );
       });
-
-      if (validationErrors.length > 0) {
-        return ApiResponseUtil.error(
-          'Validation failed for multiple records',
-          400,
-          `Valid: ${validatedInputs.length}, Invalid: ${validationErrors.length}`,
-          {
-            meta: {
-              details: validationErrors,
-              validCount: validatedInputs.length,
-              invalidCount: validationErrors.length,
-            },
-          }
-        );
-      }
-
-      const duplicateEntries = findDuplicateEntries(validatedInputs);
-      if (duplicateEntries.length > 0) {
-        return ApiResponseUtil.error(
-          'Duplicate schedules in request',
-          409,
-          'Each employee can only have one schedule per date. Remove duplicates and try again.',
-          {
-            meta: { duplicates: duplicateEntries },
-          }
-        );
-      }
-
-      const pairs = validatedInputs.map(({ employeeId, date }) => ({
-        employeeId,
-        date,
-      }));
-
-      if (pairs.length > 0) {
-        const existingConflicts =
-          await config.scheduleModel.findExistingConflicts(pairs);
-
-        if (existingConflicts.length > 0) {
-          return ApiResponseUtil.error(
-            'Duplicate schedules exist',
-            409,
-            'A schedule already exists for one or more employee/date combinations.',
-            {
-              meta: { conflicts: existingConflicts },
-            }
-          );
-        }
-      }
-
-      if (employeeIds.size > 0) {
-        const existingIds = new Set(
-          await config.employeeModel.findExistingIds(Array.from(employeeIds))
-        );
-        const missingIds = Array.from(employeeIds).filter(
-          (employeeId) => !existingIds.has(employeeId)
-        );
-
-        if (missingIds.length > 0) {
-          return ApiResponseUtil.error(
-            'Referenced employees not found',
-            409,
-            `The following employee IDs do not exist: ${missingIds.join(', ')}`,
-            {
-              suggestion:
-                'Please ensure all employees exist before importing schedules',
-              meta: { missingEmployeeIds: missingIds },
-            }
-          );
-        }
-      }
-
-      await config.scheduleModel.createMany(validatedInputs);
-
-      const created = await config.scheduleModel.findByIds(
-        validatedInputs.map((record) => record.id)
-      );
-      const schedules = created.map(mapScheduleToResponse);
-
-      logger.info(config.logMessages.created, { count: schedules.length });
-
-      return ApiResponseUtil.success(
-        {
-          count: schedules.length,
-          schedules,
-        },
-        `Successfully saved ${schedules.length} schedule(s)`,
-        201
-      );
     },
     {
       onError: buildMutationErrorResponse('Failed to create schedules'),
@@ -361,55 +379,58 @@ export function createScheduleRoutes(config: ScheduleRouteFactoryConfig) {
         return ApiResponseUtil.error('Schedule ID is required', 400);
       }
 
-      const existing = await config.scheduleModel.findById(id);
-      if (!existing) {
-        return ApiResponseUtil.error(
-          'Schedule not found or already deleted',
-          404
+      return runMutation(async (store) => {
+        const existing = await store.scheduleModel.findById(id);
+        if (!existing) {
+          return ApiResponseUtil.error(
+            'Schedule not found or already deleted',
+            404
+          );
+        }
+
+        const updateData = toScheduleUpdateInput(payload);
+        if (Object.keys(updateData).length === 0) {
+          return ApiResponseUtil.error(
+            'No valid fields supplied for update',
+            400
+          );
+        }
+
+        const validation = scheduleUpdateSchema.safeParse(updateData);
+        if (!validation.success) {
+          return ApiResponseUtil.error('Validation failed', 400, undefined, {
+            validationErrors: formatValidationErrors(validation.error),
+          });
+        }
+
+        const targetEmployeeId =
+          validation.data.employeeId ?? existing.employeeId;
+        const targetDate = validation.data.date ?? existing.date;
+
+        const conflicting =
+          await store.scheduleModel.findOtherByEmployeeAndDate(
+            id,
+            targetEmployeeId,
+            targetDate
+          );
+
+        if (conflicting) {
+          return ApiResponseUtil.error(
+            'Duplicate schedule',
+            409,
+            'Another schedule already exists for this employee and date.'
+          );
+        }
+
+        const updated = await store.scheduleModel.update(id, validation.data);
+
+        logger.info(config.logMessages.updated, { id });
+
+        return ApiResponseUtil.success(
+          { schedule: mapScheduleToResponse(updated) },
+          'Schedule updated successfully'
         );
-      }
-
-      const updateData = toScheduleUpdateInput(payload);
-      if (Object.keys(updateData).length === 0) {
-        return ApiResponseUtil.error(
-          'No valid fields supplied for update',
-          400
-        );
-      }
-
-      const validation = scheduleUpdateSchema.safeParse(updateData);
-      if (!validation.success) {
-        return ApiResponseUtil.error('Validation failed', 400, undefined, {
-          validationErrors: formatValidationErrors(validation.error),
-        });
-      }
-
-      const targetEmployeeId =
-        validation.data.employeeId ?? existing.employeeId;
-      const targetDate = validation.data.date ?? existing.date;
-
-      const conflicting = await config.scheduleModel.findOtherByEmployeeAndDate(
-        id,
-        targetEmployeeId,
-        targetDate
-      );
-
-      if (conflicting) {
-        return ApiResponseUtil.error(
-          'Duplicate schedule',
-          409,
-          'Another schedule already exists for this employee and date.'
-        );
-      }
-
-      const updated = await config.scheduleModel.update(id, validation.data);
-
-      logger.info(config.logMessages.updated, { id });
-
-      return ApiResponseUtil.success(
-        { schedule: mapScheduleToResponse(updated) },
-        'Schedule updated successfully'
-      );
+      });
     },
     {
       onError: buildMutationErrorResponse('Failed to update schedule', {

@@ -22,14 +22,9 @@ This repository serves multiple business domains in one app, with domain-parity 
 
 ## Route Topology Snapshot (2026-02-20)
 
-- App-router artifacts (`page.tsx`, `layout.tsx`, `route.ts`): **367**
-- Pages: **127**
-- API routes: **235**
-- Dynamic routes (`[...]`): **60**
-
-Detailed side-map and hotspot scan:
-
-- `docs/reports/archive/REPO_SIDEMAP_DEEP_SCAN_2026-02-20.md` (archived 2026-04-19)
+Historical route counts and hotspot scans are retained in the
+[dated structural report](docs/reports/archive/REPO_SIDEMAP_DEEP_SCAN_2026-02-20.md).
+They are not a current route inventory; source routes and tests are authoritative.
 
 ## Local Development
 
@@ -260,18 +255,7 @@ npm run accounting:transactions:sanitycheck
 
 ## Documentation Index
 
-- Main repo README: `README.md`
-- Documentation hub: `docs/README.md`
-- Developer onboarding guide: `docs/DEVELOPER_ONBOARDING.md`
-- Contributor guide: `CONTRIBUTING.md`
-- Repo-verified executive summary: `docs/reports/archive/REPO_VERIFIED_EXEC_SUMMARY_2026-03-29.md`
-- Repo-wide improvement checklist: `IMPROVEMENTS_CHECKLIST.md`
-- Business logic index: `docs/BUSINESS_LOGIC_INDEX.md`
-- Debugging guide: `docs/DEBUGGING.md`
-- Deployment guide: `docs/DEPLOYMENT.md`
-- Docker cheat sheet: `docs/DOCKER_CHEAT_SHEET.md`
-- Operational workflow and accounting policy: `docs/OPERATIONAL_WORKFLOW_AND_ACCOUNTING_POLICY.md`
-- Inventory ledger controls: `docs/inventory-ledger-controls.md`
-- Historical docs index: `docs/HISTORICAL_INDEX.md`
-- Archived structural reports: `docs/reports/archive/`
-- Engineering policy: `.github/instructions/development.instructions.md`
+- [Documentation hub](docs/README.md): current guides, tooling, plans and historical evidence.
+- [Business logic index](docs/BUSINESS_LOGIC_INDEX.md): domain-specific behavior and the clothing operating workflow.
+- [Contributor guide](CONTRIBUTING.md): local workflow and quality gates.
+- [Engineering policy](.github/instructions/development.instructions.md): repository safety and change discipline.

@@ -22,22 +22,22 @@ It prevents repeating the same Q&A and acts as a living reference as workflows e
 
 ## Scope
 
-| Module type | Paths |
-|---|---|
-| **Supplier-facing** (primary) | `clothing/operations/products`, `general-merchandise/operations/products` |
+| Module type                         | Paths                                                                             |
+| ----------------------------------- | --------------------------------------------------------------------------------- |
+| **Supplier-facing** (primary)       | `clothing/operations/products`, `general-merchandise/operations/products`         |
 | **Reseller-facing** (contrast only) | `clothing/operations/transactions`, `general-merchandise/operations/transactions` |
 
 ## Glossary
 
-| Term | Definition |
-|---|---|
-| **Product** | An item sourced from a supplier (often created early to accept preorders). |
-| **Shipment Code** | Operational grouping of products that travel together (e.g., `KPC 23930A-00222`). |
-| **COGS / Valuation** | The cost basis used for inventory accounting and pricing decisions. |
-| **Inventory in Transit** | Asset — supplier goods paid/incurred but not yet physically received. |
-| **Stock on Hand** | Asset — inventory physically received and available. |
-| **Supplier Payable** | Liability — amounts owed to suppliers. |
-| **Cash** | Combined bucket for cash + bank + e-wallet (current policy). |
+| Term                     | Definition                                                                        |
+| ------------------------ | --------------------------------------------------------------------------------- |
+| **Product**              | An item sourced from a supplier (often created early to accept preorders).        |
+| **Shipment Code**        | Operational grouping of products that travel together (e.g., `KPC 23930A-00222`). |
+| **COGS / Valuation**     | The cost basis used for inventory accounting and pricing decisions.               |
+| **Inventory in Transit** | Asset — supplier goods paid/incurred but not yet physically received.             |
+| **Stock on Hand**        | Asset — inventory physically received and available.                              |
+| **Supplier Payable**     | Liability — amounts owed to suppliers.                                            |
+| **Cash**                 | Combined bucket for cash + bank + e-wallet (current policy).                      |
 
 ---
 
@@ -54,17 +54,17 @@ It prevents repeating the same Q&A and acts as a living reference as workflows e
 
 On `*/operations/products`, the **Payment** dropdown represents **supplier payment status** (not reseller payments).
 
-| Payment value | Meaning | Typical timing |
-|---|---|---|
-| **Paid** | We have already paid the supplier. | Supplier ships same day or next day after payment. |
-| **Unpaid** | Supplier has shipped, but we will pay later. | **2–3+ months** after shipment start, often after delivery and after reseller preorder collections. |
+| Payment value | Meaning                                      | Typical timing                                                                                      |
+| ------------- | -------------------------------------------- | --------------------------------------------------------------------------------------------------- |
+| **Paid**      | We have already paid the supplier.           | Supplier ships same day or next day after payment.                                                  |
+| **Unpaid**    | Supplier has shipped, but we will pay later. | **2–3+ months** after shipment start, often after delivery and after reseller preorder collections. |
 
 ### Rare exceptions
 
-| Scenario | What happens |
-|---|---|
-| **Missing item left behind** | Supplier ships the missing item on the next shipment (e.g., move from `00222` → `00223`). We transfer the product to the new shipment code. |
-| **Missing item shipped to a different customer** | Supplier can't retrieve it. Supplier provides a **refund** for the missing item. |
+| Scenario                                         | What happens                                                                                                                                |
+| ------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Missing item left behind**                     | Supplier ships the missing item on the next shipment (e.g., move from `00222` → `00223`). We transfer the product to the new shipment code. |
+| **Missing item shipped to a different customer** | Supplier can't retrieve it. Supplier provides a **refund** for the missing item.                                                            |
 
 ### Data corrections
 
@@ -79,26 +79,26 @@ On `*/operations/products`, the **Payment** dropdown represents **supplier payme
 
 **Core accounts:**
 
-| Account | Type | Purpose |
-|---|---|---|
-| **Cash** | Asset | Combined cash / bank / e-wallet bucket. |
-| **Supplier Payable** | Liability | Amounts owed to suppliers. |
+| Account              | Type      | Purpose                                 |
+| -------------------- | --------- | --------------------------------------- |
+| **Cash**             | Asset     | Combined cash / bank / e-wallet bucket. |
+| **Supplier Payable** | Liability | Amounts owed to suppliers.              |
 
 **Additional logistics accounts (as needed):**
 
-| Account | Type | When paid |
-|---|---|---|
-| **Forwarder Payable** | Liability | When shipment reaches the forwarder warehouse / PH arrival. |
-| **Courier Payable (Lalamove)** | Liability | When delivering from forwarder warehouse → our warehouse. |
-| **Packaging Payable** | Liability | Paid separately. |
+| Account                        | Type      | When paid                                                   |
+| ------------------------------ | --------- | ----------------------------------------------------------- |
+| **Forwarder Payable**          | Liability | When shipment reaches the forwarder warehouse / PH arrival. |
+| **Courier Payable (Lalamove)** | Liability | When delivering from forwarder warehouse → our warehouse.   |
+| **Packaging Payable**          | Liability | Paid separately.                                            |
 
 ### Valuation source (Supplier vs Logistics)
 
 We separate **supplier cost** from **logistics costs** operationally and in accounting:
 
-| Cost type | Source | Basis |
-|---|---|---|
-| **Supplier cost** | Products automation | **Grand Total** — forwarder/courier/packaging are excluded to avoid double-counting. |
+| Cost type          | Source                   | Basis                                                                                            |
+| ------------------ | ------------------------ | ------------------------------------------------------------------------------------------------ |
+| **Supplier cost**  | Products automation      | **Grand Total** — forwarder/courier/packaging are excluded to avoid double-counting.             |
 | **Logistics cost** | Separate payable entries | Forwarder, Lalamove, packaging — entered as **estimates** while in transit; actuals known later. |
 
 > 💡 The **Products page COGS** is updated later to reflect the **actual landed cost** once actual logistics amounts are known, so P&L uses the real COGS.
@@ -109,9 +109,9 @@ The system posts accounting based on **real-world events**:
 
 #### Event 1 — Product created (recognize supplier inventory)
 
-| Condition | Debit | Credit | Amount |
-|---|---|---|---|
-| **Paid** | Inventory in Transit | Cash | Grand Total |
+| Condition  | Debit                | Credit           | Amount      |
+| ---------- | -------------------- | ---------------- | ----------- |
+| **Paid**   | Inventory in Transit | Cash             | Grand Total |
 | **Unpaid** | Inventory in Transit | Supplier Payable | Grand Total |
 
 > 💡 We use **Grand Total** (supplier cost) — not the full landed COGS — for this posting.
@@ -120,9 +120,9 @@ The system posts accounting based on **real-world events**:
 
 This represents paying the supplier later. Posting date = **today** (money-out date).
 
-| Debit | Credit | Amount |
-|---|---|---|
-| Supplier Payable | Cash | Grand Total |
+| Debit            | Credit | Amount      |
+| ---------------- | ------ | ----------- |
+| Supplier Payable | Cash   | Grand Total |
 
 > ⚠️ **This settlement must NOT touch Inventory in Transit** — the inventory was already recognized in Event 1. Touching it again would double-count.
 
@@ -130,8 +130,8 @@ This represents paying the supplier later. Posting date = **today** (money-out d
 
 Reclass the inventory out of transit:
 
-| Debit | Credit | Amount |
-|---|---|---|
+| Debit         | Credit               | Amount      |
+| ------------- | -------------------- | ----------- |
 | Stock on Hand | Inventory in Transit | Grand Total |
 
 > 💡 This reclass is performed via the **Transit Reclass** action in the Shipments module (enabled only when shipment status = **Delivered**).
@@ -143,65 +143,72 @@ Reclass the inventory out of transit:
 
 These costs are paid separately from the supplier items:
 
-| Logistics cost | When paid |
-|---|---|
-| **Forwarder** | Once the shipment arrives in their warehouse / PH arrival process. |
-| **Lalamove (courier)** | When it delivers from the forwarder warehouse to our warehouse. |
-| **Packaging** | Paid separately. |
+| Logistics cost         | When paid                                                          |
+| ---------------------- | ------------------------------------------------------------------ |
+| **Forwarder**          | Once the shipment arrives in their warehouse / PH arrival process. |
+| **Lalamove (courier)** | When it delivers from the forwarder warehouse to our warehouse.    |
+| **Packaging**          | Paid separately.                                                   |
 
-### Estimates while in transit
+### Pricing estimates are not ledger charges
 
 When creating products, forwarder/lalamove/packaging fields are **estimates** (usually within ~1–2%).
 We include estimates early so we can compute unit pricing and accept reseller preorders immediately.
+These estimates are for pricing only. Do not post or pay them as actual logistics
+charges. The Logistics Costs tab is used once the actual KPC/forwarder amount is
+known, and again once the actual Lalamove delivery fee is known. This workflow
+was confirmed on 2026-10-25; it supersedes the earlier estimated-accrual wording.
 
 ### Chosen policy: Pattern B (capitalize logistics only when Delivered)
 
-We intentionally **do not** add forwarder/courier/packaging estimates into **Inventory in Transit**.
-Instead, we track logistics costs in a separate temporary asset account until delivery, then capitalize into **Stock on Hand** when the shipment arrives.
+We intentionally **do not** post pricing estimates or add them into **Inventory in Transit**.
+Record confirmed actual logistics charges in a separate temporary asset account,
+then capitalize into **Stock on Hand** when the shipment is Delivered.
 
 **Why Pattern B?**
 
-| Benefit | Explanation |
-|---|---|
-| Clean transit account | **Inventory in Transit** represents supplier item cost (Grand Total) only. |
-| Costs stay on balance sheet | Landed costs remain assets (not P&L) while waiting for delivery. |
-| Single capitalization moment | Delivery day is when inventory becomes "all-in landed cost." |
+| Benefit                      | Explanation                                                                |
+| ---------------------------- | -------------------------------------------------------------------------- |
+| Clean transit account        | **Inventory in Transit** represents supplier item cost (Grand Total) only. |
+| Costs stay on balance sheet  | Landed costs remain assets (not P&L) while waiting for delivery.           |
+| Single capitalization moment | Delivery day is when inventory becomes "all-in landed cost."               |
 
 #### Account needed
 
-| Account | Type | Purpose |
-|---|---|---|
+| Account                  | Type  | Purpose                                                                                                                                |
+| ------------------------ | ----- | -------------------------------------------------------------------------------------------------------------------------------------- |
 | **Landed Cost Clearing** | Asset | Temporary holding for logistics costs not yet capitalized into inventory. (Also called "Logistics Clearing", "Freight Clearing", etc.) |
 
 ### Pattern B — 4-step checklist
 
-> **Example:** Forwarder estimate ₱1,000, actual ₱950
+> **Example:** Pricing estimate ₱1,000, confirmed actual charge ₱950. Only ₱950 enters the ledger.
 
-#### Step 1 — Record estimate (while in transit)
+#### Step 1 — Record the confirmed actual charge
 
-| Debit | Credit | Amount |
-|---|---|---|
-| Landed Cost Clearing | Forwarder Payable | ₱1,000 |
+| Debit                | Credit            | Amount |
+| -------------------- | ----------------- | ------ |
+| Landed Cost Clearing | Forwarder Payable | ₱950   |
 
-#### Step 2 — Adjust estimate to actual (adjustment entry)
+#### Step 2 — Optional correction of an already-recorded actual charge
 
-If actual is lower (₱950):
+No adjustment is needed merely because the pricing estimate differs. If a
+previously recorded actual charge of ₱1,000 is later corrected to ₱950 before
+it has been paid or capitalized, correct the ₱50 difference:
 
-| Debit | Credit | Amount |
-|---|---|---|
-| Forwarder Payable | Landed Cost Clearing | ₱50 |
+| Debit             | Credit               | Amount |
+| ----------------- | -------------------- | ------ |
+| Forwarder Payable | Landed Cost Clearing | ₱50    |
 
 #### Step 3 — Settle when paid (money-out date)
 
-| Debit | Credit | Amount |
-|---|---|---|
-| Forwarder Payable | Cash | ₱950 |
+| Debit             | Credit | Amount |
+| ----------------- | ------ | ------ |
+| Forwarder Payable | Cash   | ₱950   |
 
 #### Step 4 — Capitalize at delivery (Delivered / received date)
 
-| Debit | Credit | Amount |
-|---|---|---|
-| Stock on Hand | Landed Cost Clearing | ₱950 |
+| Debit         | Credit               | Amount |
+| ------------- | -------------------- | ------ |
+| Stock on Hand | Landed Cost Clearing | ₱950   |
 
 Courier (Lalamove) and Packaging follow the exact same 4 steps using their respective payable accounts.
 
@@ -211,23 +218,39 @@ Courier (Lalamove) and Packaging follow the exact same 4 steps using their respe
 > The delivery capitalization step (Step 4) credits **Landed Cost Clearing**, not the payable.
 > The payable is only cleared by: `Dr Payable / Cr Cash` (Step 3).
 
+The guided clothing API is `GET/POST /api/accounting/shipment-logistics`.
+It identifies shipment/vendor/action independently of descriptions and refs,
+posts balanced pairs in a Serializable transaction, and uses a stable request
+key for retries. Partial payments cannot exceed the remaining actual payable;
+capitalization cannot exceed uncapitalized actual cost and requires Delivered
+with no posting before the known delivery date. Downward corrections cannot
+make either payable or clearing negative. It does not alter product COGS.
+
+Existing unstructured manual journals are not inferred, converted or deleted.
+Potentially matching history locks guided posting pending review. Existing
+manual accounting remains the reviewed exception path; this change does not
+certify arbitrary manual entries or repair historical balances.
+
 ### Pattern B — Late posting shortcut (already delivered, no entries yet)
+
+These shortcuts are reviewed manual-accounting entries, not actions in the
+guided three-step actual-cost workflow.
 
 If the shipment is already delivered and **none of the 4 steps were posted**, skip Landed Cost Clearing and collapse to:
 
 **If not yet paid:**
 
-| Debit | Credit | Amount |
-|---|---|---|
+| Debit         | Credit            | Amount        |
+| ------------- | ----------------- | ------------- |
 | Stock on Hand | Forwarder Payable | Actual amount |
 
 Then settle later: `Dr Forwarder Payable / Cr Cash`.
 
 **If already paid:**
 
-| Debit | Credit | Amount |
-|---|---|---|
-| Stock on Hand | Cash | Actual amount |
+| Debit         | Credit | Amount        |
+| ------------- | ------ | ------------- |
+| Stock on Hand | Cash   | Actual amount |
 
 ### Special case: opening balances for already-delivered shipments
 
@@ -235,8 +258,8 @@ If a shipment's forwarder/courier payable was introduced via **OPENING** entries
 
 For those historical shipments, the capitalization step is:
 
-| Debit | Credit |
-|---|---|
+| Debit         | Credit         |
+| ------------- | -------------- |
 | Stock on Hand | Opening Equity |
 
 This moves the opening-balance debit into inventory so Stock on Hand reflects landed cost.
@@ -253,21 +276,21 @@ For traceability, entries should be **per product** (not only grouped by shipmen
 
 On `*/operations/transactions`, the **Adjustment** column is treated as a **legacy field**.
 
-| Layer | Rule |
-|---|---|
-| **UI** | Adjustment is **read-only** in the transactions grid. |
-| **API** | Transaction update endpoints **ignore/deny** writes to the legacy Adjustment field. |
-| **Payments** | Use the "Record Payment" flow (bulk payments endpoint) which writes `transaction_payments` rows and updates totals consistently. |
-| **Discounts** | If we need to change unit pricing behavior without touching the Prices module, use the **Discount** column. |
+| Layer         | Rule                                                                                                                             |
+| ------------- | -------------------------------------------------------------------------------------------------------------------------------- |
+| **UI**        | Adjustment is **read-only** in the transactions grid.                                                                            |
+| **API**       | Transaction update endpoints **ignore/deny** writes to the legacy Adjustment field.                                              |
+| **Payments**  | Use the "Record Payment" flow (bulk payments endpoint) which writes `transaction_payments` rows and updates totals consistently. |
+| **Discounts** | If we need to change unit pricing behavior without touching the Prices module, use the **Discount** column.                      |
 
 ### Confirmation on product creation
 
 When the user clicks **Add Product**, show a SweetAlert confirmation:
 
-| Payment selection | Confirmation message |
-|---|---|
-| **Paid** | "You are adding a new product that is already PAID. Please confirm." |
-| **Unpaid** | "You are adding a new product that is UNPAID. Please confirm." |
+| Payment selection | Confirmation message                                                 |
+| ----------------- | -------------------------------------------------------------------- |
+| **Paid**          | "You are adding a new product that is already PAID. Please confirm." |
+| **Unpaid**        | "You are adding a new product that is UNPAID. Please confirm."       |
 
 ### Prevent accidental reversals
 
@@ -277,35 +300,41 @@ When the user clicks **Add Product**, show a SweetAlert confirmation:
 ### Idempotency
 
 Every auto-generated posting must be idempotent:
+
 - Unique key per event + product (and/or shipment) so saving twice does not duplicate entries.
 
 <details>
 <summary><strong>Refactor rationale (engineering summary — click to expand)</strong></summary>
 
 **P1: Shared employee core** (remove clothing/trucking duplication)
+
 - Single source of truth for business rules; fewer "fixed in one module, broken in another" regressions.
 - Faster delivery: implement once, expose via thin wrappers for each domain.
 - Lower test cost: one core test suite covers most behavior; wrappers only need light smoke tests.
 - Better policy consistency (especially payroll/employee/accounting side effects) across modules.
 
 **P1: Split God hooks into focused hooks**
+
 - Smaller units are easier to reason about, review, and safely modify.
 - Lower bug risk from unrelated side effects.
 - Better performance opportunities (more targeted memoization/state updates).
 - Higher confidence for future changes to payment workflows and accounting guardrails.
 
 **P2: Compose oversized API routes + domain adapters**
+
 - Clear separation of concerns improves maintainability.
 - Reduced duplication between clothing and GM accounting endpoints.
 - Safer accounting evolution: one place to enforce rules.
 - Better observability and incident debugging.
 
 **P2: Remove dead/legacy state and backward-compat shims**
+
 - Less cognitive load and fewer misleading code paths.
 - Reduced accidental reactivation of deprecated behavior.
 - Smaller surface area for defects and security issues.
 
 **P3: Move root tmp scripts + enforce retention policy**
+
 - Cleaner repository root; fewer accidental script runs.
 - Clear boundary between permanent tooling and temporary maintenance scripts.
 
@@ -321,18 +350,18 @@ Every auto-generated posting must be idempotent:
 
 **Operational action:** Move product from old shipment code to new shipment code.
 
-| Posting state | Accounting impact |
-|---|---|
-| Not yet delivered/reclassed | Usually **no accounting impact** (still in transit). |
+| Posting state                      | Accounting impact                                                                                                                   |
+| ---------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
+| Not yet delivered/reclassed        | Usually **no accounting impact** (still in transit).                                                                                |
 | Already reclassed to Stock on Hand | Correction required — move product's value **back** to Inventory in Transit, then reclass later when the new shipment is delivered. |
 
 ### B) Supplier refund for missing item
 
 On refund date, reverse the in-transit asset for that product:
 
-| Debit | Credit |
-|---|---|
-| Cash | Inventory in Transit |
+| Debit | Credit               |
+| ----- | -------------------- |
+| Cash  | Inventory in Transit |
 
 > 💡 If the amount was still in Supplier Payable (not yet paid), reduce the payable accordingly instead of crediting Cash.
 
@@ -340,9 +369,9 @@ On refund date, reverse the in-transit asset for that product:
 
 ## Notes on "products as source of truth" vs "ledger as source of truth"
 
-| Layer | Role |
-|---|---|
-| **Products** | Operational truth — editable for workflow. |
+| Layer              | Role                                                         |
+| ------------------ | ------------------------------------------------------------ |
+| **Products**       | Operational truth — editable for workflow.                   |
 | **Ledger entries** | Financial truth — auditability, stable historical reporting. |
 
 If we need edits after posting, prefer **adjustment entries** (delta changes) over rewriting history.
@@ -355,18 +384,18 @@ We accept preorders while items are still traveling. We must not report them as 
 
 The Inventory page/report uses a **4-number split** per product code:
 
-| # | Category | Description |
-|---|---|---|
-| 1 | **On-hand sellable** | Physically received and currently sellable. |
-| 2 | **On-hand reserved** | Physically received but reserved for orders. |
-| 3 | **In-transit unreserved** | Exists in the system but shipment still in transit; not reserved. |
-| 4 | **In-transit reserved** | Reserved for orders, but shipment still in transit. |
+| #   | Category                  | Description                                                       |
+| --- | ------------------------- | ----------------------------------------------------------------- |
+| 1   | **On-hand sellable**      | Physically received and currently sellable.                       |
+| 2   | **On-hand reserved**      | Physically received but reserved for orders.                      |
+| 3   | **In-transit unreserved** | Exists in the system but shipment still in transit; not reserved. |
+| 4   | **In-transit reserved**   | Reserved for orders, but shipment still in transit.               |
 
 ### Source of truth for "on-hand" vs "in-transit"
 
-| Shipment status | Treated as |
-|---|---|
-| **Delivered** | On-hand |
+| Shipment status                        | Treated as |
+| -------------------------------------- | ---------- |
+| **Delivered**                          | On-hand    |
 | Any other status (incl. blank/unknown) | In-transit |
 
 This matches the accounting reclass: `Dr Stock on Hand / Cr Inventory in Transit` at delivery.
@@ -381,12 +410,12 @@ This matches the accounting reclass: `Dr Stock on Hand / Cr Inventory in Transit
 
 **Shipment code:** `KPC 23930A-00222`
 
-| Product | Code |
-|---|---|
-| Mixed Shorts | MS-010226 |
-| Ruffled Frogsuit | RF-010226 |
+| Product            | Code      |
+| ------------------ | --------- |
+| Mixed Shorts       | MS-010226 |
+| Ruffled Frogsuit   | RF-010226 |
 | Milkberry Frogsuit | MF-010226 |
-| Zippered Frogsuit | ZF-010326 |
+| Zippered Frogsuit  | ZF-010326 |
 
 These may be created early for preorder selling while they are still in transit.
 
@@ -398,11 +427,11 @@ If you want to start fresh for a new month (e.g., Feb 1) because the prior month
 
 ### Step 1 — Set a new accounting cutover date
 
-| Env variable | Value | Notes |
-|---|---|---|
-| `ACCOUNTING_CUTOVER_DATE_CLOTHING` | `"2026-02-01"` (UTC midnight) | Sets the clothing module cutover. |
-| `ACCOUNTING_CUTOVER_DATE_GM` | _(leave empty)_ | GM stays on the original default cutover (2026-01-17). |
-| `ACCOUNTING_CUTOVER_DATE` | _(leave empty)_ | Avoids changing both modules accidentally. |
+| Env variable                       | Value                         | Notes                                                  |
+| ---------------------------------- | ----------------------------- | ------------------------------------------------------ |
+| `ACCOUNTING_CUTOVER_DATE_CLOTHING` | `"2026-02-01"` (UTC midnight) | Sets the clothing module cutover.                      |
+| `ACCOUNTING_CUTOVER_DATE_GM`       | _(leave empty)_               | GM stays on the original default cutover (2026-01-17). |
+| `ACCOUNTING_CUTOVER_DATE`          | _(leave empty)_               | Avoids changing both modules accidentally.             |
 
 ### Step 2 — Enter a clean Opening Balance snapshot (full Balance Sheet)
 
@@ -417,6 +446,7 @@ If a liability account is 0, omit it (no entry = 0 balance).
 > For anything you may want to edit later (especially loans), create **explicit debit/credit pairs** with a **unique Description per pair** (critical when two loans share the same amount).
 
 **Tips:**
+
 - The bulk opening-balance script auto-adds a balancing **Opening Equity** line — correct accounting-wise, but bulk-loading many liabilities under one ref may cause lines to appear "unpaired" in the editor.
 - To keep things editable, either enter pairs via the UI, or apply openings in separate batches with unique descriptions.
 
@@ -455,6 +485,7 @@ npx tsx scripts/set-opening-balances.ts \
 ```
 
 The script:
+
 - Skips 0-balance lines automatically
 - Auto-adds a balancing `Opening Equity` line so debits = credits
 
@@ -462,11 +493,11 @@ The script:
 
 Instead of one giant opening import, we applied separate refs for clarity and safer editing:
 
-| Ref | Entry |
-|---|---|
-| `OPENING-STOCK` | Dr Stock on Hand / Cr Opening Equity |
+| Ref             | Entry                                   |
+| --------------- | --------------------------------------- |
+| `OPENING-STOCK` | Dr Stock on Hand / Cr Opening Equity    |
 | `OPENING-LOANS` | Per-loan paired entries for editability |
-| `OPENING-CASH` | Dr Cash / Cr Opening Equity |
+| `OPENING-CASH`  | Dr Cash / Cr Opening Equity             |
 
 ### Step 3 — Verify
 

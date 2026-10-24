@@ -2,7 +2,10 @@
 
 Created: 2026-07-04
 
-Purpose: step-by-step execution tracker for the current refactor plan. This file is scoped to the recent in-depth analysis and does not replace `CHECKLIST.md`, which remains the long-running repo-wide refactor history.
+Purpose: step-by-step execution tracker for the refactor plan created above. This
+does not replace the [long-running refactor tracker](./REFACTOR_CHECKLIST.md).
+Recorded validations and completed phases are dated evidence; open items require
+current source/test review and do not authorize migrations, builds or deployments.
 
 ## How To Use This Checklist
 

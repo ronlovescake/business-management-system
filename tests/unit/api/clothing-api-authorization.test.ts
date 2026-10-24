@@ -23,6 +23,7 @@ const protectedPaths = [
   '/api/employee-automation-settings',
   '/api/accounting/ledger',
   '/api/accounting/manual-journal',
+  '/api/accounting/shipment-logistics',
   '/api/clothing/employees/dashboard',
   '/api/products/transit-build',
   '/api/shipments/1/transit-build',

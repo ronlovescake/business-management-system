@@ -73,9 +73,18 @@ Recording shipment details and recording the related accounting entries are sepa
 
 The actual KPC forwarding fee becomes available once the relevant shipment information and charges are known.
 
-On the Shipments page, open **Logistics Costs**, select the **Forwarder** vendor, and record the fee. If no estimate has been accrued, accrue the actual amount to clearing. Record payment when the fee is paid, then capitalize the cost to Stock on Hand when the shipment is delivered.
+On the Shipments page, open **Logistics Costs**, select **Forwarder**, choose
+**Record Actual Cost**, and enter the confirmed KPC charge. Pricing estimates
+are not prefilled or posted. Record payment when paid, then capitalize the cost
+to Stock on Hand once the shipment is Delivered. Payment and capitalization
+are limited to the remaining actual-cost balances.
 
-If an estimate was already accrued and the actual fee is lower, use **Adjust Down** to reduce the accrued amount. The current workflow does not provide an **Adjust Up** action. If the actual fee is higher than the accrued estimate, confirm the accounting treatment before recording an additional or correcting entry.
+If historical manual journals already exist, guided posting requires review
+before recording another charge. Existing entries are preserved, not inferred
+or converted automatically. **Adjust Down** is for a confirmed correction to a
+recorded actual charge and cannot reduce paid or capitalized cost; it is not an
+estimate-to-actual step. Confirm any increase, refund or reversal treatment
+before recording a correcting entry. See the [accounting policy](../../OPERATIONAL_WORKFLOW_AND_ACCOUNTING_POLICY.md).
 
 ### **5.2 Record the Actual Lalamove Delivery Fee**
 
@@ -85,7 +94,10 @@ After the goods arrive, which usually takes approximately one to two months from
 
 Once the delivery is booked and the actual fee is known, we record the Lalamove delivery cost under the **Logistics Costs** tab on the Shipments page, selecting the **Courier** vendor.
 
-Follow the same accounting sequence: accrue the actual amount (or adjust down an existing estimate if the actual amount is lower), record payment when paid, and capitalize the cost to Stock on Hand when the shipment is delivered. If the actual fee is higher than an accrued estimate, confirm the accounting treatment before recording a correcting entry.
+Follow the same actual-cost sequence: record the confirmed charge, record
+payment when paid, and capitalize when Delivered. Do not accrue the estimate
+used for product pricing. Legacy entries and corrections need the same review
+described for KPC charges above.
 
 ## **Step 6: Link Shipment Codes to Products**
 

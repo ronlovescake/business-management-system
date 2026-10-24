@@ -340,7 +340,13 @@ export function usePayrollPage(apiBasePath?: string) {
         render: (item) => <Text size="sm">{item.bankGcash}</Text>,
       },
     ],
-    [formatCurrency, formatDate, getStatus, getStatusColor, resolveContributionValue]
+    [
+      formatCurrency,
+      formatDate,
+      getStatus,
+      getStatusColor,
+      resolveContributionValue,
+    ]
   );
 
   const actions = useMemo<TableAction<Payroll>[]>(
@@ -364,12 +370,14 @@ export function usePayrollPage(apiBasePath?: string) {
         label: 'Edit',
         color: 'blue',
         onClick: (item) => handleEditPayroll(item),
+        show: (item) => item.status === 'pending' || item.status === 'approved',
       },
       {
         icon: <IconTrash size={16} />,
         label: 'Delete',
         color: 'red',
         onClick: (item) => handleDeletePayroll(item.id),
+        show: (item) => item.status === 'pending' || item.status === 'approved',
       },
     ],
     [handleApprove, handleDeletePayroll, handleEditPayroll, handleMarkAsPaid]

@@ -4,27 +4,31 @@ vi.mock('@/lib/auth/session', () => ({
 }));
 import { NextRequest } from 'next/server';
 
-const { mockPrisma, mockSyncPayrollDeductions } = vi.hoisted(() => {
-  return {
-    mockPrisma: {
-      payroll: {
-        findMany: vi.fn(),
-        findUnique: vi.fn(),
-        create: vi.fn(),
-        update: vi.fn(),
+const { mockPrisma, mockSyncPayrollDeductions, mockSyncExpenseFromPayroll } =
+  vi.hoisted(() => {
+    return {
+      mockPrisma: {
+        payroll: {
+          findMany: vi.fn(),
+          findUnique: vi.fn(),
+          create: vi.fn(),
+          update: vi.fn(),
+          delete: vi.fn(),
+        },
+        expense: {
+          upsert: vi.fn(),
+        },
+        thirteenthMonthPayRecord: { update: vi.fn() },
+        employee: {
+          findFirst: vi.fn(),
+          findMany: vi.fn(),
+        },
+        $transaction: vi.fn(),
       },
-      expense: {
-        upsert: vi.fn(),
-      },
-      employee: {
-        findFirst: vi.fn(),
-        findMany: vi.fn(),
-      },
-      $transaction: vi.fn(),
-    },
-    mockSyncPayrollDeductions: vi.fn(),
-  };
-});
+      mockSyncPayrollDeductions: vi.fn(),
+      mockSyncExpenseFromPayroll: vi.fn(),
+    };
+  });
 
 vi.mock('@/lib/db', () => ({
   prisma: mockPrisma,
@@ -32,6 +36,16 @@ vi.mock('@/lib/db', () => ({
 
 vi.mock('@/lib/payroll/deductions', () => ({
   syncPayrollDeductions: mockSyncPayrollDeductions,
+  createClothingPayrollDeductions: () => ({
+    syncPayrollDeductions: mockSyncPayrollDeductions,
+  }),
+}));
+
+vi.mock('@/modules/clothing/ledger/api/service', () => ({
+  expenseService: { upsertBySource: mockSyncExpenseFromPayroll },
+  ExpenseService: class {
+    upsertBySource = mockSyncExpenseFromPayroll;
+  },
 }));
 
 import { GET, POST, PUT, DELETE } from '@/app/api/payroll/route';
@@ -40,6 +54,7 @@ import { getTestApiUrl } from '@/core/testing/test-helpers';
 describe('Payroll API', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockPrisma.payroll.findUnique.mockResolvedValue(mockPayrolls[0]);
     mockPrisma.$transaction.mockImplementation(
       async (
         input:
@@ -51,9 +66,7 @@ describe('Payroll API', () => {
           return Promise.all(input);
         }
         // Interactive form: pass mock prisma as transaction client
-        return input({
-          payroll: mockPrisma.payroll,
-        });
+        return input(mockPrisma);
       }
     );
   });
@@ -633,6 +646,48 @@ describe('Payroll API', () => {
       expect(payload.data.status).toBe('paid');
     });
 
+    it('should fail rather than report payment success when expense sync fails', async () => {
+      const paidPayroll = { ...mockPayrolls[0], status: 'paid' };
+      mockPrisma.payroll.findUnique.mockResolvedValue(mockPayrolls[0]);
+      mockPrisma.payroll.update.mockResolvedValue(paidPayroll);
+      mockSyncPayrollDeductions.mockResolvedValue([paidPayroll]);
+      mockSyncExpenseFromPayroll.mockRejectedValueOnce(
+        new Error('Expense write failed')
+      );
+
+      const response = await PUT(
+        createMockRequest(getTestApiUrl('/api/payroll'), {
+          method: 'PUT',
+          body: { id: paidPayroll.id, status: 'paid' },
+        })
+      );
+
+      expect(response.status).toBe(500);
+    });
+
+    it('updates the linked 13th month status within the payroll transaction', async () => {
+      const existing = { ...mockPayrolls[0], thirteenthMonth: 1000 };
+      const paid = { ...existing, status: 'paid', paidDate: '2025-10-31' };
+      mockPrisma.payroll.findUnique.mockResolvedValue(existing);
+      mockPrisma.payroll.update.mockResolvedValue(paid);
+      mockSyncPayrollDeductions.mockResolvedValue([paid]);
+      const response = await PUT(
+        createMockRequest(getTestApiUrl('/api/payroll'), {
+          method: 'PUT',
+          body: { id: paid.id, status: 'paid', paidDate: paid.paidDate },
+        })
+      );
+      expect(response.status).toBe(200);
+      expect(mockPrisma.thirteenthMonthPayRecord.update).toHaveBeenCalledWith({
+        where: { recordId: 'emp-001-2025' },
+        data: { status: 'paid', paidDate: '2025-10-31' },
+      });
+      expect(mockPrisma.$transaction).toHaveBeenCalledWith(
+        expect.any(Function),
+        expect.objectContaining({ isolationLevel: 'Serializable' })
+      );
+    });
+
     it('should not sync deductions when status changes to approved', async () => {
       const updateData = {
         id: 'payroll-1',
@@ -658,7 +713,7 @@ describe('Payroll API', () => {
       expect(mockSyncPayrollDeductions).not.toHaveBeenCalled();
     });
 
-    it('should not sync when status is already paid', async () => {
+    it('should reject editing a paid payroll without replaying deductions', async () => {
       const updateData = {
         id: 'payroll-2',
         notes: 'Payment confirmed',
@@ -678,10 +733,41 @@ describe('Payroll API', () => {
       const response = await PUT(request);
       const payload = await response.json();
 
-      expect(response.status).toBe(200);
-      expect(payload.success).toBe(true);
+      expect(response.status).toBe(409);
+      expect(payload.success).toBe(false);
+      expect(mockPrisma.payroll.update).not.toHaveBeenCalled();
       expect(mockSyncPayrollDeductions).not.toHaveBeenCalled();
     });
+
+    it('returns an unchanged paid retry without changing cash advances or expenses', async () => {
+      mockPrisma.payroll.findUnique.mockResolvedValue(mockPayrolls[1]);
+      const response = await PUT(
+        createMockRequest(getTestApiUrl('/api/payroll'), {
+          method: 'PUT',
+          body: { id: mockPayrolls[1].id, status: 'paid' },
+        })
+      );
+      expect(response.status).toBe(200);
+      expect((await response.json()).data.cashAdvance).toBe(1000);
+      expect(mockPrisma.payroll.update).not.toHaveBeenCalled();
+      expect(mockSyncPayrollDeductions).not.toHaveBeenCalled();
+      expect(mockSyncExpenseFromPayroll).not.toHaveBeenCalled();
+    });
+
+    it.each([{ status: 'pending' }, { basicSalary: 9999 }])(
+      'rejects a paid status or amount change: %j',
+      async (change) => {
+        mockPrisma.payroll.findUnique.mockResolvedValue(mockPayrolls[1]);
+        const response = await PUT(
+          createMockRequest(getTestApiUrl('/api/payroll'), {
+            method: 'PUT',
+            body: { id: mockPayrolls[1].id, ...change },
+          })
+        );
+        expect(response.status).toBe(409);
+        expect(mockPrisma.payroll.update).not.toHaveBeenCalled();
+      }
+    );
 
     it('should return 404 when payroll not found', async () => {
       const request = createMockRequest(getTestApiUrl('/api/payroll'), {
@@ -757,6 +843,25 @@ describe('Payroll API', () => {
   });
 
   describe('DELETE /api/payroll', () => {
+    it.each([false, true])(
+      'rejects deleting paid payroll (permanent=%s)',
+      async (permanent) => {
+        mockPrisma.payroll.findUnique.mockResolvedValue(mockPayrolls[1]);
+        const response = await DELETE(
+          createMockRequest(
+            getTestApiUrl('/api/payroll', {
+              id: mockPayrolls[1].id,
+              permanent: String(permanent),
+            }),
+            { method: 'DELETE' }
+          )
+        );
+        expect(response.status).toBe(409);
+        expect(mockPrisma.payroll.update).not.toHaveBeenCalled();
+        expect(mockPrisma.payroll.delete).not.toHaveBeenCalled();
+      }
+    );
+
     it('should soft delete a payroll record', async () => {
       const request = createMockRequest(
         getTestApiUrl('/api/payroll', { id: 'payroll-1' }),

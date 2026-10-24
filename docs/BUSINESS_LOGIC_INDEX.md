@@ -9,6 +9,8 @@ This index is the shortest path to the domain and workspace logic documents with
 
 ### Operations
 
+- [Operating workflow](./business-logic/clothing/operations-workflow.md)
+- [Manual invoicing and checkout links](./business-logic/clothing/operations-checkout-links.md)
 - [Transactions](./business-logic/clothing/operations-transactions.md)
 - [Accounts Receivable implementation plan](./business-logic/clothing/operations-accounts-receivable-implementation-plan.md)
 - [Inventory](./business-logic/clothing/operations-inventory.md)

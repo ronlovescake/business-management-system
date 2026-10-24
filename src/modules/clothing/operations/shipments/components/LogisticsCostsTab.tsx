@@ -1,6 +1,13 @@
 'use client';
 
-import { memo, useCallback, useEffect, useMemo, useState } from 'react';
+import React, {
+  memo,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import {
   Alert,
   Badge,
@@ -36,13 +43,17 @@ import { COMMON_DATE_INPUT_PROPS } from '@/lib/dateInputConfig';
 import { logger } from '@/lib/logger';
 import { toISODate } from '@/utils/date';
 import type { ShipmentData } from '../types/shipment.types';
+import {
+  getLogisticsBalances,
+  logisticsAmountLimit,
+  parseLogisticsLineKey,
+  type LogisticsVendor,
+  type LogisticsAction,
+} from '../lib/logisticsCosts';
 
 // ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
-
-type LogisticsVendor = 'Forwarder' | 'Courier' | 'Packaging';
-type LogisticsAction = 'accrue' | 'pay' | 'capitalize' | 'adjust-down';
 
 type LogisticsAccountConfig = {
   clearingAccount: string;
@@ -72,13 +83,13 @@ type LogisticsCostsFormValues = {
 };
 
 type JournalLine = {
-  id: number;
+  id: string | number;
   date: string;
   ref: string;
   account: string;
   debit: number;
   credit: number;
-  description: string;
+  description: string | null;
   sourceType: string;
   sourceLineKey: string;
 };
@@ -99,9 +110,9 @@ const STEP_META: Record<
   { label: string; shortLabel: string; description: string }
 > = {
   accrue: {
-    label: 'Accrue to Clearing',
-    shortLabel: 'Accrued',
-    description: 'Record the estimated logistics cost while in transit.',
+    label: 'Record Actual Cost',
+    shortLabel: 'Actual Cost',
+    description: 'Record the confirmed actual logistics charge.',
   },
   pay: {
     label: 'Pay Payable',
@@ -116,7 +127,8 @@ const STEP_META: Record<
   'adjust-down': {
     label: 'Adjust Down',
     shortLabel: 'Adjusted',
-    description: 'Reduce the accrued estimate to match the actual invoice.',
+    description:
+      'Correct an actual charge before it has been paid or capitalized.',
   },
 };
 
@@ -178,52 +190,15 @@ function buildDefaultDescription(input: {
   const code = input.shipmentCode.trim();
 
   const actionLabel: Record<LogisticsAction, string> = {
-    accrue: 'Logistics cost accrued',
+    accrue: 'Actual logistics cost recorded',
     pay: 'Logistics payable paid',
     capitalize: 'Logistics cost capitalized (delivered)',
-    'adjust-down': 'Logistics estimate adjusted down',
+    'adjust-down': 'Actual logistics cost corrected down',
   };
 
   return [code, input.vendor, actionLabel[input.action]]
     .filter(Boolean)
     .join(' • ');
-}
-
-/** Map description keywords to an action type for detected steps. */
-function detectActionFromDescription(desc: string): LogisticsAction | null {
-  const lower = desc.toLowerCase();
-  if (lower.includes('accrued') || lower.includes('accrue')) {return 'accrue';}
-  if (lower.includes('payable paid') || lower.includes('pay payable'))
-    {return 'pay';}
-  if (lower.includes('capitalized') || lower.includes('capitalize'))
-    {return 'capitalize';}
-  if (lower.includes('adjusted down') || lower.includes('adjust'))
-    {return 'adjust-down';}
-  return null;
-}
-
-/** Detect vendor from description keywords. */
-function detectVendorFromDescription(desc: string): LogisticsVendor | null {
-  const lower = desc.toLowerCase();
-  if (lower.includes('forwarder')) {return 'Forwarder';}
-  if (lower.includes('courier')) {return 'Courier';}
-  if (lower.includes('packaging')) {return 'Packaging';}
-  return null;
-}
-
-function getEstimateForVendor(
-  vendor: LogisticsVendor,
-  shipment: ShipmentData | undefined
-): number {
-  if (!shipment) {return 0;}
-  switch (vendor) {
-    case 'Forwarder':
-      return shipment.linkedProductForwardersFee ?? 0;
-    case 'Courier':
-      return shipment.linkedProductLalamove ?? 0;
-    case 'Packaging':
-      return shipment.linkedProductPackagingCost ?? 0;
-  }
 }
 
 function formatPeso(amount: number): string {
@@ -251,44 +226,23 @@ function detectCompletedSteps(
     'adjust-down': { done: false, amount: 0, date: '' },
   };
 
-  // Group lines into pairs by sourceId (debit + credit)
-  const pairsBySource = new Map<
-    string,
-    { debit?: JournalLine; credit?: JournalLine }
-  >();
   for (const line of lines) {
-    const key = line.sourceLineKey === 'debit' || line.sourceLineKey === 'credit'
-      ? `${line.date}-${line.description}-${Math.max(line.debit, line.credit)}`
-      : line.id.toString();
-    let pair = pairsBySource.get(key);
-    if (!pair) {
-      pair = {};
-      pairsBySource.set(key, pair);
-    }
-    if (line.debit > 0) {
-      pair.debit = line;
-    }
-    if (line.credit > 0) {
-      pair.credit = line;
+    const identity = parseLogisticsLineKey(line.sourceLineKey);
+    if (
+      line.sourceType === 'SHIPMENT_LOGISTICS' &&
+      identity?.vendor === vendor &&
+      identity.side === 'debit'
+    ) {
+      const step = result[identity.action];
+      step.done = true;
+      step.amount += line.debit;
+      step.date = line.date.slice(0, 10);
     }
   }
-
-  for (const line of lines) {
-    if (line.credit > 0) {
-      continue;
-    }
-    const action = detectActionFromDescription(line.description);
-    const lineVendor = detectVendorFromDescription(line.description);
-
-    if (action && lineVendor === vendor) {
-      result[action] = {
-        done: true,
-        amount: line.debit,
-        date: line.date,
-      };
-    }
-  }
-
+  const balances = getLogisticsBalances(lines, vendor);
+  result.accrue.amount = balances.actual;
+  result.pay.done = balances.actual > 0 && balances.payable <= 0;
+  result.capitalize.done = balances.actual > 0 && balances.clearing <= 0;
   return result;
 }
 
@@ -296,9 +250,15 @@ function getNextRecommendedAction(
   steps: Record<LogisticsAction, StepStatus>,
   isDelivered: boolean
 ): LogisticsAction {
-  if (!steps.accrue.done) {return 'accrue';}
-  if (!steps.pay.done) {return 'pay';}
-  if (isDelivered && !steps.capitalize.done) {return 'capitalize';}
+  if (!steps.accrue.done) {
+    return 'accrue';
+  }
+  if (!steps.pay.done) {
+    return 'pay';
+  }
+  if (isDelivered && !steps.capitalize.done) {
+    return 'capitalize';
+  }
   return 'accrue'; // default fallback
 }
 
@@ -425,29 +385,56 @@ export const LogisticsCostsTab = memo(function LogisticsCostsTab({
   const [journalLines, setJournalLines] = useState<JournalLine[]>([]);
   const [historyLoading, setHistoryLoading] = useState(false);
   const [historyVersion, setHistoryVersion] = useState(0);
+  const [historyLoadedFor, setHistoryLoadedFor] = useState<number | null>(null);
+  const [historyError, setHistoryError] = useState(false);
+  const [requiresReview, setRequiresReview] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const historyRequest = useRef(0);
+  const submitLock = useRef(false);
+  const pendingPost = useRef<{ signature: string; requestId: string } | null>(
+    null
+  );
+  const invalidateHistoryRequests = useCallback(() => {
+    historyRequest.current++;
+  }, []);
 
   const fetchHistory = useCallback(
-    async (ref: string) => {
-      if (!ref.trim()) {
-        setJournalLines([]);
-        return;
-      }
+    async (shipmentId: number) => {
+      const version = ++historyRequest.current;
       setHistoryLoading(true);
+      setHistoryLoadedFor(null);
+      setJournalLines([]);
+      setHistoryError(false);
+      setRequiresReview(false);
       try {
         const res = await fetch(
           buildApiPath(
             apiBasePath,
-            `/accounting/journal-lines-by-ref?ref=${encodeURIComponent(ref.trim())}`
+            `/accounting/shipment-logistics?shipmentId=${shipmentId}`
           )
         );
-        if (res.ok) {
-          const body = await res.json();
-          setJournalLines(body.data ?? []);
+        if (!res.ok) {
+          throw new Error('Could not load logistics history');
         }
+        const body = await res.json();
+        if (!Array.isArray(body.data?.lines)) {
+          throw new Error('Invalid logistics history');
+        }
+        if (version !== historyRequest.current) {
+          return;
+        }
+        setJournalLines(body.data.lines);
+        setRequiresReview(Boolean(body.data.requiresReview));
+        setHistoryLoadedFor(shipmentId);
       } catch (error) {
         logger.warn('Failed to fetch journal history', { error });
+        if (version === historyRequest.current) {
+          setHistoryError(true);
+        }
       } finally {
-        setHistoryLoading(false);
+        if (version === historyRequest.current) {
+          setHistoryLoading(false);
+        }
       }
     },
     [apiBasePath]
@@ -455,13 +442,19 @@ export const LogisticsCostsTab = memo(function LogisticsCostsTab({
 
   // Fetch history when shipment code changes
   useEffect(() => {
-    if (form.values.shipmentCode) {
-      void fetchHistory(form.values.shipmentCode);
+    if (selectedShipment) {
+      void fetchHistory(selectedShipment.id);
     } else {
       setJournalLines([]);
+      setHistoryLoadedFor(null);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [form.values.shipmentCode, fetchHistory, historyVersion]);
+    return invalidateHistoryRequests;
+  }, [
+    selectedShipment,
+    fetchHistory,
+    historyVersion,
+    invalidateHistoryRequests,
+  ]);
 
   // ---- Step detection ----
 
@@ -469,6 +462,7 @@ export const LogisticsCostsTab = memo(function LogisticsCostsTab({
     () => detectCompletedSteps(journalLines, form.values.vendor),
     [journalLines, form.values.vendor]
   );
+  const balances = getLogisticsBalances(journalLines, form.values.vendor);
 
   const recommendedAction = useMemo(
     () => getNextRecommendedAction(completedSteps, delivered ?? false),
@@ -483,44 +477,20 @@ export const LogisticsCostsTab = memo(function LogisticsCostsTab({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [recommendedAction, historyLoading]);
 
-  // ---- Auto-populate amount ----
-
-  useEffect(() => {
-    if (!form.values.shipmentCode || form.values.amount > 0) {return;}
-
-    const estimate = getEstimateForVendor(
-      form.values.vendor,
-      selectedShipment
-    );
-    if (estimate <= 0) {return;}
-
-    const { action } = form.values;
-    if (action === 'accrue') {
-      form.setFieldValue('amount', estimate);
-    } else if (action === 'pay' || action === 'capitalize') {
-      // Use accrued amount if available, else estimate
-      const accrued = completedSteps.accrue.amount;
-      const adjusted = completedSteps['adjust-down'].amount;
-      const netAccrued = accrued > 0 ? accrued - adjusted : 0;
-      form.setFieldValue('amount', netAccrued > 0 ? netAccrued : estimate);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [
-    form.values.shipmentCode,
-    form.values.vendor,
-    form.values.action,
-    selectedShipment,
-    completedSteps,
-  ]);
-
   // ---- Stepper active index ----
 
   const stepperActive = useMemo(() => {
     // The stepper shows 3 main steps: accrue → pay → capitalize
     // Adjust-down is optional and not part of the main flow
-    if (completedSteps.capitalize.done) {return 3;}
-    if (completedSteps.pay.done) {return 2;}
-    if (completedSteps.accrue.done) {return 1;}
+    if (completedSteps.capitalize.done) {
+      return 3;
+    }
+    if (completedSteps.pay.done) {
+      return 2;
+    }
+    if (completedSteps.accrue.done) {
+      return 1;
+    }
     return 0;
   }, [completedSteps]);
 
@@ -528,17 +498,18 @@ export const LogisticsCostsTab = memo(function LogisticsCostsTab({
 
   const submit = async (values: LogisticsCostsFormValues) => {
     const postingDate = values.postingDate;
-    if (!postingDate) {
+    if (
+      !postingDate ||
+      !selectedShipment ||
+      submitLock.current ||
+      historyLoadedFor !== selectedShipment.id ||
+      requiresReview
+    ) {
       return;
     }
 
     if (values.action === 'capitalize' && !delivered) {
-      const ok = window.confirm(
-        `This shipment is not marked Delivered.\n\nContinue with capitalization anyway?\n\nShipment: ${values.shipmentCode}\nStatus: ${selectedShipment?.['Shipment Status'] ?? 'Unknown'}`
-      );
-      if (!ok) {
-        return;
-      }
+      return;
     }
 
     const description = values.description?.trim()
@@ -550,21 +521,58 @@ export const LogisticsCostsTab = memo(function LogisticsCostsTab({
         });
 
     const payload = {
+      shipmentId: selectedShipment.id,
+      vendor: values.vendor,
+      action: values.action,
       date: toISODate(postingDate),
       ref: values.ref.trim(),
-      debitAccount,
-      creditAccount,
+      clearingAccount: accountConfig.clearingAccount,
+      payableAccount: getPayableAccount(values.vendor, accountConfig),
       amount: Number(values.amount),
       description,
     };
 
+    submitLock.current = true;
+    setSubmitting(true);
+    const storageKey = `clothing.logistics.pending.${selectedShipment.id}.${values.vendor}`;
+    const signature = JSON.stringify(payload);
     try {
+      try {
+        const saved = JSON.parse(
+          window.sessionStorage.getItem(storageKey) || 'null'
+        );
+        if (
+          saved?.signature === signature &&
+          typeof saved.requestId === 'string'
+        ) {
+          pendingPost.current = saved;
+        }
+      } catch (error) {
+        logger.warn('Could not restore pending logistics request', { error });
+      }
+      if (pendingPost.current?.signature !== signature) {
+        pendingPost.current = {
+          signature,
+          requestId: window.crypto.randomUUID(),
+        };
+      }
+      try {
+        window.sessionStorage.setItem(
+          storageKey,
+          JSON.stringify(pendingPost.current)
+        );
+      } catch (error) {
+        logger.warn('Could not persist pending logistics request', { error });
+      }
       const res = await fetch(
-        buildApiPath(apiBasePath, '/accounting/manual-journal'),
+        buildApiPath(apiBasePath, '/accounting/shipment-logistics'),
         {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload),
+          body: JSON.stringify({
+            ...payload,
+            requestId: pendingPost.current.requestId,
+          }),
         }
       );
 
@@ -573,6 +581,12 @@ export const LogisticsCostsTab = memo(function LogisticsCostsTab({
         const errorMessage =
           responseBody?.error || 'Failed to save logistics journal entry';
         throw new Error(errorMessage);
+      }
+      pendingPost.current = null;
+      try {
+        window.sessionStorage.removeItem(storageKey);
+      } catch (error) {
+        logger.warn('Could not clear completed logistics request', { error });
       }
 
       showNotification({
@@ -588,6 +602,7 @@ export const LogisticsCostsTab = memo(function LogisticsCostsTab({
       });
 
       // Refresh history
+      setHistoryLoadedFor(null);
       setHistoryVersion((v) => v + 1);
     } catch (error) {
       logger.error('Logistics manual journal save failed', { error });
@@ -597,28 +612,26 @@ export const LogisticsCostsTab = memo(function LogisticsCostsTab({
         message:
           error instanceof Error ? error.message : 'Unexpected error occurred',
       });
+    } finally {
+      submitLock.current = false;
+      setSubmitting(false);
     }
   };
 
   // ---- Determine which actions should be disabled ----
 
   const actionDisabled: Record<LogisticsAction, string | false> = {
-    accrue: completedSteps.accrue.done
-      ? `Already accrued (${formatPeso(completedSteps.accrue.amount)})`
-      : false,
-    pay: !completedSteps.accrue.done
-      ? 'Nothing accrued yet — accrue first.'
-      : completedSteps.pay.done
-        ? `Already paid (${formatPeso(completedSteps.pay.amount)})`
-        : false,
+    accrue: false,
+    pay: balances.payable <= 0 ? 'No remaining actual payable.' : false,
     capitalize: !delivered
       ? `Shipment status is "${selectedShipment?.['Shipment Status'] ?? 'Unknown'}" — must be Delivered.`
-      : completedSteps.capitalize.done
-        ? `Already capitalized (${formatPeso(completedSteps.capitalize.amount)})`
+      : balances.clearing <= 0
+        ? 'No remaining actual cost to capitalize.'
         : false,
-    'adjust-down': !completedSteps.accrue.done
-      ? 'Nothing accrued yet — nothing to adjust.'
-      : false,
+    'adjust-down':
+      logisticsAmountLimit('adjust-down', balances) <= 0
+        ? 'No unpaid, uncapitalized actual cost to correct.'
+        : false,
   };
 
   // ---- Render ----
@@ -626,19 +639,26 @@ export const LogisticsCostsTab = memo(function LogisticsCostsTab({
   return (
     <Paper withBorder radius="md" p="md">
       <Stack gap="md">
-        {/* Info banner */}
-        <Alert
-          icon={<IconInfoCircle size={16} />}
-          title="Pattern B: capitalize logistics only when Delivered"
-          color="blue"
-          variant="light"
-        >
-          <Text size="sm">
-            Post logistics costs without touching Inventory in Transit. Typical
-            flow: (1) accrue to clearing, (2) pay payable, (3) capitalize at
-            delivery. Steps auto-detect from existing entries.
-          </Text>
-        </Alert>
+        {requiresReview && (
+          <Alert
+            icon={<IconInfoCircle size={16} />}
+            title="Existing journals require review"
+            color="yellow"
+          >
+            Guided posting is locked for this shipment. Existing manual journals
+            have not been changed.
+          </Alert>
+        )}
+        {historyError && (
+          <Alert color="red" title="Logistics history unavailable">
+            <Button
+              variant="subtle"
+              onClick={() => setHistoryVersion((version) => version + 1)}
+            >
+              Retry
+            </Button>
+          </Alert>
+        )}
 
         {/* Account config */}
         <Card withBorder radius="md" p="md">
@@ -698,154 +718,169 @@ export const LogisticsCostsTab = memo(function LogisticsCostsTab({
             void submit(values);
           })}
         >
-          <Stack gap="md">
-            {/* ---- Shipment Code + Vendor row ---- */}
-            <Group gap="md" align="flex-start" grow>
-              <Select
-                label="Shipment Code"
-                placeholder="Select shipment"
-                searchable
-                required
-                data={shipmentOptions}
-                value={form.values.shipmentCode}
-                onChange={(value) => {
-                  const code = (value ?? '').trim();
-                  form.setFieldValue('shipmentCode', code);
+          <fieldset
+            disabled={submitting}
+            style={{ border: 0, padding: 0, margin: 0, minWidth: 0 }}
+          >
+            <Stack gap="md">
+              {/* ---- Shipment Code + Vendor row ---- */}
+              <Group gap="md" align="flex-start" grow>
+                <Select
+                  label="Shipment Code"
+                  placeholder="Select shipment"
+                  searchable
+                  required
+                  data={shipmentOptions}
+                  value={form.values.shipmentCode}
+                  onChange={(value) => {
+                    const code = (value ?? '').trim();
+                    form.setFieldValue('shipmentCode', code);
 
-                  const shouldAutofillRef =
-                    !form.values.ref.trim() ||
-                    form.values.ref === form.values.shipmentCode;
-                  if (code && shouldAutofillRef) {
-                    form.setFieldValue('ref', code);
-                  }
+                    const shouldAutofillRef =
+                      !form.values.ref.trim() ||
+                      form.values.ref === form.values.shipmentCode;
+                    if (code && shouldAutofillRef) {
+                      form.setFieldValue('ref', code);
+                    }
 
-                  // Reset amount when switching shipments
-                  form.setFieldValue('amount', 0);
-                }}
-                error={form.errors.shipmentCode}
-              />
+                    // Reset amount when switching shipments
+                    form.setFieldValue('amount', 0);
+                  }}
+                  error={form.errors.shipmentCode}
+                />
 
-              <Select
-                label="Vendor"
-                required
-                data={[
-                  { value: 'Forwarder', label: 'Forwarder' },
-                  { value: 'Courier', label: 'Courier' },
-                  { value: 'Packaging', label: 'Packaging' },
-                ]}
-                value={form.values.vendor}
-                onChange={(value) => {
-                  if (!value) {
-                    return;
-                  }
-                  form.setFieldValue('vendor', value as LogisticsVendor);
-                  form.setFieldValue('amount', 0);
-                }}
-              />
+                <Select
+                  label="Vendor"
+                  required
+                  data={[
+                    { value: 'Forwarder', label: 'Forwarder' },
+                    { value: 'Courier', label: 'Courier' },
+                    { value: 'Packaging', label: 'Packaging' },
+                  ]}
+                  value={form.values.vendor}
+                  onChange={(value) => {
+                    if (!value) {
+                      return;
+                    }
+                    form.setFieldValue('vendor', value as LogisticsVendor);
+                    form.setFieldValue('amount', 0);
+                  }}
+                />
 
-              <DateInput
-                label="Posting Date"
-                placeholder="Select posting date"
-                required
-                {...COMMON_DATE_INPUT_PROPS}
-                {...form.getInputProps('postingDate')}
-              />
-            </Group>
+                <DateInput
+                  label="Posting Date"
+                  placeholder="Select posting date"
+                  required
+                  {...COMMON_DATE_INPUT_PROPS}
+                  {...form.getInputProps('postingDate')}
+                />
+              </Group>
 
-            {/* ---- Shipment summary card ---- */}
-            {selectedShipment && (
-              <Card withBorder radius="sm" p="sm" bg="gray.0">
-                <Group justify="space-between" wrap="wrap">
-                  <Group gap="xs">
-                    <Text size="sm" fw={600}>
-                      {selectedShipment['Shipment Code']}
-                    </Text>
-                    <Badge
-                      size="sm"
-                      color={delivered ? 'teal' : 'yellow'}
-                      variant="light"
-                    >
-                      {selectedShipment['Shipment Status'] || 'Unknown'}
-                    </Badge>
-                    {selectedShipment['Date Delivered'] && (
-                      <Text size="xs" c="dimmed">
-                        Delivered: {selectedShipment['Date Delivered']}
+              {/* ---- Shipment summary card ---- */}
+              {selectedShipment && (
+                <Card withBorder radius="sm" p="sm" bg="gray.0">
+                  <Group justify="space-between" wrap="wrap">
+                    <Group gap="xs">
+                      <Text size="sm" fw={600}>
+                        {selectedShipment['Shipment Code']}
                       </Text>
-                    )}
+                      <Badge
+                        size="sm"
+                        color={delivered ? 'teal' : 'yellow'}
+                        variant="light"
+                      >
+                        {selectedShipment['Shipment Status'] || 'Unknown'}
+                      </Badge>
+                      {selectedShipment['Date Delivered'] && (
+                        <Text size="xs" c="dimmed">
+                          Delivered: {selectedShipment['Date Delivered']}
+                        </Text>
+                      )}
+                    </Group>
+                    <Group gap="lg">
+                      <Text size="xs" c="dimmed">
+                        Products: {selectedShipment.linkedProductCount ?? 0}
+                      </Text>
+                      <Text size="xs" c="dimmed">
+                        Supplier:{' '}
+                        {formatPeso(
+                          selectedShipment.linkedProductGrandTotal ?? 0
+                        )}
+                      </Text>
+                    </Group>
                   </Group>
-                  <Group gap="lg">
-                    <Text size="xs" c="dimmed">
-                      Products: {selectedShipment.linkedProductCount ?? 0}
-                    </Text>
-                    <Text size="xs" c="dimmed">
-                      Supplier:{' '}
-                      {formatPeso(
-                        selectedShipment.linkedProductGrandTotal ?? 0
-                      )}
-                    </Text>
+                  <Divider my="xs" />
+                  <Group gap="xl">
+                    <Box>
+                      <Text size="xs" c="dimmed">
+                        Forwarder pricing estimate
+                      </Text>
+                      <Text
+                        size="sm"
+                        fw={form.values.vendor === 'Forwarder' ? 700 : 400}
+                        c={
+                          form.values.vendor === 'Forwarder'
+                            ? 'blue'
+                            : undefined
+                        }
+                      >
+                        {formatPeso(
+                          selectedShipment.linkedProductForwardersFee ?? 0
+                        )}
+                      </Text>
+                    </Box>
+                    <Box>
+                      <Text size="xs" c="dimmed">
+                        Courier pricing estimate
+                      </Text>
+                      <Text
+                        size="sm"
+                        fw={form.values.vendor === 'Courier' ? 700 : 400}
+                        c={
+                          form.values.vendor === 'Courier' ? 'blue' : undefined
+                        }
+                      >
+                        {formatPeso(
+                          selectedShipment.linkedProductLalamove ?? 0
+                        )}
+                      </Text>
+                    </Box>
+                    <Box>
+                      <Text size="xs" c="dimmed">
+                        Packaging pricing estimate
+                      </Text>
+                      <Text
+                        size="sm"
+                        fw={form.values.vendor === 'Packaging' ? 700 : 400}
+                        c={
+                          form.values.vendor === 'Packaging'
+                            ? 'blue'
+                            : undefined
+                        }
+                      >
+                        {formatPeso(
+                          selectedShipment.linkedProductPackagingCost ?? 0
+                        )}
+                      </Text>
+                    </Box>
                   </Group>
-                </Group>
-                <Divider my="xs" />
-                <Group gap="xl">
-                  <Box>
-                    <Text size="xs" c="dimmed">
-                      Forwarder (est.)
-                    </Text>
-                    <Text
-                      size="sm"
-                      fw={form.values.vendor === 'Forwarder' ? 700 : 400}
-                      c={form.values.vendor === 'Forwarder' ? 'blue' : undefined}
-                    >
-                      {formatPeso(
-                        selectedShipment.linkedProductForwardersFee ?? 0
-                      )}
-                    </Text>
-                  </Box>
-                  <Box>
-                    <Text size="xs" c="dimmed">
-                      Courier (est.)
-                    </Text>
-                    <Text
-                      size="sm"
-                      fw={form.values.vendor === 'Courier' ? 700 : 400}
-                      c={form.values.vendor === 'Courier' ? 'blue' : undefined}
-                    >
-                      {formatPeso(selectedShipment.linkedProductLalamove ?? 0)}
-                    </Text>
-                  </Box>
-                  <Box>
-                    <Text size="xs" c="dimmed">
-                      Packaging (est.)
-                    </Text>
-                    <Text
-                      size="sm"
-                      fw={form.values.vendor === 'Packaging' ? 700 : 400}
-                      c={
-                        form.values.vendor === 'Packaging' ? 'blue' : undefined
-                      }
-                    >
-                      {formatPeso(
-                        selectedShipment.linkedProductPackagingCost ?? 0
-                      )}
-                    </Text>
-                  </Box>
-                </Group>
-              </Card>
-            )}
+                </Card>
+              )}
 
-            {/* ---- Stepper (progress indicator) ---- */}
-            {form.values.shipmentCode && (
-              <>
-                {historyLoading ? (
-                  <Skeleton height={60} radius="sm" />
-                ) : (
-                  <Stepper
-                    active={stepperActive}
-                    size="sm"
-                    completedIcon={<IconCheck size={14} />}
-                  >
-                    {(['accrue', 'pay', 'capitalize'] as LogisticsAction[]).map(
-                      (action) => {
+              {/* ---- Stepper (progress indicator) ---- */}
+              {form.values.shipmentCode && (
+                <>
+                  {historyLoading ? (
+                    <Skeleton height={60} radius="sm" />
+                  ) : (
+                    <Stepper
+                      active={stepperActive}
+                      size="sm"
+                      completedIcon={<IconCheck size={14} />}
+                    >
+                      {(
+                        ['accrue', 'pay', 'capitalize'] as LogisticsAction[]
+                      ).map((action) => {
                         const step = completedSteps[action];
                         const meta = STEP_META[action];
                         return (
@@ -865,198 +900,216 @@ export const LogisticsCostsTab = memo(function LogisticsCostsTab({
                             }
                           />
                         );
-                      }
-                    )}
-                  </Stepper>
-                )}
-              </>
-            )}
-
-            {/* ---- Action selector ---- */}
-            <Box>
-              <Text size="sm" fw={500} mb={4}>
-                Action
-              </Text>
-              <Group gap="xs" grow>
-                {STEP_ACTIONS.map((action) => {
-                  const meta = STEP_META[action];
-                  const isActive = form.values.action === action;
-                  const disabledReason = actionDisabled[action];
-                  const isRecommended = action === recommendedAction;
-
-                  const button = (
-                    <UnstyledButton
-                      key={action}
-                      onClick={() => {
-                        if (!disabledReason) {
-                          form.setFieldValue('action', action);
-                        }
-                      }}
-                      style={(theme) => ({
-                        flex: 1,
-                        padding: theme.spacing.sm,
-                        borderRadius: theme.radius.sm,
-                        border: `2px solid ${
-                          isActive
-                            ? theme.colors.blue[6]
-                            : disabledReason
-                              ? theme.colors.gray[3]
-                              : isRecommended
-                                ? theme.colors.blue[3]
-                                : theme.colors.gray[4]
-                        }`,
-                        backgroundColor: isActive
-                          ? theme.colors.blue[0]
-                          : disabledReason
-                            ? theme.colors.gray[0]
-                            : 'transparent',
-                        opacity: disabledReason ? 0.6 : 1,
-                        cursor: disabledReason ? 'not-allowed' : 'pointer',
-                        transition: 'all 150ms ease',
                       })}
-                    >
-                      <Group gap={6} justify="center" wrap="nowrap">
-                        <Text
-                          size="xs"
-                          fw={isActive ? 700 : 500}
-                          c={
-                            disabledReason
-                              ? 'dimmed'
-                              : isActive
-                                ? 'blue'
-                                : undefined
+                    </Stepper>
+                  )}
+                </>
+              )}
+
+              {/* ---- Action selector ---- */}
+              <Box>
+                <Group gap="lg" mb="sm">
+                  <Text size="sm">Actual: {formatPeso(balances.actual)}</Text>
+                  <Text size="sm">Unpaid: {formatPeso(balances.payable)}</Text>
+                  <Text size="sm">
+                    Uncapitalized: {formatPeso(balances.clearing)}
+                  </Text>
+                </Group>
+                <Text size="sm" fw={500} mb={4}>
+                  Action
+                </Text>
+                <Group gap="xs" grow>
+                  {STEP_ACTIONS.map((action) => {
+                    const meta = STEP_META[action];
+                    const isActive = form.values.action === action;
+                    const disabledReason = actionDisabled[action];
+                    const isRecommended = action === recommendedAction;
+
+                    const button = (
+                      <UnstyledButton
+                        key={action}
+                        onClick={() => {
+                          if (!disabledReason) {
+                            form.setFieldValue('action', action);
+                            form.setFieldValue('amount', 0);
                           }
-                          ta="center"
-                        >
-                          {meta.label}
-                        </Text>
-                        {isRecommended && !disabledReason && !isActive && (
-                          <Badge size="xs" variant="light" color="blue">
-                            next
-                          </Badge>
-                        )}
-                      </Group>
-                    </UnstyledButton>
-                  );
+                        }}
+                        style={(theme) => ({
+                          flex: 1,
+                          padding: theme.spacing.sm,
+                          borderRadius: theme.radius.sm,
+                          border: `2px solid ${
+                            isActive
+                              ? theme.colors.blue[6]
+                              : disabledReason
+                                ? theme.colors.gray[3]
+                                : isRecommended
+                                  ? theme.colors.blue[3]
+                                  : theme.colors.gray[4]
+                          }`,
+                          backgroundColor: isActive
+                            ? theme.colors.blue[0]
+                            : disabledReason
+                              ? theme.colors.gray[0]
+                              : 'transparent',
+                          opacity: disabledReason ? 0.6 : 1,
+                          cursor: disabledReason ? 'not-allowed' : 'pointer',
+                          transition: 'all 150ms ease',
+                        })}
+                      >
+                        <Group gap={6} justify="center" wrap="nowrap">
+                          <Text
+                            size="xs"
+                            fw={isActive ? 700 : 500}
+                            c={
+                              disabledReason
+                                ? 'dimmed'
+                                : isActive
+                                  ? 'blue'
+                                  : undefined
+                            }
+                            ta="center"
+                          >
+                            {meta.label}
+                          </Text>
+                          {isRecommended && !disabledReason && !isActive && (
+                            <Badge size="xs" variant="light" color="blue">
+                              next
+                            </Badge>
+                          )}
+                        </Group>
+                      </UnstyledButton>
+                    );
 
-                  return disabledReason ? (
-                    <Tooltip
-                      key={action}
-                      label={disabledReason}
-                      multiline
-                      w={220}
-                      withArrow
-                    >
-                      {button}
-                    </Tooltip>
-                  ) : (
-                    <Tooltip
-                      key={action}
-                      label={meta.description}
-                      multiline
-                      w={220}
-                      withArrow
-                    >
-                      {button}
-                    </Tooltip>
-                  );
-                })}
-              </Group>
-            </Box>
+                    return disabledReason ? (
+                      <Tooltip
+                        key={action}
+                        label={disabledReason}
+                        multiline
+                        w={220}
+                        withArrow
+                      >
+                        {button}
+                      </Tooltip>
+                    ) : (
+                      <Tooltip
+                        key={action}
+                        label={meta.description}
+                        multiline
+                        w={220}
+                        withArrow
+                      >
+                        {button}
+                      </Tooltip>
+                    );
+                  })}
+                </Group>
+              </Box>
 
-            {/* ---- Entry preview card ---- */}
-            <Card withBorder radius="sm" p="sm" bg="blue.0">
-              <Text size="xs" fw={600} c="blue.7" mb={4}>
-                Entry Preview
-              </Text>
-              <Group gap="xl">
-                <Box>
-                  <Text size="xs" c="dimmed">
-                    Debit
-                  </Text>
-                  <Text size="sm" fw={600}>
-                    {debitAccount}
-                  </Text>
-                </Box>
-                <Box>
-                  <Text size="xs" c="dimmed">
-                    Credit
-                  </Text>
-                  <Text size="sm" fw={600}>
-                    {creditAccount}
-                  </Text>
-                </Box>
-                {form.values.amount > 0 && (
+              {/* ---- Entry preview card ---- */}
+              <Card withBorder radius="sm" p="sm" bg="blue.0">
+                <Text size="xs" fw={600} c="blue.7" mb={4}>
+                  Entry Preview
+                </Text>
+                <Group gap="xl">
                   <Box>
                     <Text size="xs" c="dimmed">
-                      Amount
+                      Debit
                     </Text>
                     <Text size="sm" fw={600}>
-                      {formatPeso(form.values.amount)}
+                      {debitAccount}
                     </Text>
                   </Box>
-                )}
+                  <Box>
+                    <Text size="xs" c="dimmed">
+                      Credit
+                    </Text>
+                    <Text size="sm" fw={600}>
+                      {creditAccount}
+                    </Text>
+                  </Box>
+                  {form.values.amount > 0 && (
+                    <Box>
+                      <Text size="xs" c="dimmed">
+                        Amount
+                      </Text>
+                      <Text size="sm" fw={600}>
+                        {formatPeso(form.values.amount)}
+                      </Text>
+                    </Box>
+                  )}
+                </Group>
+                {form.values.action === 'capitalize' &&
+                  !delivered &&
+                  form.values.shipmentCode && (
+                    <Text size="xs" c="orange" mt={4}>
+                      ⚠ Shipment not yet Delivered (status:{' '}
+                      {selectedShipment?.['Shipment Status'] ?? 'Unknown'})
+                    </Text>
+                  )}
+              </Card>
+
+              {/* ---- Amount + Ref ---- */}
+              <Group gap="md" align="flex-start" grow>
+                <NumberInput
+                  label="Actual Amount"
+                  required
+                  prefix="₱ "
+                  decimalScale={2}
+                  min={0}
+                  thousandSeparator=","
+                  {...form.getInputProps('amount')}
+                />
+
+                <TextInput
+                  label="Ref"
+                  required
+                  placeholder="e.g. KPC 23930A-00222"
+                  {...form.getInputProps('ref')}
+                />
               </Group>
-              {form.values.action === 'capitalize' &&
-                !delivered &&
-                form.values.shipmentCode && (
-                  <Text size="xs" c="orange" mt={4}>
-                    ⚠ Shipment not yet Delivered (status:{' '}
-                    {selectedShipment?.['Shipment Status'] ?? 'Unknown'})
-                  </Text>
-                )}
-            </Card>
 
-            {/* ---- Amount + Ref ---- */}
-            <Group gap="md" align="flex-start" grow>
-              <NumberInput
-                label="Amount"
-                required
-                prefix="₱ "
-                decimalScale={2}
-                min={0}
-                thousandSeparator=","
-                {...form.getInputProps('amount')}
+              <Textarea
+                label="Description (optional)"
+                placeholder="Leave blank to auto-generate"
+                rows={2}
+                {...form.getInputProps('description')}
               />
 
-              <TextInput
-                label="Ref"
-                required
-                placeholder="e.g. KPC 23930A-00222"
-                {...form.getInputProps('ref')}
-              />
-            </Group>
-
-            <Textarea
-              label="Description (optional)"
-              placeholder="Leave blank to auto-generate"
-              rows={2}
-              {...form.getInputProps('description')}
-            />
-
-            <Group justify="flex-end">
-              <Button
-                variant="outline"
-                onClick={() => {
-                  form.reset();
-                }}
-              >
-                Reset
-              </Button>
-              <Button
-                type="submit"
-                leftSection={<IconCurrencyPeso size={16} />}
-              >
-                Post Entry
-              </Button>
-            </Group>
-          </Stack>
+              <Group justify="flex-end">
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    form.reset();
+                  }}
+                >
+                  Reset
+                </Button>
+                <Button
+                  type="submit"
+                  leftSection={<IconCurrencyPeso size={16} />}
+                  loading={submitting}
+                  disabled={
+                    !selectedShipment ||
+                    historyLoadedFor !== selectedShipment.id ||
+                    requiresReview ||
+                    Boolean(actionDisabled[form.values.action])
+                  }
+                >
+                  Post Entry
+                </Button>
+              </Group>
+            </Stack>
+          </fieldset>
         </form>
 
         {/* ---- Posting history panel ---- */}
         {form.values.shipmentCode && (
           <>
-            <Divider label="Posting history for this shipment" labelPosition="center" />
+            <Divider
+              label="Posting history for this shipment"
+              labelPosition="center"
+            />
             {historyLoading ? (
               <Skeleton height={80} radius="sm" />
             ) : journalLines.length === 0 ? (

@@ -52,30 +52,31 @@ const payroll = {
   status: 'approved',
 };
 
-describe('clothing payroll payment sync failures', () => {
+describe('clothing payroll atomic payment requests', () => {
   beforeEach(() => {
     vi.resetAllMocks();
     mocks.payrolls = [payroll];
     mocks.fire.mockResolvedValue({ isConfirmed: true });
-    mocks.patch.mockRejectedValue(new Error('13th month update failed'));
-    mocks.update.mockResolvedValue(undefined);
+    mocks.update.mockRejectedValue(new Error('Atomic payment failed'));
   });
 
-  it('does not mark a single payroll paid when 13th month sync fails', async () => {
+  it('sends only the atomic payroll request and reports a failed payment', async () => {
     const { result } = renderHook(() => usePayroll());
     await act(async () => result.current.handleMarkAsPaid(payroll.id));
-    expect(mocks.patch).toHaveBeenCalled();
-    expect(mocks.update).not.toHaveBeenCalled();
+    expect(mocks.patch).not.toHaveBeenCalled();
+    expect(mocks.update).toHaveBeenCalledWith(
+      expect.objectContaining({ id: payroll.id, status: 'paid' })
+    );
     expect(mocks.fire).toHaveBeenLastCalledWith(
       expect.objectContaining({ title: 'Error' })
     );
   });
 
-  it('reports the failed bulk record instead of counting it as paid', async () => {
+  it('reports the failed bulk record without a separate 13th month mutation', async () => {
     const { result } = renderHook(() => usePayroll());
     await act(async () => result.current.handleMarkAllAsPaid());
-    expect(mocks.patch).toHaveBeenCalled();
-    expect(mocks.update).not.toHaveBeenCalled();
+    expect(mocks.patch).not.toHaveBeenCalled();
+    expect(mocks.update).toHaveBeenCalledTimes(1);
     expect(mocks.fire).toHaveBeenLastCalledWith(
       expect.objectContaining({
         title: 'Partial Success',
@@ -86,6 +87,7 @@ describe('clothing payroll payment sync failures', () => {
 
   it('still marks payroll without 13th month paid without a sync request', async () => {
     mocks.payrolls = [{ ...payroll, thirteenthMonth: 0 }];
+    mocks.update.mockResolvedValue(undefined);
     const { result } = renderHook(() => usePayroll());
     await act(async () => result.current.handleMarkAsPaid(payroll.id));
     expect(mocks.patch).not.toHaveBeenCalled();

@@ -28,6 +28,7 @@ export const DELETE = withErrorHandler(async (request: NextRequest) => {
       periodStart,
       periodEnd,
       deletedAt: { not: null },
+      status: { not: 'paid' },
     },
   });
 

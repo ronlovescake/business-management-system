@@ -66,6 +66,7 @@ describe('Payroll Cleanup API', () => {
         periodStart: '2025-10-01',
         periodEnd: '2025-10-15',
         deletedAt: { not: null },
+        status: { not: 'paid' },
       },
     });
 

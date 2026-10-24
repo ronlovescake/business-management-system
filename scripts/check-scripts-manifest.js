@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
  * Guard: every script in `scripts/` (top level only) must be referenced in
- * `scripts/SCRIPTS_MANIFEST.md`. The manifest is the single source of truth
+ * `docs/tooling/SCRIPTS_MANIFEST.md`. The manifest is the single source of truth
  * for script organization (we deliberately do not move scripts into
  * subfolders — see the manifest header for rationale). This guard fails CI
  * if a new script lands without a corresponding manifest row.
@@ -10,12 +10,10 @@ const fs = require('fs');
 const path = require('path');
 
 const SCRIPTS_DIR = path.join(__dirname);
-const MANIFEST = path.join(SCRIPTS_DIR, 'SCRIPTS_MANIFEST.md');
+const MANIFEST_RELATIVE = 'docs/tooling/SCRIPTS_MANIFEST.md';
+const MANIFEST = path.join(SCRIPTS_DIR, '..', MANIFEST_RELATIVE);
 
-const SKIP_FILES = new Set([
-  'SCRIPTS_MANIFEST.md',
-  'check-scripts-manifest.js',
-]);
+const SKIP_FILES = new Set(['check-scripts-manifest.js']);
 // Subdirectories are documented in aggregate (see manifest "Docker / Infra").
 const SKIP_DIRS = true;
 
@@ -40,7 +38,9 @@ function listScripts() {
 
 function main() {
   if (!fs.existsSync(MANIFEST)) {
-    console.error('[check-scripts-manifest] FAIL: SCRIPTS_MANIFEST.md missing');
+    console.error(
+      `[check-scripts-manifest] FAIL: ${MANIFEST_RELATIVE} missing`
+    );
     process.exit(1);
   }
   const manifest = fs.readFileSync(MANIFEST, 'utf8');
@@ -48,7 +48,7 @@ function main() {
   const missing = scripts.filter((name) => !manifest.includes(name));
   if (missing.length > 0) {
     console.error(
-      '[check-scripts-manifest] FAIL: the following scripts are not listed in SCRIPTS_MANIFEST.md:'
+      `[check-scripts-manifest] FAIL: the following scripts are not listed in ${MANIFEST_RELATIVE}:`
     );
     for (const m of missing) {
       console.error(`  - ${m}`);
@@ -59,7 +59,7 @@ function main() {
     process.exit(1);
   }
   console.log(
-    `[check-scripts-manifest] OK — all ${scripts.length} top-level scripts are documented in SCRIPTS_MANIFEST.md.`
+    `[check-scripts-manifest] OK — all ${scripts.length} top-level scripts are documented in ${MANIFEST_RELATIVE}.`
   );
 }
 

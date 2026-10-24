@@ -115,7 +115,7 @@ describe('Payroll Sync LWOP API', () => {
       expect(payload.data.synced).toBe(1);
       expect(mockPrisma.payroll.update).toHaveBeenCalledWith(
         expect.objectContaining({
-          where: { id: 'payroll-1' },
+          where: { id: 'payroll-1', status: { not: 'paid' } },
           data: expect.objectContaining({
             lwop: 2000, // 2 days * 1000 daily rate
             unpaidDays: 2,

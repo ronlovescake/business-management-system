@@ -66,6 +66,18 @@
 
 ## F — Save Schedule (Create / Update)
 
+Confirmed policy (2026-10-25): one active, non-soft-deleted schedule per employee
+per date, regardless of shift type. Clothing create/import and update requests
+run their conflict checks and writes in one Serializable transaction. A racing
+request receives 409 and must refresh/retry. No schema constraint or historical
+schedule was changed. General merchandise and trucking retain their adapters.
+
+Two coordinated PostgreSQL regressions in
+`tests/integration/clothing-schedules.integration.test.ts` reproduce and verify
+different-shift concurrent creates and concurrent moves onto an empty date.
+Both leave exactly one active schedule on the target date. Validation used a
+new scratch database, not existing development fixtures.
+
 | #   | Logic                                                                                   | Explanation                                                                                      |
 | --- | --------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------ |
 | 20  | Save uses `saveScheduleMutation`                                                        | For new schedules: `POST /schedules`. For edits: `PATCH /schedules` with `id`.                   |

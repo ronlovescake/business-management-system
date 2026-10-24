@@ -152,7 +152,7 @@ export const POST = withErrorHandler(async (request: NextRequest) => {
     const netPay = Math.max(0, payroll.grossPay - totalDeductions);
 
     await prisma.payroll.update({
-      where: { id: payroll.id },
+      where: { id: payroll.id, status: { not: 'paid' } },
       data: {
         lwop: calculatedLwop,
         unpaidDays: totalUnpaidDays,

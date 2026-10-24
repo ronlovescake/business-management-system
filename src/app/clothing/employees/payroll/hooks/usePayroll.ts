@@ -233,6 +233,9 @@ export function usePayroll(apiBasePath?: string) {
     payrollRecord: Payroll,
     paidDate: string
   ) => {
+    if (resolveApiPath('/payroll') === '/api/payroll') {
+      return;
+    }
     if (!payrollRecord.thirteenthMonth || payrollRecord.thirteenthMonth <= 0) {
       return;
     }

@@ -2,6 +2,13 @@
 
 Generated from the repo-wide improvement scan on 2026-04-19.
 
+Moved under docs on 2026-10-25. This preserves the dated scan and decisions;
+checkboxes and metrics below must not be treated as current verification.
+Deferred schema/accounting/security changes still need their own approval and tests.
+
+The script inventory now lives at [the scripts manifest](../tooling/SCRIPTS_MANIFEST.md);
+old script-manifest paths below record the original 2026-04-19 work.
+
 Severity: **H** = High, **M** = Medium, **L** = Low.
 Tick `[x]` as items are completed. Add the PR/commit hash and date in the "Done" column when closing an item.
 

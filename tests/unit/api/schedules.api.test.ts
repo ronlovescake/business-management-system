@@ -27,7 +27,15 @@ const mockPrisma = vi.hoisted(() => ({
   employee: {
     findMany: vi.fn(),
   },
+  $transaction: vi.fn(),
 }));
+
+beforeEach(() => {
+  mockPrisma.$transaction.mockImplementation(
+    async (operation: (client: typeof mockPrisma) => Promise<unknown>) =>
+      operation(mockPrisma)
+  );
+});
 
 vi.mock('@/lib/db', () => ({
   prisma: mockPrisma,

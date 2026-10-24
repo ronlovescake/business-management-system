@@ -30,12 +30,15 @@ Archived to `docs/reports/archive/` on 2026-04-19 to keep `docs/` root focused o
 - [REPO_SIDEMAP_DEEP_SCAN_2026-02-20.md](./reports/archive/REPO_SIDEMAP_DEEP_SCAN_2026-02-20.md)
 - [REPO_VERIFIED_EXEC_SUMMARY_2026-03-29.md](./reports/archive/REPO_VERIFIED_EXEC_SUMMARY_2026-03-29.md)
 - [BUSINESS_LOGIC_COVERAGE_AUDIT_2026-04-08.md](./reports/archive/BUSINESS_LOGIC_COVERAGE_AUDIT_2026-04-08.md)
+- [Repo-wide analysis retained from the root scratch archive](./reports/archive/REPO_WIDE_ANALYSIS_ARCHIVED_2026-04-19.md)
+- [Root scratch archive provenance](./reports/archive/ROOT_SCRATCH_ARCHIVE_2026-04-19.md)
 - `refactor_inventory_scan_2026-02-20*.json` (raw scan data)
 
 These are still useful as reference scans, but they should not override the current codebase or the verified summaries.
 
 ## Cleanup Notes
 
+- 2026-10-25: Centralized project Markdown under `docs/`, retaining root README/CONTRIBUTING and required `.github` instructions. Preserved legal wording and dated evidence; non-Markdown scratch artifacts remain under `archives/root-scratch-2026-04-19/`.
 - 2026-04-19: Dated reports moved from `docs/` root to `docs/reports/archive/` (see `IMPROVEMENTS_CHECKLIST.md` §8).
 - Old cleanup-phase markdown reports were removed.
 - Stale framework and missing-guide references were removed from the active docs.

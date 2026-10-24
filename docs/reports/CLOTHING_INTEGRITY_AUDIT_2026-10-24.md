@@ -82,7 +82,7 @@ changes have corresponding caller/parity checks; no domain tables were merged.
 - [Real PostgreSQL suite](../../tests/integration/transaction-data-integrity.integration.test.ts): second-line rollback, idempotent Paid retry/dates, same-row transit recovery, exclusive concurrent sources, and reclass/source consistency.
 - [Sorting persistence](../../src/app/api/sorting-distribution/route.ts), [load/save owner](../../src/modules/clothing/operations/sorting-distribution/hooks/useSortingDistributionData.ts), and [async regressions](../../src/modules/clothing/operations/sorting-distribution/hooks/__tests__/useSortingDistributionData.test.ts).
 - [Recurring payment owner](../../src/modules/clothing/ledger/recurringPayments/api/service.ts), [service regressions](../../src/modules/clothing/ledger/recurringPayments/api/__tests__/service.test.ts), and [follow-up PostgreSQL suite](../../tests/integration/clothing-persistence.integration.test.ts): duplicate advancement, approval rollback/race, invoice rollback, message cursors and physical return creation/deletion.
-- [Invoice replacement factory](../../src/modules/invoices/api/invoiceRouteFactory.ts), [message pagination](../../src/app/api/conversations/[id]/messages/route.ts), and [Drive boundary](../../src/app/api/google-drive/sync-files/route.ts).
+- [Invoice replacement factory](../../src/modules/invoices/api/invoiceRouteFactory.ts) and [message pagination](../../src/app/api/conversations/[id]/messages/route.ts). F24 records the earlier Drive boundary tests; the automatic integration was retired on 2026-10-25. Manual invoicing and `{DRIVE_FILES}` messaging remain supported; see [the current checkout contract](../business-logic/clothing/operations-checkout-links.md).
 - [Payroll client guard](../../src/app/clothing/employees/payroll/hooks/usePayroll.ts), [active-employee leave guard](../../src/modules/shared/employees/api/applyLeaveRouteFactory.ts), [13th-month routes](../../src/modules/shared/employees/api/thirteenthMonthPayRouteFactory.ts), and [user-admin regression](../../tests/unit/api/users-admin.api.test.ts).
 
 ## Preserved Policy
@@ -101,48 +101,48 @@ changes have corresponding caller/parity checks; no domain tables were merged.
 Paths are relative to `/clothing/`. Depth describes this work, not all historical
 test coverage. Regression coverage is not full browser certification.
 
-| Page                             | Depth / result                                                                                                                                                                                    |
-| -------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| accounting                       | Overview/routing reviewed; no full authenticated browser run.                                                                                                                                     |
-| accounting/ledger                | Projection/API/role trace and accounting tests; source guards changed.                                                                                                                            |
-| accounting/journal               | API/role trace and journal API/business tests.                                                                                                                                                    |
-| accounting/expenses              | Root/shared service and schema trace; recurring cutover/duplicate/race fixes with PostgreSQL rollback evidence. Manual bulk-update atomicity not certified.                                       |
-| accounting/investors             | Authorization, agreement locks, balanced posting, payout/term guards, schedule and statement helper trace; existing investor integration. No external PDF/browser certification.                  |
-| accounting/profit-loss           | API/business regressions; not every report basis/date reconciled live.                                                                                                                            |
-| accounting/balance-sheet         | API/business regressions; not every historical period reconciled live.                                                                                                                            |
-| ledger                           | Alias accounted for; ledger permissions shared.                                                                                                                                                   |
-| operations/products              | All mutation entry points traced; accounting tests and PostgreSQL rollback/retry/recovery.                                                                                                        |
-| operations/shipments             | Source/reclass/write endpoints traced; regressions and PostgreSQL races; logistics residual below.                                                                                                |
-| operations/inventory             | Projection/adjustment, return/scrap and split/mix regressions; real return creation/deletion for sellable, damaged and scrap preserves original sale/cost. Full browser projection not certified. |
-| operations/transactions          | Net-price/refund-cap/deletion regressions; existing payment/status tests; not every concurrent lifecycle interleaving.                                                                            |
-| operations/prices                | Real-envelope component tests: tier clearing, out-of-order selection, edits while pending.                                                                                                        |
-| operations/checkout-links        | CSV/canonical import regressions; API-only Drive/invoice tests and real invoice rollback. Served Invoicing uses transaction-derived rows/local tickboxes, not a mounted Drive sync control.       |
-| operations/dispatch              | Import transaction/source trace; future-date, safe confirmation text and failure-result regressions. Per-transaction updates are not one atomic bulk action.                                      |
-| operations/dispatching           | Redirect/module metadata regression; sample UI retired for clothing.                                                                                                                              |
-| operations/sorting-distribution  | Calculation/API/hook trace; sparse positions, served input validation, stale load and serialized autosave regressions. Full stock-conversion/browser matrix remains.                              |
-| operations/customers             | Shared directory/payment/refund boundaries considered; full invoice browser matrix not repeated.                                                                                                  |
-| operations/customers/[id]        | Refund ownership/cap/sale-cost trace; real create/delete movement reversals in three buckets. No refund edit endpoint found in the traced API; full browser/payment matrix remains.               |
-| operations/business-intelligence | Served hook, source/status/metric scopes and date helper traced; real-helper future-date/KPI regressions. Not independent ledger reconciliation.                                                  |
-| operations/messaging             | Participant/visibility/POST transaction and delete rules traced; scoped cursor/limit tests and real equal-timestamp paging. Polling, attachments and browser delivery remain unverified.          |
-| operations/message-templates     | Service/route trace, duplicate-safe initialization and CRUD/parity tests.                                                                                                                         |
-| operations/post-template         | Singleton/route trace, atomic initialization and edit/parity tests.                                                                                                                               |
-| operations/notifications         | API deduplication fix/regressions; display-name origin traced, not trusted audit identity. Separate entity feeds retain existing tests.                                                           |
-| operations/settings              | Invoice/template/cutover/module-operation source trace and backup hardening. Simulated enable/disable hooks are not wired to installed-module controls. No package install or real-data restore.  |
-| employees/dashboard              | Role denial before reads; correct domain endpoint retained.                                                                                                                                       |
-| employees/team                   | Root fields/roles and existing business tests.                                                                                                                                                    |
-| employees/team/[id]              | Salary/detail/restore root API coverage; complete lifecycle not certified.                                                                                                                        |
-| employees/attendance             | Shared validation/employee lookup and apply-leave trace; missing/deleted-employee regressions with trucking compatibility. Payroll reconciliation remains.                                        |
-| employees/schedules              | Shared duplicate/employee checks traced; precheck-versus-database employee/date/shift uniqueness mismatch remains open.                                                                           |
-| employees/payroll                | Client sync failure fixed; shared paid-status/deduction/expense owner and replay risk traced. Server atomicity and deletion reconciliation remain open.                                           |
-| employees/cash-advance           | Shared CRUD and deduction/schedule/log ownership traced; API/business tests retained. End-to-end balance/replay/settlement not certified.                                                         |
-| employees/thirteenth-month-pay   | Shared calculation/persistence/status owner traced; invalid statuses rejected before writes. Valid transition and statutory policy unchanged.                                                     |
-| employees/leave-tracker          | Shared CRUD/overlap helper/date schema and attendance application traced. No new leave-day/accrual policy; full history/overlap concurrency remains.                                              |
-| employees/employee-loans         | Confirmed local React state only, lost on refresh; existing docs disclose it. No backend invented.                                                                                                |
-| employees/expenses               | Redirect stub; actual expenses owned by accounting/root API.                                                                                                                                      |
-| employees/settings               | Automation roles/API tests; no live automation run.                                                                                                                                               |
-| employees/calendar               | Empty shell confirmed; not completed scheduling.                                                                                                                                                  |
-| employees/notifications          | Shared-page inventory; domain completeness not certified.                                                                                                                                         |
-| users                            | All five admin handlers use tested 401/403 mapping with the real session guard; super-admin read and genuine error tests. Full lifecycle/browser matrix remains.                                  |
+| Page                             | Depth / result                                                                                                                                                                                      |
+| -------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| accounting                       | Overview/routing reviewed; no full authenticated browser run.                                                                                                                                       |
+| accounting/ledger                | Projection/API/role trace and accounting tests; source guards changed.                                                                                                                              |
+| accounting/journal               | API/role trace and journal API/business tests.                                                                                                                                                      |
+| accounting/expenses              | Root/shared service and schema trace; recurring cutover/duplicate/race fixes with PostgreSQL rollback evidence. Manual bulk-update atomicity not certified.                                         |
+| accounting/investors             | Authorization, agreement locks, balanced posting, payout/term guards, schedule and statement helper trace; existing investor integration. No external PDF/browser certification.                    |
+| accounting/profit-loss           | API/business regressions; not every report basis/date reconciled live.                                                                                                                              |
+| accounting/balance-sheet         | API/business regressions; not every historical period reconciled live.                                                                                                                              |
+| ledger                           | Alias accounted for; ledger permissions shared.                                                                                                                                                     |
+| operations/products              | All mutation entry points traced; accounting tests and PostgreSQL rollback/retry/recovery.                                                                                                          |
+| operations/shipments             | Source/reclass/write endpoints traced; structured actual-logistics bounds, rollback, retry and payment-race checks added on 2026-10-25. Ambiguous legacy journals require review.                   |
+| operations/inventory             | Projection/adjustment, return/scrap and split/mix regressions; real return creation/deletion for sellable, damaged and scrap preserves original sale/cost. Full browser projection not certified.   |
+| operations/transactions          | Net-price/refund-cap/deletion regressions; existing payment/status tests; not every concurrent lifecycle interleaving.                                                                              |
+| operations/prices                | Real-envelope component tests: tier clearing, out-of-order selection, edits while pending.                                                                                                          |
+| operations/checkout-links        | CSV/import and invoice rollback regressions. Automatic Drive retired; existing port5002 manual copy/link handoff verified with synthetic fixtures on desktop/mobile. No real external delivery.     |
+| operations/dispatch              | Import transaction/source trace; future-date, safe confirmation text and failure-result regressions. Per-transaction updates are not one atomic bulk action.                                        |
+| operations/dispatching           | Redirect/module metadata regression; sample UI retired for clothing.                                                                                                                                |
+| operations/sorting-distribution  | Calculation/API/hook trace; sparse positions, served input validation, stale load and serialized autosave regressions. Full stock-conversion/browser matrix remains.                                |
+| operations/customers             | Shared directory/payment/refund boundaries considered; full invoice browser matrix not repeated.                                                                                                    |
+| operations/customers/[id]        | Refund ownership/cap/sale-cost trace; real create/delete movement reversals in three buckets. No refund edit endpoint found in the traced API; full browser/payment matrix remains.                 |
+| operations/business-intelligence | Served hook, source/status/metric scopes and date helper traced; real-helper future-date/KPI regressions. Not independent ledger reconciliation.                                                    |
+| operations/messaging             | Participant/visibility/POST transaction and delete rules traced; scoped cursor/limit tests and real equal-timestamp paging. Polling, attachments and browser delivery remain unverified.            |
+| operations/message-templates     | Service/route trace, duplicate-safe initialization and CRUD/parity tests.                                                                                                                           |
+| operations/post-template         | Singleton/route trace, atomic initialization and edit/parity tests.                                                                                                                                 |
+| operations/notifications         | API deduplication fix/regressions; display-name origin traced, not trusted audit identity. Separate entity feeds retain existing tests.                                                             |
+| operations/settings              | Invoice/template/cutover/module-operation source trace and backup hardening. Simulated enable/disable hooks are not wired to installed-module controls. No package install or real-data restore.    |
+| employees/dashboard              | Role denial before reads; correct domain endpoint retained.                                                                                                                                         |
+| employees/team                   | Root fields/roles and existing business tests.                                                                                                                                                      |
+| employees/team/[id]              | Salary/detail/restore root API coverage; complete lifecycle not certified.                                                                                                                          |
+| employees/attendance             | Shared validation/employee lookup and apply-leave trace; missing/deleted-employee regressions with trucking compatibility. Payroll reconciliation remains.                                          |
+| employees/schedules              | User confirmed one active record per employee/date. Serializable clothing create/move boundary passes both coordinated PostgreSQL races; no schema/history rewrite.                                 |
+| employees/payroll                | Clothing paid transitions now atomically synchronize deductions, expenses and linked13th-month state; seven PostgreSQL rollback/retry/race/paid-lock scenarios. Historical repairs remain separate. |
+| employees/cash-advance           | Shared CRUD and deduction/schedule/log ownership traced; API/business tests retained. End-to-end balance/replay/settlement not certified.                                                           |
+| employees/thirteenth-month-pay   | Shared calculation/persistence/status owner traced; invalid statuses rejected before writes. Valid transition and statutory policy unchanged.                                                       |
+| employees/leave-tracker          | Shared CRUD/overlap helper/date schema and attendance application traced. No new leave-day/accrual policy; full history/overlap concurrency remains.                                                |
+| employees/employee-loans         | Confirmed local React state only, lost on refresh; existing docs disclose it. No backend invented.                                                                                                  |
+| employees/expenses               | Redirect stub; actual expenses owned by accounting/root API.                                                                                                                                        |
+| employees/settings               | Automation roles/API tests; no live automation run.                                                                                                                                                 |
+| employees/calendar               | Empty shell confirmed; not completed scheduling.                                                                                                                                                    |
+| employees/notifications          | Shared-page inventory; domain completeness not certified.                                                                                                                                           |
+| users                            | All five admin handlers use tested 401/403 mapping with the real session guard; super-admin read and genuine error tests. Full lifecycle/browser matrix remains.                                    |
 
 ## Initial F1-F17 Verification
 
@@ -163,9 +163,9 @@ or a global administrator default.
 | `npm run accounting:transactions:sanitycheck` | Passed on the scratch fixture: 1 transaction scanned, 0 issues. This does not certify historical business data.                                           |
 | Browser/external integrations                 | Not certified; no production URL requested.                                                                                                               |
 
-## Follow-Up Verification
+## F18-F32 Verification (Prior Baseline)
 
-These results describe the current uncommitted follow-up, not just F1-F17.
+These results describe the earlier F18-F32 work, not the 2026-10-25 changes below.
 Initial fixture/lint failures were repaired without weakening assertions or
 adding authentication bypasses. The integration split preserves every scenario.
 
@@ -198,9 +198,9 @@ local audit commit, not only this uncommitted follow-up:
 The follow-up initially grew the existing integrity test over the 1,000-line
 hard stop. That new violation was resolved by moving eight related tests to the
 follow-up suite and sharing the [existing fixture](../../tests/integration/clothing-accounting-fixture.ts).
-All 45 integration tests still pass. The two earlier blockers remain disclosed;
-this is not a fully green merge/release gate. A history rewrite/commit is not an
-authorized means of clearing a comparison-based check.
+All 45 integration tests passed for that earlier work. These were the recorded
+blockers for that comparison, not the current follow-on gate result below. A
+history rewrite/commit is not an authorized means of clearing a comparison-based check.
 
 ### Isolated PostgreSQL Setup
 
@@ -219,43 +219,105 @@ redirection. A finally block removed only that database. No migration targeted a
 existing application database. Default-bootstrap repair is a separate shared
 test-infrastructure change.
 
+## Approved Follow-On (2026-10-25)
+
+The user approved Drive retirement, payroll/scheduling/logistics safeguards,
+safe manual-message verification on port5002, then documentation centralization.
+Policy decisions: payroll remains editable pending/approved and locks once paid;
+one active schedule per employee/date; logistics posts confirmed actual KPC and
+Lalamove charges, never pricing estimates; preserve ambiguous historical journals.
+
+- Automatic Drive endpoint, service-account example/Compose forwards, dependency
+  and smoke script retired. Manual invoices, configured URLs and `{DRIVE_FILES}`
+  settings/template support remain; no real private environment files were edited.
+- [Clothing payroll](../../src/app/api/payroll/route.ts) binds the shared mutation
+  store, deductions, expense writes and linked 13th-month state to one Serializable
+  transaction. Unchanged paid retries do not replay deductions; changed paid
+  records and paid deletion return 409. Cleanup/LWOP writes exclude paid records.
+  Other domains keep their own stores; shared expense failures now surface.
+- Clothing schedules share a Serializable conflict-check/write boundary. The
+  two coordinated PostgreSQL tests arbitrate both create and date-move races.
+- [Actual logistics endpoint](../../src/app/api/accounting/shipment-logistics/route.ts)
+  posts balanced structured pairs with UUID retry identity, unpaid/clearing
+  limits, Delivered/date guards and legacy review locks. UI history fails closed,
+  ignores stale responses, sums partial payments and blocks concurrent clicks.
+- [Standalone browser check](../../tests/e2e/manual-invoice-message.safe.ts)
+  passed on the existing port-5002 bundle with a normally authenticated, explicitly
+  approved temporary test user, synthetic APIs and intercepted external actions.
+  Clipboard failure/missing links, placeholder expansion, checkout/payment URLs,
+  local ticks and desktop/mobile visibility were checked. Every created account
+  was removed; no external message, data reset, rebuild or deployment occurred.
+- All 147 tracked Markdown documents are retained. Eight files moved under docs;
+  root README/CONTRIBUTING and required instructions remain. Local links pass,
+  the legal template is unchanged, and dated plans/audits are labeled as evidence.
+  The unrelated user-edited refactor execution report was not moved or rewritten.
+
+Focused evidence includes 45 logistics unit/component/authorization checks,
+41 cross-domain payroll checks, and 7 payroll + 2 scheduling + 5 logistics
+scratch-PostgreSQL scenarios. These are also included in the complete gates below.
+
+### Final Follow-On Verification
+
+| Gate                                                                      | Result                                                                                                                                                                                                                                                          |
+| ------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `npm run guardrails:check`                                                | Passed the default chain, without overrides. Includes command drift, generated permissions, ACL coverage, all 93 script entries and backup coverage for 126 Prisma models.                                                                                      |
+| `npm run lint`                                                            | Passed with only pre-existing accounting data-fetcher and SplitTab warnings. Explicit lint on the touched logistics/new regression files passed with zero warnings.                                                                                             |
+| `npm run typecheck`                                                       | Passed after the payroll type-contract extraction and test/runtime compatibility fixes.                                                                                                                                                                         |
+| `npm run test:unit`                                                       | 337 files, 3,947 tests passed. Two earlier obsolete deduction-update assertions were strengthened to require the paid-record predicate.                                                                                                                         |
+| `COVERAGE_ENFORCE=true npm run test:coverage`                             | 337 files, 3,947 tests passed. Lines/statements 29.26%, branches 63.31%, functions 46.30%; original thresholds unchanged.                                                                                                                                       |
+| Full integration config                                                   | All 9 files / 59 tests passed on a newly created scratch PostgreSQL database; real middleware and customer/product identity triggers enabled. Only that database was dropped.                                                                                   |
+| `npm run test:hardening`                                                  | 4 files / 12 tests passed. This is the repository's backup/restore boundary suite, not every application security scenario.                                                                                                                                     |
+| `npm run inventory:ledger:controls`                                       | Passed on a separate seeded scratch: receipt100, sale20, return5, write-off3, sellable/product quantity82; one SKU and four movements.                                                                                                                          |
+| `npm run accounting:transactions:sanitycheck -- --scanAll --failOnIssues` | One synthetic paid transaction scanned, zero issues; only the controls scratch database was removed afterward.                                                                                                                                                  |
+| Manual browser workflow                                                   | Port5002 normal temporary login and synthetic APIs; clipboard failure/missing link, placeholder/checkout/payment URL, intercepted Messenger handoff, local tick and desktop/mobile visibility checks passed. Temporary accounts removed; no real customer send. |
+| Documentation integrity                                                   | All147 Markdown retained; only root README/CONTRIBUTING and required instructions outside docs. Local link and command checks pass; legal-template hash unchanged.                                                                                              |
+
+The default guardrail compares committed paths/added lines, not all uncommitted
+files. A separate worktree size/risk-marker check identified the new payroll
+adapter crossing; its types were extracted with public exports preserved and
+41 cross-domain regressions passing. The already-oversized logistics component
+was reduced from its 1,106-line baseline, not certified as fully decomposed.
+Existing large tests and historical technical debt remain visible rather than
+being hidden with threshold/base overrides.
+
+Overlapping terminal unit/coverage attempts were interrupted and were not counted
+as passes. The reported totals come from a complete serial rerun with exit0 for
+both gates. No commit, push, production request, application rebuild/deployment,
+existing-database reset or historical financial repair occurred in this follow-on.
+
 ## Remaining Risks
 
 1. Global soft-delete reads overwrite explicit deletedAt filters. Deleted counts
    and restore reporting outside bounded transit recovery can be misleading.
    Changing all domains' query semantics needs separate shared regression work.
-2. Logistics uses generic manual journals with reference/description history.
-   Server action idempotency, amount bounds, delivery constraints, and stale
-   history need a dedicated accounting fixture. No accounting policy was guessed.
+2. Guided logistics now has structured identity and tested financial guards.
+   Legacy manual history is preserved and locks guided posting for review; no
+   historical mapping/unlock, refund/credit/reversal policy or COGS rewrite was
+   implemented. Arbitrary manual journal entry remains a separate accounting path.
 3. Guarded deletion prevents new orphan movements but does not rewrite existing
    orphan COGS/source mismatches. Historical repair needs approval/recovery plan.
 4. Real PostgreSQL return creation/deletion now covers sellable/damaged/scrap
    movements and unchanged original sale/cost. No edit endpoint was found in the
    traced clothing refund API; full stock/COGS/refund browser journeys remain.
-5. Payroll server atomicity is a HIGH open risk, not fixed by F23: the shared
-   [payment adapter](../../src/modules/shared/ledger/payroll/api/routeAdapter.ts)
-   commits paid status before deduction/expense synchronization; some expense
-   failures are logged, and an unchanged paid retry does not reconcile effects.
-   The client 13th-month write is another request and can succeed before payroll
-   fails. Do not blindly replay deductions: cash-advance last-deducted/schedule
-   state can make replay compute zero and overwrite payroll amounts. A
-   transaction-scoped design plus failure/retry/deletion fixtures is required.
-6. The [schedule factory](../../src/modules/shared/employees/api/scheduleRouteFactory.ts)
-   advertises one employee/date record, but prechecks and inserts are separate;
-   the historical database uniqueness also includes shift type. Concurrent
-   different-shift requests can bypass that application rule. Resolve the
-   one-versus-multiple-shift contract before a schema/locking change; no such
-   migration or race certification is included here.
+5. New clothing payroll transitions are atomic and paid records are locked.
+   Previously inconsistent paid records are not repaired by unchanged retries;
+   blindly replaying deductions remains unsafe. Historical reconciliation,
+   paid reversal policy and atomicity across other domains need separate review.
+6. Clothing schedule races are guarded by Serializable route transactions, not
+   a new schema constraint. Historical duplicates and direct database writes
+   outside that route are not repaired; other domain factories retain their own
+   stores and have not been certified for this concurrency contract.
 7. PostgreSQL races cover specific interleavings, not every possible race. Clients
    must refresh/retry409; financial writes are not automatically retried.
 8. Local-only loans and the empty employee calendar were not invented into
    complete features. The shared employee notification feed's domain completeness
    remains unverified. Messaging polling/attachments/recipient
-   delivery, Drive credentials/remote results, invoice browser dialogs, user
+   delivery, real external invoice sending/PDF generation, user
    photo/restore and every employee lifecycle are not certified by source and
    mocked checks. Selected notification display names remain non-authoritative.
-   The served checkout Invoicing panel has no Drive-sync control; retained API
-   tests do not establish a working browser integration.
+   The retired Drive API is not an external integration to certify. The safe
+   manual browser check does not prove recipient delivery or popup behavior
+   across every browser, nor certify a fresh runtime bundle of these edits.
 9. Inventory and financial controls on scratch fixtures do not reconcile existing
    development or historical business data. No repair/backfill was authorized.
 

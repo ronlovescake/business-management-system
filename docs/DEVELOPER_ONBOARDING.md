@@ -245,4 +245,4 @@ If you are authorized to commit, write commit messages that explain what changed
 - `docs/README.md`: documentation hub
 - `docs/BUSINESS_LOGIC_INDEX.md`: business-domain shortcuts
 - `docs/reports/archive/REPO_VERIFIED_EXEC_SUMMARY_2026-03-29.md`: concise architecture summary (archived 2026-04-19)
-- `IMPROVEMENTS_CHECKLIST.md`: tracked repo-wide improvements
+- [Improvements checklist](./plans/IMPROVEMENTS_CHECKLIST.md): dated decisions and deferred repo-wide improvements

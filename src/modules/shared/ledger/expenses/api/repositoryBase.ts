@@ -1,4 +1,5 @@
 import { BaseRepository } from '@/core/database/repository';
+import type { Prisma } from '@prisma/client';
 import type { OrderByInput, WhereInput } from '@/core/database/repository';
 import type { PrismaModelName } from '@/types/prisma';
 
@@ -48,8 +49,8 @@ export class ExpenseRepositoryBase<
 > extends BaseRepository<TEntity, TCreateInput, TUpdateInput> {
   protected readonly modelName: PrismaModelName;
 
-  constructor(modelName: PrismaModelName) {
-    super();
+  constructor(modelName: PrismaModelName, client?: Prisma.TransactionClient) {
+    super(client);
     this.modelName = modelName;
   }
 

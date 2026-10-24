@@ -1,6 +1,7 @@
 import { logger } from '@/lib/logger';
 import { getCurrentDateISO } from '@/utils/date';
 import { getSwal } from '@/lib/alerts';
+export { resolveThirteenthMonthRecordId } from './thirteenthMonthIdentity';
 
 type PayrollPaidRecord = {
   id: string;
@@ -23,25 +24,6 @@ type RunMarkPayrollAsPaidFlowArgs<TPayroll extends PayrollPaidRecord> = {
     paidDate: string;
   }) => Promise<void>;
 };
-
-export function resolveThirteenthMonthRecordId(
-  payrollRecord: Pick<PayrollPaidRecord, 'employeeId' | 'payPeriod'>
-) {
-  let year = new Date().getFullYear();
-  if (payrollRecord.payPeriod) {
-    const endDateStr =
-      payrollRecord.payPeriod.split(' to ')[1] ||
-      payrollRecord.payPeriod.split(' - ')[1] ||
-      payrollRecord.payPeriod;
-    const parsedDate = new Date(endDateStr);
-    if (!Number.isNaN(parsedDate.getTime())) {
-      year = parsedDate.getFullYear();
-    }
-  }
-
-  const employeeId = payrollRecord.employeeId || '';
-  return `${employeeId.toLowerCase()}-${year}`;
-}
 
 export async function runMarkPayrollAsPaidFlow<
   TPayroll extends PayrollPaidRecord,

@@ -11,6 +11,13 @@ import {
   validatePayroll,
   type PayrollInput,
 } from '@/lib/validations/payroll.validation';
+import type {
+  PayrollRouteConfig,
+  PayrollRouteRecord,
+  PayrollRouteStore,
+} from './routeTypes';
+
+export type { PayrollRouteRecord, PayrollRouteStore } from './routeTypes';
 
 const BULK_PAYROLL_LIMIT = BATCH_LIMITS.MAX_BATCH_SIZE;
 
@@ -19,41 +26,6 @@ type BulkValidationIssue = { index: number; errors: Record<string, string> };
 type BuildPayrollUpdateResult =
   | { success: true; payload: PayrollInput }
   | { success: false; errors: Record<string, string> };
-
-export type PayrollRouteRecord = {
-  id: string;
-  employeeId: string;
-  employeeName: string;
-  payPeriod: string;
-  periodStart: string;
-  periodEnd: string;
-  basicSalary: number;
-  allowance: number;
-  overtime: number;
-  bonuses: number;
-  thirteenthMonth: number;
-  grossPay: number;
-  sss: number;
-  philHealth: number;
-  pagIbig: number;
-  tax: number;
-  loans: number;
-  cashAdvance: number;
-  lwop: number;
-  absentsLates: number;
-  totalDeductions: number;
-  netPay: number;
-  status: string;
-  bankGcash: string;
-  approvedBy: string | null;
-  approvedDate: string | null;
-  paidDate: string | null;
-  unpaidDays: number;
-  dailyRate: number;
-  deduction: number;
-  notes: string | null;
-  deletedAt: Date | null;
-};
 
 type NumericPayrollField = {
   [K in keyof PayrollInput]: PayrollInput[K] extends number ? K : never;
@@ -103,59 +75,15 @@ const PAYROLL_SOURCE_FIELDS = [
 
 const PAYROLL_TOTAL_FIELDS = ['grossPay', 'totalDeductions', 'netPay'] as const;
 
-type PayrollModel<TRecord extends PayrollRouteRecord> = {
-  findMany: (args: {
-    where: Record<string, unknown>;
-    orderBy: Array<Record<string, 'asc' | 'desc'>>;
-  }) => Promise<TRecord[]>;
-  findUnique: (args: { where: { id: string } }) => Promise<TRecord | null>;
-  create: (args: { data: PayrollInput }) => Promise<TRecord>;
-  update: (args: {
-    where: { id: string };
-    data: Partial<PayrollInput> | { deletedAt: Date };
-  }) => Promise<TRecord>;
-  delete: (args: { where: { id: string } }) => Promise<unknown>;
-};
-
-type EmployeeModel = {
-  findMany: (args: {
-    where: {
-      employeeId: { in: string[] };
-      deletedAt: null;
-    };
-    select: { employeeId: true };
-  }) => Promise<Array<{ employeeId: string }>>;
-};
-
-type PayrollRouteConfig<TRecord extends PayrollRouteRecord> = {
-  payrollModel: PayrollModel<TRecord>;
-  employeeModel: EmployeeModel;
-  createRecords: (records: PayrollInput[]) => Promise<TRecord[]>;
-  syncPayrollDeductions: (payrolls: TRecord[]) => Promise<TRecord[]>;
-  syncExpenseFromPayroll: (
-    payroll: TRecord,
-    processedBy?: string | null
-  ) => Promise<void>;
-  shouldSync: (status: string) => boolean;
-  logPrefix?: string;
-};
-
 async function syncCreatedPayrollExpenses<TRecord extends PayrollRouteRecord>(
   records: TRecord[],
-  config: PayrollRouteConfig<TRecord>,
+  config: PayrollRouteStore<TRecord>,
   processedBy?: string
 ) {
   const paidRecords = records.filter((record) => record.status === 'paid');
 
   for (const payroll of paidRecords) {
-    try {
-      await config.syncExpenseFromPayroll(payroll, processedBy);
-    } catch (error) {
-      logger.error('Failed to sync created payroll to expenses', {
-        error,
-        payrollId: payroll.id,
-      });
-    }
+    await config.syncExpenseFromPayroll(payroll, processedBy);
   }
 }
 
@@ -463,6 +391,11 @@ function handlePrismaError(error: unknown, logPrefix?: string) {
   if (error.code === 'P2025') {
     return ApiResponse.notFound('Payroll record');
   }
+  if (error.code === 'P2034') {
+    return ApiResponse.conflict(
+      'Payroll changed concurrently; refresh and retry'
+    );
+  }
 
   logger.error(`${prefix}Unhandled Prisma payroll error`, {
     code: error.code,
@@ -505,14 +438,22 @@ function getProcessedBy(
 export function createPayrollRouteHandlers<TRecord extends PayrollRouteRecord>(
   config: PayrollRouteConfig<TRecord>
 ) {
+  const runMutation = <T>(
+    operation: (store: PayrollRouteStore<TRecord>) => Promise<T>
+  ) =>
+    config.withTransaction
+      ? config.withTransaction(operation)
+      : operation(config);
+
   async function findMissingEmployeeIds(
-    candidateIds: string[]
+    candidateIds: string[],
+    store: PayrollRouteStore<TRecord> = config
   ): Promise<string[]> {
     if (!candidateIds.length) {
       return [];
     }
 
-    const existing = await config.employeeModel.findMany({
+    const existing = await store.employeeModel.findMany({
       where: {
         employeeId: { in: candidateIds },
         deletedAt: null,
@@ -526,7 +467,10 @@ export function createPayrollRouteHandlers<TRecord extends PayrollRouteRecord>(
     return candidateIds.filter((id) => !existingIds.has(id));
   }
 
-  async function handleBulkPayload(payload: unknown[]) {
+  async function handleBulkPayload(
+    payload: unknown[],
+    store: PayrollRouteStore<TRecord>
+  ) {
     if (payload.length > BULK_PAYROLL_LIMIT) {
       return ApiResponse.payloadTooLarge(payload.length, BULK_PAYROLL_LIMIT);
     }
@@ -560,7 +504,8 @@ export function createPayrollRouteHandlers<TRecord extends PayrollRouteRecord>(
     }
 
     const missingEmployees = await findMissingEmployeeIds(
-      Array.from(employeeIds)
+      Array.from(employeeIds),
+      store
     );
     if (missingEmployees.length) {
       return ApiResponse.conflict(
@@ -569,8 +514,8 @@ export function createPayrollRouteHandlers<TRecord extends PayrollRouteRecord>(
       );
     }
 
-    const created = await config.createRecords(valid);
-    await syncCreatedPayrollExpenses(created, config);
+    const created = await store.createRecords(valid);
+    await syncCreatedPayrollExpenses(created, store);
 
     logger.info('Bulk payroll import complete', { count: created.length });
 
@@ -611,14 +556,21 @@ export function createPayrollRouteHandlers<TRecord extends PayrollRouteRecord>(
 
   const POST = withErrorHandler(async (request: NextRequest) => {
     const body = await request.json();
-    return Array.isArray(body)
-      ? handleBulkPayload(body)
-      : handleSinglePayloadWithRequest(request, body);
+    try {
+      return await runMutation(async (store) =>
+        Array.isArray(body)
+          ? handleBulkPayload(body, store)
+          : handleSinglePayloadWithRequest(request, body, store)
+      );
+    } catch (error) {
+      return handlePrismaError(error, config.logPrefix);
+    }
   });
 
   async function handleSinglePayloadWithRequest(
     request: NextRequest,
-    body: unknown
+    body: unknown,
+    store: PayrollRouteStore<TRecord>
   ) {
     const sanitized = sanitizePayrollRecord(body as PayrollRecord);
     const validation = validatePayroll(sanitized);
@@ -630,9 +582,10 @@ export function createPayrollRouteHandlers<TRecord extends PayrollRouteRecord>(
       );
     }
 
-    const missingEmployees = await findMissingEmployeeIds([
-      validation.data.employeeId,
-    ]);
+    const missingEmployees = await findMissingEmployeeIds(
+      [validation.data.employeeId],
+      store
+    );
     if (missingEmployees.length) {
       return ApiResponse.conflict(
         'Employee not found',
@@ -641,25 +594,21 @@ export function createPayrollRouteHandlers<TRecord extends PayrollRouteRecord>(
       );
     }
 
-    try {
-      const payroll = await config.payrollModel.create({
-        data: calculatePayrollInputTotals(validation.data),
-      });
+    const payroll = await store.payrollModel.create({
+      data: calculatePayrollInputTotals(validation.data),
+    });
 
-      await syncCreatedPayrollExpenses(
-        [payroll],
-        config,
-        getProcessedBy(request, body as Record<string, unknown>)
-      );
+    await syncCreatedPayrollExpenses(
+      [payroll],
+      store,
+      getProcessedBy(request, body as Record<string, unknown>)
+    );
 
-      return ApiResponse.success(
-        payroll,
-        'Payroll record created',
-        HTTP_STATUS.CREATED
-      );
-    } catch (error) {
-      return handlePrismaError(error, config.logPrefix);
-    }
+    return ApiResponse.success(
+      payroll,
+      'Payroll record created',
+      HTTP_STATUS.CREATED
+    );
   }
 
   const PUT = withErrorHandler(async (request: NextRequest) => {
@@ -671,66 +620,69 @@ export function createPayrollRouteHandlers<TRecord extends PayrollRouteRecord>(
       return ApiResponse.badRequest('Payroll ID is required');
     }
 
-    const existing = await config.payrollModel.findUnique({ where: { id } });
-    if (!existing || existing.deletedAt) {
-      return ApiResponse.notFound('Payroll record');
-    }
-
-    if (Object.keys(body).length === 1 && body.id) {
-      return ApiResponse.badRequest('No fields provided to update');
-    }
-
-    let updatedRecord: PayrollInput;
     try {
-      const buildResult = buildPayrollUpdatePayload(body, existing);
-      if (!buildResult.success) {
-        return ApiResponse.badRequest('Validation failed', buildResult.errors);
-      }
-      const shouldRecalculateTotals =
-        PAYROLL_SOURCE_FIELDS.some((field) => body[field] !== undefined) ||
-        PAYROLL_TOTAL_FIELDS.some((field) => body[field] !== undefined);
-      updatedRecord = shouldRecalculateTotals
-        ? calculatePayrollInputTotals(buildResult.payload)
-        : buildResult.payload;
-    } catch (error) {
-      logger.error('Failed to sanitize payroll update payload', { error });
-      return ApiResponse.error('Failed to update payroll record');
-    }
+      return await runMutation(async (store) => {
+        const existing = await store.payrollModel.findUnique({ where: { id } });
+        if (!existing || existing.deletedAt) {
+          return ApiResponse.notFound('Payroll record');
+        }
 
-    const existingInput = mapPayrollToInput(existing);
-    const diff = extractUpdatedFields(updatedRecord, existingInput);
-    if (Object.keys(diff).length === 0) {
-      return ApiResponse.success(existing, 'No changes applied');
-    }
+        if (Object.keys(body).length === 1 && body.id) {
+          return ApiResponse.badRequest('No fields provided to update');
+        }
 
-    try {
-      const payroll = await config.payrollModel.update({
-        where: { id },
-        data: diff,
-      });
-
-      const statusChangedToPaid =
-        existing.status !== 'paid' && payroll.status === 'paid';
-      if (statusChangedToPaid) {
-        const [syncedPayroll] = await config.syncPayrollDeductions([payroll]);
-        const payrollForSync = syncedPayroll ?? payroll;
-
+        let updatedRecord: PayrollInput;
         try {
-          await config.syncExpenseFromPayroll(
+          const buildResult = buildPayrollUpdatePayload(body, existing);
+          if (!buildResult.success) {
+            return ApiResponse.badRequest(
+              'Validation failed',
+              buildResult.errors
+            );
+          }
+          const shouldRecalculateTotals =
+            PAYROLL_SOURCE_FIELDS.some((field) => body[field] !== undefined) ||
+            PAYROLL_TOTAL_FIELDS.some((field) => body[field] !== undefined);
+          updatedRecord = shouldRecalculateTotals
+            ? calculatePayrollInputTotals(buildResult.payload)
+            : buildResult.payload;
+        } catch (error) {
+          logger.error('Failed to sanitize payroll update payload', { error });
+          return ApiResponse.error('Failed to update payroll record');
+        }
+
+        const existingInput = mapPayrollToInput(existing);
+        const diff = extractUpdatedFields(updatedRecord, existingInput);
+        if (Object.keys(diff).length === 0) {
+          return ApiResponse.success(existing, 'No changes applied');
+        }
+        if (config.lockPaidRecords && existing.status === 'paid') {
+          return ApiResponse.conflict(
+            'Paid payroll is locked and cannot be edited'
+          );
+        }
+
+        const payroll = await store.payrollModel.update({
+          where: { id },
+          data: diff,
+        });
+
+        const statusChangedToPaid =
+          existing.status !== 'paid' && payroll.status === 'paid';
+        if (statusChangedToPaid) {
+          const [syncedPayroll] = await store.syncPayrollDeductions([payroll]);
+          const payrollForSync = syncedPayroll ?? payroll;
+
+          await store.syncExpenseFromPayroll(
             payrollForSync,
             getProcessedBy(request, body)
           );
-        } catch (error) {
-          logger.error('Failed to sync payroll to expenses', {
-            error,
-            payrollId: id,
-          });
+
+          return ApiResponse.success(payrollForSync, 'Payroll record updated');
         }
 
-        return ApiResponse.success(payrollForSync, 'Payroll record updated');
-      }
-
-      return ApiResponse.success(payroll, 'Payroll record updated');
+        return ApiResponse.success(payroll, 'Payroll record updated');
+      });
     } catch (error) {
       return handlePrismaError(error, config.logPrefix);
     }
@@ -746,18 +698,33 @@ export function createPayrollRouteHandlers<TRecord extends PayrollRouteRecord>(
     }
 
     try {
-      if (permanent) {
-        await config.payrollModel.delete({ where: { id } });
-        logger.info('Payroll permanently deleted', { id });
-      } else {
-        await config.payrollModel.update({
-          where: { id },
-          data: { deletedAt: new Date() },
-        });
-        logger.info('Payroll soft deleted', { id });
-      }
+      return await runMutation(async (store) => {
+        if (config.lockPaidRecords) {
+          const existing = await store.payrollModel.findUnique({
+            where: { id },
+          });
+          if (!existing || existing.deletedAt) {
+            return ApiResponse.notFound('Payroll record');
+          }
+          if (existing.status === 'paid') {
+            return ApiResponse.conflict(
+              'Paid payroll is locked and cannot be deleted'
+            );
+          }
+        }
+        if (permanent) {
+          await store.payrollModel.delete({ where: { id } });
+          logger.info('Payroll permanently deleted', { id });
+        } else {
+          await store.payrollModel.update({
+            where: { id },
+            data: { deletedAt: new Date() },
+          });
+          logger.info('Payroll soft deleted', { id });
+        }
 
-      return ApiResponse.success({ success: true }, 'Payroll record deleted');
+        return ApiResponse.success({ success: true }, 'Payroll record deleted');
+      });
     } catch (error) {
       return handlePrismaError(error, config.logPrefix);
     }

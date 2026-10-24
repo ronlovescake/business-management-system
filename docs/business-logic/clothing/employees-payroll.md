@@ -64,17 +64,17 @@
 
 ## E — Add / Edit Payroll Form
 
-| #   | Logic                                                                                                                                               | Explanation                                                         |
-| --- | --------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------- |
-| 18  | "Add Payroll" button opens the form in create mode (`editingPayroll = null`)                                                                        | Triggered by `handleOpenManualPayroll`.                             |
-| 19  | "Edit" row action opens the form with the selected record pre-filled                                                                                | `handleEditPayroll(payroll)` sets `editingPayroll` and opens modal. |
-| 20  | Required fields: Employee Name, Pay Period, Basic Salary, Bank/GCash                                                                                | Validation errors appear inline on the fields.                      |
-| 21  | Optional fields (default to 0): Allowance, Overtime, Bonuses, 13th Month, SSS, PhilHealth, Pag-IBIG, Tax, Loans, Cash Advance, LWOP, Absences/Lates | All numeric inputs start at `'0'`.                                  |
-| 22  | Employee Name: Autocomplete from `employeeOptions` list                                                                                             | Can also type a custom name.                                        |
-| 23  | Pay Period: Autocomplete from existing `payPeriodOptions`; falls back to free-text input if no options exist                                        | Text format: `'YYYY-MM-DD to YYYY-MM-DD'`.                          |
-| 24  | Basic Salary must be greater than 0; returns validation error `'Basic salary must be greater than 0'`                                               | Enforced before save.                                               |
-| 25  | "Create Payroll" / "Update Payroll" button is disabled until all required fields are valid                                                          | `canSave = form.isValid()`.                                         |
-| 26  | On successful save, form resets and modal closes                                                                                                    | `form.reset()` called in `handleSubmit`.                            |
+| #   | Logic                                                                                                                                               | Explanation                                                             |
+| --- | --------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------- |
+| 18  | "Add Payroll" button opens the form in create mode (`editingPayroll = null`)                                                                        | Triggered by `handleOpenManualPayroll`.                                 |
+| 19  | "Edit" is available only for pending or approved payroll                                                                                            | Paid records are locked by the clothing API as well as the row actions. |
+| 20  | Required fields: Employee Name, Pay Period, Basic Salary, Bank/GCash                                                                                | Validation errors appear inline on the fields.                          |
+| 21  | Optional fields (default to 0): Allowance, Overtime, Bonuses, 13th Month, SSS, PhilHealth, Pag-IBIG, Tax, Loans, Cash Advance, LWOP, Absences/Lates | All numeric inputs start at `'0'`.                                      |
+| 22  | Employee Name: Autocomplete from `employeeOptions` list                                                                                             | Can also type a custom name.                                            |
+| 23  | Pay Period: Autocomplete from existing `payPeriodOptions`; falls back to free-text input if no options exist                                        | Text format: `'YYYY-MM-DD to YYYY-MM-DD'`.                              |
+| 24  | Basic Salary must be greater than 0; returns validation error `'Basic salary must be greater than 0'`                                               | Enforced before save.                                                   |
+| 25  | "Create Payroll" / "Update Payroll" button is disabled until all required fields are valid                                                          | `canSave = form.isValid()`.                                             |
+| 26  | On successful save, form resets and modal closes                                                                                                    | `form.reset()` called in `handleSubmit`.                                |
 
 ---
 
@@ -134,42 +134,50 @@
 
 ## J — Mark as Paid (Single Record, SweetAlert2)
 
-The client awaits 13th-month synchronization before the payroll paid request.
-A synchronization failure now reaches the outer error handler and blocks that
-record's paid request in both single and bulk flows. A zero 13th-month amount
-does not require synchronization; bulk failures are not counted as successes.
+Clothing payment uses one Serializable server transaction for payroll status,
+deduction recalculation, cash-advance balances/schedules/logs, the source-linked
+expense and any existing linked 13th-month record. The clothing client sends
+only the payroll request, not a separate 13th-month PATCH. An effect failure
+rolls back payment; concurrent write conflicts return 409 for refresh/retry.
 
-This is not an atomic payroll settlement guarantee. The shared server adapter
-commits payroll status before deduction/expense effects, and some expense
-errors are logged rather than returned. An unchanged paid retry does not
-reconcile those effects. Conversely, the separate 13th-month request can succeed
-before payroll fails. Cash-advance replay/deletion needs transaction-scoped
-reconciliation tests; blindly retrying deductions can change stored amounts.
+Pending and approved records remain editable. Paid records cannot be edited,
+unpaid or deleted, including the permanent-delete option. Cleanup and background
+recalculations exclude paid records. An unchanged paid retry returns the stored
+record without replaying deductions or replacing its expense. Corrections need
+a separately approved reversal workflow; no historical repair is automatic.
 
-| #   | Logic                                                                                                                              | Explanation                                                                                      |
-| --- | ---------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------ |
-| 53  | "Mark as Paid" row action visible only when `status === 'approved'`                                                                | `show: (item) => item.status === 'approved'`.                                                    |
-| 54  | Confirmation dialog shows employee name, pay period, net pay, and 13th month note if applicable                                    | If `thirteenthMonth > 0`, a blue info box states the 13th month record will also be marked paid. |
-| 55  | On confirm: shows `'Processing...'` loader, marks payroll `status = 'paid'` with `paidDate = today`                                | Calls `updatePayroll` via `updateMutation.mutateAsync`.                                          |
-| 56  | If the payroll has `thirteenthMonth > 0`: also calls `PATCH /thirteenth-month-pay/{id}/status` with `{ status: 'paid', paidDate }` | `syncThirteenthMonthStatus` determines the record ID as `{employeeId}-{year}`.                   |
-| 57  | If 13th-month sync fails, log the warning and block the payroll paid request                                                       | The error is rethrown to the single/bulk caller's existing failure handling.                     |
-| 58  | Success dialog: `'Marked as Paid!'` — different message depending on whether 13th month was included                               | Green confirm button `'Okay'`.                                                                   |
-| 59  | Error dialog: `'Error'` — `'Failed to mark payroll as paid. Please try again.'`                                                    | Red confirm button.                                                                              |
+Seven real PostgreSQL regressions in
+`tests/integration/clothing-payroll.integration.test.ts` verify failures at the
+deduction log, expense and 13th-month writes, retry idempotency, concurrent
+payment arbitration, paid edit/delete guards and failed single/bulk paid-create
+rollback. They ran only on a newly created scratch database on 2026-10-25.
+Paid imports retain their submitted deduction amounts; they do not replay
+historical cash-advance payments. Other domains retain their existing adapters.
+
+| #   | Logic                                                                                                              | Explanation                                                                                       |
+| --- | ------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------- |
+| 53  | "Mark as Paid" row action visible only when `status === 'approved'`                                                | `show: (item) => item.status === 'approved'`.                                                     |
+| 54  | Confirmation dialog shows employee name, pay period, net pay, and 13th month note if applicable                    | If `thirteenthMonth > 0`, a blue info box states the 13th month record will also be marked paid.  |
+| 55  | On confirm: shows `'Processing...'` loader, marks payroll `status = 'paid'` with `paidDate = today`                | Calls `updatePayroll` via `updateMutation.mutateAsync`.                                           |
+| 56  | If the payroll has `thirteenthMonth > 0`, the server marks the existing linked record paid in the same transaction | Record ID remains `{lowercase employeeId}-{year}`. A missing record fails and rolls back payment. |
+| 57  | Any deduction, expense or linked 13th-month write failure fails the payment request                                | No paid status or partial effect is committed.                                                    |
+| 58  | Success dialog: `'Marked as Paid!'` — different message depending on whether 13th month was included               | Green confirm button `'Okay'`.                                                                    |
+| 59  | Error dialog: `'Error'` — `'Failed to mark payroll as paid. Please try again.'`                                    | Red confirm button.                                                                               |
 
 ---
 
 ## K — Mark All as Paid (Bulk SweetAlert2)
 
-| #   | Logic                                                                                                                                                  | Explanation                                                   |
-| --- | ------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------- |
-| 60  | "Mark All as Paid" button operates on `filteredPayrolls` (respects current filters)                                                                    | Calls `runBulkMarkAllAsPaid`.                                 |
-| 61  | If no approved records in view: SweetAlert2 `info` — `'There are no approved payrolls in the current view to mark as paid.'`                           | Short-circuits.                                               |
-| 62  | Confirmation dialog: `'Mark All as Paid?'` with record count, **total disbursement** (`formatCurrency(sum of netPay)`), and note about 13th month sync | Icon `question`, confirm blue `'Yes, mark all as paid'`.      |
-| 63  | Loading dialog: `'Processing...'` with `Swal.showLoading()` while iterating                                                                            | Sequential loop.                                              |
-| 64  | Each record: syncs 13th month status first, then marks payroll paid                                                                                    | Same `syncThirteenthMonthStatus` logic as single-record flow. |
-| 65  | Partial success: SweetAlert2 `warning` — `'Updated {n} record(s). Failed: {names}.'`                                                                   | Orange confirm button.                                        |
-| 66  | Full success: SweetAlert2 `success` — `'Successfully marked {n} payroll record(s) as paid.'`                                                           | Green confirm button.                                         |
-| 67  | Catastrophic error: SweetAlert2 `error` — `'Failed to mark payrolls as paid. Please try again.'`                                                       | Red confirm button.                                           |
+| #   | Logic                                                                                                                                                  | Explanation                                                                                                    |
+| --- | ------------------------------------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------- |
+| 60  | "Mark All as Paid" button operates on `filteredPayrolls` (respects current filters)                                                                    | Calls `runBulkMarkAllAsPaid`.                                                                                  |
+| 61  | If no approved records in view: SweetAlert2 `info` — `'There are no approved payrolls in the current view to mark as paid.'`                           | Short-circuits.                                                                                                |
+| 62  | Confirmation dialog: `'Mark All as Paid?'` with record count, **total disbursement** (`formatCurrency(sum of netPay)`), and note about 13th month sync | Icon `question`, confirm blue `'Yes, mark all as paid'`.                                                       |
+| 63  | Loading dialog: `'Processing...'` with `Swal.showLoading()` while iterating                                                                            | Sequential loop.                                                                                               |
+| 64  | Each record uses the atomic clothing payroll paid request                                                                                              | The bulk operation remains sequential and reports per-record failures; the whole batch is not one transaction. |
+| 65  | Partial success: SweetAlert2 `warning` — `'Updated {n} record(s). Failed: {names}.'`                                                                   | Orange confirm button.                                                                                         |
+| 66  | Full success: SweetAlert2 `success` — `'Successfully marked {n} payroll record(s) as paid.'`                                                           | Green confirm button.                                                                                          |
+| 67  | Catastrophic error: SweetAlert2 `error` — `'Failed to mark payrolls as paid. Please try again.'`                                                       | Red confirm button.                                                                                            |
 
 ---
 
@@ -187,10 +195,10 @@ reconciliation tests; blindly retrying deductions can change stored amounts.
 
 ## M — Delete Payroll
 
-| #   | Logic                                                           | Explanation                                |
-| --- | --------------------------------------------------------------- | ------------------------------------------ |
-| 73  | "Delete" row action visible on all records regardless of status | Calls `handleDeletePayroll(id)`.           |
-| 74  | Delete uses `showDeleteConfirm` (SweetAlert2) before proceeding | Optimistic removal with rollback on error. |
+| #   | Logic                                                           | Explanation                                       |
+| --- | --------------------------------------------------------------- | ------------------------------------------------- |
+| 73  | "Delete" is available only for pending or approved records      | The server rejects paid-record deletion with 409. |
+| 74  | Delete uses `showDeleteConfirm` (SweetAlert2) before proceeding | Optimistic removal with rollback on error.        |
 
 ---
 

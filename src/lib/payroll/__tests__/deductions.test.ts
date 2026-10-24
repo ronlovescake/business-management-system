@@ -143,7 +143,7 @@ describe('syncPayrollLwop', () => {
     );
     expect(mocks.leaveFindMany).toHaveBeenCalled();
     expect(mocks.payrollUpdate).toHaveBeenCalledWith({
-      where: { id: 'payroll-1' },
+      where: { id: 'payroll-1', status: { not: 'paid' } },
       data: {
         lwop: 3000,
         unpaidDays: 3,
@@ -308,7 +308,7 @@ describe('syncPayrollAttendanceDeductions', () => {
     const expectedDeduction = 1093.75; // 1 absent day (1000) + 45 late/undertime minutes (93.75)
 
     expect(mocks.payrollUpdate).toHaveBeenCalledWith({
-      where: { id: 'payroll-1' },
+      where: { id: 'payroll-1', status: { not: 'paid' } },
       data: {
         absentsLates: expectedDeduction,
         totalDeductions: expectedDeduction,

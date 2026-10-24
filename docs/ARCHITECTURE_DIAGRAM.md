@@ -43,13 +43,11 @@ graph TB
 
     subgraph EXTERNAL["☁️ External Services"]
         SENTRY["Sentry<br/>Error Tracking"]
-        GDRIVE["Google Drive<br/>File Sync"]
         SMTP_SVC["SMTP Server<br/>Email (Password Reset)"]
         NEXTAUTH_PROVIDER["NextAuth.js<br/>JWT Sessions"]
     end
 
     NEXTJS --> SENTRY
-    NEXTJS --> GDRIVE
     NEXTJS --> SMTP_SVC
     NEXTJS --> NEXTAUTH_PROVIDER
 
@@ -332,7 +330,6 @@ graph TB
                 API_VERSIONS["/api/version-history · sync"]
                 API_DOCS["/api/docs/spec (OpenAPI)"]
                 API_SETTINGS["/api/settings/* (4 endpoints)"]
-                API_GDRIVE["/api/google-drive/sync-files"]
             end
         end
 
@@ -853,12 +850,16 @@ The route → allowed-roles map lives in `src/core/routePermissions.ts` and is
 consumed by `src/middleware.ts` via `getRequiredRolesForPath(pathname)`,
 which uses **longest-prefix matching** (so `/clothing/employees/payroll`
 correctly resolves to the `/clothing/employees` ACL even if a shorter
-entry exists). Edit access control in that one file.
+entry exists). Protected handlers must also enforce server permissions, with
+matching permission-driven UI; middleware alone is not the whole access boundary.
 
-A future codegen step (tracked in IMPROVEMENTS_CHECKLIST.md §2.3) will
-emit this object directly from `ModuleRegistry`. Until then, when you
-add a new module/page, update both `ModuleConfig.permissions` and the
-matching prefix in `ROUTE_PERMISSIONS`.
+The generated catalog in `src/core/routePermissions.modules.generated.ts` is
+informational and drift-checked, not the runtime RBAC map. Full registry-driven
+RBAC remains a deferred design decision in the
+[improvements checklist](./plans/IMPROVEMENTS_CHECKLIST.md). When adding a
+module/page, align `ModuleConfig.permissions`, the matching `ROUTE_PERMISSIONS`
+prefix, handler checks and navigation visibility without importing the live
+server-side registry into Edge middleware.
 
 ---
 

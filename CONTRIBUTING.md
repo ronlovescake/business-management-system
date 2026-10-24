@@ -79,21 +79,14 @@ All code, documentation, and configuration changes must be made and validated in
 1. **Pull latest changes**
 
    ```bash
-
+   git pull --ff-only origin main
    ```
-
-# Run from the development checkout to sync with the shared remote.
-
-git checkout main
-git pull origin main
-
-````
 
 2. **Create feature branch**
 
 ```bash
 git checkout -b feature/your-feature-name
-````
+```
 
 3. **Check existing issues/tasks**
    - Review project board
@@ -839,7 +832,7 @@ Use these current entry points instead of older guide links:
 ## Questions?
 
 - Check [docs/README.md](docs/README.md)
-- Read [Repo-Wide Analysis — Business Management System.md](Repo-Wide%20Analysis%20%E2%80%94%20Business%20Management%20System.md)
+- Read [Archived Repo-Wide Analysis](docs/reports/archive/REPO_WIDE_ANALYSIS_ARCHIVED_2026-04-19.md)
 - Read [docs/BUSINESS_LOGIC_INDEX.md](docs/BUSINESS_LOGIC_INDEX.md)
 - Ask in team chat
 - Create a discussion issue
@@ -859,7 +852,7 @@ Additional repo-specific references:
 - [README.md](README.md)
 - [docs/README.md](docs/README.md)
 - [docs/reports/archive/REPO_VERIFIED_EXEC_SUMMARY_2026-03-29.md](docs/reports/archive/REPO_VERIFIED_EXEC_SUMMARY_2026-03-29.md) (archived 2026-04-19)
-- [IMPROVEMENTS_CHECKLIST.md](IMPROVEMENTS_CHECKLIST.md)
+- [docs/plans/IMPROVEMENTS_CHECKLIST.md](docs/plans/IMPROVEMENTS_CHECKLIST.md)
 
 ---
 

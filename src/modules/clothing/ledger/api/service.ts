@@ -19,9 +19,9 @@ export class ExpenseService extends ExpenseServiceBase<
   ExpenseUpdateInput,
   ExpenseQuery
 > {
-  constructor() {
+  constructor(repository = expenseRepository) {
     super({
-      repository: expenseRepository,
+      repository,
       entityType: 'expense',
       normalizeCreateInput: (data) => {
         const sourceType = (data.sourceType ?? 'MANUAL').toUpperCase();
