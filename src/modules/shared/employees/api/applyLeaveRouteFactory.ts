@@ -192,6 +192,16 @@ export function createAttendanceApplyLeaveRoute<
       const today = dayjs().tz().format(DATE_STORAGE_FORMAT);
       const dateRangeUpToToday = dateRange.filter((date) => date <= today);
 
+      const employeeRecord = await config.employeeModel.findFirst({
+        where: { employeeId, deletedAt: null },
+      });
+      if (!employeeRecord) {
+        return NextResponse.json(
+          { error: 'Employee not found' },
+          { status: 404 }
+        );
+      }
+
       if (dateRangeUpToToday.length === 0) {
         return NextResponse.json({
           success: true,
@@ -203,22 +213,14 @@ export function createAttendanceApplyLeaveRoute<
         });
       }
 
-      const [employeeRecord, existingAttendance] = await Promise.all([
-        config.employeeModel.findFirst({
-          where: {
-            employeeId,
-            deletedAt: null,
-          },
-        }),
-        config.attendanceModel.findMany({
-          where: {
-            employeeId,
-            date: { in: dateRangeUpToToday },
-            deletedAt: null,
-          },
-          select: { id: true, date: true },
-        }),
-      ]);
+      const existingAttendance = await config.attendanceModel.findMany({
+        where: {
+          employeeId,
+          date: { in: dateRangeUpToToday },
+          deletedAt: null,
+        },
+        select: { id: true, date: true },
+      });
 
       const leaveLabel = buildLeaveLabel(body.leaveType);
       const displayName = buildDisplayName(

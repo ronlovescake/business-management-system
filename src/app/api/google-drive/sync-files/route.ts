@@ -47,6 +47,13 @@ export async function GET(request: Request) {
       );
     }
 
+    if (!/^[A-Za-z0-9_-]+$/.test(folderId)) {
+      return NextResponse.json(
+        { success: false, error: 'Invalid Google Drive folder ID' },
+        { status: 400 }
+      );
+    }
+
     // Check if credentials are configured
     const clientEmail = process.env.GOOGLE_CLIENT_EMAIL;
     const privateKey = process.env.GOOGLE_PRIVATE_KEY;
@@ -84,13 +91,20 @@ export async function GET(request: Request) {
     const drive = google.drive({ version: 'v3', auth });
 
     // List files in the folder
-    const response = await drive.files.list({
-      q: `'${folderId}' in parents and trashed=false`,
-      fields: 'files(id, name, mimeType, webViewLink, webContentLink)',
-      orderBy: 'name',
-    });
-
-    const files = (response.data.files || []) as GoogleDriveFile[];
+    const files: GoogleDriveFile[] = [];
+    let pageToken: string | undefined;
+    do {
+      const response = await drive.files.list({
+        q: `'${folderId}' in parents and trashed=false`,
+        fields:
+          'nextPageToken, files(id, name, mimeType, webViewLink, webContentLink)',
+        orderBy: 'name',
+        pageSize: 1000,
+        pageToken,
+      });
+      files.push(...((response.data.files || []) as GoogleDriveFile[]));
+      pageToken = response.data.nextPageToken || undefined;
+    } while (pageToken);
 
     // Parse customer names from filenames
     // Example: "BOB & LOREN CLOTHING  Loren Young-1.png" -> "BOB & LOREN CLOTHING | Loren Young"

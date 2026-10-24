@@ -21,7 +21,9 @@ busy through persistence and reload.
 > - `src/modules/clothing/operations/checkout-links/utils/checkoutLinkMatcher.ts`
 > - `src/modules/clothing/operations/checkout-links/utils/finalWeightCalculator.ts`
 > - `src/modules/clothing/operations/checkout-links/utils/invoiceWeight.ts`
-> - `src/modules/clothing/operations/checkout-links/utils/generateInvoiceMessage.ts`
+> - `src/modules/clothing/operations/checkout-links/utils/messageGenerator.ts`
+> - [Served component](../../../src/modules/clothing/operations/checkout-links/components/CheckoutLinksComponent.tsx)
+> - [Invoice replacement factory](../../../src/modules/invoices/api/invoiceRouteFactory.ts)
 
 ---
 
@@ -69,44 +71,48 @@ busy through persistence and reload.
 
 ## E — Page Tabs
 
-| #   | Logic                                                                                             | Explanation                                                                                                                  |
-| --- | ------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
-| 15  | The page has five tabs: Invoicing, Local Invoicing, Customer Orders, Item Weights, Checkout Links | The active tab is stored in `activeTab` state, defaulting to `'invoicing'`. Each tab renders its own data view and controls. |
+| #   | Logic                                                                                 | Explanation                                                                                                             |
+| --- | ------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
+| 15  | The served page has four tabs: Invoicing, Customer Orders, Item Weight, Checkout Link | The default Invoicing panel renders LocalInvoicingTab with transaction-derived rows, not a separate Drive invoice list. |
 
 ---
 
-## F — Invoicing Tab (Google Drive Sync)
+## F - Available Invoice And Drive API Boundaries
 
-| #   | Logic                                                           | Explanation                                                                                                                                                                                                       |
-| --- | --------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 16  | "Sync Google Drive" button triggers a two-step server operation | `handleSyncGoogleDrive` first calls `GET /api/google-drive/sync-files` to pull Drive file links, then POSTs the resulting customer invoice data to `/api/clothing/invoices`, then calls `handleCalculateWeights`. |
-| 17  | Google Drive not configured → yellow notification               | If the Drive integration is not set up, `showNotification({ title: 'Google Drive Not Configured', color: 'yellow', autoClose: 10000 })` is shown.                                                                 |
-| 18  | Package not installed → yellow notification                     | If the required integration package is missing, `showNotification({ title: 'Package Not Installed', color: 'yellow', autoClose: 10000 })` is shown.                                                               |
-| 19  | Sync success → green notification                               | `showNotification({ title: 'Google Drive Synced', color: 'green' })` after the full three-step flow completes.                                                                                                    |
-| 20  | Sync failure → red notification                                 | `showNotification({ title: 'Sync Failed', color: 'red' })` on any exception during the flow.                                                                                                                      |
-| 21  | "Calculate Weights" can also be triggered independently         | `handleCalculateWeights` posts to `POST /api/clothing/invoices/calculate-weights`; on success shows green notification with the count of matched customers; on failure shows red notification.                    |
-| 22  | Unmatched products are noted in the success notification        | If `unmatchedProducts.length > 0`, the green notification message appends "Note: N product(s) have no weight data."                                                                                               |
-| 23  | Shipping weight column reflects calculated values               | After `handleCalculateWeights` resolves, each customer row in the invoicing table updates to show the computed shipping weight.                                                                                   |
+The served component does not mount a Google Drive sync button or the legacy
+Drive invoicing panel. Do not infer a working browser sync flow from retained
+API routes or the generic InvoicingTab component.
+
+`GET /api/google-drive/sync-files` validates folder IDs, follows every
+nextPageToken, and returns failure instead of partial data if a later page
+fails. The tests mock Google; credentials and real remote results were not used.
+
+Clothing invoice replacement is `POST /api/invoices`, not
+`/api/clothing/invoices`. It validates the whole replacement list before writes,
+then retires old records, inserts rows and reads canonical results in one
+Serializable transaction. GM uses its own transaction/model. A real PostgreSQL
+failure-injection regression verifies old clothing invoices remain active if
+insertion fails. This is an API contract, not a restored Drive-sync UI feature.
 
 ---
 
 ## G — Invoicing Tab — Customer Name Click & Messenger Flow
 
-| #   | Logic                                                                 | Explanation                                                                                                                                                                      |
-| --- | --------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 24  | Clicking a customer name triggers the Messenger flow                  | `handleCustomerNameClick(customer)` runs a multi-step sequence: lookup Facebook link → load settings → generate message → copy to clipboard → open Messenger → tick the tickbox. |
-| 25  | Facebook link lookup: no link found → yellow notification             | If `lookupFacebookLink(customer)` returns null, `showNotification({ title: 'No Facebook Link', color: 'yellow' })` is shown and the flow stops.                                  |
-| 26  | Settings not loaded yet → yellow notification                         | If invoice settings have not resolved, `showNotification({ title: 'Settings Not Loaded', color: 'yellow' })` is shown and the flow stops.                                        |
-| 27  | Message is generated via `generateInvoiceMessage`                     | `generateInvoiceMessage(template, { driveFilesUrl, shopeeCheckoutLink, paymentChannelsUrl })` substitutes all placeholders in the saved message template.                        |
-| 28  | Generated message is written to the clipboard                         | `navigator.clipboard.writeText(message)` is called. On failure: `showNotification({ title: 'Copy Failed', color: 'red' })`.                                                      |
-| 29  | On successful copy, a green notification is shown                     | `showNotification({ title: 'Message Copied! Opening Facebook Messenger...', color: 'green' })`.                                                                                  |
-| 30  | Facebook Messenger opens in a new tab                                 | `window.open(messengerUrl, '_blank')` is called immediately after the copy confirmation.                                                                                         |
-| 31  | The customer's tickbox is automatically checked after Messenger opens | A `PUT /api/clothing/invoices/{id}/tickbox` request sets the tickbox to `true`.                                                                                                  |
-| 32  | Tickbox can also be toggled manually                                  | Clicking the tickbox checkbox directly calls the same `PUT /api/clothing/invoices/{id}/tickbox` endpoint to toggle the persisted state. Failure shows red notification.          |
+| #   | Logic                                                             | Explanation                                                                                                                                               |
+| --- | ----------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 24  | Clicking a customer name triggers the served local Messenger flow | Lookup Facebook link, read settings, generate/copy the message, open Messenger, then set the local tickbox.                                               |
+| 25  | Facebook link lookup: no link found → yellow notification         | If `lookupFacebookLink(customer)` returns null, `showNotification({ title: 'No Facebook Link', color: 'yellow' })` is shown and the flow stops.           |
+| 26  | Settings not loaded yet → yellow notification                     | If invoice settings have not resolved, `showNotification({ title: 'Settings Not Loaded', color: 'yellow' })` is shown and the flow stops.                 |
+| 27  | Message is generated via `generateInvoiceMessage`                 | `generateInvoiceMessage(template, { driveFilesUrl, shopeeCheckoutLink, paymentChannelsUrl })` substitutes all placeholders in the saved message template. |
+| 28  | Generated message is written to the clipboard                     | `navigator.clipboard.writeText(message)` is called. On failure: `showNotification({ title: 'Copy Failed', color: 'red' })`.                               |
+| 29  | On successful copy, a green notification is shown                 | `showNotification({ title: 'Message Copied! Opening Facebook Messenger...', color: 'green' })`.                                                           |
+| 30  | Facebook Messenger opens in a new tab                             | `window.open(messengerUrl, '_blank')` is called immediately after the copy confirmation.                                                                  |
+| 31  | The customer's tickbox is checked locally after Messenger opens   | The served transaction-derived Invoicing panel does not persist an invoice tickbox request.                                                               |
+| 32  | Tickboxes can also be toggled manually                            | This is local state and resets on reload; it is not proof of delivery or persisted invoice status.                                                        |
 
 ---
 
-## H — Local Invoicing Tab
+## H — Served Invoicing Tab
 
 | #   | Logic                                                                        | Explanation                                                                                                                                       |
 | --- | ---------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -145,8 +151,8 @@ busy through persistence and reload.
 | 44  | Only `.csv` files are accepted                                                                                                                  | File picker `accept=".csv"`. If a non-.csv file is selected, a `showNotification({ color: 'red' })` error is shown immediately.                                           |
 | 45  | The CSV must have exactly these seven headers (case-insensitive): WEIGHT, WIDTH, LENGTH, HEIGHT, CHECKOUT LINKS, PRODUCT PORTALS, PRODUCT NAMES | The parser checks the header row against all seven required column names. If any are missing, the import is rejected with a red notification listing the missing headers. |
 | 46  | Quoted CSV fields are correctly parsed                                                                                                          | The parser handles double-quoted fields and embedded commas within quotes.                                                                                                |
-| 47  | Parsed rows are batch-posted to the database                                                                                                    | `POST /api/clothing/checkout-links/batch` sends all valid rows.                                                                                                           |
-| 48  | Partial DB failure shows an orange notification                                                                                                 | If the batch write reports some rows failed, `showNotification({ title: 'Partial Import', color: 'orange' })` lists the count of failures.                                |
+| 47  | Parsed rows are posted to the database                                                                                                          | Clothing sends `{ items: [...] }` to `POST /api/checkout-links`, then reloads the canonical list.                                                                         |
+| 48  | Persistence and refresh failures are distinguished                                                                                              | A failed save leaves the prior list; a failed reload after saving reports "Import saved, refresh failed". No temporary record IDs or fabricated partial list is shown.    |
 | 49  | Full success shows a green notification                                                                                                         | `showNotification({ title: 'Import Complete', message: 'N rows imported.', color: 'green' })`.                                                                            |
 
 ---
@@ -163,12 +169,12 @@ busy through persistence and reload.
 
 ## M — Checkout Links Tab — Edit Record
 
-| #   | Logic                                                              | Explanation                                                                                                                                        |
-| --- | ------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 53  | Clicking the edit icon opens the edit modal                        | The modal is pre-populated with the record's current `weight`, `width`, `length`, `height`, `checkoutLinks`, `productPortals`, and `productNames`. |
-| 54  | Weight, width, length, and height are required                     | Mantine form validation rejects empty or zero values for all four dimension fields.                                                                |
-| 55  | `checkoutLinks`, `productPortals`, and `productNames` are optional | These text fields may be left blank without blocking the save.                                                                                     |
-| 56  | Save calls `PUT /api/clothing/checkout-links/{id}`                 | On success: green notification. On failure: red notification. The list refreshes on success.                                                       |
+| #   | Logic                                                                  | Explanation                                                                                                                                        |
+| --- | ---------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 53  | Clicking the edit icon opens the edit modal                            | The modal is pre-populated with the record's current `weight`, `width`, `length`, `height`, `checkoutLinks`, `productPortals`, and `productNames`. |
+| 54  | Weight, width, length, and height are required                         | Mantine form validation rejects empty or zero values for all four dimension fields.                                                                |
+| 55  | `checkoutLinks`, `productPortals`, and `productNames` are optional     | These text fields may be left blank without blocking the save.                                                                                     |
+| 56  | Save calls `PUT /api/checkout-links` with the persisted ID in the body | On success: green notification. On failure: red notification.                                                                                      |
 
 ---
 
@@ -178,7 +184,7 @@ busy through persistence and reload.
 | --- | --------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | 57  | Deleting a checkout link requires **double SweetAlert2 confirmation** | **First dialog**: `Swal.fire({ title: 'Delete Checkout Link?', text: 'This action cannot be undone.', icon: 'warning', showCancelButton: true })`.                          |
 | 58  | Second confirmation requires typing "DELETE"                          | **Second dialog**: `Swal.fire({ title: 'Type DELETE to confirm', input: 'text', inputValidator })`. The `inputValidator` rejects any string that is not exactly `"DELETE"`. |
-| 59  | Delete calls `DELETE /api/clothing/checkout-links/{id}`               | On success: `showNotification({ title: 'Deleted', color: 'green' })`. The record is removed from local state immediately.                                                   |
+| 59  | Delete calls `DELETE /api/checkout-links?id=...`                      | The encoded persisted ID identifies the record; success removes it from local state and failure shows an error.                                                             |
 | 60  | Delete failure shows a red notification                               | `showNotification({ title: 'Delete Failed', color: 'red' })`.                                                                                                               |
 
 ---

@@ -59,6 +59,10 @@ describe('Trucking attendance apply-leave API', () => {
   });
 
   it('returns a no-op response for future-only trucking leave ranges', async () => {
+    mockPrisma.truckingEmployee.findFirst.mockResolvedValue({
+      employeeId: 'DRV-01',
+      name: 'Driver One',
+    });
     const response = await POST(
       new NextRequest('http://localhost/api/trucking/attendance/apply-leave', {
         method: 'POST',

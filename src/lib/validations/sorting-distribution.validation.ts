@@ -138,6 +138,17 @@ export const sortingDistributionSchema = z
 /**
  * Database Record Schema (for Prisma operations)
  */
+export const sortingDistributionSaveSchema = z
+  .object({
+    productCode: productCodeSchema,
+    selectedQuantity: nonNegativeIntSchema
+      .max(2147483647)
+      .nullable()
+      .optional(),
+    rows: z.array(distributionRowSchema.innerType()).max(100),
+  })
+  .strict();
+
 export const distributionDbSchema = z.object({
   id: z.number().int().positive().optional(),
   productCode: z.string().min(1).max(100),

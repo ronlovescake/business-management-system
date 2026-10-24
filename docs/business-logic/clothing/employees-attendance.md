@@ -12,6 +12,15 @@
 
 ---
 
+## Apply Leave Employee Guard
+
+The shared [apply-leave factory](../../../src/modules/shared/employees/api/applyLeaveRouteFactory.ts)
+requires an active employee in the selected domain before examining attendance
+or returning a future-only no-op. A missing or soft-deleted employee returns
+404 with no attendance creation/update. Valid employee future-only behavior is
+unchanged. Clothing and trucking API regressions cover this shared boundary;
+this does not establish full leave accrual or payroll-period reconciliation.
+
 ## A — Page Layout & Stats Cards
 
 | #   | Logic                                                                                           | Explanation                                                                         |

@@ -60,6 +60,27 @@ describe('Attendance Apply Leave API', () => {
   };
 
   describe('POST /api/attendance/apply-leave', () => {
+    it.each([
+      ['2025-10-20', '2025-10-21'],
+      ['2025-11-01', '2025-11-05'],
+    ])(
+      'rejects missing or deleted employees for %s through %s without attendance writes',
+      async (startDate, endDate) => {
+        mockPrisma.employee.findFirst.mockResolvedValue(null);
+        mockPrisma.attendance.findMany.mockResolvedValue([]);
+        mockPrisma.attendance.createMany.mockResolvedValue({ count: 2 });
+        const response = await POST(
+          createMockRequest({ employeeId: 'EMP-DELETED', startDate, endDate })
+        );
+        expect(response.status).toBe(404);
+        expect(mockPrisma.employee.findFirst).toHaveBeenCalledWith({
+          where: { employeeId: 'EMP-DELETED', deletedAt: null },
+        });
+        expect(mockPrisma.attendance.updateMany).not.toHaveBeenCalled();
+        expect(mockPrisma.attendance.createMany).not.toHaveBeenCalled();
+      }
+    );
+
     it('should create attendance records only for dates up to today', async () => {
       const request = createMockRequest({
         employeeId: 'EMP-001',

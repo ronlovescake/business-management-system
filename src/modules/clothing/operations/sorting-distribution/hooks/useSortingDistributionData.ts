@@ -8,6 +8,7 @@
  */
 
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { notifications } from '@mantine/notifications';
 import { SortingDistributionService } from '../services/SortingDistributionService';
 import type {
   DistributionRow,
@@ -119,6 +120,9 @@ export function useSortingDistributionData({
 
   // Refs
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const loadVersionRef = useRef(0);
+  const loadedProductRef = useRef<string | null>(null);
+  const saveQueueRef = useRef<Promise<void>>(Promise.resolve());
   const lastSavedRowsRef = useRef<DistributionRow[]>(
     cloneRows(defaultRowsRef.current)
   );
@@ -256,6 +260,9 @@ export function useSortingDistributionData({
    */
   const loadDistributionData = useCallback(
     async (code: string) => {
+      const loadVersion = ++loadVersionRef.current;
+      loadedProductRef.current = null;
+      setIsSaving(false);
       if (saveTimeoutRef.current) {
         clearTimeout(saveTimeoutRef.current);
         saveTimeoutRef.current = null;
@@ -268,17 +275,34 @@ export function useSortingDistributionData({
         lastSavedRowsRef.current = cloneRows(emptyRows);
         lastSavedSelectedQuantityRef.current = null;
         onSelectedQuantityChange(null);
+        setIsLoading(false);
         return;
       }
 
       logger.info('🔄 LOADING distribution data for:', code);
       setIsLoading(true);
-      const { rows: loadedRows, selectedQuantity: savedQuantity } =
-        await SortingDistributionService.loadDistributionData(
-          code,
-          apiBasePath
-        );
+      const loaded = await SortingDistributionService.loadDistributionData(
+        code,
+        apiBasePath
+      ).catch((error) => {
+        if (loadVersion === loadVersionRef.current) {
+          setIsLoading(false);
+          logger.error('Failed to load sorting data', { error });
+          notifications.show({
+            title: 'Unable to load sorting data',
+            message:
+              'Changes cannot be saved until this product loads successfully.',
+            color: 'red',
+          });
+        }
+        return null;
+      });
+      if (!loaded || loadVersion !== loadVersionRef.current) {
+        return;
+      }
+      const { rows: loadedRows, selectedQuantity: savedQuantity } = loaded;
 
+      loadedProductRef.current = code;
       lastSavedRowsRef.current = cloneRows(loadedRows);
       lastSavedSelectedQuantityRef.current = savedQuantity ?? null;
 
@@ -305,6 +329,10 @@ export function useSortingDistributionData({
    */
   useEffect(() => {
     loadDistributionData(productCode);
+    return () => {
+      loadVersionRef.current += 1;
+      loadedProductRef.current = null;
+    };
   }, [productCode, loadDistributionData]);
 
   /**
@@ -365,7 +393,7 @@ export function useSortingDistributionData({
    * Auto-save data when rows or selectedQuantity changes
    */
   useEffect(() => {
-    if (!productCode) {
+    if (!productCode || loadedProductRef.current !== productCode) {
       logger.debug('No product code, skipping auto-save');
       if (saveTimeoutRef.current) {
         clearTimeout(saveTimeoutRef.current);
@@ -403,34 +431,43 @@ export function useSortingDistributionData({
       clearTimeout(saveTimeoutRef.current);
     }
 
-    saveTimeoutRef.current = setTimeout(async () => {
-      logger.info('🔄 AUTO-SAVING distribution data...', {
-        productCode,
-        selectedQuantity,
-        nonEmptyRowCount: nonEmptyRows.length,
-      });
-      setIsSaving(true);
-      try {
-        const result = await SortingDistributionService.saveDistributionData(
+    const loadVersion = loadVersionRef.current;
+    const isCurrent = () =>
+      loadVersion === loadVersionRef.current &&
+      loadedProductRef.current === productCode;
+
+    saveTimeoutRef.current = setTimeout(() => {
+      saveTimeoutRef.current = null;
+      saveQueueRef.current = saveQueueRef.current.then(async () => {
+        if (!isCurrent()) {
+          return;
+        }
+        logger.info('🔄 AUTO-SAVING distribution data...', {
           productCode,
           selectedQuantity,
-          rows,
-          apiBasePath
-        );
-        logger.info('✅ AUTO-SAVE successful:', result);
-        if (result.success) {
-          lastSavedRowsRef.current = cloneRows(rows);
-          lastSavedSelectedQuantityRef.current = selectedQuantity;
+          nonEmptyRowCount: nonEmptyRows.length,
+        });
+        setIsSaving(true);
+        try {
+          const result = await SortingDistributionService.saveDistributionData(
+            productCode,
+            selectedQuantity,
+            rows,
+            apiBasePath
+          );
+          logger.info('✅ AUTO-SAVE successful:', result);
+          if (result.success && isCurrent()) {
+            lastSavedRowsRef.current = cloneRows(rows);
+            lastSavedSelectedQuantityRef.current = selectedQuantity;
+          }
+        } catch (error) {
+          logger.error('❌ AUTO-SAVE failed:', error);
+        } finally {
+          if (isCurrent()) {
+            setIsSaving(false);
+          }
         }
-      } catch (error) {
-        logger.error('❌ AUTO-SAVE failed:', error);
-      } finally {
-        setIsSaving(false);
-        if (saveTimeoutRef.current) {
-          clearTimeout(saveTimeoutRef.current);
-          saveTimeoutRef.current = null;
-        }
-      }
+      });
     }, AUTO_SAVE_DELAY);
 
     return () => {

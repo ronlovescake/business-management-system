@@ -110,6 +110,24 @@ describe('13th Month Pay API', () => {
     } as NextRequest;
   };
 
+  it.each(['unknown', '', null, 12])(
+    'rejects unsupported status %j in both write endpoints',
+    async (status) => {
+      const responses = await Promise.all([
+        PATCH(createMockRequest({ body: { id: 'emp-2026', status } })),
+        PATCH_STATUS(createMockRequest({ body: { status } }), {
+          params: { recordId: 'emp-2026' },
+        }),
+      ]);
+      expect(responses.map((response) => response.status)).toEqual([400, 400]);
+      expect(mockThirteenthMonthPayService.update).not.toHaveBeenCalled();
+      expect(mockThirteenthMonthPayService.create).not.toHaveBeenCalled();
+      expect(
+        mockThirteenthMonthPayService.updateStatusByRecordId
+      ).not.toHaveBeenCalled();
+    }
+  );
+
   describe('GET /api/thirteenth-month-pay', () => {
     it('should fetch all 13th month pay records', async () => {
       mockThirteenthMonthPayService.findAll.mockResolvedValue(mockRecords);
@@ -391,20 +409,15 @@ describe('13th Month Pay API', () => {
         },
       });
 
-      // Mock service throwing validation error
-      mockThirteenthMonthPayService.findByRecordId.mockResolvedValue({
-        id: 1,
-        ...mockRecords[0],
-      });
-      mockThirteenthMonthPayService.update.mockRejectedValue(
-        new Error('Invalid status value')
-      );
-
       const response = await PATCH(request);
       const data = await response.json();
 
-      expect(response.status).toBe(500);
-      expect(data.error).toBe('Failed to persist record');
+      expect(response.status).toBe(400);
+      expect(data.error).toBe('Invalid 13th month pay status');
+      expect(
+        mockThirteenthMonthPayService.findByRecordId
+      ).not.toHaveBeenCalled();
+      expect(mockThirteenthMonthPayService.update).not.toHaveBeenCalled();
     });
 
     it('should return error for invalid year', async () => {

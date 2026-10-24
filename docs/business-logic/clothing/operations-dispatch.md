@@ -40,17 +40,17 @@
 
 ## C — Bulk "Update Shipped Orders" Action
 
-| #   | Logic                                                                     | Explanation                                                                                                                                         |
-| --- | ------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 12  | "Add New" in the Checkout Update tab triggers the bulk update flow        | `handleAddNew` detects `activeTab === 'checkout-update'` and calls `handleUpdateShippedOrders`.                                                     |
-| 13  | Only orders shipped within the last 24 hours are targeted                 | `handleUpdateShippedOrders` computes `cutoff = now − 24 × 60 × 60 × 1000`. Shipped orders older than 24 hours are excluded.                         |
-| 14  | If no orders shipped in last 24 hours → info SweetAlert, no action        | `Swal.fire({ title: 'No Recent Orders', icon: 'info' })`.                                                                                           |
-| 15  | If no customers matched to recent orders → warning SweetAlert, no action  | `Swal.fire({ title: 'No Matched Customers', icon: 'warning' })`.                                                                                    |
-| 16  | If no transactions found for those customers → info SweetAlert, no action | `Swal.fire({ title: 'No Transactions Found', icon: 'info' })`.                                                                                      |
-| 17  | Eligible transactions must be "Checked Out" or "Ready For Dispatch"       | The update filters to transactions where status ∈ { "Checked Out", "Ready For Dispatch" } AND the customer appears in the recent-shipped name list. |
-| 18  | First SweetAlert confirmation shows a styled HTML summary                 | The dialog lists each customer and their eligible product codes with status badges before the operator confirms.                                    |
-| 19  | Two SweetAlert2 confirmations are required before bulk update             | First dialog = review list + confirm intent; second dialog = final "Are you sure?" with red confirm button.                                         |
-| 20  | All eligible transactions are updated to "Shipped" in one API call        | The bulk endpoint receives an array of transaction IDs and sets all to status "Shipped" atomically.                                                 |
+| #   | Logic                                                                     | Explanation                                                                                                                                                                                  |
+| --- | ------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 12  | "Add New" in the Checkout Update tab triggers the bulk update flow        | `handleAddNew` detects `activeTab === 'checkout-update'` and calls `handleUpdateShippedOrders`.                                                                                              |
+| 13  | Only orders shipped within the last 24 hours through now are targeted     | `handleUpdateShippedOrders` includes ship times from cutoff through now. Older, invalid and future ship times are excluded.                                                                  |
+| 14  | If no orders shipped in last 24 hours → info SweetAlert, no action        | `Swal.fire({ title: 'No Recent Orders', icon: 'info' })`.                                                                                                                                    |
+| 15  | If no customers matched to recent orders → warning SweetAlert, no action  | `Swal.fire({ title: 'No Matched Customers', icon: 'warning' })`.                                                                                                                             |
+| 16  | If no transactions found for those customers → info SweetAlert, no action | `Swal.fire({ title: 'No Transactions Found', icon: 'info' })`.                                                                                                                               |
+| 17  | Eligible transactions must be "Checked Out" or "Ready For Dispatch"       | The update filters to transactions where status ∈ { "Checked Out", "Ready For Dispatch" } AND the customer appears in the recent-shipped name list.                                          |
+| 18  | First SweetAlert confirmation shows an escaped HTML summary               | Customer, product and status text is escaped before interpolation into the review dialog.                                                                                                    |
+| 19  | Two SweetAlert2 confirmations are required before bulk update             | First dialog = review list + confirm intent; second dialog = final "Are you sure?" with red confirm button.                                                                                  |
+| 20  | Eligible transactions are updated to "Shipped" in separate requests       | Sequential transaction PATCH calls can partially succeed. Complete success is green, partial success yellow, and zero success red; counts identify failures. There is no atomic bulk update. |
 
 ---
 
@@ -81,15 +81,15 @@
 
 ## F — Dispatch XLSX Import
 
-| #   | Logic                                                             | Explanation                                                                                                                       |
-| --- | ----------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
-| 32  | Only `.xlsx` and `.xls` file extensions are accepted              | File extension is checked before parsing; other types are rejected with a red notification.                                       |
-| 33  | File size is limited to 10 MB                                     | Files exceeding 10,485,760 bytes are rejected before reading begins.                                                              |
-| 34  | Worksheets must not be empty                                      | After parsing, the importer validates that the workbook has at least one sheet with at least one data row.                        |
-| 35  | The XLSX library is dynamically imported                          | `xlsx` is imported with `await import('xlsx')` to avoid bundling it in the initial client chunk.                                  |
-| 36  | Success notification includes row count                           | `showNotification({ title: 'Success', message: 'Successfully imported and saved N rows from filename', color: 'green' })`.        |
-| 37  | Failure notification has 7-second auto-close                      | `showNotification({ title: 'Import Failed', message: errorMessage, color: 'red', autoClose: 7000 })`.                             |
-| 38  | Imported data is saved to the database (replaces previous import) | `saveOrdersMutation.mutateAsync(data)` calls `POST /api/dispatch/orders` which truncates existing orders and inserts the new set. |
+| #   | Logic                                                             | Explanation                                                                                                                                                              |
+| --- | ----------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| 32  | Only `.xlsx` and `.xls` file extensions are accepted              | File extension is checked before parsing; other types are rejected with a red notification.                                                                              |
+| 33  | File size is limited to 10 MB                                     | Files exceeding 10,485,760 bytes are rejected before reading begins.                                                                                                     |
+| 34  | Worksheets must not be empty                                      | After parsing, the importer validates that the workbook has at least one sheet with at least one data row.                                                               |
+| 35  | The XLSX library is dynamically imported                          | `xlsx` is imported with `await import('xlsx')` to avoid bundling it in the initial client chunk.                                                                         |
+| 36  | Success notification includes row count                           | `showNotification({ title: 'Success', message: 'Successfully imported and saved N rows from filename', color: 'green' })`.                                               |
+| 37  | Failure notification has 7-second auto-close                      | `showNotification({ title: 'Import Failed', message: errorMessage, color: 'red', autoClose: 7000 })`.                                                                    |
+| 38  | Imported data is saved to the database (replaces previous import) | `saveOrdersMutation.mutateAsync(data)` calls `POST /api/dispatch/orders`; deletion and insertion share one transaction, so an insert failure rolls back the replacement. |
 
 ---
 

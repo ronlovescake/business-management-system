@@ -24,3 +24,19 @@
 | 6   | Senders can unsend their own messages with a permanent hard delete                     | Unsend removes the message record entirely so it disappears for all participants.                                           |
 | 7   | Receivers can delete incoming messages only from their own view                        | Receiver-side delete stores a per-user hidden-message record and leaves the original message visible to other participants. |
 | 8   | Conversation previews and unread counts are computed from only the current user's view | Hidden messages are excluded from the visible thread, last-message preview, and unread badge calculations for that user.    |
+
+## B - Message Pagination Contract
+
+Message GET checks participation before loading the thread. Limit defaults to
+50 and must be a safe integer from 1 through 100. A cursor must refer to an
+active message in that conversation visible to the current user; missing,
+foreign or hidden cursors return 404 rather than anchor a different thread.
+
+Pages use createdAt descending then ID descending, with an older-timestamp or
+equal-timestamp/smaller-ID predicate. The response is reversed for chronological
+display. Equal-timestamp messages therefore have a deterministic next page.
+An isolated PostgreSQL regression pages five simultaneous messages with a limit
+of two and checks each appears once, plus rejection of a foreign cursor.
+
+Pagination tests do not certify polling recovery, attachments, notification
+audio, or end-to-end delivery between authenticated browsers.

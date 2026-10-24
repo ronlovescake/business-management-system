@@ -3,7 +3,14 @@ import { NextRequest } from 'next/server';
 import { getTestApiUrl } from '@/core/testing/test-helpers';
 
 const mockPrisma = vi.hoisted(() => ({
+  $transaction: vi.fn(),
   invoice: {
+    findMany: vi.fn(),
+    updateMany: vi.fn(),
+    createMany: vi.fn(),
+    update: vi.fn(),
+  },
+  generalMerchandiseInvoice: {
     findMany: vi.fn(),
     updateMany: vi.fn(),
     createMany: vi.fn(),
@@ -22,10 +29,15 @@ vi.mock('@/lib/logger', () => ({
 }));
 
 import { DELETE, GET, POST, PUT } from '@/app/api/invoices/route';
+import { POST as POSTGeneralMerchandise } from '@/app/api/general-merchandise/invoices/route';
 
 describe('Invoices API', () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    vi.resetAllMocks();
+    mockPrisma.$transaction.mockImplementation(
+      (operation: (tx: typeof mockPrisma) => Promise<unknown>) =>
+        operation(mockPrisma)
+    );
   });
 
   const createMockRequest = (
@@ -93,6 +105,64 @@ describe('Invoices API', () => {
     expect(mockPrisma.invoice.updateMany).toHaveBeenCalled();
     expect(mockPrisma.invoice.createMany).toHaveBeenCalled();
   });
+
+  it.each([
+    null,
+    {},
+    { customerName: '' },
+    { customerName: 'Valid', tickbox: 'yes' },
+  ])(
+    'rejects malformed replacement rows before deleting invoices: %j',
+    async (invoice) => {
+      const response = await POST(
+        createMockRequest(undefined, {
+          method: 'POST',
+          body: { invoices: [invoice] },
+        })
+      );
+      expect(response.status).toBe(400);
+      expect(mockPrisma.invoice.updateMany).not.toHaveBeenCalled();
+      expect(mockPrisma.$transaction).not.toHaveBeenCalled();
+    }
+  );
+
+  it.each([
+    [
+      'clothing',
+      POST,
+      mockPrisma.invoice,
+      mockPrisma.generalMerchandiseInvoice,
+    ],
+    [
+      'GM',
+      POSTGeneralMerchandise,
+      mockPrisma.generalMerchandiseInvoice,
+      mockPrisma.invoice,
+    ],
+  ] as const)(
+    'replaces %s invoices through one isolated transaction',
+    async (_domain, post, model, otherModel) => {
+      model.updateMany.mockResolvedValue({ count: 1 });
+      model.createMany.mockResolvedValue({ count: 1 });
+      model.findMany.mockResolvedValue([
+        { id: 'new', customerName: 'Customer' },
+      ]);
+      const response = await post(
+        createMockRequest(undefined, {
+          method: 'POST',
+          body: { invoices: [{ customerName: 'Customer' }] },
+        })
+      );
+      expect(response.status).toBe(200);
+      expect(mockPrisma.$transaction).toHaveBeenCalledTimes(1);
+      expect(mockPrisma.$transaction).toHaveBeenCalledWith(
+        expect.any(Function),
+        { isolationLevel: 'Serializable' }
+      );
+      expect(otherModel.updateMany).not.toHaveBeenCalled();
+      expect(otherModel.createMany).not.toHaveBeenCalled();
+    }
+  );
 
   it('requires an ID when updating an invoice', async () => {
     const response = await PUT(

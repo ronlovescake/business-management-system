@@ -86,8 +86,7 @@ function inferAction(changes: string): string {
 }
 
 // Match bare "Updated transaction #NNN" with no meaningful detail
-const EMPTY_UPDATE_RE =
-  /^Updated (?:transaction|product|shipment) #\d+\s*$/i;
+const EMPTY_UPDATE_RE = /^Updated (?:transaction|product|shipment) #\d+\s*$/i;
 
 // Match the raw "Updated transaction #NNN - ... - Modified: field: old ---> new" format
 // produced by the backend auditLogHelpers / service.ts
@@ -185,6 +184,7 @@ function deduplicateNotifications(
       result.push(...descriptive);
     } else {
       result.push(...group);
+      continue;
     }
 
     result.push(...other);

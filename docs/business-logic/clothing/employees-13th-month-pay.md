@@ -47,13 +47,18 @@
 
 ## D - Record Status Lifecycle
 
-| #   | Logic                                                                                                       | Explanation                                                                                 |
-| --- | ----------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------- |
-| 13  | Status flow: `pending` / `calculated` → `approved` → `paid`                                                 | No backwards transitions once approved.                                                     |
-| 14  | `calculated`: recomputed from payroll data by the server calculation endpoint; values are not persisted yet | The record remains a calculated view until approval persists the server-generated snapshot. |
-| 15  | `pending`: record has been persisted to the database but not yet approved                                   | Written via `buildPersistencePayload` PATCH call.                                           |
-| 16  | `approved`: record is locked — values will not be recalculated from payroll                                 | Triggered by `approveRecord`; SweetAlert2 confirms the lock.                                |
-| 17  | `paid`: 13th month pay has been disbursed                                                                   | Triggered by `markAsPaid`; SweetAlert2 confirms.                                            |
+Both the main PATCH (when a status is supplied) and the dedicated status PATCH
+accept only `pending`, `calculated`, `approved`, or `paid`. Unsupported, empty,
+null or numeric statuses return 400 before service reads/writes. This enum
+validation does not add a new server-enforced transition policy.
+
+| #   | Logic                                                                                                       | Explanation                                                                                      |
+| --- | ----------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------ |
+| 13  | The UI flow is `pending` / `calculated` → `approved` → `paid`                                               | This describes the available UI actions, not a complete server-enforced monotonic state machine. |
+| 14  | `calculated`: recomputed from payroll data by the server calculation endpoint; values are not persisted yet | The record remains a calculated view until approval persists the server-generated snapshot.      |
+| 15  | `pending`: record has been persisted to the database but not yet approved                                   | Written via `buildPersistencePayload` PATCH call.                                                |
+| 16  | `approved`: record is locked — values will not be recalculated from payroll                                 | Triggered by `approveRecord`; SweetAlert2 confirms the lock.                                     |
+| 17  | `paid`: 13th month pay has been disbursed                                                                   | Triggered by `markAsPaid`; SweetAlert2 confirms.                                                 |
 
 ---
 

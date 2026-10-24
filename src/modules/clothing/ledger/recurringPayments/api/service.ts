@@ -5,11 +5,10 @@ import type {
 } from '@prisma/client';
 import { prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
-import { getAccountingCutoverDate } from '@/lib/accounting/cutover';
+import { getRuntimeAccountingCutoverDate } from '@/lib/accounting/cutover';
 import {
   addOneMonthUtc,
   isMissingTableError,
-  isUniqueViolation,
   normalizeUtcMidnight,
   resolveTaggedAccount,
 } from '@/modules/shared/ledger/recurring-payments/api/helpers';
@@ -23,9 +22,6 @@ import type {
   ClothingRecurringPaymentTemplateUpdateInput,
 } from './schemas';
 
-const CUTOVER = getAccountingCutoverDate();
-const CUTOVER_LABEL = CUTOVER.toISOString().slice(0, 10);
-
 export class ClothingRecurringPaymentService {
   async findTemplates(): Promise<ClothingRecurringPaymentTemplate[]> {
     return prisma.clothingRecurringPaymentTemplate.findMany({
@@ -38,9 +34,12 @@ export class ClothingRecurringPaymentService {
   ): Promise<ClothingRecurringPaymentTemplate> {
     const nextDueDate = normalizeUtcMidnight(data.nextDueDate);
     const endDate = data.endDate ? normalizeUtcMidnight(data.endDate) : null;
+    const cutover = await getRuntimeAccountingCutoverDate('clothing');
 
-    if (nextDueDate < CUTOVER) {
-      throw new Error(`nextDueDate must be on or after ${CUTOVER_LABEL}`);
+    if (nextDueDate < cutover) {
+      throw new Error(
+        `nextDueDate must be on or after ${cutover.toISOString().slice(0, 10)}`
+      );
     }
 
     if (endDate && endDate < nextDueDate) {
@@ -71,6 +70,7 @@ export class ClothingRecurringPaymentService {
     data: ClothingRecurringPaymentTemplateUpdateInput
   ): Promise<ClothingRecurringPaymentTemplate> {
     const { id: _, nextDueDate, endDate, ...rest } = data;
+    const cutover = await getRuntimeAccountingCutoverDate('clothing');
 
     return prisma.$transaction(async (tx) => {
       const updateData: Prisma.ClothingRecurringPaymentTemplateUncheckedUpdateInput =
@@ -80,8 +80,10 @@ export class ClothingRecurringPaymentService {
 
       if (nextDueDate) {
         const normalized = normalizeUtcMidnight(nextDueDate);
-        if (normalized < CUTOVER) {
-          throw new Error(`nextDueDate must be on or after ${CUTOVER_LABEL}`);
+        if (normalized < cutover) {
+          throw new Error(
+            `nextDueDate must be on or after ${cutover.toISOString().slice(0, 10)}`
+          );
         }
         updateData.nextDueDate = normalized;
       }
@@ -175,9 +177,12 @@ export class ClothingRecurringPaymentService {
   ): Promise<{ created: number; skipped: number; upToDate: string }> {
     const rawUpTo = input?.upToDate ?? new Date();
     const upToDate = normalizeUtcMidnight(rawUpTo);
+    const cutover = await getRuntimeAccountingCutoverDate('clothing');
 
-    if (upToDate < CUTOVER) {
-      throw new Error(`upToDate must be on or after ${CUTOVER_LABEL}`);
+    if (upToDate < cutover) {
+      throw new Error(
+        `upToDate must be on or after ${cutover.toISOString().slice(0, 10)}`
+      );
     }
 
     const result = await prisma.$transaction(async (tx) => {
@@ -213,9 +218,9 @@ export class ClothingRecurringPaymentService {
           const ref = `RECURRING:${template.name}`.slice(0, 120);
           const description = template.notes ?? null;
 
-          try {
-            await tx.clothingRecurringPaymentDraft.create({
-              data: {
+          const inserted = await tx.clothingRecurringPaymentDraft.createMany({
+            data: [
+              {
                 templateId: template.id,
                 dueDate: nextDue,
                 amount: template.amount,
@@ -228,17 +233,11 @@ export class ClothingRecurringPaymentService {
                 status: 'DRAFT',
                 approvedAt: null,
               },
-              select: { id: true },
-            });
-
-            created++;
-          } catch (error) {
-            if (isUniqueViolation(error)) {
-              skipped++;
-            } else {
-              throw error;
-            }
-          }
+            ],
+            skipDuplicates: true,
+          });
+          created += inserted.count;
+          skipped += 1 - inserted.count;
 
           nextDue = addOneMonthUtc(nextDue, template.dayOfMonth);
         }
@@ -272,6 +271,7 @@ export class ClothingRecurringPaymentService {
     input: ClothingRecurringPaymentApproveInput
   ): Promise<{ draftId: string; journalSourceId: string }> {
     const now = new Date();
+    const cutover = await getRuntimeAccountingCutoverDate('clothing');
 
     try {
       return await prisma.$transaction(async (tx) => {
@@ -289,8 +289,10 @@ export class ClothingRecurringPaymentService {
         }
 
         const entryDate = normalizeUtcMidnight(draft.dueDate);
-        if (entryDate < CUTOVER) {
-          throw new Error(`Draft dueDate must be on or after ${CUTOVER_LABEL}`);
+        if (entryDate < cutover) {
+          throw new Error(
+            `Draft dueDate must be on or after ${cutover.toISOString().slice(0, 10)}`
+          );
         }
 
         const sourceId = draft.id;
@@ -353,14 +355,17 @@ export class ClothingRecurringPaymentService {
           select: { id: true },
         });
 
-        await tx.clothingRecurringPaymentDraft.update({
-          where: { id: draft.id },
+        const approved = await tx.clothingRecurringPaymentDraft.updateMany({
+          where: { id: draft.id, status: 'DRAFT' },
           data: {
             status: 'APPROVED',
             approvedAt: now,
           },
-          select: { id: true },
         });
+
+        if (approved.count !== 1) {
+          throw new Error('Draft is already processed');
+        }
 
         return { draftId: draft.id, journalSourceId: sourceId };
       });
@@ -391,14 +396,17 @@ export class ClothingRecurringPaymentService {
         throw new Error(`Draft is already ${draft.status}`);
       }
 
-      await tx.clothingRecurringPaymentDraft.update({
-        where: { id: draft.id },
+      const skipped = await tx.clothingRecurringPaymentDraft.updateMany({
+        where: { id: draft.id, status: 'DRAFT' },
         data: {
           status: 'SKIPPED',
           approvedAt: null,
         },
-        select: { id: true },
       });
+
+      if (skipped.count !== 1) {
+        throw new Error('Draft is already processed');
+      }
 
       return { draftId: draft.id };
     });

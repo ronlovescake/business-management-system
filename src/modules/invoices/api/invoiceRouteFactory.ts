@@ -2,6 +2,20 @@ import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 import { logger } from '@/lib/logger';
 import { ApiResponseUtil } from '@/core/api/response';
+import { z } from 'zod';
+
+const invoiceReplacementSchema = z.array(
+  z.object({
+    customerName: z.string().trim().min(1),
+    actualWeight: z.string().nullish(),
+    finalWeight: z.string().nullish(),
+    shopeeCheckoutLinks: z.string().nullish(),
+    driveFiles: z.string().nullish(),
+    message: z.string().nullish(),
+    chat: z.string().nullish(),
+    tickbox: z.boolean().optional(),
+  })
+);
 
 /**
  * Structural minimum the invoice delegate must satisfy. We accept any
@@ -28,13 +42,16 @@ export type InvoiceModelDelegate = MinimalInvoiceDelegate;
 
 export interface InvoiceRouteConfig<T extends MinimalInvoiceDelegate> {
   invoiceModel: T;
+  withTransaction: <Result>(
+    operation: (invoiceModel: T) => Promise<Result>
+  ) => Promise<Result>;
   domainLabel?: string;
 }
 
 export function createInvoiceRoutes<T extends MinimalInvoiceDelegate>(
   config: InvoiceRouteConfig<T>
 ) {
-  const { invoiceModel, domainLabel } = config;
+  const { invoiceModel, domainLabel, withTransaction } = config;
   const label = domainLabel ? `${domainLabel} ` : '';
 
   async function GET() {
@@ -53,8 +70,8 @@ export function createInvoiceRoutes<T extends MinimalInvoiceDelegate>(
 
   async function POST(request: NextRequest) {
     try {
-      const body = await request.json();
-      const { invoices } = body;
+      const body = await request.json().catch(() => null);
+      const invoices = body?.invoices;
 
       if (!Array.isArray(invoices)) {
         return ApiResponseUtil.error(
@@ -63,24 +80,19 @@ export function createInvoiceRoutes<T extends MinimalInvoiceDelegate>(
         );
       }
 
-      await invoiceModel.updateMany({
-        where: { deletedAt: null },
-        data: { deletedAt: new Date() },
-      });
+      const parsed = invoiceReplacementSchema.safeParse(invoices);
+      if (!parsed.success) {
+        return ApiResponseUtil.error('Invalid invoice replacement data', 400);
+      }
 
-      const created = await invoiceModel.createMany({
-        data: invoices.map(
-          (invoice: {
-            id?: string;
-            customerName: string;
-            actualWeight?: string;
-            finalWeight?: string;
-            shopeeCheckoutLinks?: string;
-            driveFiles?: string;
-            message?: string;
-            chat?: string;
-            tickbox?: boolean;
-          }) => ({
+      const result = await withTransaction(async (transactionModel) => {
+        await transactionModel.updateMany({
+          where: { deletedAt: null },
+          data: { deletedAt: new Date() },
+        });
+
+        const created = await transactionModel.createMany({
+          data: parsed.data.map((invoice) => ({
             customerName: invoice.customerName,
             actualWeight: invoice.actualWeight || null,
             finalWeight: invoice.finalWeight || null,
@@ -89,19 +101,20 @@ export function createInvoiceRoutes<T extends MinimalInvoiceDelegate>(
             message: invoice.message || null,
             chat: invoice.chat || null,
             tickbox: invoice.tickbox || false,
-          })
-        ),
-      });
+          })),
+        });
 
-      const newInvoices = await invoiceModel.findMany({
-        where: { deletedAt: null },
-        orderBy: { createdAt: 'desc' },
-      });
+        const newInvoices = await transactionModel.findMany({
+          where: { deletedAt: null },
+          orderBy: { createdAt: 'desc' },
+        });
 
-      return ApiResponseUtil.success({
-        count: created.count,
-        data: newInvoices,
+        return {
+          count: created.count,
+          data: newInvoices,
+        };
       });
+      return ApiResponseUtil.success(result);
     } catch (error) {
       logger.error(`Error replacing ${label}invoices`, error);
       return ApiResponseUtil.error('Failed to replace invoices', 500);

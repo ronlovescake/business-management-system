@@ -2,102 +2,104 @@
 
 > **Source files:**
 >
-> - `src/modules/clothing/operations/bi/hooks/useBusinessIntelligence.ts`
-> - `src/modules/clothing/operations/bi/components/BiDashboard.tsx`
-> - `src/modules/clothing/operations/bi/constants/constants.ts`
-> - `src/modules/clothing/operations/bi/types/types.ts`
+> - [Served BI hook](../../../src/app/clothing/operations/business-intelligence/hooks/useBusinessIntelligence.ts)
+> - [Date filters and comparison ranges](../../../src/lib/analytics/periodComparison.ts)
 
 ---
 
 ## A — Date Filter
 
-| #   | Logic                                                                                                    | Explanation                                                                                                                                                                    |
-| --- | -------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| 1   | Seven date filters are available: YTD, MTD, Last 7 Days, Last 30 Days, Last 3 Months, Last 6 Months, All | `dateFilter` state holds one of: `ytd`, `mtd`, `last7days`, `last30days`, `last3months`, `last6months`, `all`.                                                                 |
-| 2   | The date filter is a Mantine `Select` with a fixed width of 220px                                        | The select is rendered in the `BiDashboard` header. Changing the value immediately re-derives all computed metrics.                                                            |
-| 3   | Filter defaults to `mtd` on mount                                                                        | Initial state is `'mtd'` (current month to date).                                                                                                                              |
-| 4   | `getDateRange` converts the filter key to a `{ start, end }` range                                       | For `ytd`: Jan 1 of current year → today. `mtd`: 1st of current month → today. `last7days`: today minus 7 days. `all`: no date constraint (start/end are far-past/far-future). |
-| 5   | All metric computations filter raw data through `getDateRange`                                           | When the filter changes, all `useMemo` metric values recompute automatically because they depend on `dateFilter` + raw query data.                                             |
+| #   | Logic                                                                                                    | Explanation                                                                                                                                                                                                             |
+| --- | -------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1   | Seven date filters are available: YTD, MTD, Last 7 Days, Last 30 Days, Last 3 Months, Last 6 Months, All | `dateFilter` state holds one of: `ytd`, `mtd`, `last7days`, `last30days`, `last3months`, `last6months`, `all`.                                                                                                          |
+| 2   | Changing the date filter recomputes the hook's metrics                                                   | The selected filter and loaded transaction, product and shipment arrays are metric dependencies.                                                                                                                        |
+| 3   | Filter defaults to `ytd` on mount                                                                        | Initial state is year to date.                                                                                                                                                                                          |
+| 4   | `getDateRangeFilter` bounds current-period records from start through now                                | YTD starts Jan 1, MTD the first of this month, rolling day filters subtract days, and month filters start on the first of the shifted month. Future records are excluded for bounded filters. All Time is unrestricted. |
+| 5   | Date scope depends on the metric                                                                         | Transactions and monthly shipment buckets use the selected filter. Product COGS and headline shipment totals use all loaded records; they are not period-matched ledger metrics.                                        |
 
 ---
 
 ## B — Data Fetching
 
-| #   | Logic                                                                     | Explanation                                                                                                                               |
-| --- | ------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
-| 6   | Three `useQuery` calls run in parallel: transactions, products, shipments | Each query has `staleTime: 30 * 1000` (30 seconds) and `refetchOnWindowFocus: true`.                                                      |
-| 7   | Transactions are fetched from `/api/bi/transactions`                      | Returns all transaction line items with date, revenue, COGS, customer, and product info.                                                  |
-| 8   | Products are fetched from `/api/bi/products`                              | Returns product catalogue entries for cross-referencing in leaderboards.                                                                  |
-| 9   | Shipments are fetched from `/api/bi/shipments`                            | Returns shipment records with CBM and sack counts used in logistic metrics.                                                               |
-| 10  | Loading state shows a centred large `Loader`                              | While any of the three queries is loading, `BiDashboard` renders `<Center h={400}><Loader size="lg" /></Center>` in place of all content. |
+| #   | Logic                                                               | Explanation                                                                                                                                                                              |
+| --- | ------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 6   | `useQueries` loads transactions, products and shipments in parallel | The normal operational queries use a 30-second stale time.                                                                                                                               |
+| 7   | Transactions use the configured `/transactions` API path            | Clothing uses `/api/transactions`, not a separate `/api/bi/transactions` feed.                                                                                                           |
+| 8   | Products use the configured `/products` API path                    | The catalogue supplies product-level COGS values.                                                                                                                                        |
+| 9   | Shipments use the configured `/shipments` API path                  | Shipment fields include Total CBM, No. Of Sacks and Date Created.                                                                                                                        |
+| 10  | Accounting profit is a separate authorized query                    | ADMIN/SUPER_ADMIN can fetch `/accounting/profit-loss`, with a five-minute stale time and no automatic retry. Bounded query parameters run from the current comparison start through now. |
 
 ---
 
 ## C — Summary Stat Cards
 
-| #   | Logic                                                                                         | Explanation                                                                                         |
-| --- | --------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------- |
-| 11  | Six stat cards are displayed at the top of the page                                           | Cards (in order): YTD Revenue, MTD Revenue, Total Transactions, Total COGS, Total CBM, Total Sacks. |
-| 12  | YTD Revenue is always computed using the full year to date, regardless of the selected filter | `ytdTotal` uses a hard-coded `ytd` range even when a different filter is selected.                  |
-| 13  | MTD Revenue is always computed using the current month to date                                | Same pattern as YTD — pinned to `mtd` range independent of the filter.                              |
-| 14  | Total Transactions counts individual line items within the filtered range                     | `transactionCount` is the length of filtered transaction records.                                   |
-| 15  | Total COGS sums `cogs` fields across all filtered transaction lines                           | `totalCOGS` accumulates COGS from each filtered transaction.                                        |
-| 16  | Total CBM and Total Sacks sum shipment-level values for the filtered range                    | `totalCBM` and `totalSacks` are derived from filtered shipments.                                    |
+| #   | Logic                                                                     | Explanation                                                                                                                                 |
+| --- | ------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
+| 11  | The hook exposes operational totals and an independent profit snapshot    | Operational totals are not automatically ledger revenue, realized profit or recognized COGS.                                                |
+| 12  | The legacy `ytdTotal` name means revenue within the selected period       | Sum Line Total over period transactions excluding cancelled/forfeited/voided statuses. It is only YTD when YTD is selected.                 |
+| 13  | `mtdTotal` is the current-month subset of those selected transactions     | A narrower selected period can reduce it; it is not an independent pinned MTD query. All Time remains unrestricted by a future upper bound. |
+| 14  | Total Transactions counts individual line items within the filtered range | `transactionCount` is the length of filtered transaction records.                                                                           |
+| 15  | Total COGS sums the COGS fields of all loaded products                    | This is neither a quantity-weighted sales cost nor period-filtered transaction COGS.                                                        |
+| 16  | Total CBM and Total Sacks sum all loaded shipments                        | Only the monthly shipment series below applies the selected date filter.                                                                    |
 
 ---
 
 ## D — Monthly Trend Charts
 
-| #   | Logic                                                     | Explanation                                                                                                                                                             |
-| --- | --------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 17  | Monthly Trends data always covers all 12 months (Jan–Dec) | `monthlyTrends` iterates `MONTH_NAMES` (all 12) and for each month sums revenue and counts transactions from the raw data, using the full dataset regardless of filter. |
-| 18  | Months with no data receive zeros, not nulls              | The reduce initialises each month to `{ revenue: 0, transactions: 0 }`, ensuring every month is always present on the chart axis.                                       |
-| 19  | Monthly Revenue chart is a Recharts `LineChart`           | X-axis = month abbreviation; Y-axis = revenue. A single `Line` traces revenue across the year, with `Tooltip` and `CartesianGrid`.                                      |
-| 20  | Monthly Transaction Count chart is a Recharts `AreaChart` | Same 12-month series, with a shaded `Area` for transaction count.                                                                                                       |
+| #   | Logic                                                                | Explanation                                                                                                                       |
+| --- | -------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| 17  | The monthly axis covers January through December of the current year | Selected-period transaction rows supply revenue and line counts. All Time does not expand the axis into prior years.              |
+| 18  | Months with no data receive zeros, not nulls                         | The reduce initialises each month to `{ revenue: 0, transactions: 0 }`, ensuring every month is always present on the chart axis. |
+| 19  | Monthly revenue sums eligible Line Total values                      | Cancelled/forfeited/voided rows do not contribute to the normal revenue series.                                                   |
+| 20  | Monthly transaction counts are line counts                           | They are not distinct customer orders or invoices.                                                                                |
 
 ---
 
 ## E — Shipment Metrics Chart
 
-| #   | Logic                                                                | Explanation                                                                                 |
-| --- | -------------------------------------------------------------------- | ------------------------------------------------------------------------------------------- |
-| 21  | Shipment chart is a Recharts `ComposedChart` with bars and two lines | The chart shows: `Bar` for CBM per month, `Line` for sack count, `Line` for shipment count. |
-| 22  | Shipment data is grouped by month from the filtered shipments        | Each month bucket receives total CBM, sack count, and a shipment record count.              |
+| #   | Logic                                                         | Explanation                                                                           |
+| --- | ------------------------------------------------------------- | ------------------------------------------------------------------------------------- |
+| 21  | Monthly shipment buckets expose count, CBM and sacks          | Each shipment is grouped using Date Created, not delivery or accounting posting date. |
+| 22  | Shipment data is grouped by month from the filtered shipments | Each month bucket receives total CBM, sack count, and a shipment record count.        |
 
 ---
 
 ## F — Top Products Charts & Table
 
-| #   | Logic                                                                       | Explanation                                                                                                |
-| --- | --------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
-| 23  | Top 10 products are ranked by total `lineTotal` value in the filtered range | `topProducts` uses `Array.reduce` to aggregate by product ID, then sorts descending and slices the top 10. |
-| 24  | Top Products bar chart is a Recharts `BarChart`                             | Horizontal bars ordered from highest to lowest value; each bar is labelled with the product name.          |
-| 25  | Product Quantity chart is a Recharts `AreaChart`                            | An area trace for total units sold per product across the top 10.                                          |
-| 26  | Products overview table lists all products by revenue                       | Columns: Product Name, Total Revenue, Qty Sold, COGS. Sorted by revenue descending.                        |
+| #   | Logic                                                    | Explanation                                                                                                                      |
+| --- | -------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
+| 23  | Top 10 products are ranked by selected-period Line Total | Aggregation uses Product Code, not database product ID; blank codes are skipped.                                                 |
+| 24  | Product totals combine value and quantity                | Sorting is by total value descending, then the list is limited to ten.                                                           |
+| 25  | Product quantity sums the transaction Quantity field     | This is an operational line measure, not a stock movement reconciliation.                                                        |
+| 26  | Period comparison uses the shared comparison ranges      | Prior-period checks retain their existing half-open boundaries; a future-date fix is not a change to that comparison convention. |
 
 ---
 
 ## G — Top Customers Charts & Table
 
-| #   | Logic                                                              | Explanation                                                                                                  |
-| --- | ------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------ |
-| 27  | Top 10 customers are ranked by total revenue in the filtered range | `topCustomers` aggregates transaction revenue by customer ID, sorts descending, and slices top 10.           |
-| 28  | Top Customers chart is a horizontal Recharts `BarChart`            | Customer names on the Y-axis; revenue on the X-axis.                                                         |
-| 29  | Customer share chart is a Recharts `PieChart`                      | Shows the top 5 customers as pie slices with percentage labels; remaining customers are grouped as "Others". |
-| 30  | Customers overview table lists all customers by revenue            | Columns: Customer Name, Total Revenue, Order Count. Sorted by revenue descending.                            |
+| #   | Logic                                                               | Explanation                                                                                                                              |
+| --- | ------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| 27  | Top 10 customers are ranked by selected-period Line Total           | The leaderboard groups by the Customers display string, not customer ID, and skips blank names.                                          |
+| 28  | Leaderboard orderCount counts transaction rows                      | This field is not a distinct invoice count.                                                                                              |
+| 29  | Extended metrics normalize customer display names                   | New/returning classification uses first-order month from all active transactions. This differs from the raw-string leaderboard grouping. |
+| 30  | Extended repeat customers require at least two distinct order dates | The extended metrics also expose quantity, adjustment, cancelled/lost revenue and pipeline stage values.                                 |
 
 ---
 
-## H — Shipments Table
+## H — Shipment Scope
 
-| #   | Logic                                               | Explanation                                       |
-| --- | --------------------------------------------------- | ------------------------------------------------- |
-| 31  | Shipments table lists individual filtered shipments | Columns: Shipment Code, Date, CBM, Sacks, Status. |
+| #   | Logic                                                                      | Explanation                                                                      |
+| --- | -------------------------------------------------------------------------- | -------------------------------------------------------------------------------- |
+| 31  | The hook returns loaded products and shipments as well as computed metrics | Consumers must not assume those raw arrays are already selected-period filtered. |
 
 ---
 
 ## I — Error Handling
 
-| #   | Logic                                  | Explanation                                                                                                                                                                  |
-| --- | -------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 32  | Query errors are logged to the console | Each query's `onError` callback calls `console.error` with the query name and error object. UI remains visible; no in-page error component is shown for data fetch failures. |
+| #   | Logic                                                                            | Explanation                                                                                              |
+| --- | -------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
+| 32  | Operational query errors are logged; profit exposes separate error/loading flags | These states do not establish completeness of the operational data or independent ledger reconciliation. |
+
+Regression tests exercise the real shared date filter, including future records
+for all six bounded options. They do not certify the browser charts, every
+accounting report basis, or consistency of historical business data.

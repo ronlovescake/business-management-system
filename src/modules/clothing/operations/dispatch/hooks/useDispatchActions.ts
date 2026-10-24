@@ -6,6 +6,7 @@ import { getSwal } from '@/lib/alerts';
 import { apiClient } from '@/lib/api/client';
 import { buildApiPath } from '@/lib/api/paths';
 import { logger } from '@/lib/logger';
+import { escapeHtml } from '@/lib/security/sanitize';
 import type { RawOrderData } from '../types';
 
 interface UseDispatchActionsParams {
@@ -83,7 +84,7 @@ export function useDispatchActions({
           return false;
         }
 
-        return shipDate >= twentyFourHoursAgo;
+        return shipDate >= twentyFourHoursAgo && shipDate <= now;
       });
 
       if (recentOrders.length === 0) {
@@ -167,16 +168,16 @@ export function useDispatchActions({
             .map(
               (t) =>
                 `<div style="padding: 8px 12px; margin: 4px 0; background: rgba(255, 255, 255, 0.6); border-radius: 6px; display: flex; justify-content: space-between; align-items: center;">
-                  <span style="font-size: 13px; color: #2d3748;">${t['Product Code']}</span>
+                  <span style="font-size: 13px; color: #2d3748;">${escapeHtml(t['Product Code'])}</span>
                   <span style="background: rgba(102, 126, 234, 0.15); padding: 2px 10px; border-radius: 10px; font-size: 11px; font-weight: 500; color: #5a67d8;">
-                    ${t['Order Status']}
+                    ${escapeHtml(t['Order Status'] ?? '')}
                   </span>
                 </div>`
             )
             .join('');
 
           return `<div style="padding: 14px; margin: 10px 0; background: linear-gradient(135deg, #a8b5ff 0%, #b8a3d9 100%); border-radius: 10px; box-shadow: 0 2px 8px rgba(168, 181, 255, 0.3);">
-            <div style="font-weight: 600; font-size: 15px; margin-bottom: 10px; color: #2d3748;">${customer}</div>
+            <div style="font-weight: 600; font-size: 15px; margin-bottom: 10px; color: #2d3748;">${escapeHtml(customer)}</div>
             <div>${productsList}</div>
           </div>`;
         })
@@ -267,9 +268,9 @@ export function useDispatchActions({
       });
 
       showNotification({
-        title: 'Orders Updated',
-        message: `${successCount} transaction(s) updated to "Shipped" status`,
-        color: 'green',
+        title: failCount > 0 ? 'Order Update Incomplete' : 'Orders Updated',
+        message: `${successCount} transaction(s) updated to "Shipped" status${failCount > 0 ? `; ${failCount} failed` : ''}`,
+        color: successCount === 0 ? 'red' : failCount > 0 ? 'yellow' : 'green',
       });
     } catch (error) {
       logger.error('Failed to update shipped orders', error);

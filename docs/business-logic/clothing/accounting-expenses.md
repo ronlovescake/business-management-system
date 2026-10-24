@@ -8,6 +8,25 @@
 
 ---
 
+## Recurring Ledger Payments
+
+The [clothing recurring service](../../../src/modules/clothing/ledger/recurringPayments/api/service.ts)
+is a separate journal-posting workflow, not the manual expense-record status
+table below. It resolves the saved runtime clothing accounting cutover on each
+create, update, generation and approval request.
+
+Generation inserts each template/due-date draft with duplicate skipping and
+advances the schedule in the same transaction; a preexisting draft is counted
+as skipped without aborting PostgreSQL. Approval creates its balanced journal
+pair and conditionally changes DRAFT to APPROVED in one transaction. Skip also
+requires DRAFT. If approval and skip race, only one final status write succeeds;
+a losing approval rolls back its journal lines.
+
+The isolated database regressions cover preexisting-draft advancement,
+second-journal-line rollback, and coordinated approval-versus-skip. These checks
+do not certify historical expense/payroll reconciliation or the unchanged GM
+recurring implementation.
+
 ## A - Page Layout & Stat Cards
 
 | #   | Logic                                                                                                       | Explanation                                                                                     |

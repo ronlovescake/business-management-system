@@ -249,6 +249,7 @@ export function usePayroll(apiBasePath?: string) {
       );
     } catch (thirteenthError) {
       logger.warn('Failed to sync 13th month pay status:', thirteenthError);
+      throw thirteenthError;
     }
   };
 

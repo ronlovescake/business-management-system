@@ -17,6 +17,7 @@
  */
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { getDateRangeFilter } from '@/lib/analytics/periodComparison';
 
 // ==========================================================================
 // DATE RANGE FILTERING
@@ -31,37 +32,21 @@ describe('Date Range Filtering', () => {
     vi.setSystemTime(now);
   });
 
-  const getDateRangeFilter = (filter: string): ((date: Date) => boolean) => {
-    const now = new Date();
-    const startOfYear = new Date(now.getFullYear(), 0, 1);
-    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-
-    switch (filter) {
-      case 'ytd':
-        return (date) => date >= startOfYear;
-      case 'mtd':
-        return (date) => date >= startOfMonth;
-      case 'last7days': {
-        const last7Days = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-        return (date) => date >= last7Days;
-      }
-      case 'last30days': {
-        const last30Days = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
-        return (date) => date >= last30Days;
-      }
-      case 'last3months': {
-        const last3Months = new Date(now.getFullYear(), now.getMonth() - 3, 1);
-        return (date) => date >= last3Months;
-      }
-      case 'last6months': {
-        const last6Months = new Date(now.getFullYear(), now.getMonth() - 6, 1);
-        return (date) => date >= last6Months;
-      }
-      case 'all':
-      default:
-        return () => true;
+  it.each([
+    'ytd',
+    'mtd',
+    'last7days',
+    'last30days',
+    'last3months',
+    'last6months',
+  ])(
+    'excludes future-dated rows from %s while including the current endpoint',
+    (period) => {
+      const filter = getDateRangeFilter(period, now);
+      expect(filter(now)).toBe(true);
+      expect(filter(new Date(now.getTime() + 1))).toBe(false);
     }
-  };
+  );
 
   it('should filter YTD (year to date)', () => {
     const filter = getDateRangeFilter('ytd');

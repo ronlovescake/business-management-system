@@ -67,13 +67,13 @@
 
 ## E — Auto-Save
 
-| #   | Logic                                                                              | Explanation                                                                                                                                                                          |
-| --- | ---------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| 24  | Changes are auto-saved after a 1-second debounce (AUTO_SAVE_DELAY = 1000 ms)       | Whenever `rows` or `selectedQuantity` changes and differs from the last-saved snapshot, a 1 s timeout is set. Any new change within that window resets the timer.                    |
-| 25  | The Distribution Summary Bar shows "Saving…" (blue) or "All changes saved" (green) | `isSaving` state (true during the API call) drives the text and color in `DistributionSummaryBar`.                                                                                   |
-| 26  | Auto-save calls `SortingDistributionService.saveDistributionData`                  | Sends the product code, selected quantity, and rows; the API recomputes derived fields with the same helper before persistence. On success, the client records the current snapshot. |
-| 27  | Auto-save failures are logged only — no user-facing error notification             | `logger.error('❌ AUTO-SAVE failed:', error)` is called; no `showNotification` is triggered.                                                                                         |
-| 28  | Switching product code cancels any pending auto-save                               | When `productCode` changes, `clearTimeout(saveTimeoutRef.current)` is called, refs are reset, and previously loaded rows are replaced with an empty set.                             |
+| #   | Logic                                                                              | Explanation                                                                                                                                                                                     |
+| --- | ---------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 24  | Changes are auto-saved after a 1-second debounce (AUTO_SAVE_DELAY = 1000 ms)       | Only after the current product loads successfully, changed rows or selected quantity schedule a 1 s debounce. Subsequent changes reset that product's pending timer.                            |
+| 25  | The Distribution Summary Bar shows "Saving…" (blue) or "All changes saved" (green) | `isSaving` state (true during the API call) drives the text and color in `DistributionSummaryBar`.                                                                                              |
+| 26  | Auto-save calls `SortingDistributionService.saveDistributionData`                  | Sends the product code, selected quantity, and rows; the API recomputes derived fields with the same helper before persistence. On success, the client records the current snapshot.            |
+| 27  | Auto-save failures are logged only — no user-facing error notification             | `logger.error('❌ AUTO-SAVE failed:', error)` is called; no `showNotification` is triggered.                                                                                                    |
+| 28  | Product switches invalidate stale loads and unsent auto-saves                      | Load generations prevent an old response replacing the selected product. Already-started saves retain their captured product/snapshot, run serially, and cannot clear a new product's debounce. |
 
 ---
 
@@ -118,5 +118,18 @@
 The browser preview and Clothing API use the same derived-field helper. On save,
 the API recomputes percentage, distribution, and group number from the submitted
 quantities and selected quantity before storing rows. Positive-quantity row
-order is preserved; empty rows are omitted, and rounded distributions are not
+positions are preserved: empty rows are omitted from storage but do not compress
+the original zero-based indices. GET exposes one-based rowNumber, so entries in
+spreadsheet rows 1 and 3 reload into rows 1 and 3. Rounded distributions are not
 rebalanced to force their sum to equal the selected quantity.
+
+The served save schema validates the entire replacement before writes: a
+nonempty product code, at most 100 rows, finite/nonnegative row values and an
+optional/nullable nonnegative integer selected quantity within PostgreSQL Int
+range. Empty rows and clearing the saved distribution remain supported. The
+independent-rounding Add/Deduct workflow is not an invalid-total error.
+
+A failed load throws and shows an error; it is not treated as an empty saved
+distribution. Auto-save remains blocked until that product successfully loads.
+Save failures still use the existing logged-error presentation; "All changes
+saved" is not a new durable dirty-state/retry guarantee.

@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import { requireSuperAdmin } from '@/lib/auth/session';
+import { getAuthorizationErrorResponse } from '@/core/api/middleware';
 import { hash } from 'bcryptjs';
 import { z } from 'zod';
 import { logger } from '@/lib/logger';
@@ -49,11 +50,9 @@ export async function GET(
   } catch (error) {
     logger.error('Error fetching user:', error);
 
-    if (error instanceof Error && error.message === 'Forbidden') {
-      return NextResponse.json(
-        { error: 'Forbidden: Super Admin access required' },
-        { status: 403 }
-      );
+    const authorization = getAuthorizationErrorResponse(error);
+    if (authorization) {
+      return authorization;
     }
 
     return NextResponse.json(
@@ -148,11 +147,9 @@ export async function PATCH(
   } catch (error) {
     logger.error('Error updating user:', error);
 
-    if (error instanceof Error && error.message === 'Forbidden') {
-      return NextResponse.json(
-        { error: 'Forbidden: Super Admin access required' },
-        { status: 403 }
-      );
+    const authorization = getAuthorizationErrorResponse(error);
+    if (authorization) {
+      return authorization;
     }
 
     return NextResponse.json(
@@ -204,11 +201,9 @@ export async function DELETE(
   } catch (error) {
     logger.error('Error deleting user:', error);
 
-    if (error instanceof Error && error.message === 'Forbidden') {
-      return NextResponse.json(
-        { error: 'Forbidden: Super Admin access required' },
-        { status: 403 }
-      );
+    const authorization = getAuthorizationErrorResponse(error);
+    if (authorization) {
+      return authorization;
     }
 
     return NextResponse.json(

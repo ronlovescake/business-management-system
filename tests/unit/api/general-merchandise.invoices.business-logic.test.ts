@@ -14,6 +14,7 @@ import { getTestApiUrl } from '@/core/testing/test-helpers';
 
 // ── Prisma mock ──────────────────────────────────────────────────────────
 const mockPrisma = vi.hoisted(() => ({
+  $transaction: vi.fn(),
   generalMerchandiseInvoice: {
     findMany: vi.fn(),
     updateMany: vi.fn(),
@@ -50,6 +51,10 @@ const buildRequest = (
 describe('GM Invoices API — Business Logic', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockPrisma.$transaction.mockImplementation(
+      (operation: (client: typeof mockPrisma) => Promise<unknown>) =>
+        operation(mockPrisma)
+    );
   });
 
   describe('GET /api/general-merchandise/invoices', () => {
@@ -120,6 +125,10 @@ describe('GM Invoices API — Business Logic', () => {
       expect(res.status).toBe(200);
       expect(json.success).toBe(true);
       // Soft-delete then create
+      expect(mockPrisma.$transaction).toHaveBeenCalledWith(
+        expect.any(Function),
+        { isolationLevel: 'Serializable' }
+      );
       expect(
         mockPrisma.generalMerchandiseInvoice.updateMany
       ).toHaveBeenCalledWith(

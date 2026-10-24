@@ -7,6 +7,8 @@ import {
   type CalculatedThirteenthMonthPayRecord,
 } from '@/modules/shared/employees/thirteenth-month-pay/api/calculations';
 
+const VALID_STATUSES = new Set(['pending', 'calculated', 'approved', 'paid']);
+
 export interface ThirteenthMonthPayRouteFilters {
   employeeId?: string;
   year?: number;
@@ -152,6 +154,16 @@ export function createThirteenthMonthPayRoutes<
 
       const { id: recordId, ...data } = body as Record<string, unknown>;
 
+      if (
+        data.status !== undefined &&
+        (typeof data.status !== 'string' || !VALID_STATUSES.has(data.status))
+      ) {
+        return NextResponse.json(
+          { error: 'Invalid 13th month pay status' },
+          { status: 400 }
+        );
+      }
+
       if (typeof recordId !== 'string' || recordId.trim().length === 0) {
         return NextResponse.json(
           { error: 'Record ID is required' },
@@ -295,6 +307,13 @@ export function createThirteenthMonthPayStatusRoute<
       if (typeof status !== 'string') {
         return NextResponse.json(
           { error: 'Status is required' },
+          { status: 400 }
+        );
+      }
+
+      if (!VALID_STATUSES.has(status)) {
+        return NextResponse.json(
+          { error: 'Invalid 13th month pay status' },
           { status: 400 }
         );
       }

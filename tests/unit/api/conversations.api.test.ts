@@ -1,10 +1,15 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { NextRequest } from 'next/server';
 
 const {
   mockConversationFindMany,
   mockGetServerSession,
   mockLogger,
   mockMessageCount,
+  mockParticipantFindUnique,
+  mockMessageFindUnique,
+  mockMessageFindFirst,
+  mockMessageFindMany,
 } = vi.hoisted(() => ({
   mockConversationFindMany: vi.fn(),
   mockGetServerSession: vi.fn(),
@@ -12,6 +17,10 @@ const {
     error: vi.fn(),
   },
   mockMessageCount: vi.fn(),
+  mockParticipantFindUnique: vi.fn(),
+  mockMessageFindUnique: vi.fn(),
+  mockMessageFindFirst: vi.fn(),
+  mockMessageFindMany: vi.fn(),
 }));
 
 vi.mock('@/lib/db', () => ({
@@ -21,7 +30,11 @@ vi.mock('@/lib/db', () => ({
     },
     message: {
       count: mockMessageCount,
+      findUnique: mockMessageFindUnique,
+      findFirst: mockMessageFindFirst,
+      findMany: mockMessageFindMany,
     },
+    conversationParticipant: { findUnique: mockParticipantFindUnique },
   },
 }));
 
@@ -38,6 +51,78 @@ vi.mock('@/lib/logger', () => ({
 }));
 
 import { GET } from '@/app/api/conversations/route';
+import { GET as GETMessages } from '@/app/api/conversations/[id]/messages/route';
+
+describe('conversation message pagination', () => {
+  const context = { params: { id: 'conversation-1' } };
+  const createdAt = new Date('2026-10-25T00:00:00Z');
+  beforeEach(() => {
+    vi.resetAllMocks();
+    mockGetServerSession.mockResolvedValue({ user: { id: 'user-1' } });
+    mockParticipantFindUnique.mockResolvedValue({ userId: 'user-1' });
+    mockMessageFindMany.mockResolvedValue([]);
+    mockMessageFindUnique.mockResolvedValue({ id: 'cursor', createdAt });
+    mockMessageFindFirst.mockResolvedValue({ id: 'cursor', createdAt });
+  });
+
+  it.each(['-10', 'not-a-number', '0', '200000', '1.5'])(
+    'rejects unsafe page limit %s before reading messages',
+    async (limit) => {
+      const response = await GETMessages(
+        new NextRequest(
+          `http://localhost/api/conversations/conversation-1/messages?limit=${limit}`
+        ),
+        context
+      );
+      expect(response.status).toBe(400);
+      expect(mockMessageFindMany).not.toHaveBeenCalled();
+    }
+  );
+
+  it('rejects a cursor outside the current visible conversation', async () => {
+    mockMessageFindFirst.mockResolvedValue(null);
+    const response = await GETMessages(
+      new NextRequest(
+        'http://localhost/api/conversations/conversation-1/messages?before=foreign'
+      ),
+      context
+    );
+    expect(response.status).toBe(404);
+    expect(mockMessageFindMany).not.toHaveBeenCalled();
+    expect(mockMessageFindFirst).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          id: 'foreign',
+          conversationId: 'conversation-1',
+          deletedAt: null,
+        }),
+      })
+    );
+  });
+
+  it('uses a stable timestamp and ID cursor so equal-time messages are not skipped', async () => {
+    const response = await GETMessages(
+      new NextRequest(
+        'http://localhost/api/conversations/conversation-1/messages?before=cursor'
+      ),
+      context
+    );
+    expect(response.status).toBe(200);
+    expect(mockMessageFindMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          conversationId: 'conversation-1',
+          OR: [
+            { createdAt: { lt: createdAt } },
+            { createdAt, id: { lt: 'cursor' } },
+          ],
+        }),
+        orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+        take: 50,
+      })
+    );
+  });
+});
 
 describe('conversations API', () => {
   beforeEach(() => {

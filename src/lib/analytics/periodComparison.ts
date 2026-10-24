@@ -78,7 +78,7 @@ export function getDateRangeFilter(
   now: Date = new Date()
 ): (date: Date) => boolean {
   const start = getFilterStart(filter, now);
-  return start ? (date) => date >= start : () => true;
+  return start ? (date) => date >= start && date <= now : () => true;
 }
 
 export interface ComparisonRange {

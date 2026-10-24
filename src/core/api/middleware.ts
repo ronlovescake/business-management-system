@@ -39,6 +39,24 @@ export async function authorizeApiRequest(
   return null;
 }
 
+export function getAuthorizationErrorResponse(
+  error: unknown
+): NextResponse | null {
+  if (!(error instanceof Error)) {
+    return null;
+  }
+  if (error.message === 'Unauthorized') {
+    return ApiResponseUtil.unauthorized();
+  }
+  if (
+    error.message === 'Forbidden' ||
+    error.message === 'Forbidden: Insufficient permissions'
+  ) {
+    return ApiResponseUtil.forbidden();
+  }
+  return null;
+}
+
 /**
  * Error Handler Middleware
  *

@@ -134,13 +134,25 @@
 
 ## J — Mark as Paid (Single Record, SweetAlert2)
 
+The client awaits 13th-month synchronization before the payroll paid request.
+A synchronization failure now reaches the outer error handler and blocks that
+record's paid request in both single and bulk flows. A zero 13th-month amount
+does not require synchronization; bulk failures are not counted as successes.
+
+This is not an atomic payroll settlement guarantee. The shared server adapter
+commits payroll status before deduction/expense effects, and some expense
+errors are logged rather than returned. An unchanged paid retry does not
+reconcile those effects. Conversely, the separate 13th-month request can succeed
+before payroll fails. Cash-advance replay/deletion needs transaction-scoped
+reconciliation tests; blindly retrying deductions can change stored amounts.
+
 | #   | Logic                                                                                                                              | Explanation                                                                                      |
 | --- | ---------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------ |
 | 53  | "Mark as Paid" row action visible only when `status === 'approved'`                                                                | `show: (item) => item.status === 'approved'`.                                                    |
 | 54  | Confirmation dialog shows employee name, pay period, net pay, and 13th month note if applicable                                    | If `thirteenthMonth > 0`, a blue info box states the 13th month record will also be marked paid. |
 | 55  | On confirm: shows `'Processing...'` loader, marks payroll `status = 'paid'` with `paidDate = today`                                | Calls `updatePayroll` via `updateMutation.mutateAsync`.                                          |
 | 56  | If the payroll has `thirteenthMonth > 0`: also calls `PATCH /thirteenth-month-pay/{id}/status` with `{ status: 'paid', paidDate }` | `syncThirteenthMonthStatus` determines the record ID as `{employeeId}-{year}`.                   |
-| 57  | If sync of 13th month fails, logs a warning but does **not** block the payroll marking                                             | `logger.warn('Failed to sync 13th month pay status:', ...)`.                                     |
+| 57  | If 13th-month sync fails, log the warning and block the payroll paid request                                                       | The error is rethrown to the single/bulk caller's existing failure handling.                     |
 | 58  | Success dialog: `'Marked as Paid!'` — different message depending on whether 13th month was included                               | Green confirm button `'Okay'`.                                                                   |
 | 59  | Error dialog: `'Error'` — `'Failed to mark payroll as paid. Please try again.'`                                                    | Red confirm button.                                                                              |
 

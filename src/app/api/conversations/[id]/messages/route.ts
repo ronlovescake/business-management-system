@@ -39,14 +39,31 @@ export async function GET(
 
     // Get query params for pagination
     const { searchParams } = new URL(request.url);
-    const limit = parseInt(searchParams.get('limit') || '50');
+    const limit = Number(searchParams.get('limit') ?? '50');
+    if (!Number.isSafeInteger(limit) || limit < 1 || limit > 100) {
+      return NextResponse.json(
+        { error: 'Message limit must be an integer between 1 and 100' },
+        { status: 400 }
+      );
+    }
     const before = searchParams.get('before'); // Message ID to fetch messages before
     const beforeMessage = before
-      ? await prisma.message.findUnique({
-          where: { id: before },
-          select: { createdAt: true },
+      ? await prisma.message.findFirst({
+          where: {
+            id: before,
+            conversationId,
+            deletedAt: null,
+            hiddenForUsers: { none: { userId: session.user.id } },
+          },
+          select: { id: true, createdAt: true },
         })
       : null;
+    if (before && !beforeMessage) {
+      return NextResponse.json(
+        { error: 'Message cursor not found' },
+        { status: 404 }
+      );
+    }
 
     const messages = await prisma.message.findMany({
       where: {
@@ -57,10 +74,14 @@ export async function GET(
             userId: session.user.id,
           },
         },
-        ...(before && {
-          createdAt: {
-            lt: beforeMessage?.createdAt,
-          },
+        ...(beforeMessage && {
+          OR: [
+            { createdAt: { lt: beforeMessage.createdAt } },
+            {
+              createdAt: beforeMessage.createdAt,
+              id: { lt: beforeMessage.id },
+            },
+          ],
         }),
       },
       include: {
@@ -73,9 +94,7 @@ export async function GET(
           },
         },
       },
-      orderBy: {
-        createdAt: 'desc',
-      },
+      orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
       take: limit,
     });
 

@@ -27,7 +27,7 @@ const {
   mockConversationCreate,
   mockParticipantFindUnique,
   mockMessageFindMany,
-  mockMessageFindUnique,
+  mockMessageFindFirst,
   mockMessageCount,
   mockMessageCreate,
   mockConversationUpdate,
@@ -40,7 +40,7 @@ const {
   mockConversationCreate: vi.fn(),
   mockParticipantFindUnique: vi.fn(),
   mockMessageFindMany: vi.fn(),
-  mockMessageFindUnique: vi.fn(),
+  mockMessageFindFirst: vi.fn(),
   mockMessageCount: vi.fn(),
   mockMessageCreate: vi.fn(),
   mockConversationUpdate: vi.fn(),
@@ -67,7 +67,7 @@ vi.mock('@/lib/db', () => ({
     },
     message: {
       findMany: mockMessageFindMany,
-      findUnique: mockMessageFindUnique,
+      findFirst: mockMessageFindFirst,
       count: mockMessageCount,
       create: mockMessageCreate,
     },
@@ -101,7 +101,7 @@ describe('Rules #2-#3: Messaging user lookup', () => {
 
     const { GET } = await import('@/app/api/users/messaging/route');
     const res = await GET();
-    const json = await res.json();
+    await res.json();
 
     expect(res.status).toBe(200);
     const where = mockUserFindMany.mock.calls[0][0].where;
@@ -254,14 +254,13 @@ describe('Rules #5,#8-#11: Conversation creation', () => {
 describe('Rules #13-#14: Message listing', () => {
   it('Rule #13: supports before cursor + limit pagination', async () => {
     mockParticipantFindUnique.mockResolvedValue({ userId: 'user-1' });
-    mockMessageFindUnique.mockResolvedValue({
+    mockMessageFindFirst.mockResolvedValue({
+      id: 'msg-99',
       createdAt: new Date('2026-04-01'),
     });
     mockMessageFindMany.mockResolvedValue([]);
 
-    const { GET } = await import(
-      '@/app/api/conversations/[id]/messages/route'
-    );
+    const { GET } = await import('@/app/api/conversations/[id]/messages/route');
     const req = new NextRequest(
       'http://localhost/api/conversations/conv-1/messages?limit=20&before=msg-99'
     );
@@ -270,7 +269,19 @@ describe('Rules #13-#14: Message listing', () => {
     expect(res.status).toBe(200);
     const findManyCall = mockMessageFindMany.mock.calls[0][0];
     expect(findManyCall.take).toBe(20);
-    expect(findManyCall.where.createdAt).toBeDefined();
+    expect(mockMessageFindFirst).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          id: 'msg-99',
+          conversationId: 'conv-1',
+          deletedAt: null,
+        }),
+      })
+    );
+    expect(findManyCall.where.OR).toEqual([
+      { createdAt: { lt: new Date('2026-04-01') } },
+      { createdAt: new Date('2026-04-01'), id: { lt: 'msg-99' } },
+    ]);
   });
 
   it('Rule #14: returns messages in chronological order (reversed)', async () => {
@@ -280,9 +291,7 @@ describe('Rules #13-#14: Message listing', () => {
       { id: 'msg-1', createdAt: new Date('2026-04-01'), body: 'first' },
     ]);
 
-    const { GET } = await import(
-      '@/app/api/conversations/[id]/messages/route'
-    );
+    const { GET } = await import('@/app/api/conversations/[id]/messages/route');
     const req = new NextRequest(
       'http://localhost/api/conversations/conv-1/messages'
     );
@@ -297,9 +306,7 @@ describe('Rules #13-#14: Message listing', () => {
   it('Rule #12: returns 403 for non-participants', async () => {
     mockParticipantFindUnique.mockResolvedValue(null);
 
-    const { GET } = await import(
-      '@/app/api/conversations/[id]/messages/route'
-    );
+    const { GET } = await import('@/app/api/conversations/[id]/messages/route');
     const req = new NextRequest(
       'http://localhost/api/conversations/conv-1/messages'
     );

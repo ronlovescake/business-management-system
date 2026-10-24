@@ -8,6 +8,19 @@
 
 ---
 
+## Separate Operations Feed
+
+The [operations notification endpoint](../../../src/app/api/operations/notifications/route.ts)
+is distinct from the `/api/notifications/{entity}` panels below. Its deduplication
+keeps ordinary same-minute entries once, preferring the existing descriptive
+entry over its raw counterpart without appending unrelated entries again.
+Focused regressions cover both branches; the entity panels retain their
+separate grouping contract.
+
+Client-selected user display names in operation records are not authoritative
+audit identity. This change neither weakens the existing session requirement nor
+adds a trusted actor identity contract.
+
 ## A — Tab Navigation
 
 | #   | Logic                                                          | Explanation                                                                                 |

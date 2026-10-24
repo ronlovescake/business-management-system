@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { logger } from '@/lib/logger';
 import { prisma } from '@/lib/db';
 import { calculateDerivedDistributionRows } from '@/lib/sorting-distribution-calculations';
+import { sortingDistributionSaveSchema } from '@/lib/validations/sorting-distribution.validation';
 
 // GET: Load distribution data for a product code
 export async function GET(request: Request) {
@@ -34,6 +35,7 @@ export async function GET(request: Request) {
 
     // Convert database records to distribution rows
     const data = records.map((record) => ({
+      rowNumber: record.rowNumber + 1,
       quantity: record.quantity,
       percentage: record.percentage,
       groupNumber: record.groupNumber,
@@ -56,21 +58,25 @@ export async function GET(request: Request) {
 // POST: Save distribution data
 export async function POST(request: Request) {
   try {
-    const body = await request.json();
-    const { productCode, selectedQuantity, rows } = body;
+    const parsed = sortingDistributionSaveSchema.safeParse(
+      await request.json().catch(() => null)
+    );
+    if (!parsed.success) {
+      return NextResponse.json(
+        {
+          error: 'Product code and rows are required',
+          details: parsed.error.flatten(),
+        },
+        { status: 400 }
+      );
+    }
+    const { productCode, selectedQuantity, rows } = parsed.data;
 
     logger.debug('💾 POST /api/sorting-distribution', {
       productCode,
       selectedQuantity,
       rowCount: rows?.length,
     });
-
-    if (!productCode || !Array.isArray(rows)) {
-      return NextResponse.json(
-        { error: 'Product code and rows are required' },
-        { status: 400 }
-      );
-    }
 
     const estQtyReceived = rows.reduce(
       (sum, row) => sum + (row.quantity || 0),
@@ -83,14 +89,16 @@ export async function POST(request: Request) {
     );
 
     // Filter out empty rows (rows with no data)
-    const nonEmptyRows = derivedRows.filter(
-      (row) =>
-        row.quantity > 0 ||
-        row.percentage > 0 ||
-        row.groupNumber ||
-        row.distribution > 0 ||
-        row.checked
-    );
+    const nonEmptyRows = derivedRows
+      .map((row, rowNumber) => ({ ...row, rowNumber }))
+      .filter(
+        (row) =>
+          row.quantity > 0 ||
+          row.percentage > 0 ||
+          row.groupNumber ||
+          row.distribution > 0 ||
+          row.checked
+      );
 
     // Use a transaction to delete and create atomically
     await prisma.$transaction(async (tx) => {
@@ -104,10 +112,10 @@ export async function POST(request: Request) {
       // Create new records
       if (nonEmptyRows.length > 0) {
         await tx.sortingDistribution.createMany({
-          data: nonEmptyRows.map((row, index) => ({
+          data: nonEmptyRows.map((row) => ({
             productCode,
             selectedQuantity,
-            rowNumber: index,
+            rowNumber: row.rowNumber,
             quantity: row.quantity || 0,
             percentage: row.percentage || 0,
             groupNumber: row.groupNumber || '',

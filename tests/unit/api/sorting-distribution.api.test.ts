@@ -298,6 +298,60 @@ describe('Sorting Distribution API - /api/sorting-distribution', () => {
       });
     });
 
+    it('preserves sparse grid positions across save and reload', async () => {
+      const rows = [
+        {
+          quantity: 5,
+          percentage: 0,
+          groupNumber: '',
+          distribution: 0,
+          checked: false,
+        },
+        {
+          quantity: 0,
+          percentage: 0,
+          groupNumber: '',
+          distribution: 0,
+          checked: false,
+        },
+        {
+          quantity: 5,
+          percentage: 0,
+          groupNumber: '',
+          distribution: 0,
+          checked: true,
+        },
+      ];
+      const saved = await POST(
+        new Request('http://localhost/api/sorting-distribution', {
+          method: 'POST',
+          body: JSON.stringify({
+            productCode: 'SPARSE-1',
+            selectedQuantity: 10,
+            rows,
+          }),
+          headers: { 'content-type': 'application/json' },
+        })
+      );
+      expect(saved.status).toBe(200);
+      const input = prisma.__tx.sortingDistribution.createMany.mock
+        .calls[0][0] as {
+        data: Array<{ rowNumber: number; quantity: number; checked: boolean }>;
+      };
+      expect(input.data.map((row) => row.rowNumber)).toEqual([0, 2]);
+      prisma.sortingDistribution.findMany.mockResolvedValue(input.data);
+      const loaded = await GET(
+        new Request(
+          'http://localhost/api/sorting-distribution?productCode=SPARSE-1'
+        )
+      );
+      const payload = await loaded.json();
+      expect(
+        payload.data.map((row: { rowNumber: number }) => row.rowNumber)
+      ).toEqual([1, 3]);
+      expect(payload.data[1].checked).toBe(true);
+    });
+
     it('should handle checked rows (checkbox state)', async () => {
       const postData = {
         productCode: 'PROD-004',
@@ -394,6 +448,33 @@ describe('Sorting Distribution API - /api/sorting-distribution', () => {
       expect(response.status).toBe(400);
       expect(data.error).toBe('Product code and rows are required');
     });
+
+    it.each([
+      { productCode: '   ', rows: [] },
+      { productCode: 'INVALID', selectedQuantity: -1, rows: [] },
+      { productCode: 'INVALID', selectedQuantity: 1.5, rows: [] },
+      { productCode: 'INVALID', rows: [null] },
+      { productCode: 'INVALID', rows: [{ quantity: -1 }] },
+      { productCode: 'INVALID', rows: [{ quantity: '10' }] },
+      { productCode: 'INVALID', rows: [{ quantity: null }] },
+      {
+        productCode: 'INVALID',
+        rows: Array.from({ length: 101 }, () => ({ quantity: 1 })),
+      },
+    ])(
+      'rejects invalid input before replacing saved rows: %j',
+      async (body) => {
+        const response = await POST(
+          new Request('http://localhost/api/sorting-distribution', {
+            method: 'POST',
+            body: JSON.stringify(body),
+            headers: { 'content-type': 'application/json' },
+          })
+        );
+        expect(response.status).toBe(400);
+        expect(prisma.$transaction).not.toHaveBeenCalled();
+      }
+    );
 
     it('should handle database errors during save', async () => {
       prisma.$transaction.mockImplementationOnce(async () => {

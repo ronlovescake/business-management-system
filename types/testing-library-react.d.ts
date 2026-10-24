@@ -6,6 +6,10 @@ declare module '@testing-library/react' {
   }
 
   export function renderHook<T>(callback: () => T): RenderHookResult<T>;
+  export function renderHook<T, Props>(
+    callback: (props: Props) => T,
+    options: { initialProps: Props }
+  ): RenderHookResult<T> & { rerender: (props: Props) => void };
   export function act(callback: () => void | Promise<void>): Promise<void>;
   export function waitFor<T>(callback: () => T | Promise<T>): Promise<void>;
   export function cleanup(): void;

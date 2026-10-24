@@ -448,10 +448,7 @@ export class SortingDistributionService {
       };
     } catch (error) {
       logger.error('Error loading distribution data:', error);
-      return {
-        rows: this.createDefaultRows(),
-        selectedQuantity: null,
-      };
+      throw error;
     }
   }
 
