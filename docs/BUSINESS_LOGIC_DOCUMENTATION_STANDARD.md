@@ -81,6 +81,13 @@ It needs no npm install, GitHub token or application/database secrets. A PR-only
 check prevents a successful push workflow (which skips metadata) from satisfying
 the declaration requirement. Normal feature-branch pushes do not wait for CI.
 
+`Guardrails + Validation` provisions a disposable PostgreSQL service using
+`.env.test.example`, then resets and seeds that test database before integration
+checks. The guarded test reset restores the investor-code sequence and reuses
+the existing clothing and general-merchandise product-identity trigger SQL.
+This test-only bootstrap is not a production migration procedure; it does not
+certify deployment migrations or replace invariant tests.
+
 Repository code alone cannot prohibit direct pushes. After this workflow is
 published and its checks exist, a repository admin must configure an active
 GitHub rule targeting `main`:

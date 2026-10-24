@@ -289,4 +289,37 @@ describe('business-rule PR contract', () => {
       'node scripts/check-business-rule-pr.js'
     );
   });
+  it('provisions and seeds an isolated database before CI integration tests', () => {
+    const workflow = parseYaml(
+      readFileSync(
+        path.join(repository, '.github/workflows/quality-gates.yml'),
+        'utf8'
+      )
+    );
+    const { parse: parseEnvironment } = requireScript('dotenv');
+    const environment = parseEnvironment(
+      readFileSync(path.join(repository, '.env.test.example'), 'utf8')
+    );
+    const database = new URL(environment.DATABASE_URL);
+    const job = workflow.jobs.quality;
+    const postgres = job.services.postgres;
+    expect(job.env.INTEGRATION_ENV_FILE).toBe('.env.test.example');
+    expect(job.env.TEST_ENV_FILE).toBe('.env.test.example');
+    expect(postgres.image).toBe('postgres:15');
+    expect(postgres.env.POSTGRES_USER).toBe(database.username);
+    expect(postgres.env.POSTGRES_PASSWORD).toBe(database.password);
+    expect(postgres.env.POSTGRES_DB).toBe(database.pathname.slice(1));
+    expect(postgres.env.POSTGRES_DB).toContain('test');
+    expect(database.hostname).toBe('localhost');
+    expect(postgres.ports).toContain(`${database.port}:5432`);
+    expect(postgres.options).toContain('pg_isready');
+    const commands = job.steps.map((step: { run?: string }) => step.run);
+    const prepare = commands.indexOf('node scripts/reset-test-db.js --seed');
+    const integration = commands.indexOf('npm run test:integration');
+    expect(prepare).toBeGreaterThan(commands.indexOf('npm run test:unit'));
+    expect(integration).toBeGreaterThan(prepare);
+    expect(commands.indexOf('npm run test:hardening')).toBeGreaterThan(
+      integration
+    );
+  });
 });
