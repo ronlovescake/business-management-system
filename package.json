@@ -24,7 +24,7 @@
     "lint": "next lint",
     "lint:fix": "next lint --fix",
     "lint:imports": "node scripts/check-imports.js",
-    "guardrails:check": "node scripts/sync-liv1-status.js && node scripts/guard-no-legacy-browser-engine.js && node scripts/guardrails-check.js && node scripts/check-doc-command-drift.js && node scripts/codegen-module-route-permissions.js --check && node scripts/check-module-route-acl.js && node scripts/check-scripts-manifest.js && npm run -s backup:audit",
+    "guardrails:check": "node scripts/check-business-rule-pr.js && node scripts/sync-liv1-status.js && node scripts/guard-no-legacy-browser-engine.js && node scripts/guardrails-check.js && node scripts/check-doc-command-drift.js && node scripts/codegen-module-route-permissions.js --check && node scripts/check-module-route-acl.js && node scripts/check-scripts-manifest.js && npm run -s backup:audit",
     "backup:audit": "tsx scripts/backup-schema-coverage-audit.ts",
     "guard:no-legacy-browser-engine": "node scripts/guard-no-legacy-browser-engine.js",
     "ci:quality": "npm run guardrails:check && npm run lint && npm run typecheck && npm run test:unit && npm run test:integration && npm run test:hardening",

@@ -16,6 +16,93 @@ The goal is not only to describe what the app does today, but to make the docs u
 
 ---
 
+## Required Business-Rule Change Protocol
+
+This protocol applies system-wide: clothing, general merchandise, trucking,
+household/personal finance, shared services, and platform behavior. It covers
+changes to calculations, permissions, transitions, accounting/inventory effects,
+UI actions, API handlers, jobs, imports, bulk operations, and data boundaries.
+It does not require a separate rule for every line of code, and does not certify
+all existing code as consistent. Every PR declares whether business behavior
+changes; a refactor is not automatically non-business if its effects differ.
+
+Before editing:
+
+1. Identify the approved invariant and its canonical domain policy. Name the
+   accountable business/domain owner and the code boundary that enforces it.
+   User-approved policy is authoritative; observed code is evidence, not approval.
+   If policy conflicts or is unknown, ask the owner rather than inventing a rule.
+2. Trace the affected UI, server, background, bulk/import, cleanup and retry paths.
+   Check shared consumers and sibling domains; explicitly mark unaffected paths
+   with a reason. Record dependencies and financial/reconciliation risks.
+3. Reuse the owning enforcement service where appropriate. UI restrictions must
+   not replace server enforcement. Use transaction boundaries and database
+   constraints where they fit the approved invariant; do not add schema changes
+   or collapse distinct domains just to remove similar-looking code.
+
+Before handoff/merge:
+
+1. Test the invariant across relevant entry points, including failures, rollback,
+   retries and races where applicable. Existing tests may be cited when adequate.
+   Update the canonical domain contract in the same change when behavior changes.
+2. Complete the marked JSON block in the PR template. For business changes,
+   provide `owner`, `invariant`, `domains`, `policyPaths`, `affectedPaths`,
+   `tests.paths`, `tests.results`, `docs.paths`, and `divergence.status/reason`.
+   Paths are exact repository-relative references; policy/docs/test evidence must
+   be files. For removed entry points, reference the surviving owner/directory
+   and explain removed paths in Impact Analysis. No globs or URLs inside JSON.
+3. Domain values are `clothing`, `general-merchandise`, `trucking`,
+   `household-finance` (personal finance), `platform`, and `shared`. Include all
+   affected domains; parallel domains may deliberately have different policies.
+4. `divergence.status` is `none` or `intentional`. Explain sibling-domain effects
+   even for `none`; intentional differences require `approvedBy` identifying the
+   accountable decision-maker and policy decision. Unresolved decisions block
+   completion. A name in JSON is a claim reviewers must verify, not approval proof.
+5. If new test/doc evidence is genuinely inapplicable, replace that evidence
+   object's `paths` with `exception` and `approvedBy`. Explain the rationale and
+   decision; never bypass tests/coverage or claim unexecuted checks passed.
+   `tests.results` must still explain the actual checks, outcomes, or non-execution.
+6. For `businessRuleChange: false`, give a substantive `rationale` explaining why
+   behavior is unchanged. Other fields may be removed. Reviewers must challenge
+   misclassification and assess correctness of the record, not just green CI.
+
+The validator rejects missing fields, blank/template answers, unresolved
+divergence and invalid/outside-repository evidence paths. It does not prove
+semantic correctness, full impact coverage, execution of cited tests, or approver
+identity. Authoritative services, invariant tests, review and operational
+reconciliation remain complementary controls, not replaced by this metadata gate.
+
+### CI And Main Protection
+
+`node scripts/check-business-rule-pr.js` runs in `guardrails:check` and skips
+non-PR events. The separate PR-only `Business Rule Declaration` status runs on
+opening, code updates, reopening, description edits and ready-for-review events.
+It needs no npm install, GitHub token or application/database secrets. A PR-only
+check prevents a successful push workflow (which skips metadata) from satisfying
+the declaration requirement. Normal feature-branch pushes do not wait for CI.
+
+Repository code alone cannot prohibit direct pushes. After this workflow is
+published and its checks exist, a repository admin must configure an active
+GitHub rule targeting `main`:
+
+- Require pull requests and the observed status checks `Business Rule Declaration`
+  and `Guardrails + Validation` before merging; bind checks to GitHub Actions
+  where supported. Confirm the actual names from a real PR, not workflow titles.
+- Disallow bypass, including administrators where supported; keep force pushes
+  and deletions blocked. Do not restrict normal feature-branch pushes.
+- Preserve existing protection settings and review requirements; do not require
+  an additional approving reviewer for a sole-maintainer repo without agreement.
+- Verify settings via GitHub and confirm a PR cannot merge with missing/failing
+  required checks. Do not test enforcement by attempting an unauthorized push.
+
+This is the required target configuration, not a statement that remote settings
+have already been enabled. Changing hosted settings needs admin access, may
+depend on repository visibility/GitHub plan, and can be reversed by an authorized
+admin. Without active protection (or with a bypass actor), direct pushes can
+avoid the PR gate. Local hooks are convenience checks, not a security boundary.
+
+---
+
 ## Documentation Layers
 
 ### 1. Index Layer
@@ -89,10 +176,15 @@ Preferred format:
 
 ## Current vs Intended Behavior
 
-The default rule is:
+Distinguish the sources explicitly:
 
-- document **current live behavior** as authoritative
-- document **intended / target behavior** only when clearly labeled
+- Approved business policy is authoritative for intended behavior.
+- Document observed implementation accurately as current behavior, including
+  defects or differences from approved policy; do not redefine policy to match
+  a bug. A source inspection alone does not prove deployed runtime behavior.
+- Label approved-but-unimplemented and proposed behavior separately; proposals
+  need approval before implementation. Never turn an undocumented assumption
+  into policy by describing it as current behavior.
 
 If a workflow is not yet fully implemented, the doc should say one of these explicitly:
 
@@ -194,4 +286,7 @@ When a business-logic doc lists API routes, prefer one of:
 1. A short table referencing the standard (no need to restate the envelope), or
 2. A pointer to this section.
 
-Only describe deviations from the standard explicitly, with the rationale. 5. The docs should reflect what the codebase is supposed to do as embodied by the current implementation and explicitly documented intended states, not unwritten assumptions.
+Describe deviations from the API standard explicitly, with the rationale.
+Keep approved business policy separate from observed implementation and proposed
+behavior. Neither an API-standard deviation nor an existing implementation
+authorizes an undocumented business-policy change.
