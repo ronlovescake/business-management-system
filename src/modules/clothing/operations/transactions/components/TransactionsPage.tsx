@@ -873,6 +873,7 @@ export function TransactionsPage({ apiBasePath }: TransactionsPageProps) {
           onClose={handlePaymentsModalClose}
           transactions={transactions}
           customerNames={customerNames}
+          lookupFacebookLink={lookupFacebookLink}
           defaultCustomerName={defaultPaymentsCustomer}
           onCustomerChange={syncCustomerFilter}
           defaultProductCode={defaultPaymentsProductCode}

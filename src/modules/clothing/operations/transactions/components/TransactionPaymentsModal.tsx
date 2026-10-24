@@ -13,6 +13,7 @@ export function TransactionPaymentsModal({
   onClose,
   transactions,
   customerNames,
+  lookupFacebookLink,
   defaultCustomerName,
   onCustomerChange,
   defaultProductCode,
@@ -25,6 +26,7 @@ export function TransactionPaymentsModal({
   onClose: () => void;
   transactions: TransactionData[];
   customerNames: string[];
+  lookupFacebookLink?: (customerName: string) => string;
   defaultCustomerName?: string | null;
   onCustomerChange?: (customerName: string | null) => void;
   defaultProductCode?: string | null;
@@ -120,6 +122,7 @@ export function TransactionPaymentsModal({
 
         <TransactionPaymentsTable
           eligibleTransactions={eligibleTransactions}
+          lookupFacebookLink={lookupFacebookLink}
           selectedCustomer={selectedCustomer}
           selectedProductCode={selectedProductCode}
           amountByTransactionId={amountByTransactionId}

@@ -53,6 +53,61 @@ function createTransaction(
 }
 
 describe('TransactionPaymentsModal default prefill sync', () => {
+  it.each([
+    ['https://m.me/lyn.domingo', 'https://m.me/lyn.domingo'],
+    ['m.me/lyn.domingo', 'https://m.me/lyn.domingo'],
+    [
+      'https://www.facebook.com/profile.php?id=12345',
+      'https://www.facebook.com/profile.php?id=12345',
+    ],
+  ])(
+    'links customer names using the saved contact URL %s',
+    async (savedLink, expectedLink) => {
+      const transaction = createTransaction({});
+      const lookupFacebookLink = vi.fn(() => savedLink);
+      const { container } = renderModal({
+        opened: true,
+        onClose: vi.fn(),
+        transactions: [transaction],
+        customerNames: [transaction.Customers],
+        defaultCustomerName: transaction.Customers,
+        lookupFacebookLink,
+        selectedStatuses: new Set(['Prepared']),
+        onStatusFilter: vi.fn(),
+      });
+
+      await waitFor(() => {
+        const link = container.querySelector('a');
+        expect(link?.textContent).toBe(transaction.Customers);
+        expect(link?.getAttribute('href')).toBe(expectedLink);
+        expect(link?.getAttribute('target')).toBe('_blank');
+        expect(link?.getAttribute('rel')).toBe('noopener noreferrer');
+      });
+      expect(lookupFacebookLink).toHaveBeenCalledWith(transaction.Customers);
+    }
+  );
+
+  it('keeps customer names as plain text when no contact link is saved', async () => {
+    const transaction = createTransaction({});
+    const { container } = renderModal({
+      opened: true,
+      onClose: vi.fn(),
+      transactions: [transaction],
+      customerNames: [transaction.Customers],
+      defaultCustomerName: transaction.Customers,
+      lookupFacebookLink: () => '',
+      selectedStatuses: new Set(['Prepared']),
+      onStatusFilter: vi.fn(),
+    });
+
+    await waitFor(() => {
+      expect(container.querySelector('tbody')?.textContent).toContain(
+        transaction.Customers
+      );
+    });
+    expect(container.querySelector('a')).toBeNull();
+  });
+
   it('does not emit parent sync callbacks while applying default customer/product values', async () => {
     const onCustomerChange = vi.fn();
     const onProductCodeChange = vi.fn();

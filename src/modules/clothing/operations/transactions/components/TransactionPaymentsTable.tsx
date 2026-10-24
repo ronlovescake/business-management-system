@@ -1,5 +1,12 @@
 import React from 'react';
-import { Button, NumberInput, ScrollArea, Table, Tooltip } from '@mantine/core';
+import {
+  Anchor,
+  Button,
+  NumberInput,
+  ScrollArea,
+  Table,
+  Tooltip,
+} from '@mantine/core';
 import { getTransactionBaseTotal } from './transactionPaymentsHelpers';
 import type { TransactionData } from '../types/transaction.types';
 
@@ -7,6 +14,7 @@ type TransactionPaymentsTableProps = {
   eligibleTransactions: TransactionData[];
   selectedCustomer: string | null;
   selectedProductCode: string | null;
+  lookupFacebookLink?: (customerName: string) => string;
   amountByTransactionId: Record<number, number>;
   onAmountChange: (transactionId: number, value: number | string) => void;
   onApplyReservationFee: (transactionId: number, amount: number) => void;
@@ -22,6 +30,7 @@ export function TransactionPaymentsTable({
   eligibleTransactions,
   selectedCustomer,
   selectedProductCode,
+  lookupFacebookLink,
   amountByTransactionId,
   onAmountChange,
   onApplyReservationFee,
@@ -169,6 +178,12 @@ export function TransactionPaymentsTable({
             const fullPaymentTooltipLabel = isFullPaymentDisabled
               ? 'No balance due'
               : '';
+            const facebookLink = lookupFacebookLink?.(transaction.Customers);
+            const customerLink = facebookLink
+              ? facebookLink.startsWith('http')
+                ? facebookLink
+                : `https://${facebookLink}`
+              : null;
 
             return (
               <Table.Tr key={key} style={{ height: rowHeight }}>
@@ -183,7 +198,20 @@ export function TransactionPaymentsTable({
                   {transaction['Order Date']}
                 </Table.Td>
                 <Table.Td style={{ whiteSpace: 'nowrap' }}>
-                  {transaction.Customers || '—'}
+                  {customerLink ? (
+                    <Anchor
+                      href={customerLink}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      size="inherit"
+                      underline="hover"
+                      title={`Open ${transaction.Customers} in Messenger`}
+                    >
+                      {transaction.Customers}
+                    </Anchor>
+                  ) : (
+                    transaction.Customers || '—'
+                  )}
                 </Table.Td>
                 <Table.Td style={{ whiteSpace: 'nowrap' }}>
                   {transaction['Product Code']}
