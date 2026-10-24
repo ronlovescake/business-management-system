@@ -30,6 +30,7 @@ import { normalizeTransactionAmountsForAccounting } from '@/lib/accounting/trans
 import {
   getAccountsReceivableRecognitionDate,
   hasAccountsReceivableShipment,
+  getTransactionRefundDebitAccount,
 } from '@/lib/accounting/transaction-recognition';
 import { prisma } from '@/lib/db';
 
@@ -326,6 +327,15 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
 
   // Revenue: refunds (negative revenue)
   for (const refund of refunds) {
+    if (
+      getTransactionRefundDebitAccount({
+        orderStatus: refund.transaction?.orderStatus,
+        isReservationRefund: (refund.transaction?.payments?.length ?? 0) > 0,
+      }) !== 'Sales Returns'
+    ) {
+      continue;
+    }
+
     const refundAt = parseDate(refund.refundDate);
     if (!isWithinDateRange(refundAt, effectiveFrom, effectiveTo)) {
       continue;

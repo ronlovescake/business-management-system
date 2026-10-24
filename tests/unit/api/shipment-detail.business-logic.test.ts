@@ -23,6 +23,12 @@ const mockPrisma = vi.hoisted(() => ({
     update: vi.fn(),
     delete: vi.fn(),
   },
+  clothingInventoryTransitBuildEntry: {
+    count: vi.fn(),
+  },
+  clothingInventoryReclassEntry: {
+    count: vi.fn(),
+  },
   product: {
     findMany: vi.fn(),
     updateMany: vi.fn(),
@@ -91,6 +97,8 @@ describe('Shipment Detail Routes — Business Logic', () => {
       async ({ where }: { where: { shipmentCode: string } }) =>
         where.shipmentCode === 'SH-001' ? 1 : 0
     );
+    mockPrisma.clothingInventoryTransitBuildEntry.count.mockResolvedValue(0);
+    mockPrisma.clothingInventoryReclassEntry.count.mockResolvedValue(0);
     mockPrisma.generalMerchandiseShipment.count.mockImplementation(
       async ({ where }: { where: { shipmentCode: string } }) =>
         where.shipmentCode === 'SH-001' ? 1 : 0

@@ -72,12 +72,23 @@ export type InventoryBucket =
   | 'opening_inventory'
   | 'sold';
 
+export type SupplierShortResolution =
+  | 'UNRESOLVED'
+  | 'EXPECTED_LATER'
+  | 'CREDIT_PENDING'
+  | 'CREDIT_RECEIVED'
+  | 'CREDIT_APPLIED';
+
 export interface InventoryMovementFromAPI {
   id: number;
   productCode: string;
   quantity: number;
   fromBucket: InventoryBucket;
   toBucket: InventoryBucket;
+  supplierShortResolution?: SupplierShortResolution | null;
+  supplierShortExpectedShipmentCode?: string | null;
+  supplierCreditReference?: string | null;
+  supplierCreditAmount?: number | null;
   postingDate?: string | null;
   notes?: string | null;
   createdAt?: string;

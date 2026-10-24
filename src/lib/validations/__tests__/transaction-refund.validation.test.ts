@@ -32,6 +32,35 @@ describe('transaction refund limits', () => {
     });
   });
 
+  it('supports a collected-reservation refund ceiling', () => {
+    expect(
+      validateCumulativeRefundLimits({
+        transactionAmount: 25,
+        transactionQuantity: 5,
+        existingRefunds: [{ amount: 10, returnedQuantity: 0 }],
+        amount: 15,
+        returnedQuantity: 0,
+        amountLimitMessage:
+          'Total refunds cannot exceed reservation payments collected.',
+      })
+    ).toBeNull();
+
+    expect(
+      validateCumulativeRefundLimits({
+        transactionAmount: 25,
+        transactionQuantity: 5,
+        existingRefunds: [{ amount: 10, returnedQuantity: 0 }],
+        amount: 15.01,
+        returnedQuantity: 0,
+        amountLimitMessage:
+          'Total refunds cannot exceed reservation payments collected.',
+      })
+    ).toEqual({
+      field: 'amount',
+      message: 'Total refunds cannot exceed reservation payments collected.',
+    });
+  });
+
   it('rejects cumulative returned quantity above the order quantity', () => {
     expect(
       validateCumulativeRefundLimits({

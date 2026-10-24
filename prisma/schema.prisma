@@ -248,6 +248,10 @@ model InventoryMovement {
   sourceTransactionId Int?
   movementSource      String?         @db.VarChar(50)
   movementType        String?         @db.VarChar(50)
+  supplierShortResolution String?      @db.VarChar(30)
+  supplierShortExpectedShipmentCode String? @db.VarChar(100)
+  supplierCreditReference String?      @db.VarChar(150)
+  supplierCreditAmount Float?
   deletedAt           DateTime?
 
   @@index([productCode])

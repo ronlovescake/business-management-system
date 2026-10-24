@@ -25,6 +25,7 @@ import { prisma } from '@/lib/db';
 import { getRuntimeAccountingCutoverDate } from '@/lib/accounting/cutover';
 import { normalizeAccountForReporting } from '@/lib/accounting/account-normalization';
 import { getExpenseCreditAccount } from '@/lib/accounting/payment-accounts';
+import { getTransactionRefundDebitAccount } from '@/lib/accounting/transaction-recognition';
 import {
   calculateAccountsReceivableBalances,
   getAccountsReceivableRecognitionDate,
@@ -762,10 +763,21 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
       }
 
       const value = Math.max(amt, 0);
+      const refundDebitAccount = getTransactionRefundDebitAccount({
+        orderStatus: refund.transaction?.orderStatus,
+        isReservationRefund: (refund.transaction?.payments?.length ?? 0) > 0,
+      });
 
       addCashDetail('Refunds', CASH_ACCOUNT, -value);
 
-      // Refunds reduce Equity and reduce the Cash asset.
+      if (refundDebitAccount === 'Customer Deposits') {
+        return [
+          { account: 'Customer Deposits', amount: value },
+          { account: CASH_ACCOUNT, amount: -value },
+        ];
+      }
+
+      // Delivered-item refunds reduce Equity and reduce the Cash asset.
       return [
         { account: 'Retained Earnings', amount: value },
         { account: CASH_ACCOUNT, amount: -value },

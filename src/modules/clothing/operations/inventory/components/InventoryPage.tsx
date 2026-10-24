@@ -3,6 +3,7 @@
 import React, { useState } from 'react';
 import { useDisclosure } from '@mantine/hooks';
 import {
+  ActionIcon,
   Button,
   Card,
   Group,
@@ -14,7 +15,9 @@ import {
   Text,
   TextInput,
   Textarea,
+  Tooltip,
 } from '@mantine/core';
+import { IconPencil } from '@tabler/icons-react';
 import {
   StandardDataTable,
   StandardTableContainer,
@@ -33,6 +36,7 @@ import { InventoryTable } from './InventoryTable';
 import { numberFormatter } from '../lib/formatters';
 import { UniversalModal } from '@/components/modals/UniversalModal';
 import { normalizeProductCode } from '@/lib/inventory/movements';
+import type { SupplierShortResolution } from '../types';
 
 interface InventoryPageProps {
   apiBasePath?: string;
@@ -121,6 +125,16 @@ export function InventoryPage({
   const [editingToBucket, setEditingToBucket] = useState<
     'damaged_hold' | 'scrap' | 'supplier_short'
   >('damaged_hold');
+  const [supplierShortResolution, setSupplierShortResolution] =
+    useState<SupplierShortResolution>('UNRESOLVED');
+  const [
+    supplierShortExpectedShipmentCode,
+    setSupplierShortExpectedShipmentCode,
+  ] = useState('');
+  const [supplierCreditReference, setSupplierCreditReference] = useState('');
+  const [supplierCreditAmount, setSupplierCreditAmount] = useState<number | ''>(
+    ''
+  );
   const [editingProductCode, setEditingProductCode] = useState<string | null>(
     null
   );
@@ -247,10 +261,18 @@ export function InventoryPage({
       editingMovement,
       editingQuantity,
       editingToBucket,
+      supplierShortResolution,
+      supplierShortExpectedShipmentCode,
+      supplierCreditReference,
+      supplierCreditAmount,
       setEditingMovementId,
       setEditingProductCode,
       setEditingQuantity,
       setEditingToBucket,
+      setSupplierShortResolution,
+      setSupplierShortExpectedShipmentCode,
+      setSupplierCreditReference,
+      setSupplierCreditAmount,
       getSellableOnHand,
       updateMovement,
       deleteMovement,
@@ -651,6 +673,86 @@ export function InventoryPage({
                 }
               />
 
+              {editingMovement.fromBucket === 'sellable' &&
+              editingMovement.toBucket === 'supplier_short' &&
+              !(editingMovement.notes ?? '')
+                .toLowerCase()
+                .startsWith(ADDITIONALS_NOTE_PREFIX) &&
+              !(editingMovement.notes ?? '')
+                .toLowerCase()
+                .startsWith(TRANSFER_NOTE_PREFIX) ? (
+                <>
+                  <Select
+                    label="Supplier short resolution"
+                    data={[
+                      { value: 'UNRESOLVED', label: 'Unresolved' },
+                      {
+                        value: 'EXPECTED_LATER',
+                        label: 'Expected in a later shipment',
+                      },
+                      {
+                        value: 'CREDIT_PENDING',
+                        label: 'Supplier credit pending',
+                      },
+                      {
+                        value: 'CREDIT_RECEIVED',
+                        label: 'Supplier credit received',
+                      },
+                      {
+                        value: 'CREDIT_APPLIED',
+                        label: 'Credit applied to a purchase',
+                      },
+                    ]}
+                    value={supplierShortResolution}
+                    onChange={(value) =>
+                      setSupplierShortResolution(
+                        (value as SupplierShortResolution | null) ??
+                          'UNRESOLVED'
+                      )
+                    }
+                  />
+                  {supplierShortResolution === 'EXPECTED_LATER' ? (
+                    <TextInput
+                      label="Expected shipment code"
+                      value={supplierShortExpectedShipmentCode}
+                      onChange={(event) =>
+                        setSupplierShortExpectedShipmentCode(
+                          event.currentTarget.value
+                        )
+                      }
+                    />
+                  ) : null}
+                  {supplierShortResolution === 'CREDIT_PENDING' ||
+                  supplierShortResolution === 'CREDIT_RECEIVED' ||
+                  supplierShortResolution === 'CREDIT_APPLIED' ? (
+                    <>
+                      <TextInput
+                        label="Supplier credit reference"
+                        value={supplierCreditReference}
+                        onChange={(event) =>
+                          setSupplierCreditReference(event.currentTarget.value)
+                        }
+                      />
+                      <NumberInput
+                        label="Supplier credit amount"
+                        min={0}
+                        decimalScale={2}
+                        fixedDecimalScale
+                        prefix="₱"
+                        value={supplierCreditAmount}
+                        onChange={(value) =>
+                          setSupplierCreditAmount((value as number | '') ?? '')
+                        }
+                      />
+                    </>
+                  ) : null}
+                  <Text size="xs" c="dimmed">
+                    This records supplier follow-up only; it does not post an
+                    accounting entry.
+                  </Text>
+                </>
+              ) : null}
+
               <Group justify="flex-end" mt="sm">
                 <Button
                   variant="default"
@@ -772,9 +874,11 @@ export function InventoryPage({
                   'TRANSFER OUT',
                   'TRANSFER IN',
                   'NOTES',
+                  'SUPPLIER SHORT RESOLUTION',
+                  'ACTIONS',
                 ]}
                 emptyState="No adjustment entries yet."
-                colSpan={8}
+                colSpan={10}
               >
                 {[...sortedFilteredData]
                   .filter((item) => {
@@ -855,74 +959,139 @@ export function InventoryPage({
 
                     return a.productCode.localeCompare(b.productCode);
                   })
-                  .map((item) => (
-                    <Table.Tr key={item.id}>
-                      <Table.Td style={{ textAlign: 'left' }}>
-                        <Button
-                          variant="subtle"
-                          size="compact-sm"
-                          px={0}
-                          style={{ height: 'auto' }}
-                          onDoubleClick={() =>
-                            openAdjustmentForProduct(item.productCode)
-                          }
-                        >
+                  .map((item) => {
+                    const supplierShortMovement = editableMovements.find(
+                      (movement) =>
+                        movement.productCode.trim() ===
+                          item.productCode.trim() &&
+                        movement.toBucket === 'supplier_short' &&
+                        !(movement.notes ?? '')
+                          .toLowerCase()
+                          .startsWith(ADDITIONALS_NOTE_PREFIX) &&
+                        !(movement.notes ?? '')
+                          .toLowerCase()
+                          .startsWith(TRANSFER_NOTE_PREFIX)
+                    );
+                    const supplierShortMovementsForProduct =
+                      supplierShortMovements.filter(
+                        (movement) =>
+                          movement.productCode.trim() ===
+                            item.productCode.trim() &&
+                          movement.fromBucket === 'sellable' &&
+                          movement.toBucket === 'supplier_short' &&
+                          !(movement.notes ?? '')
+                            .toLowerCase()
+                            .startsWith(ADDITIONALS_NOTE_PREFIX) &&
+                          !(movement.notes ?? '')
+                            .toLowerCase()
+                            .startsWith(TRANSFER_NOTE_PREFIX)
+                      );
+                    const latestSupplierShort =
+                      supplierShortMovementsForProduct[0];
+                    const supplierShortResolutionLabel = latestSupplierShort
+                      ? {
+                          UNRESOLVED: 'Unresolved',
+                          EXPECTED_LATER: `Expected: ${latestSupplierShort.supplierShortExpectedShipmentCode || 'shipment not set'}`,
+                          CREDIT_PENDING: `Credit pending${latestSupplierShort.supplierCreditReference ? `: ${latestSupplierShort.supplierCreditReference}` : ''}`,
+                          CREDIT_RECEIVED: `Credit received${latestSupplierShort.supplierCreditAmount ? `: ₱${numberFormatter.format(latestSupplierShort.supplierCreditAmount)}` : ''}`,
+                          CREDIT_APPLIED: `Credit applied${latestSupplierShort.supplierCreditAmount ? `: ₱${numberFormatter.format(latestSupplierShort.supplierCreditAmount)}` : ''}`,
+                        }[
+                          latestSupplierShort.supplierShortResolution ??
+                            'UNRESOLVED'
+                        ]
+                      : '—';
+
+                    return (
+                      <Table.Tr key={item.id}>
+                        <Table.Td style={{ textAlign: 'left' }}>
+                          <Button
+                            variant="subtle"
+                            size="compact-sm"
+                            px={0}
+                            style={{ height: 'auto' }}
+                            onDoubleClick={() =>
+                              openAdjustmentForProduct(item.productCode)
+                            }
+                          >
+                            <Text size="sm" c="#495057">
+                              {item.productCode}
+                            </Text>
+                          </Button>
+                        </Table.Td>
+                        <Table.Td style={{ textAlign: 'center' }}>
                           <Text size="sm" c="#495057">
-                            {item.productCode}
+                            {numberFormatter.format(item.damagedOnHand)}
                           </Text>
-                        </Button>
-                      </Table.Td>
-                      <Table.Td style={{ textAlign: 'center' }}>
-                        <Text size="sm" c="#495057">
-                          {numberFormatter.format(item.damagedOnHand)}
-                        </Text>
-                      </Table.Td>
-                      <Table.Td style={{ textAlign: 'center' }}>
-                        <Text size="sm" c="#495057">
-                          {numberFormatter.format(item.scrapQty)}
-                        </Text>
-                      </Table.Td>
-                      <Table.Td style={{ textAlign: 'center' }}>
-                        <Text size="sm" c="#495057">
-                          {numberFormatter.format(
-                            supplierShortQtyByProduct.get(
-                              item.productCode.trim()
-                            ) ?? 0
+                        </Table.Td>
+                        <Table.Td style={{ textAlign: 'center' }}>
+                          <Text size="sm" c="#495057">
+                            {numberFormatter.format(item.scrapQty)}
+                          </Text>
+                        </Table.Td>
+                        <Table.Td style={{ textAlign: 'center' }}>
+                          <Text size="sm" c="#495057">
+                            {numberFormatter.format(
+                              supplierShortQtyByProduct.get(
+                                item.productCode.trim()
+                              ) ?? 0
+                            )}
+                          </Text>
+                        </Table.Td>
+                        <Table.Td style={{ textAlign: 'center' }}>
+                          <Text size="sm" c="#495057">
+                            {numberFormatter.format(
+                              additionalsQtyByProduct.get(
+                                item.productCode.trim()
+                              ) ?? 0
+                            )}
+                          </Text>
+                        </Table.Td>
+                        <Table.Td style={{ textAlign: 'center' }}>
+                          <Text size="sm" c="#495057">
+                            {transferOutByProduct.formattedByProduct.get(
+                              normalizeProductCode(item.productCode)
+                            ) || '—'}
+                          </Text>
+                        </Table.Td>
+                        <Table.Td style={{ textAlign: 'center' }}>
+                          <Text size="sm" c="#495057">
+                            {transferInByProduct.formattedByProduct.get(
+                              normalizeProductCode(item.productCode)
+                            ) || '—'}
+                          </Text>
+                        </Table.Td>
+                        <Table.Td style={{ textAlign: 'left' }}>
+                          <Text size="sm" c="#495057">
+                            {adjustmentNotesByProduct.get(
+                              normalizeProductCode(item.productCode)
+                            ) || '—'}
+                          </Text>
+                        </Table.Td>
+                        <Table.Td style={{ textAlign: 'left' }}>
+                          <Text size="sm" c="#495057">
+                            {supplierShortResolutionLabel}
+                          </Text>
+                        </Table.Td>
+                        <Table.Td style={{ textAlign: 'center' }}>
+                          {supplierShortMovement ? (
+                            <Tooltip label="Edit supplier short resolution">
+                              <ActionIcon
+                                variant="subtle"
+                                aria-label="Edit supplier short resolution"
+                                onClick={() =>
+                                  openEditMovement(supplierShortMovement.id)
+                                }
+                              >
+                                <IconPencil size={16} />
+                              </ActionIcon>
+                            </Tooltip>
+                          ) : (
+                            '—'
                           )}
-                        </Text>
-                      </Table.Td>
-                      <Table.Td style={{ textAlign: 'center' }}>
-                        <Text size="sm" c="#495057">
-                          {numberFormatter.format(
-                            additionalsQtyByProduct.get(
-                              item.productCode.trim()
-                            ) ?? 0
-                          )}
-                        </Text>
-                      </Table.Td>
-                      <Table.Td style={{ textAlign: 'center' }}>
-                        <Text size="sm" c="#495057">
-                          {transferOutByProduct.formattedByProduct.get(
-                            normalizeProductCode(item.productCode)
-                          ) || '—'}
-                        </Text>
-                      </Table.Td>
-                      <Table.Td style={{ textAlign: 'center' }}>
-                        <Text size="sm" c="#495057">
-                          {transferInByProduct.formattedByProduct.get(
-                            normalizeProductCode(item.productCode)
-                          ) || '—'}
-                        </Text>
-                      </Table.Td>
-                      <Table.Td style={{ textAlign: 'left' }}>
-                        <Text size="sm" c="#495057">
-                          {adjustmentNotesByProduct.get(
-                            normalizeProductCode(item.productCode)
-                          ) || '—'}
-                        </Text>
-                      </Table.Td>
-                    </Table.Tr>
-                  ))}
+                        </Table.Td>
+                      </Table.Tr>
+                    );
+                  })}
               </StandardDataTable>
             </StandardTableContainer>
           </Stack>

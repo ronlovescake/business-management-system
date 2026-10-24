@@ -4,7 +4,10 @@ import { prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
 import { getAccountingCutoverDate } from '@/lib/accounting/cutover';
 import { parseDate } from '@/lib/accounting/date-utils';
-import { getSupplierSettlementCreditAccount } from '@/lib/accounting/payment-accounts';
+import {
+  getPaymentAccountForMethod,
+  getSupplierSettlementCreditAccount,
+} from '@/lib/accounting/payment-accounts';
 import { mapFromDTO, mapToDTO } from './dto';
 import type { ProductDTO } from './dto';
 import { expenseService } from '@/modules/clothing/ledger/api/service';
@@ -22,7 +25,6 @@ const ACCOUNTING_CUTOVER_DATE = getAccountingCutoverDate();
 
 const INVENTORY_IN_TRANSIT_ACCOUNT = 'Inventory in Transit';
 const LANDED_COST_CLEARING_ACCOUNT = 'Landed Cost Clearing';
-const CASH_ACCOUNT = 'Cash';
 const SUPPLIER_PAYABLE_ACCOUNT = 'Supplier Payable';
 const FORWARDER_PAYABLE_ACCOUNT = 'Forwarder Payable';
 const COURIER_PAYABLE_ACCOUNT = 'Courier Payable';
@@ -43,7 +45,7 @@ function isOnOrAfterAccountingCutover(date: Date): boolean {
 }
 
 function buildProductTransitBuildIdempotencyKey(productId: number): string {
-  return `PRODUCT_TRANSIT_BUILD:${productId}`;
+  return `PRODUCT_TRANSIT_BUILD:${productId}:`;
 }
 
 async function postSupplierSettlementForProduct(params: {
@@ -271,6 +273,15 @@ async function findProductForWrite(
 
 function isPaid(payment?: string | null): boolean {
   return (payment ?? '').trim().toLowerCase() === 'paid';
+}
+
+export class ProductShipmentAccountingConflictError extends Error {
+  constructor(shipmentCode: string) {
+    super(
+      `Cannot change Shipment Code from ${shipmentCode} while active transit-build or reclass entries exist. Reverse or resolve those entries first.`
+    );
+    this.name = 'ProductShipmentAccountingConflictError';
+  }
 }
 
 function normalizeProductCode(value: string | null | undefined): string {
@@ -629,6 +640,47 @@ export const productService: ProductService = {
           const prevPayment = (existing as { payment?: string | null }).payment;
           const changes: string[] = [];
 
+          const existingShipmentCode = (existing.shipmentCode ?? '').trim();
+          const nextShipmentCode = (data.shipmentCode ?? '').trim();
+          if (
+            existingShipmentCode &&
+            existingShipmentCode !== nextShipmentCode
+          ) {
+            const [transitBuildEntries, reclassEntries] = await Promise.all([
+              tx.clothingInventoryTransitBuildEntry.findMany({
+                where: {
+                  deletedAt: null,
+                  idempotencyKey: {
+                    startsWith: buildProductTransitBuildIdempotencyKey(
+                      existing.id
+                    ),
+                  },
+                },
+                select: { id: true },
+              }),
+              tx.clothingInventoryReclassEntry.findMany({
+                where: {
+                  deletedAt: null,
+                  ...(existing.productCode
+                    ? {
+                        OR: [
+                          { productId: existing.id },
+                          { productCode: existing.productCode },
+                        ],
+                      }
+                    : { productId: existing.id }),
+                },
+                select: { id: true },
+              }),
+            ]);
+
+            if (transitBuildEntries.length > 0 || reclassEntries.length > 0) {
+              throw new ProductShipmentAccountingConflictError(
+                existingShipmentCode
+              );
+            }
+          }
+
           const compare = <T>(label: string, prevValue: T, nextValue: T) => {
             if (prevValue !== nextValue) {
               changes.push(
@@ -814,6 +866,7 @@ export const productService: ProductService = {
         productCode: true,
         product: true,
         payment: true,
+        paymentMethod: true,
         postingDate: true,
         orderDate: true,
         grandTotal: true,
@@ -901,6 +954,14 @@ export const productService: ProductService = {
         continue;
       }
 
+      const paymentCreditAccount = isPaid(payment)
+        ? getPaymentAccountForMethod(product.paymentMethod)
+        : SUPPLIER_PAYABLE_ACCOUNT;
+      if (!paymentCreditAccount) {
+        skippedProducts += 1;
+        continue;
+      }
+
       const postingDate = resolvePostingDateFromProduct({
         postingDate: product.postingDate,
         orderDate: product.orderDate,
@@ -913,16 +974,12 @@ export const productService: ProductService = {
         continue;
       }
 
-      const supplierCreditAccount = isPaid(payment)
-        ? CASH_ACCOUNT
-        : SUPPLIER_PAYABLE_ACCOUNT;
-
       const forwarderCreditAccount = isPaid(payment)
-        ? CASH_ACCOUNT
+        ? paymentCreditAccount
         : FORWARDER_PAYABLE_ACCOUNT;
 
       const courierCreditAccount = isPaid(payment)
-        ? CASH_ACCOUNT
+        ? paymentCreditAccount
         : COURIER_PAYABLE_ACCOUNT;
 
       addEntry({
@@ -932,7 +989,7 @@ export const productService: ProductService = {
         payment,
         postingDate,
         debitAccount: INVENTORY_IN_TRANSIT_ACCOUNT,
-        creditAccount: supplierCreditAccount,
+        creditAccount: paymentCreditAccount,
         componentKey: 'GRAND_TOTAL',
         componentLabel: 'Grand Total',
         amount: toAmount(product.grandTotal),

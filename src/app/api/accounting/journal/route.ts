@@ -22,6 +22,8 @@ import { getExpenseCreditAccount } from '@/lib/accounting/payment-accounts';
 import {
   buildAccountsReceivableShipmentEntries,
   getAccountsReceivableRecognitionDate,
+  getReservationDepositRecognitionCreditAccount,
+  getTransactionRefundDebitAccount,
   getTransactionPaymentCreditAccount,
   getTransactionPaymentDebitAccount,
 } from '@/lib/accounting/transaction-recognition';
@@ -267,6 +269,17 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
     .map((txId) => {
       const paidAt = paidAtByTxId.get(txId) ?? null;
       const cancelledAt = cancelledAtByTxId.get(txId) ?? null;
+      const orderStatus = reservationPayments.find(
+        (payment) => payment.transactionId === txId
+      )?.transaction?.orderStatus;
+      const targetCredit = getReservationDepositRecognitionCreditAccount({
+        orderStatus,
+        isForfeited: Boolean(cancelledAt),
+      });
+      if (!targetCredit) {
+        return null;
+      }
+
       const recognizeAt = cancelledAt ?? paidAt;
       if (!isWithinDateRange(recognizeAt, effectiveFrom, effectiveTo)) {
         return null;
@@ -298,12 +311,12 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
         return null;
       }
 
-      const targetCredit = cancelledAt ? 'Forfeited Deposits' : 'Sales Revenue';
-      const description = cancelledAt
+      const isForfeited = targetCredit === 'Forfeited Deposits';
+      const description = isForfeited
         ? `${customer || 'Unknown customer'} • Reservation fee forfeited`
         : `${customer || 'Unknown customer'} • Reservation fee recognized`;
 
-      const idBase = cancelledAt
+      const idBase = isForfeited
         ? `DEP-FORFEIT-TX-${txId}`
         : `DEP-REVENUE-TX-${txId}`;
 
@@ -425,13 +438,17 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
       const description = suffix
         ? `${descriptionBase} • ${suffix}`
         : descriptionBase;
+      const refundDebitAccount = getTransactionRefundDebitAccount({
+        orderStatus: refund.transaction?.orderStatus,
+        isReservationRefund: (refund.transaction?.payments?.length ?? 0) > 0,
+      });
 
       return [
         {
-          id: `${idBase}-sales-returns`,
+          id: `${idBase}-refund-debit`,
           date: dateStr,
           ref,
-          account: 'Sales Returns',
+          account: refundDebitAccount,
           debit: Math.max(amt, 0),
           credit: 0,
           description,

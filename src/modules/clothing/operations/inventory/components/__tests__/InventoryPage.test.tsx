@@ -188,6 +188,16 @@ describe('InventoryPage adjustments tab', () => {
 
     const movements: InventoryMovementFromAPI[] = [
       {
+        id: 100,
+        productCode,
+        quantity: 5,
+        fromBucket: 'sellable',
+        toBucket: 'supplier_short',
+        postingDate: '2026-02-17',
+        notes: 'Supplier sent fewer units',
+        supplierShortResolution: 'UNRESOLVED',
+      },
+      {
         id: 101,
         productCode,
         quantity: 10,
@@ -220,12 +230,13 @@ describe('InventoryPage adjustments tab', () => {
     });
   });
 
-  it('does not render Actions column in adjustments table', () => {
+  it('renders an Actions column for supplier-short follow-up', () => {
     renderInventoryPage();
 
     fireEvent.click(screen.getByRole('tab', { name: /adjustments/i }));
 
-    expect(screen.queryByText('ACTIONS')).not.toBeInTheDocument();
+    expect(screen.getByText('ACTIONS')).toBeInTheDocument();
+    expect(screen.getByText('Unresolved')).toBeInTheDocument();
   });
 
   it('opens ADJUSTMENTS modal on double-clicking product code', () => {
@@ -255,6 +266,35 @@ describe('InventoryPage adjustments tab', () => {
       expect.objectContaining({
         id: 101,
         notes: 'TEST note',
+      })
+    );
+  });
+
+  it('updates supplier-short resolution from the adjustments table', () => {
+    renderInventoryPage();
+
+    fireEvent.click(screen.getByRole('tab', { name: /adjustments/i }));
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Edit supplier short resolution' })
+    );
+
+    fireEvent.click(
+      screen.getByRole('textbox', { name: 'Supplier short resolution' })
+    );
+    fireEvent.click(
+      screen.getByRole('option', { name: 'Expected in a later shipment' })
+    );
+
+    fireEvent.change(screen.getByLabelText('Expected shipment code'), {
+      target: { value: 'KPC-NEXT-01' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+
+    expect(updateMovementMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        id: 100,
+        supplierShortResolution: 'EXPECTED_LATER',
+        supplierShortExpectedShipmentCode: 'KPC-NEXT-01',
       })
     );
   });

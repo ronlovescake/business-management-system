@@ -39,6 +39,8 @@ type TransactionRefundWithTransaction = {
     id: number;
     customers: string | null;
     productCode: string | null;
+    orderStatus: string | null;
+    payments: { amount: number }[];
   };
 };
 
@@ -215,6 +217,11 @@ export async function fetchTransactionRefunds(): Promise<
           id: true,
           customers: true,
           productCode: true,
+          orderStatus: true,
+          payments: {
+            where: { deletedAt: null, isReservation: true },
+            select: { amount: true },
+          },
         },
       },
     },

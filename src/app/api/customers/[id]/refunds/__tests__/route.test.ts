@@ -6,6 +6,7 @@ const mockPrisma = vi.hoisted(() => ({
   $transaction: vi.fn(),
   customer: { findUnique: vi.fn() },
   transaction: { findFirst: vi.fn() },
+  transactionPayment: { findMany: vi.fn() },
   transactionRefund: { findMany: vi.fn(), create: vi.fn() },
   inventoryMovement: { findFirst: vi.fn(), create: vi.fn() },
 }));
@@ -45,7 +46,9 @@ describe('clothing customer refund route', () => {
       adjustment: 0,
       unitPrice: 25,
       discount: 0,
+      orderStatus: 'Shipped',
     });
+    mockPrisma.transactionPayment.findMany.mockResolvedValue([]);
     mockPrisma.transactionRefund.findMany.mockResolvedValue([]);
     mockPrisma.transactionRefund.create.mockImplementation(
       async ({ data }) => ({
@@ -100,5 +103,57 @@ describe('clothing customer refund route', () => {
         toBucket: 'scrap',
       }),
     });
+  });
+
+  it('limits a voided reservation refund to collected deposits less prior refunds', async () => {
+    mockPrisma.transaction.findFirst.mockResolvedValue({
+      id: 5,
+      productCode: 'SKU-5',
+      quantity: 4,
+      lineTotal: 100,
+      adjustment: 0,
+      unitPrice: 25,
+      discount: 0,
+      orderStatus: 'Voided',
+    });
+    mockPrisma.transactionPayment.findMany.mockResolvedValue([{ amount: 30 }]);
+    mockPrisma.transactionRefund.findMany.mockResolvedValue([
+      { amount: 10, returnedQuantity: 0 },
+    ]);
+    const { POST } = await import('../route');
+
+    const response = await POST(buildRequest(buildBody({ amount: 20.01 })), {
+      params: { id: '1' },
+    });
+    const body = await response.json();
+
+    expect(response.status).toBe(400);
+    expect(body.validationErrors.amount).toBe(
+      'Total refunds cannot exceed collected reservation payments.'
+    );
+    expect(mockPrisma.transactionRefund.create).not.toHaveBeenCalled();
+  });
+
+  it('records a voided reservation refund without returning inventory', async () => {
+    mockPrisma.transaction.findFirst.mockResolvedValue({
+      id: 5,
+      productCode: 'SKU-5',
+      quantity: 4,
+      lineTotal: 100,
+      adjustment: 0,
+      unitPrice: 25,
+      discount: 0,
+      orderStatus: 'Voided',
+    });
+    mockPrisma.transactionPayment.findMany.mockResolvedValue([{ amount: 30 }]);
+    const { POST } = await import('../route');
+
+    const response = await POST(buildRequest(buildBody({ amount: 30 })), {
+      params: { id: '1' },
+    });
+
+    expect(response.status).toBe(201);
+    expect(mockPrisma.transactionRefund.create).toHaveBeenCalled();
+    expect(mockPrisma.inventoryMovement.create).not.toHaveBeenCalled();
   });
 });

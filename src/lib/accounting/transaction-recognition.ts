@@ -1,4 +1,7 @@
-import { isClothingAccountsReceivableStatus } from '@/lib/transactions/order-status';
+import {
+  isClothingAccountsReceivableStatus,
+  isVoidedOrderStatus,
+} from '@/lib/transactions/order-status';
 import { parseDate } from './date-utils';
 import { getPaymentAccountForMethod } from './payment-accounts';
 import { normalizeTransactionAmountsForAccounting } from './transaction-normalization';
@@ -30,6 +33,26 @@ export type AccountsReceivableJournalEntry = {
   credit: number;
   description: string;
 };
+
+export function getReservationDepositRecognitionCreditAccount(params: {
+  orderStatus?: string | null;
+  isForfeited: boolean;
+}): 'Forfeited Deposits' | 'Sales Revenue' | null {
+  if (isVoidedOrderStatus(params.orderStatus)) {
+    return null;
+  }
+
+  return params.isForfeited ? 'Forfeited Deposits' : 'Sales Revenue';
+}
+
+export function getTransactionRefundDebitAccount(params: {
+  orderStatus?: string | null;
+  isReservationRefund: boolean;
+}): 'Customer Deposits' | 'Sales Returns' {
+  return isVoidedOrderStatus(params.orderStatus) && params.isReservationRefund
+    ? 'Customer Deposits'
+    : 'Sales Returns';
+}
 
 export function calculateAccountsReceivableBalances(
   grossSale: number,

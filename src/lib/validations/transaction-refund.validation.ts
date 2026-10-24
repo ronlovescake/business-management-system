@@ -53,6 +53,7 @@ export function validateCumulativeRefundLimits(params: {
   existingRefunds: RefundLimitRow[];
   amount: number;
   returnedQuantity: number;
+  amountLimitMessage?: string;
 }): { field: 'amount' | 'returnedQuantity'; message: string } | null {
   const refundedAmount = params.existingRefunds.reduce(
     (total, refund) => total + (refund.amount ?? 0),
@@ -64,7 +65,9 @@ export function validateCumulativeRefundLimits(params: {
   ) {
     return {
       field: 'amount',
-      message: 'Total refunds cannot exceed the original transaction amount.',
+      message:
+        params.amountLimitMessage ??
+        'Total refunds cannot exceed the original transaction amount.',
     };
   }
 

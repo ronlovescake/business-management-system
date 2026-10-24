@@ -55,6 +55,7 @@ snapshots/
 !prisma/migrations/20260406120000_add_message_hidden_for_users/migration.sql
 !prisma/migrations/20260411120000_add_cash_advance_soft_delete_columns/migration.sql
 !prisma/migrations/20260411130000_fix_remaining_schema_drift/migration.sql
+!prisma/migrations/20261024120000_supplier_short_resolution/migration.sql
 !prisma/migrations/20260414170000_add_split_batch_tables/migration.sql
 !prisma/migrations/20260414183000_add_split_component_prices/migration.sql
 !prisma/migrations/20260419120000_add_accounting_softdelete_and_indexes/migration.sql

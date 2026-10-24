@@ -29,6 +29,7 @@ import { normalizeTransactionAmountsForAccounting } from '@/lib/accounting/trans
 import {
   getAccountsReceivableRecognitionDate,
   hasAccountsReceivableShipment,
+  getTransactionRefundDebitAccount,
 } from '@/lib/accounting/transaction-recognition';
 import { getRuntimeAccountingCutoverDate } from '@/lib/accounting/cutover';
 import { prisma } from '@/lib/db';
@@ -242,6 +243,15 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
   const revenueTotal = salesRevenueTotal + forfeitedDepositsTotal;
 
   const refundTotal = refunds.reduce((sum, refund) => {
+    if (
+      getTransactionRefundDebitAccount({
+        orderStatus: refund.transaction?.orderStatus,
+        isReservationRefund: (refund.transaction?.payments?.length ?? 0) > 0,
+      }) !== 'Sales Returns'
+    ) {
+      return sum;
+    }
+
     const refundAt = parseDate(refund.refundDate);
     if (!isWithinDateRange(refundAt, effectiveFrom, effectiveTo)) {
       return sum;

@@ -19,6 +19,9 @@ const mockPrisma = vi.hoisted(() => ({
     findUnique: vi.fn(),
     findMany: vi.fn(),
   },
+  clothingInventoryReclassEntry: {
+    findMany: vi.fn(),
+  },
   clothingAccountingJournalLine: {
     upsert: vi.fn(),
   },
@@ -91,6 +94,10 @@ describe('productService accounting automation', () => {
         fn(mockPrisma)
     );
     mockPrisma.$executeRaw.mockResolvedValue(1);
+    mockPrisma.clothingInventoryTransitBuildEntry.findMany.mockResolvedValue(
+      []
+    );
+    mockPrisma.clothingInventoryReclassEntry.findMany.mockResolvedValue([]);
   });
 
   it('does not auto-post transit build-up when creating a PAID product', async () => {
@@ -207,6 +214,13 @@ describe('productService accounting automation', () => {
 
     expect(debitCall?.[0].create.debit).toBe(155.5);
     expect(creditCall?.[0].create.credit).toBe(155.5);
+    expect(
+      mockPrisma.clothingInventoryTransitBuildEntry.findMany.mock.calls[0]?.[0]
+    ).toMatchObject({
+      where: {
+        idempotencyKey: { startsWith: 'PRODUCT_TRANSIT_BUILD:789:' },
+      },
+    });
   });
 
   it('updates a renamed product by ID without creating another product', async () => {
@@ -250,5 +264,49 @@ describe('productService accounting automation', () => {
     );
     expect(mockPrisma.product.update).not.toHaveBeenCalled();
     expect(mockPrisma.product.create).not.toHaveBeenCalled();
+  });
+
+  it('blocks shipment reassignment while active transit accounting entries exist', async () => {
+    const { productService, ProductShipmentAccountingConflictError } =
+      await import('../service');
+    mockPrisma.product.findUnique.mockResolvedValue({
+      id: 789,
+      productCode: 'TP-003',
+      shipmentCode: 'KPC-001',
+      payment: 'Paid',
+      deletedAt: null,
+    });
+    mockPrisma.clothingInventoryTransitBuildEntry.findMany.mockResolvedValue([
+      { id: 'transit-1' },
+    ]);
+
+    await expect(
+      productService.bulkUpdate([
+        buildDto({ id: 789, 'Shipment Code': 'KPC-002' }),
+      ])
+    ).rejects.toBeInstanceOf(ProductShipmentAccountingConflictError);
+    expect(mockPrisma.product.update).not.toHaveBeenCalled();
+  });
+
+  it('blocks shipment reassignment for legacy reclass entries linked by product code', async () => {
+    const { productService, ProductShipmentAccountingConflictError } =
+      await import('../service');
+    mockPrisma.product.findUnique.mockResolvedValue({
+      id: 789,
+      productCode: 'TP-003',
+      shipmentCode: 'KPC-001',
+      payment: 'Paid',
+      deletedAt: null,
+    });
+    mockPrisma.clothingInventoryReclassEntry.findMany.mockResolvedValue([
+      { id: 'legacy-reclass-1' },
+    ]);
+
+    await expect(
+      productService.bulkUpdate([
+        buildDto({ id: 789, 'Shipment Code': 'KPC-002' }),
+      ])
+    ).rejects.toBeInstanceOf(ProductShipmentAccountingConflictError);
+    expect(mockPrisma.product.update).not.toHaveBeenCalled();
   });
 });

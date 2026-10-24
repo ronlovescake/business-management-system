@@ -7,6 +7,7 @@ import { logger } from '@/lib/logger';
 import { getDatabaseUrl } from '@/lib/env';
 import type { ProductDTO } from './dto';
 import type { ProductService } from './service';
+import { ProductShipmentAccountingConflictError } from './service';
 import { recalculateProductFinancials } from './financials';
 import { sanitizeProductRecord } from './sanitizers';
 import { productDataSchema } from './schemas';
@@ -194,6 +195,9 @@ export function createProductRoutes(config: ProductRouteConfig) {
         'Products updated'
       );
     } catch (error) {
+      if (error instanceof ProductShipmentAccountingConflictError) {
+        return ApiResponse.conflict(error.message);
+      }
       logger.error(`[${loggerScope}] Failed to update products`, { error });
       return ApiResponse.error('Failed to update products');
     }

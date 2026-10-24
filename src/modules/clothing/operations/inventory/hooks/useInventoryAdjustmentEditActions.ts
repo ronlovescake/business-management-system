@@ -5,6 +5,7 @@ import {
   useCallback,
 } from 'react';
 import { showNotification } from '@mantine/notifications';
+import type { SupplierShortResolution } from '../types';
 
 type EditableMovement = {
   id: number;
@@ -12,6 +13,11 @@ type EditableMovement = {
   quantity: number;
   fromBucket: string;
   toBucket: string;
+  notes?: string | null;
+  supplierShortResolution?: SupplierShortResolution | null;
+  supplierShortExpectedShipmentCode?: string | null;
+  supplierCreditReference?: string | null;
+  supplierCreditAmount?: number | null;
 };
 
 type ModalHandlers = {
@@ -25,12 +31,20 @@ interface UseInventoryAdjustmentEditActionsParams {
   editingMovement: EditableMovement | null | undefined;
   editingQuantity: number | '';
   editingToBucket: 'damaged_hold' | 'scrap' | 'supplier_short';
+  supplierShortResolution: SupplierShortResolution;
+  supplierShortExpectedShipmentCode: string;
+  supplierCreditReference: string;
+  supplierCreditAmount: number | '';
   setEditingMovementId: Dispatch<SetStateAction<number | null>>;
   setEditingProductCode: Dispatch<SetStateAction<string | null>>;
   setEditingQuantity: Dispatch<SetStateAction<number | ''>>;
   setEditingToBucket: Dispatch<
     SetStateAction<'damaged_hold' | 'scrap' | 'supplier_short'>
   >;
+  setSupplierShortResolution: Dispatch<SetStateAction<SupplierShortResolution>>;
+  setSupplierShortExpectedShipmentCode: Dispatch<SetStateAction<string>>;
+  setSupplierCreditReference: Dispatch<SetStateAction<string>>;
+  setSupplierCreditAmount: Dispatch<SetStateAction<number | ''>>;
   getSellableOnHand: (productCode: string) => number;
   updateMovement: (payload: {
     id: number;
@@ -47,10 +61,18 @@ export function useInventoryAdjustmentEditActions({
   editingMovement,
   editingQuantity,
   editingToBucket,
+  supplierShortResolution,
+  supplierShortExpectedShipmentCode,
+  supplierCreditReference,
+  supplierCreditAmount,
   setEditingMovementId,
   setEditingProductCode,
   setEditingQuantity,
   setEditingToBucket,
+  setSupplierShortResolution,
+  setSupplierShortExpectedShipmentCode,
+  setSupplierCreditReference,
+  setSupplierCreditAmount,
   getSellableOnHand,
   updateMovement,
   deleteMovement,
@@ -70,6 +92,14 @@ export function useInventoryAdjustmentEditActions({
         (movement.toBucket as 'damaged_hold' | 'scrap' | 'supplier_short') ??
           'damaged_hold'
       );
+      setSupplierShortResolution(
+        movement.supplierShortResolution ?? 'UNRESOLVED'
+      );
+      setSupplierShortExpectedShipmentCode(
+        movement.supplierShortExpectedShipmentCode ?? ''
+      );
+      setSupplierCreditReference(movement.supplierCreditReference ?? '');
+      setSupplierCreditAmount(movement.supplierCreditAmount ?? '');
       editModalHandlers.open();
     },
     [
@@ -79,6 +109,10 @@ export function useInventoryAdjustmentEditActions({
       setEditingProductCode,
       setEditingQuantity,
       setEditingToBucket,
+      setSupplierShortResolution,
+      setSupplierShortExpectedShipmentCode,
+      setSupplierCreditReference,
+      setSupplierCreditAmount,
     ]
   );
 
@@ -114,6 +148,22 @@ export function useInventoryAdjustmentEditActions({
           id: editingMovement.id,
           quantity: Number(editingQuantity),
           toBucket: editingToBucket,
+          ...(editingMovement.toBucket === 'supplier_short' &&
+          !(editingMovement.notes ?? '')
+            .toLowerCase()
+            .startsWith('additionals') &&
+          !(editingMovement.notes ?? '').toLowerCase().startsWith('transfer')
+            ? {
+                supplierShortResolution,
+                supplierShortExpectedShipmentCode:
+                  supplierShortExpectedShipmentCode.trim() || null,
+                supplierCreditReference: supplierCreditReference.trim() || null,
+                supplierCreditAmount:
+                  supplierCreditAmount === ''
+                    ? null
+                    : Number(supplierCreditAmount),
+              }
+            : {}),
         });
 
         showNotification({
@@ -140,6 +190,10 @@ export function useInventoryAdjustmentEditActions({
       editingMovement,
       editingQuantity,
       editingToBucket,
+      supplierShortResolution,
+      supplierShortExpectedShipmentCode,
+      supplierCreditReference,
+      supplierCreditAmount,
       getSellableOnHand,
       setEditingMovementId,
       updateMovement,

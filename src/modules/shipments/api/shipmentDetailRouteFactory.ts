@@ -70,6 +70,10 @@ export interface ShipmentDetailDelegates {
   };
   /** If provided, called after create/update to post expense entries. */
   postExpenseForShipment?: (shipment: ShipmentDB) => Promise<void>;
+  /** Domain-specific guard for shipment-code changes with accounting entries. */
+  hasActiveAccountingEntriesForShipmentCode?: (
+    shipmentCode: string
+  ) => Promise<boolean>;
   /** Whether DELETE is supported on [id] route. */
   enableDelete?: boolean;
   /** Domain label for logging (e.g. "GM"). */
@@ -129,6 +133,17 @@ export function createShipmentDetailRoutes(delegates: ShipmentDetailDelegates) {
         if (oldCodeCount !== 1 || newCodeCount !== 0) {
           return ApiResponse.conflict(
             'Shipment code is ambiguous or already in use'
+          );
+        }
+
+        if (
+          delegates.hasActiveAccountingEntriesForShipmentCode &&
+          (await delegates.hasActiveAccountingEntriesForShipmentCode(
+            currentShipment.shipmentCode
+          ))
+        ) {
+          return ApiResponse.conflict(
+            'Shipment code cannot be changed while active transit-build or reclass entries exist. Resolve those entries first.'
           );
         }
       }

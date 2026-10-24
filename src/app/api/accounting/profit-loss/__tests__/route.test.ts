@@ -113,6 +113,54 @@ describe('GET /api/accounting/profit-loss', () => {
     expect(body.data.stats.revenueTotal).toBe(1000);
   });
 
+  it('does not report a voided reservation refund as Sales Returns', async () => {
+    mockFetchers.fetchTransactionRefunds.mockResolvedValue([
+      {
+        id: 99,
+        transactionId: 44,
+        refundDate: '2026-01-20',
+        amount: 30,
+        reason: 'Supplier unavailable',
+        notes: null,
+        createdAt: new Date('2026-01-20T00:00:00.000Z'),
+        transaction: {
+          id: 44,
+          customers: 'Customer Void',
+          productCode: 'SKU-44',
+          orderStatus: 'Voided',
+          payments: [{ amount: 30 }],
+        },
+      },
+    ]);
+
+    const { GET } = await import('@/app/api/accounting/profit-loss/route');
+    const { GET: details } = await import(
+      '@/app/api/accounting/profit-loss/details/route'
+    );
+    const request = mockNextRequest({
+      method: 'GET',
+      url: getTestApiUrl(
+        '/api/accounting/profit-loss?from=2026-01-01&to=2026-01-31'
+      ),
+    });
+
+    const response = await GET(request);
+    const body = await response.json();
+    const detailBody = await (await details(request)).json();
+
+    expect(body.data.stats.revenueTotal).toBe(0);
+    expect(
+      (body.data.rows as Array<{ category: string }>).some(
+        (row) => row.category === 'Sales Returns'
+      )
+    ).toBe(false);
+    expect(
+      (detailBody.data.rows as Array<{ sourceId?: string }>).some(
+        (row) => row.sourceId === '99'
+      )
+    ).toBe(false);
+  });
+
   it('recognizes A/R revenue at shipment and excludes later collections from revenue', async () => {
     const shippedAt = new Date('2026-01-19T12:00:00.000Z');
     const statusChanges = [

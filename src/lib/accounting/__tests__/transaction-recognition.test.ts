@@ -3,12 +3,50 @@ import {
   buildAccountsReceivableShipmentEntries,
   calculateAccountsReceivableBalances,
   getAccountsReceivableRecognitionDate,
+  getReservationDepositRecognitionCreditAccount,
+  getTransactionRefundDebitAccount,
   getTransactionPaymentCreditAccount,
   getTransactionPaymentDebitAccount,
   hasAccountsReceivableShipment,
 } from '../transaction-recognition';
 
 describe('Accounts Receivable shipment recognition', () => {
+  it('keeps voided reservation deposits in Customer Deposits until refunded', () => {
+    expect(
+      getReservationDepositRecognitionCreditAccount({
+        orderStatus: 'Voided',
+        isForfeited: false,
+      })
+    ).toBeNull();
+    expect(
+      getTransactionRefundDebitAccount({
+        orderStatus: 'Voided',
+        isReservationRefund: true,
+      })
+    ).toBe('Customer Deposits');
+  });
+
+  it('keeps delivered refunds as Sales Returns and buyer forfeitures distinct', () => {
+    expect(
+      getTransactionRefundDebitAccount({
+        orderStatus: 'Shipped',
+        isReservationRefund: false,
+      })
+    ).toBe('Sales Returns');
+    expect(
+      getTransactionRefundDebitAccount({
+        orderStatus: 'Voided',
+        isReservationRefund: false,
+      })
+    ).toBe('Sales Returns');
+    expect(
+      getReservationDepositRecognitionCreditAccount({
+        orderStatus: 'Forfeited',
+        isForfeited: true,
+      })
+    ).toBe('Forfeited Deposits');
+  });
+
   it('recognizes the persisted shipment timestamp after the order is fully paid', () => {
     const transaction = {
       orderStatus: 'Shipped',

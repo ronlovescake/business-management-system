@@ -15,6 +15,7 @@ import type {
   BundleBatchFromAPI,
   MixAndMatchBatchFromAPI,
   SplitBatchFromAPI,
+  SupplierShortResolution,
   ProductFromAPI,
   TransactionFromAPI,
   InventoryMovementFromAPI,
@@ -302,6 +303,10 @@ export const useInventoryPage = (
       toBucket?: 'damaged_hold' | 'scrap' | 'supplier_short';
       postingDate?: string;
       notes?: string;
+      supplierShortResolution?: SupplierShortResolution;
+      supplierShortExpectedShipmentCode?: string | null;
+      supplierCreditReference?: string | null;
+      supplierCreditAmount?: number | null;
     }) => {
       setIsSubmittingMovement(true);
       try {

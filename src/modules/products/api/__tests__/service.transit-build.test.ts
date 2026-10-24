@@ -20,12 +20,14 @@ const mockPrisma = vi.hoisted(() => {
       createMany: clothingCreateMany,
       deleteMany: vi.fn(),
     },
-    $transaction: vi.fn((cb: (tx: unknown) => Promise<unknown>) => cb({
-      clothingInventoryTransitBuildEntry: {
-        deleteMany: vi.fn().mockResolvedValue({ count: 0 }),
-        createMany: clothingCreateMany,
-      },
-    })),
+    $transaction: vi.fn((cb: (tx: unknown) => Promise<unknown>) =>
+      cb({
+        clothingInventoryTransitBuildEntry: {
+          deleteMany: vi.fn().mockResolvedValue({ count: 0 }),
+          createMany: clothingCreateMany,
+        },
+      })
+    ),
   };
 });
 
@@ -60,6 +62,7 @@ describe('productService manual transit build-up (by shipment code)', () => {
         productCode: 'TP-001',
         product: 'Test Product',
         payment: 'Paid',
+        paymentMethod: 'CASH',
         postingDate: '2026-01-18',
         orderDate: null,
         grandTotal: 100,
@@ -106,6 +109,7 @@ describe('productService manual transit build-up (by shipment code)', () => {
         productCode: 'TP-002',
         product: 'Test Product 2',
         payment: 'Unpaid',
+        paymentMethod: 'BANK',
         postingDate: '2026-01-18',
         orderDate: null,
         grandTotal: 200,
@@ -139,5 +143,64 @@ describe('productService manual transit build-up (by shipment code)', () => {
       creditAccount: 'Supplier Payable',
       amount: 200,
     });
+  });
+
+  it('credits the selected account for a Paid product', async () => {
+    vi.resetModules();
+    const { productService } = await import('../service');
+
+    mockPrisma.product.findMany.mockResolvedValue([
+      {
+        id: 3,
+        productCode: 'TP-003',
+        product: 'Bank-paid Product',
+        payment: 'Paid',
+        paymentMethod: 'BANK',
+        postingDate: '2026-01-18',
+        orderDate: null,
+        grandTotal: 300,
+        forwardersFee: 0,
+        lalamove: 0,
+      },
+    ]);
+
+    await productService.postManualTransitBuildUpByShipmentCode({
+      shipmentCode: 'KPC-003',
+    });
+
+    const createdEntries = mockPrisma.clothingInventoryTransitBuildEntry
+      .createMany.mock.calls[0]?.[0]?.data as TransitBuildEntry[];
+    expect(createdEntries[0]).toMatchObject({
+      debitAccount: 'Inventory in Transit',
+      creditAccount: 'Bank',
+      amount: 300,
+    });
+  });
+
+  it('does not post a Paid product with an unsupported payment method', async () => {
+    vi.resetModules();
+    const { productService } = await import('../service');
+
+    mockPrisma.product.findMany.mockResolvedValue([
+      {
+        id: 4,
+        productCode: 'TP-004',
+        product: 'Unsupported payment product',
+        payment: 'Paid',
+        paymentMethod: 'OTHER',
+        postingDate: '2026-01-18',
+        orderDate: null,
+        grandTotal: 400,
+      },
+    ]);
+
+    const result = await productService.postManualTransitBuildUpByShipmentCode({
+      shipmentCode: 'KPC-004',
+    });
+
+    expect(result.skipped).toBe(1);
+    expect(
+      mockPrisma.clothingInventoryTransitBuildEntry.createMany
+    ).not.toHaveBeenCalled();
   });
 });

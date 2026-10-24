@@ -4,6 +4,7 @@ import { withErrorHandler } from '@/core/api/middleware';
 import { prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
 import { sanitizers } from '@/lib/security/sanitize';
+import { isVoidedOrderStatus } from '@/lib/transactions/order-status';
 import {
   transactionRefundCreateSchema,
   type TransactionRefundCreateInput,
@@ -192,6 +193,7 @@ export const POST = withErrorHandler<RouteContext>(
             adjustment: true,
             unitPrice: true,
             discount: true,
+            orderStatus: true,
           },
         });
 
@@ -203,16 +205,49 @@ export const POST = withErrorHandler<RouteContext>(
           };
         }
 
+        const isVoided = isVoidedOrderStatus(transaction.orderStatus);
+        if (isVoided && hasReturn) {
+          return {
+            error: ApiResponse.badRequest(
+              'Voided transactions cannot record returned inventory',
+              {
+                returnedQuantity:
+                  'A voided transaction was not delivered to the customer.',
+              }
+            ),
+          };
+        }
+
+        let refundLimit = computeTransactionRefundLimit(transaction);
+        if (isVoided) {
+          const reservationPayments =
+            await txClient.transactionPayment.findMany({
+              where: {
+                transactionId: transaction.id,
+                deletedAt: null,
+                isReservation: true,
+              },
+              select: { amount: true },
+            });
+          refundLimit = reservationPayments.reduce(
+            (total, payment) => total + Number(payment.amount ?? 0),
+            0
+          );
+        }
+
         const existingRefunds = await txClient.transactionRefund.findMany({
           where: { transactionId: transaction.id, deletedAt: null },
           select: { amount: true, returnedQuantity: true },
         });
         const limitError = validateCumulativeRefundLimits({
-          transactionAmount: computeTransactionRefundLimit(transaction),
+          transactionAmount: refundLimit,
           transactionQuantity: transaction.quantity ?? 0,
           existingRefunds,
           amount: sanitized.amount,
           returnedQuantity: returnedQty,
+          amountLimitMessage: isVoided
+            ? 'Total refunds cannot exceed collected reservation payments.'
+            : undefined,
         });
 
         if (limitError) {

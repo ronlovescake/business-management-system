@@ -436,4 +436,69 @@ describe('Accounting Journal API - GET /api/accounting/journal', () => {
     expect(credit?.account).toBe('Forfeited Deposits');
     expect(credit?.credit).toBe(75);
   });
+
+  it('refunds a voided reservation against Customer Deposits, not Sales Returns', async () => {
+    mockFetchers.fetchPaidTransactions.mockResolvedValue([]);
+    mockFetchers.fetchTransactionPayments.mockResolvedValue([
+      {
+        id: 45,
+        transactionId: 44,
+        paymentDate: '2026-01-20',
+        amount: 30,
+        method: 'Cash',
+        isReservation: true,
+        transaction: {
+          id: 44,
+          productCode: 'SKU-44',
+          customers: 'Customer Void',
+          orderDate: '2026-01-18',
+          orderStatus: 'Voided',
+        },
+      },
+    ]);
+    mockFetchers.fetchTransactionRefunds.mockResolvedValue([
+      {
+        id: 99,
+        transactionId: 44,
+        refundDate: '2026-01-21',
+        amount: 30,
+        reason: 'Supplier unavailable',
+        notes: null,
+        createdAt: new Date('2026-01-21T00:00:00.000Z'),
+        transaction: {
+          id: 44,
+          customers: 'Customer Void',
+          productCode: 'SKU-44',
+          orderStatus: 'Voided',
+          payments: [{ amount: 30 }],
+        },
+      },
+    ]);
+
+    const response = await GET(
+      buildRequest('/api/accounting/journal?from=2026-01-01&to=2026-01-31')
+    );
+    const payload = await response.json();
+    const entries = payload.data.entries as Array<{
+      id: string;
+      account: string;
+      debit: number;
+      credit: number;
+    }>;
+
+    expect(entries).toContainEqual(
+      expect.objectContaining({
+        id: 'RF-99-refund-debit',
+        account: 'Customer Deposits',
+        debit: 30,
+        credit: 0,
+      })
+    );
+    expect(
+      entries.some((entry) => entry.id === 'DEP-REVENUE-TX-44-credit')
+    ).toBe(false);
+    expect(entries.some((entry) => entry.account === 'Sales Returns')).toBe(
+      false
+    );
+  });
 });

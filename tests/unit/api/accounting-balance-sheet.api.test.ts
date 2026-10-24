@@ -166,6 +166,73 @@ describe('Accounting Balance Sheet API - GET /api/accounting/balance-sheet', () 
     expect(byAccount.get('Retained Earnings')).toBe(100 + 25);
   });
 
+  it('clears a fully refunded voided reservation deposit from the balance sheet', async () => {
+    mockInventoryCogs.computeCogsTotal.mockResolvedValue(0);
+    mockInventoryCogs.buildInventorySeedAndShrinkageEntries.mockResolvedValue({
+      seedTotal: 0,
+      shrinkageTotal: 0,
+      entries: [],
+    });
+    mockFetchers.fetchTransactionPayments.mockResolvedValue([
+      {
+        id: 45,
+        transactionId: 44,
+        paymentDate: '2026-01-20',
+        amount: 30,
+        method: 'Cash',
+        isReservation: true,
+        transaction: {
+          id: 44,
+          customers: 'Customer Void',
+          productCode: 'SKU-44',
+          orderDate: '2026-01-18',
+          orderStatus: 'Voided',
+        },
+      },
+    ]);
+    mockFetchers.fetchTransactionRefunds.mockResolvedValue([
+      {
+        id: 99,
+        transactionId: 44,
+        refundDate: '2026-01-21',
+        amount: 30,
+        reason: 'Supplier unavailable',
+        notes: null,
+        createdAt: new Date('2026-01-21T00:00:00.000Z'),
+        transaction: {
+          id: 44,
+          customers: 'Customer Void',
+          productCode: 'SKU-44',
+          orderStatus: 'Voided',
+          payments: [{ amount: 30 }],
+        },
+      },
+    ]);
+    mockPrisma.transaction.findMany.mockResolvedValue([
+      {
+        id: 44,
+        orderStatus: 'Voided',
+        updatedAt: new Date('2026-01-21T00:00:00.000Z'),
+        statusChanges: [],
+      },
+    ]);
+
+    const response = await GET(
+      buildRequest('/api/accounting/balance-sheet?asOf=2026-01-31')
+    );
+    const payload = await response.json();
+    const rows = payload.data.rows as Array<{
+      account: string;
+      amount: number;
+    }>;
+    const amount = (account: string) =>
+      rows.find((row) => row.account === account)?.amount ?? 0;
+
+    expect(amount('Cash')).toBe(0);
+    expect(amount('Customer Deposits')).toBe(0);
+    expect(amount('Retained Earnings')).toBe(0);
+  });
+
   it('reflects investor funding, monthly returns and principal repayment without losing balance', async () => {
     mockInventoryCogs.computeCogsTotal.mockResolvedValue(0);
     mockInventoryCogs.buildInventorySeedAndShrinkageEntries.mockResolvedValue({
