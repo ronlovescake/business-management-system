@@ -23,16 +23,17 @@ export function CustomerDetailsModal({
       opened={opened}
       onClose={onClose}
       title={null}
-      size={1750}
+      size="96vw"
       withCloseButton
-      closeOnClickOutside
-      closeOnEscape
+      closeOnClickOutside={false}
+      closeOnEscape={false}
     >
       <CustomerDetailsView
         customerId={customerId}
         apiBasePath={apiBasePath}
         customerApiBasePath={customerApiBasePath}
         onBack={onClose}
+        showBackButton={false}
       />
     </UniversalModal>
   );

@@ -408,4 +408,73 @@ describe('Accounting Ledger API - GET /api/accounting/ledger', () => {
     expect(credit?.account).toBe('Forfeited Deposits');
     expect(credit?.credit).toBe(75);
   });
+
+  it('labels a voided reservation refund clearly in the ledger', async () => {
+    mockFetchers.fetchPaidTransactions.mockResolvedValue([]);
+    mockFetchers.fetchTransactionPayments.mockResolvedValue([
+      {
+        id: 45,
+        transactionId: 44,
+        paymentDate: '2026-10-24',
+        amount: 163.5,
+        method: 'Cash',
+        isReservation: true,
+        transaction: {
+          id: 44,
+          productCode: 'OD-020726',
+          customers: 'Shiela Marie Hambleton | Daisy Ella',
+          orderStatus: 'Voided',
+          orderDate: '2026-10-20',
+        },
+      },
+    ]);
+    mockFetchers.fetchTransactionRefunds.mockResolvedValue([
+      {
+        id: 99,
+        transactionId: 44,
+        refundDate: '2026-10-24',
+        amount: 163.5,
+        reason: 'Supplier unavailable',
+        notes: 'Refunded after void',
+        createdAt: new Date('2026-10-24T00:00:00.000Z'),
+        transaction: {
+          id: 44,
+          customers: 'Shiela Marie Hambleton | Daisy Ella',
+          productCode: 'OD-020726',
+          orderStatus: 'Voided',
+          payments: [{ amount: 163.5 }],
+        },
+      },
+    ]);
+
+    const response = await GET(
+      buildRequest('/api/accounting/ledger?from=2026-10-01&to=2026-10-31')
+    );
+    const payload = await response.json();
+    const entries = payload.data.entries as Array<{
+      id: string;
+      ref: string;
+      account: string;
+      debit: number;
+      credit: number;
+      description: string;
+    }>;
+    const debit = entries.find((entry) => entry.id === 'RF-99-refund-debit');
+    const credit = entries.find((entry) => entry.id === 'RF-99-cash');
+
+    expect(debit).toMatchObject({
+      ref: 'VOID-REFUND-TX-44',
+      account: 'Customer Deposits',
+      debit: 163.5,
+      description: expect.stringContaining(
+        'Voided reservation refund • Shiela Marie Hambleton | Daisy Ella • TX-44'
+      ),
+    });
+    expect(credit).toMatchObject({
+      ref: 'VOID-REFUND-TX-44',
+      account: 'Cash',
+      credit: 163.5,
+      description: debit?.description,
+    });
+  });
 });

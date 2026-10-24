@@ -178,4 +178,94 @@ describe('handleOrderStatusColumnEdit', () => {
       expect.objectContaining({ newValue: 'Shipped' })
     );
   });
+
+  it('opens customer details only after a confirmed Voided status save', async () => {
+    const order: string[] = [];
+    const fireAlert = vi.fn().mockResolvedValue({ isConfirmed: true });
+    const onVoidedStatusSaved = vi.fn(async (customerName: string) => {
+      order.push(`customer:${customerName}`);
+    });
+    const updateTransactionData = vi.fn(async () => {
+      order.push('saved');
+      return { 'Order Status': 'Voided' as const };
+    });
+
+    await handleOrderStatusColumnEdit({
+      columnId: 'orderStatus',
+      rawValue: 'Voided',
+      transaction: { ...baseTransaction, Adjustment: 474 },
+      transactionDescriptor: 'TX-101',
+      shouldLog: false,
+      isPaidOrderStatus: () => false,
+      isVoidedOrderStatus: (value) => value === 'Voided',
+      formatCurrencyValue: (value) => `PHP ${value.toFixed(2)}`,
+      notify: vi.fn(),
+      updateTransactionData,
+      logNotification: vi.fn(),
+      onVoidedStatusSaved,
+      fireAlert,
+    });
+
+    expect(order).toEqual(['saved', 'customer:Mock Customer']);
+    expect(onVoidedStatusSaved).toHaveBeenCalledWith('Mock Customer');
+    expect(fireAlert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        confirmButtonText: 'Mark as Voided',
+        cancelButtonText: 'Cancel',
+        html: expect.stringContaining('customer details popup will open'),
+      })
+    );
+    expect(fireAlert.mock.calls[0]?.[0]).not.toHaveProperty('showDenyButton');
+    expect(fireAlert.mock.calls[0]?.[0]).not.toHaveProperty('denyButtonText');
+  });
+
+  it('does not open customer details when Voided confirmation is cancelled', async () => {
+    const onVoidedStatusSaved = vi.fn();
+    const updateTransactionData = vi.fn();
+
+    await handleOrderStatusColumnEdit({
+      columnId: 'orderStatus',
+      rawValue: 'Voided',
+      transaction: { ...baseTransaction, Adjustment: 474 },
+      transactionDescriptor: 'TX-101',
+      shouldLog: false,
+      isPaidOrderStatus: () => false,
+      isVoidedOrderStatus: (value) => value === 'Voided',
+      formatCurrencyValue: String,
+      notify: vi.fn(),
+      updateTransactionData,
+      logNotification: vi.fn(),
+      onVoidedStatusSaved,
+      fireAlert: vi.fn().mockResolvedValue({ isConfirmed: false }),
+    });
+
+    expect(updateTransactionData).not.toHaveBeenCalled();
+    expect(onVoidedStatusSaved).not.toHaveBeenCalled();
+  });
+
+  it('does not show the refund reminder or open customer details without payment', async () => {
+    const fireAlert = vi.fn();
+    const onVoidedStatusSaved = vi.fn();
+
+    await handleOrderStatusColumnEdit({
+      columnId: 'orderStatus',
+      rawValue: 'Voided',
+      transaction: { ...baseTransaction, Adjustment: 0 },
+      transactionDescriptor: 'TX-101',
+      shouldLog: false,
+      isPaidOrderStatus: () => false,
+      isVoidedOrderStatus: (value) => value === 'Voided',
+      formatCurrencyValue: String,
+      notify: vi.fn(),
+      updateTransactionData: vi.fn().mockResolvedValue({
+        'Order Status': 'Voided',
+      }),
+      logNotification: vi.fn(),
+      onVoidedStatusSaved,
+      fireAlert,
+    });
+
+    expect(fireAlert).not.toHaveBeenCalled();
+    expect(onVoidedStatusSaved).not.toHaveBeenCalled();
+  });
 });

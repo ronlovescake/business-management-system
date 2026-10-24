@@ -67,6 +67,7 @@ interface UseTransactionOperationsProps {
     onProceed: () => void;
     onCancel: () => void;
   }) => void;
+  onVoidedStatusSaved?: (customerName: string) => void | Promise<void>;
 }
 
 interface UseTransactionOperationsReturn {
@@ -103,6 +104,7 @@ export function useTransactionOperations(
     saveBulkUpdate,
     apiBasePath,
     onCustomerWarning,
+    onVoidedStatusSaved,
   } = props;
 
   const queryClient = useQueryClient();
@@ -799,6 +801,7 @@ export function useTransactionOperations(
           return updateTransactionData(data);
         },
         logNotification,
+        onVoidedStatusSaved,
         fireAlert: (options) => Swal.fire(options),
       });
 
@@ -814,6 +817,7 @@ export function useTransactionOperations(
       update,
       saveOrderStatus,
       onCustomerWarning,
+      onVoidedStatusSaved,
       logNotification,
       ensureDraftRow,
       createDraftTransaction,

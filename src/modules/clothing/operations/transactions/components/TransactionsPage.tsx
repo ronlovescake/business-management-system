@@ -267,6 +267,90 @@ export function TransactionsPage({ apiBasePath }: TransactionsPageProps) {
     };
   }, []);
 
+  const customerLookupBasePath =
+    apiBasePath === '/api/general-merchandise' ? undefined : apiBasePath;
+
+  const resolveCustomerIdByName = useCallback(
+    async (customerName: string): Promise<string | null> => {
+      const normalizedTarget = customerName.trim().toLowerCase();
+      if (!normalizedTarget) {
+        return null;
+      }
+
+      const response = await api.get<Record<string, unknown>[]>(
+        buildApiPath(
+          customerLookupBasePath,
+          `/customers?search=${encodeURIComponent(customerName)}`
+        )
+      );
+
+      if (!Array.isArray(response) || response.length === 0) {
+        return null;
+      }
+
+      const normalize = (value: unknown) =>
+        typeof value === 'string' ? value.trim().toLowerCase() : '';
+
+      for (const customer of response) {
+        const customerNameValue =
+          customer['Customer Name'] ||
+          customer.customerName ||
+          customer.Name ||
+          customer.name ||
+          '';
+        const businessNameValue =
+          customer['Business Name'] || customer.businessName || '';
+
+        const normalizedName = normalize(customerNameValue);
+        const normalizedBusiness = normalize(businessNameValue);
+        const normalizedCombined = normalizedBusiness
+          ? `${normalizedName} | ${normalizedBusiness}`
+          : '';
+
+        if (
+          normalizedTarget === normalizedName ||
+          normalizedTarget === normalizedBusiness ||
+          (normalizedCombined && normalizedTarget === normalizedCombined)
+        ) {
+          const idValue = customer.id ?? customer.ID;
+          if (idValue !== null && idValue !== undefined) {
+            return String(idValue);
+          }
+        }
+      }
+
+      return null;
+    },
+    [customerLookupBasePath]
+  );
+
+  const openCustomerDetailsByName = useCallback(
+    async (customerName: string) => {
+      try {
+        const customerId = await resolveCustomerIdByName(customerName);
+        if (!customerId) {
+          showNotification({
+            title: 'Customer not found',
+            message: `No customer record found for ${customerName}.`,
+            color: 'yellow',
+          });
+          return;
+        }
+
+        setCustomerDetailsId(customerId);
+        setIsCustomerDetailsOpen(true);
+      } catch (error) {
+        logger.error('Failed to open customer details modal', error);
+        showNotification({
+          title: 'Unable to open customer',
+          message: 'Please try again in a moment.',
+          color: 'red',
+        });
+      }
+    },
+    [resolveCustomerIdByName]
+  );
+
   useEffect(() => {
     const activeQuery = tabSearchQueries[activeTab] ?? '';
     handleSearch(activeQuery);
@@ -306,6 +390,7 @@ export function TransactionsPage({ apiBasePath }: TransactionsPageProps) {
     saveOrderStatus,
     saveBulkUpdate,
     apiBasePath,
+    onVoidedStatusSaved: openCustomerDetailsByName,
     onCustomerWarning: (data) => {
       setCustomerWarningData({
         ...data,
@@ -730,63 +815,6 @@ export function TransactionsPage({ apiBasePath }: TransactionsPageProps) {
     return unique.length === 1 ? unique[0] : null;
   }, [cappedFilteredTransactions]);
 
-  const customerLookupBasePath =
-    apiBasePath === '/api/general-merchandise' ? undefined : apiBasePath;
-
-  const resolveCustomerIdByName = useCallback(
-    async (customerName: string): Promise<string | null> => {
-      const normalizedTarget = customerName.trim().toLowerCase();
-      if (!normalizedTarget) {
-        return null;
-      }
-
-      const response = await api.get<Record<string, unknown>[]>(
-        buildApiPath(
-          customerLookupBasePath,
-          `/customers?search=${encodeURIComponent(customerName)}`
-        )
-      );
-
-      if (!Array.isArray(response) || response.length === 0) {
-        return null;
-      }
-
-      const normalize = (value: unknown) =>
-        typeof value === 'string' ? value.trim().toLowerCase() : '';
-
-      for (const customer of response) {
-        const customerNameValue =
-          customer['Customer Name'] ||
-          customer.customerName ||
-          customer.Name ||
-          customer.name ||
-          '';
-        const businessNameValue =
-          customer['Business Name'] || customer.businessName || '';
-
-        const normalizedName = normalize(customerNameValue);
-        const normalizedBusiness = normalize(businessNameValue);
-        const normalizedCombined = normalizedBusiness
-          ? `${normalizedName} | ${normalizedBusiness}`
-          : '';
-
-        if (
-          normalizedTarget === normalizedName ||
-          normalizedTarget === normalizedBusiness ||
-          (normalizedCombined && normalizedTarget === normalizedCombined)
-        ) {
-          const idValue = customer.id ?? customer.ID;
-          if (idValue !== null && idValue !== undefined) {
-            return String(idValue);
-          }
-        }
-      }
-
-      return null;
-    },
-    [customerLookupBasePath]
-  );
-
   const handleCustomerCellClick = useCallback(
     async (event: CellClickEvent<TransactionData>) => {
       if (event.column.id !== 'customers') {
@@ -826,29 +854,9 @@ export function TransactionsPage({ apiBasePath }: TransactionsPageProps) {
 
       lastCustomerClickRef.current = null;
 
-      try {
-        const customerId = await resolveCustomerIdByName(customerName);
-        if (!customerId) {
-          showNotification({
-            title: 'Customer not found',
-            message: `No customer record found for ${customerName}.`,
-            color: 'yellow',
-          });
-          return;
-        }
-
-        setCustomerDetailsId(customerId);
-        setIsCustomerDetailsOpen(true);
-      } catch (error) {
-        logger.error('Failed to open customer details modal', error);
-        showNotification({
-          title: 'Unable to open customer',
-          message: 'Please try again in a moment.',
-          color: 'red',
-        });
-      }
+      await openCustomerDetailsByName(customerName);
     },
-    [resolveCustomerIdByName]
+    [openCustomerDetailsByName]
   );
 
   // ============================================================================

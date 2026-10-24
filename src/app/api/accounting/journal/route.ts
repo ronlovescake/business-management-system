@@ -24,6 +24,7 @@ import {
   getAccountsReceivableRecognitionDate,
   getReservationDepositRecognitionCreditAccount,
   getTransactionRefundDebitAccount,
+  getTransactionRefundDescription,
   getTransactionPaymentCreditAccount,
   getTransactionPaymentDebitAccount,
 } from '@/lib/accounting/transaction-recognition';
@@ -427,20 +428,22 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
       const dateStr = (refundAt ?? new Date()).toISOString();
       const idBase = `RF-${refund.id}`;
       const productRef = (refund.transaction?.productCode ?? '').trim();
-      const ref = productRef || idBase;
-      const customer = (refund.transaction?.customers ?? '').trim();
-
-      const reason = (refund.reason ?? '').trim();
-      const notes = (refund.notes ?? '').trim();
-      const suffix = [reason, notes].filter(Boolean).join(' • ');
-      const descriptionBase =
-        customer || `Refund for TX-${refund.transactionId}`;
-      const description = suffix
-        ? `${descriptionBase} • ${suffix}`
-        : descriptionBase;
       const refundDebitAccount = getTransactionRefundDebitAccount({
         orderStatus: refund.transaction?.orderStatus,
         isReservationRefund: (refund.transaction?.payments?.length ?? 0) > 0,
+      });
+      const isVoidedReservationRefund =
+        refundDebitAccount === 'Customer Deposits';
+      const ref = isVoidedReservationRefund
+        ? `VOID-REFUND-TX-${refund.transactionId}`
+        : productRef || idBase;
+      const description = getTransactionRefundDescription({
+        orderStatus: refund.transaction?.orderStatus,
+        isReservationRefund: (refund.transaction?.payments?.length ?? 0) > 0,
+        transactionId: refund.transactionId,
+        customerName: refund.transaction?.customers,
+        reason: refund.reason,
+        notes: refund.notes,
       });
 
       return [

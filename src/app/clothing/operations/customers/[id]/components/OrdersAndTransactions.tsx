@@ -289,8 +289,8 @@ export const OrdersAndTransactions = memo(function OrdersAndTransactions({
     }
 
     return (
-      <div style={{ maxHeight: '50vh', overflowY: 'auto' }}>
-        <Table striped highlightOnHover>
+      <div style={{ maxHeight: '50vh', overflowX: 'auto', overflowY: 'auto' }}>
+        <Table striped highlightOnHover style={{ minWidth: 900 }}>
           <Table.Thead
             style={{
               position: 'sticky',
@@ -304,6 +304,7 @@ export const OrdersAndTransactions = memo(function OrdersAndTransactions({
               <Table.Th>Product Code</Table.Th>
               <Table.Th>Quantity</Table.Th>
               <Table.Th>Unit Price</Table.Th>
+              <Table.Th>Adjustment</Table.Th>
               <Table.Th>Line Total</Table.Th>
               <Table.Th>Status</Table.Th>
             </Table.Tr>
@@ -323,6 +324,11 @@ export const OrdersAndTransactions = memo(function OrdersAndTransactions({
                 <Table.Td>
                   <Text size="sm">
                     {formatCurrency(transaction.unitPrice || 0)}
+                  </Text>
+                </Table.Td>
+                <Table.Td>
+                  <Text size="sm">
+                    {formatCurrency(transaction.adjustment || 0)}
                   </Text>
                 </Table.Td>
                 <Table.Td>

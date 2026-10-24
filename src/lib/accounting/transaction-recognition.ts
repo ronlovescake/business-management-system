@@ -54,6 +54,28 @@ export function getTransactionRefundDebitAccount(params: {
     : 'Sales Returns';
 }
 
+export function getTransactionRefundDescription(params: {
+  orderStatus?: string | null;
+  isReservationRefund: boolean;
+  transactionId: number;
+  customerName?: string | null;
+  reason?: string | null;
+  notes?: string | null;
+}): string {
+  const account = getTransactionRefundDebitAccount(params);
+  const transactionRef = `TX-${params.transactionId}`;
+  const customer = params.customerName?.trim();
+  const descriptionBase =
+    account === 'Customer Deposits'
+      ? `Voided reservation refund • ${customer || 'Unknown customer'} • ${transactionRef}`
+      : customer || `Refund for ${transactionRef}`;
+  const suffix = [params.reason?.trim(), params.notes?.trim()]
+    .filter(Boolean)
+    .join(' • ');
+
+  return suffix ? `${descriptionBase} • ${suffix}` : descriptionBase;
+}
+
 export function calculateAccountsReceivableBalances(
   grossSale: number,
   paymentsCollected: number

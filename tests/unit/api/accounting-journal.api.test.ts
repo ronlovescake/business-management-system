@@ -489,9 +489,13 @@ describe('Accounting Journal API - GET /api/accounting/journal', () => {
     expect(entries).toContainEqual(
       expect.objectContaining({
         id: 'RF-99-refund-debit',
+        ref: 'VOID-REFUND-TX-44',
         account: 'Customer Deposits',
         debit: 30,
         credit: 0,
+        description: expect.stringContaining(
+          'Voided reservation refund • Customer Void'
+        ),
       })
     );
     expect(

@@ -25,6 +25,13 @@ vi.mock('@mantine/notifications', () => ({
   showNotification: vi.fn(),
 }));
 
+vi.mock('@/lib/alerts', () => ({
+  showConfirm: vi.fn().mockResolvedValue(true),
+  getSwal: vi.fn().mockResolvedValue({
+    fire: vi.fn().mockResolvedValue({ isConfirmed: true }),
+  }),
+}));
+
 const priceTiers: PriceTier[] = [
   {
     'Product Code': 'SKU-1',
@@ -125,6 +132,55 @@ describe('useTransactionOperations', () => {
     expect(showNotification).toHaveBeenCalledWith(
       expect.objectContaining({ color: 'green' })
     );
+  });
+
+  it('forwards the customer callback only after a Voided save resolves', async () => {
+    const props = createProps();
+    props.transactions[0].Adjustment = 474;
+    props.filteredData[0].Adjustment = 474;
+    const onVoidedStatusSaved = vi.fn();
+    const deferred = {
+      resolve: (_value: Pick<TransactionData, 'Order Status'>) => {},
+    };
+    const saveOrderStatus = vi.fn().mockReturnValue(
+      new Promise<Pick<TransactionData, 'Order Status'>>((resolve) => {
+        deferred.resolve = resolve;
+      })
+    );
+    const { result } = renderHook(() =>
+      useTransactionOperations({
+        ...props,
+        saveOrderStatus,
+        onVoidedStatusSaved,
+      })
+    );
+
+    let edit: void | boolean | Promise<void | boolean>;
+    act(() => {
+      edit = result.current.handleCellEdited({
+        column: { id: 'orderStatus', title: 'ORDER STATUS' },
+        columnId: 'orderStatus',
+        columnIndex: 8,
+        row: 0,
+        rowData: props.filteredData[0],
+        value: 'Voided',
+        oldValue: 'In Transit',
+        isBatch: false,
+        source: 'edit',
+      });
+    });
+
+    await waitFor(() =>
+      expect(saveOrderStatus).toHaveBeenCalledWith(1, 'Voided')
+    );
+    expect(onVoidedStatusSaved).not.toHaveBeenCalled();
+
+    await act(async () => {
+      deferred.resolve({ 'Order Status': 'Voided' });
+      await edit;
+    });
+
+    expect(onVoidedStatusSaved).toHaveBeenCalledWith('Acme Corp');
   });
 
   it('reports batch success only after the confirmed bulk save completes', async () => {

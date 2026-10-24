@@ -767,10 +767,16 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
         orderStatus: refund.transaction?.orderStatus,
         isReservationRefund: (refund.transaction?.payments?.length ?? 0) > 0,
       });
+      const isVoidedReservationRefund =
+        refundDebitAccount === 'Customer Deposits';
 
-      addCashDetail('Refunds', CASH_ACCOUNT, -value);
+      addCashDetail(
+        isVoidedReservationRefund ? 'Voided reservation refunds' : 'Refunds',
+        CASH_ACCOUNT,
+        -value
+      );
 
-      if (refundDebitAccount === 'Customer Deposits') {
+      if (isVoidedReservationRefund) {
         return [
           { account: 'Customer Deposits', amount: value },
           { account: CASH_ACCOUNT, amount: -value },

@@ -21,6 +21,7 @@ interface HandleOrderStatusColumnEditParams {
     message: string,
     metadata?: Record<string, unknown>
   ) => void;
+  onVoidedStatusSaved?: (customerName: string) => void | Promise<void>;
   fireAlert: (options: Record<string, unknown>) => Promise<SweetAlertResult>;
 }
 
@@ -36,6 +37,7 @@ export async function handleOrderStatusColumnEdit({
   notify,
   updateTransactionData,
   logNotification,
+  onVoidedStatusSaved,
   fireAlert,
 }: HandleOrderStatusColumnEditParams): Promise<boolean> {
   if (columnId !== 'orderStatus') {
@@ -58,33 +60,17 @@ export async function handleOrderStatusColumnEdit({
 
   const recordedPayment = Number(transaction.Adjustment) || 0;
   if (isVoidedOrderStatus(dropdownValue) && recordedPayment > 0.01) {
-    const marker = '/operations/transactions';
-    const pathname = window.location.pathname;
-    const basePath = pathname.includes(marker)
-      ? pathname.slice(0, pathname.indexOf(marker))
-      : '';
-    const customersPath = basePath
-      ? `${basePath}/operations/customers`
-      : '/clothing/operations/customers';
-
     const result = await fireAlert({
       title: 'Refund reminder',
       html:
         `This transaction has <strong>${formatCurrencyValue(recordedPayment)}</strong> recorded as a payment/deposit.<br /><br />` +
-        `If you mark it as <strong>Voided</strong>, remember to record any required refunds from the <strong>Customers</strong> page.`,
+        `After saving it as <strong>Voided</strong>, the customer details popup will open so you can record any required refund.`,
       icon: 'warning',
-      showDenyButton: true,
       showCancelButton: true,
       confirmButtonText: 'Mark as Voided',
-      denyButtonText: 'Open Customers',
       cancelButtonText: 'Cancel',
       confirmButtonColor: '#d33',
     });
-
-    if (result.isDenied) {
-      window.open(customersPath, '_blank', 'noopener,noreferrer');
-      return true;
-    }
 
     if (!result.isConfirmed) {
       return true;
@@ -92,8 +78,9 @@ export async function handleOrderStatusColumnEdit({
   }
 
   let savedStatus = dropdownValue;
+  let savedTransaction: Pick<TransactionData, 'Order Status'> | void;
   try {
-    const savedTransaction = await updateTransactionData({
+    savedTransaction = await updateTransactionData({
       'Order Status': dropdownValue,
     });
     if (savedTransaction) {
@@ -130,6 +117,17 @@ export async function handleOrderStatusColumnEdit({
         }
       );
     }
+  }
+
+  const customerName = transaction.Customers?.trim();
+  if (
+    savedTransaction &&
+    isVoidedOrderStatus(savedStatus) &&
+    recordedPayment > 0.01 &&
+    customerName &&
+    onVoidedStatusSaved
+  ) {
+    await onVoidedStatusSaved(customerName);
   }
 
   return true;

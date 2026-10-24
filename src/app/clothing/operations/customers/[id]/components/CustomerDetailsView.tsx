@@ -40,6 +40,7 @@ interface CustomerDetailsViewProps {
   apiBasePath?: string;
   customerApiBasePath?: string;
   onBack?: () => void;
+  showBackButton?: boolean;
 }
 
 export const CustomerDetailsView = memo(function CustomerDetailsView({
@@ -47,6 +48,7 @@ export const CustomerDetailsView = memo(function CustomerDetailsView({
   apiBasePath,
   customerApiBasePath,
   onBack,
+  showBackButton = true,
 }: CustomerDetailsViewProps) {
   const router = useRouter();
   const handleBack = onBack ?? (() => router.back());
@@ -116,14 +118,16 @@ export const CustomerDetailsView = memo(function CustomerDetailsView({
       {/* Header */}
       <Group justify="space-between">
         <Group>
-          <ActionIcon
-            variant="light"
-            onClick={handleBack}
-            size="lg"
-            {...getIconButtonLabel('Go back to customers list')}
-          >
-            <IconArrowLeft size={18} />
-          </ActionIcon>
+          {showBackButton ? (
+            <ActionIcon
+              variant="light"
+              onClick={handleBack}
+              size="lg"
+              {...getIconButtonLabel('Go back to customers list')}
+            >
+              <IconArrowLeft size={18} />
+            </ActionIcon>
+          ) : null}
           <div>
             <Group gap="sm">
               <Title order={2}>{customer['Customer Name']}</Title>

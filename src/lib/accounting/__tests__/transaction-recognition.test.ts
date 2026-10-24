@@ -5,6 +5,7 @@ import {
   getAccountsReceivableRecognitionDate,
   getReservationDepositRecognitionCreditAccount,
   getTransactionRefundDebitAccount,
+  getTransactionRefundDescription,
   getTransactionPaymentCreditAccount,
   getTransactionPaymentDebitAccount,
   hasAccountsReceivableShipment,
@@ -45,6 +46,20 @@ describe('Accounts Receivable shipment recognition', () => {
         isForfeited: true,
       })
     ).toBe('Forfeited Deposits');
+  });
+
+  it('labels voided reservation refunds clearly in journal descriptions', () => {
+    expect(
+      getTransactionRefundDescription({
+        orderStatus: 'Voided',
+        isReservationRefund: true,
+        transactionId: 44,
+        customerName: 'Shiela Marie Hambleton | Daisy Ella',
+        reason: 'Supplier unavailable',
+      })
+    ).toBe(
+      'Voided reservation refund • Shiela Marie Hambleton | Daisy Ella • TX-44 • Supplier unavailable'
+    );
   });
 
   it('recognizes the persisted shipment timestamp after the order is fully paid', () => {
