@@ -71,6 +71,25 @@ describe('Message Template Routes — Business Logic', () => {
 
   // ── GET ──────────────────────────────────────────────────────────────
   describe('GET /api/message-templates', () => {
+    it('initializes defaults with duplicate-safe writes on simultaneous first loads', async () => {
+      mockPrisma.messageTemplate.findMany.mockResolvedValue([]);
+      mockPrisma.messageTemplate.createMany.mockImplementation(
+        async ({ skipDuplicates }) => {
+          if (!skipDuplicates) {
+            throw new Error('duplicate default slug');
+          }
+          return { count: 0 };
+        }
+      );
+      const responses = await Promise.all([clothingGET(), clothingGET()]);
+      for (const response of responses) {
+        expect(response.status).toBe(200);
+      }
+      expect(mockPrisma.messageTemplate.createMany).toHaveBeenCalledWith(
+        expect.objectContaining({ skipDuplicates: true })
+      );
+    });
+
     it('BL#1: fetches all templates from database', async () => {
       const records = [
         mockTemplateRecord(),

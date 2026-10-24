@@ -7,7 +7,10 @@ import { logger } from '@/lib/logger';
 import { getDatabaseUrl } from '@/lib/env';
 import type { ProductDTO } from './dto';
 import type { ProductService } from './service';
-import { ProductShipmentAccountingConflictError } from './service';
+import {
+  ProductShipmentAccountingConflictError,
+  ProductSupplierSettlementError,
+} from './service';
 import { recalculateProductFinancials } from './financials';
 import { sanitizeProductRecord } from './sanitizers';
 import { productDataSchema } from './schemas';
@@ -147,6 +150,12 @@ export function createProductRoutes(config: ProductRouteConfig) {
         'Products imported'
       );
     } catch (error) {
+      if (error instanceof ProductShipmentAccountingConflictError) {
+        return ApiResponse.conflict(error.message);
+      }
+      if (error instanceof ProductSupplierSettlementError) {
+        return ApiResponse.error(error.message, error.status);
+      }
       logger.error(`[${loggerScope}] Failed to import products`, { error });
       return ApiResponse.error('Failed to process products');
     }
@@ -198,6 +207,9 @@ export function createProductRoutes(config: ProductRouteConfig) {
       if (error instanceof ProductShipmentAccountingConflictError) {
         return ApiResponse.conflict(error.message);
       }
+      if (error instanceof ProductSupplierSettlementError) {
+        return ApiResponse.error(error.message, error.status);
+      }
       logger.error(`[${loggerScope}] Failed to update products`, { error });
       return ApiResponse.error('Failed to update products');
     }
@@ -225,6 +237,9 @@ export function createProductRoutes(config: ProductRouteConfig) {
         'Products soft deleted'
       );
     } catch (error) {
+      if (error instanceof ProductShipmentAccountingConflictError) {
+        return ApiResponse.conflict(error.message);
+      }
       logger.error(`[${loggerScope}] Failed to delete products`, { error });
       return ApiResponse.error('Failed to delete products');
     }

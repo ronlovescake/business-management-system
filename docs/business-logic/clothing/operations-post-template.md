@@ -1,5 +1,9 @@
 # Clothing — Post Template Business Logic
 
+First-load initialization upserts the singleton by slug with an empty update.
+Concurrent initialization cannot create a duplicate notice or overwrite saved
+text. Normal editing still uses the explicit save path below.
+
 > **Source files:**
 >
 > - `src/modules/clothing/operations/settings/components/PostTemplatesTab.tsx`

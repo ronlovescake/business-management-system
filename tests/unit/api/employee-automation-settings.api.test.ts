@@ -38,6 +38,7 @@ vi.mock('@/modules/shared/employees/automation', () => ({
 }));
 
 vi.mock('@/lib/auth/session', () => ({
+  getCurrentUser: vi.fn(async () => ({ id: 'test-admin', role: 'ADMIN' })),
   requireAdmin: mockRequireAdmin,
 }));
 

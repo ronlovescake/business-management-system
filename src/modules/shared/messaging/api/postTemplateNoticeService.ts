@@ -61,8 +61,10 @@ export function createPostTemplateNoticeService(
       return mapRecordToNotice(existing);
     }
 
-    const created = await model.create({
-      data: {
+    const created = await model.upsert({
+      where: { slug: NOTICE_SLUG },
+      update: {},
+      create: {
         slug: NOTICE_SLUG,
         introParagraphs: DEFAULT_POST_TEMPLATE_NOTICE.introParagraphs,
         bulletPoints: DEFAULT_POST_TEMPLATE_NOTICE.bulletPoints,

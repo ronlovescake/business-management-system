@@ -8,6 +8,23 @@ rename is rejected when the old code identifies multiple shipments or the new
 code is already used; this avoids moving products to an unrelated shipment.
 Existing transaction prices and accounting amounts are unchanged.
 
+## Accounting Source Lifecycle
+
+Clothing transit builds/reclassifications and Logistics Costs are administrator
+tools; normal shipment operations remain available to operational users. A
+shipment has one active transit source flow: product-origin, legacy single,
+or legacy split. Mixing flows, duplicating the full amount under another funding
+account, or silently omitting an existing split component is rejected.
+
+Once reclassified or supplier-settled, source amounts, accounts, dates, and
+deletion are locked across both the shipment and accounting edit endpoints.
+Notes-only edits remain allowed. Corrections require approved reversal/resolution.
+Product-origin soft-delete recovery reuses the original row/key without purging
+history; recovery cannot overwrite downstream postings. New product-origin
+reclassifications use stable product IDs and actual inserted counts, retaining
+historical code-only compatibility. Competing serializable writes return a
+retryable HTTP 409 rather than committing incompatible postings.
+
 > **Source files:**
 >
 > - `src/modules/clothing/operations/shipments/components/ShipmentsPage.tsx`

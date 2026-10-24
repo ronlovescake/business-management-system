@@ -1,8 +1,12 @@
 import { describe, expect, it, beforeEach, vi } from 'vitest';
+vi.mock('@/lib/auth/session', () => ({
+  getCurrentUser: vi.fn(async () => ({ id: 'test-admin', role: 'ADMIN' })),
+}));
 import { POST } from '@/app/api/shipments/[id]/transit-reclass/route';
 import { mockNextRequest, getTestApiUrl } from '@/core/testing/test-helpers';
 
 const mockPrisma = vi.hoisted(() => ({
+  $transaction: vi.fn(),
   shipment: {
     findUnique: vi.fn(),
   },
@@ -25,6 +29,10 @@ vi.mock('@/lib/db', () => ({
 describe('POST /api/shipments/[id]/transit-reclass', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockPrisma.$transaction.mockImplementation(
+      async (operation: (client: typeof mockPrisma) => Promise<unknown>) =>
+        operation(mockPrisma)
+    );
   });
 
   it('creates reclass entries when transit build-up totals match product valuation totals', async () => {
@@ -104,6 +112,77 @@ describe('POST /api/shipments/[id]/transit-reclass', () => {
     expect(
       mockPrisma.clothingInventoryReclassEntry.createMany
     ).toHaveBeenCalled();
+  });
+
+  it('does not reclass a stable product identity again after its code changes', async () => {
+    mockPrisma.shipment.findUnique.mockResolvedValue({
+      id: 1,
+      shipmentCode: 'KPC-001',
+      shipmentStatus: 'Delivered',
+    });
+    mockPrisma.clothingInventoryTransitBuildEntry.findMany.mockResolvedValue([
+      {
+        id: 'tb-1',
+        idempotencyKey: 'PRODUCT_TRANSIT_BUILD:10:GRAND_TOTAL',
+        amount: 100,
+      },
+    ]);
+    mockPrisma.product.findMany.mockResolvedValue([
+      { id: 10, productCode: 'NEW', cogs: 100 },
+    ]);
+    mockPrisma.clothingInventoryReclassEntry.findMany.mockResolvedValue([
+      { productId: 10, productCode: 'OLD' },
+    ]);
+
+    const response = await POST(
+      mockNextRequest({
+        method: 'POST',
+        url: getTestApiUrl('/api/shipments/1/transit-reclass'),
+        body: { postingDate: '2026-02-01' },
+      }),
+      { params: { id: '1' } }
+    );
+
+    expect((await response.json()).data.createdCount).toBe(0);
+    expect(
+      mockPrisma.clothingInventoryReclassEntry.createMany
+    ).not.toHaveBeenCalled();
+  });
+
+  it('reports the actual insert count when idempotency skips a row', async () => {
+    mockPrisma.shipment.findUnique.mockResolvedValue({
+      id: 1,
+      shipmentCode: 'KPC-001',
+      shipmentStatus: 'Delivered',
+    });
+    mockPrisma.clothingInventoryTransitBuildEntry.findMany.mockResolvedValue([
+      {
+        id: 'tb-1',
+        idempotencyKey: 'PRODUCT_TRANSIT_BUILD:10:GRAND_TOTAL',
+        amount: 100,
+      },
+    ]);
+    mockPrisma.product.findMany.mockResolvedValue([
+      { id: 10, productCode: 'P-1', cogs: 100 },
+    ]);
+    mockPrisma.clothingInventoryReclassEntry.findMany.mockResolvedValue([]);
+    mockPrisma.clothingInventoryReclassEntry.createMany.mockResolvedValue({
+      count: 0,
+    });
+
+    const response = await POST(
+      mockNextRequest({
+        method: 'POST',
+        url: getTestApiUrl('/api/shipments/1/transit-reclass'),
+        body: { postingDate: '2026-02-01' },
+      }),
+      { params: { id: '1' } }
+    );
+
+    expect((await response.json()).data).toMatchObject({
+      createdCount: 0,
+      skippedCount: 1,
+    });
   });
 
   it('rejects when transit build-up total does not match product valuation total', async () => {

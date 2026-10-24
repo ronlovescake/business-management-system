@@ -2,6 +2,16 @@
 
 This overview indexes the business logic documentation files for the **Clothing > Employees** module.
 
+## API Permissions
+
+Employee pages and their actual root APIs require ADMIN or SUPER_ADMIN. This
+includes `/api/employees` (salary/history/restore), `/api/payroll`,
+`/api/attendance`, `/api/schedules`, `/api/leave-requests`, `/api/cash-advances`,
+`/api/thirteenth-month-pay`, `/api/employee-automation-settings`, and
+`/api/clothing/employees`. Anonymous requests return 401 and operational USER
+requests 403 before business work. Normal operations permissions are unchanged.
+This does not turn local-only loans or empty shells into persisted workflows.
+
 > **Source root:** `src/app/clothing/employees/`
 > **Docs root:** `docs/business-logic/clothing/`
 

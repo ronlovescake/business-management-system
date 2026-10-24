@@ -160,6 +160,9 @@ export function createTransactionRoutes(config: TransactionRouteConfig) {
         'Transactions soft deleted'
       );
     } catch (error) {
+      if (error instanceof TransactionValidationError) {
+        return ApiResponse.conflict(error.message);
+      }
       logger.error(`[${loggerScope}] Failed to delete transactions`, { error });
       return ApiResponse.error('Failed to delete transactions');
     }

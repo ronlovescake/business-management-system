@@ -10,6 +10,20 @@ new rows use the current saved tier for their quantity. Product-code changes
 also update linked inventory movement codes so inventory and transaction
 rollups continue to refer to the same product.
 
+## Net Prices And Draft Deletion
+
+Discount is per item and is already included in Unit Price. When a stored line
+total is absent, remaining balance is `quantity * net unitPrice - adjustment`.
+Do not subtract Discount again. An explicit finite zero line total is retained;
+null, undefined, empty, and non-finite totals use the fallback. Refund caps use
+the same net-price contract.
+
+Mass deletion is draft cleanup, not a reversal workflow. Paid, fulfilled,
+historically paid/fulfilled, invoiced, packed, shipped, refunded, or financially
+posted transactions block the entire operation with HTTP 409. Permitted draft
+cleanup deactivates only owned automatic movements and soft-deletes the selected
+transactions in one serializable transaction. Existing audit history is retained.
+
 > **Source files:**
 >
 > - `src/modules/transactions/api/service.ts`
@@ -33,11 +47,11 @@ rollups continue to refer to the same product.
 
 ## B — Pricing & Payment Rules
 
-| #   | Logic                                                                                               | Explanation                                                                 |
-| --- | --------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------- |
-| 5   | Unit price can still auto-fill from pricing data when the imported value is zero                    | Transaction creation still resolves pricing through the existing tier flow. |
-| 6   | Prepared + fully paid transactions are treated as fulfilled for movement sync                       | This affects both standard SKUs and split-child movement behavior.          |
-| 7   | Remaining balance is still computed from line total, quantity, unit price, discount, and adjustment | The paid-status guard remains unchanged.                                    |
+| #   | Logic                                                                            | Explanation                                                                                      |
+| --- | -------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------ |
+| 5   | Unit price can still auto-fill from pricing data when the imported value is zero | Transaction creation still resolves pricing through the existing tier flow.                      |
+| 6   | Prepared + fully paid transactions are treated as fulfilled for movement sync    | This affects both standard SKUs and split-child movement behavior.                               |
+| 7   | Missing remaining balance uses quantity times net unit price less adjustment     | Discount is already in Unit Price; an explicit finite stored total, including zero, is retained. |
 
 ---
 

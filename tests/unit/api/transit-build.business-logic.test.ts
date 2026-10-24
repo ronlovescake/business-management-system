@@ -15,6 +15,9 @@
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { NextRequest } from 'next/server';
+vi.mock('@/lib/auth/session', () => ({
+  getCurrentUser: vi.fn(async () => ({ id: 'test-admin', role: 'ADMIN' })),
+}));
 import { getTestApiUrl, mockLogger } from '@/core/testing/test-helpers';
 
 // ── Prisma mock ──────────────────────────────────────────────────────────
@@ -33,6 +36,7 @@ const mockPrisma = vi.hoisted(() => ({
     update: vi.fn(),
     upsert: vi.fn(),
   },
+  clothingInventoryReclassEntry: { count: vi.fn() },
   generalMerchandiseShipment: {
     findUnique: vi.fn(),
   },
@@ -106,6 +110,12 @@ const mockBuildEntry = (overrides: Record<string, unknown> = {}) => ({
 describe('Transit Build Routes — Business Logic', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockPrisma.clothingInventoryReclassEntry.count.mockResolvedValue(0);
+    mockPrisma.$transaction.mockImplementation(async (operation: unknown) =>
+      typeof operation === 'function'
+        ? operation(mockPrisma)
+        : Promise.all(operation as Promise<unknown>[])
+    );
     mockPrisma.shipment.findUnique.mockResolvedValue(mockShipment());
     mockPrisma.product.findMany.mockResolvedValue(mockProducts());
     mockPrisma.clothingInventoryTransitBuildEntry.findMany.mockResolvedValue(
@@ -315,21 +325,24 @@ describe('Transit Build Routes — Business Logic', () => {
   describe('POST /api/shipments/[id]/transit-build — split mode', () => {
     it('creates multiple entries when split amounts sum to product total', async () => {
       mockPrisma.product.findMany.mockResolvedValue(mockProducts(10000));
-      mockPrisma.$transaction.mockResolvedValue([
-        mockBuildEntry({
-          id: 'split-1',
-          amount: 4000,
-          creditAccount: 'Cash',
-          idempotencyKey: 'SHIPMENT_TRANSIT_BUILD:SH-001:SPLIT:PAID',
-        }),
-        mockBuildEntry({
-          id: 'split-2',
-          amount: 6000,
-          creditAccount: 'Accounts Payable',
-          idempotencyKey:
-            'SHIPMENT_TRANSIT_BUILD:SH-001:SPLIT:SUPPLIER_PAYABLE',
-        }),
-      ]);
+      mockPrisma.clothingInventoryTransitBuildEntry.upsert
+        .mockResolvedValueOnce(
+          mockBuildEntry({
+            id: 'split-1',
+            amount: 4000,
+            creditAccount: 'Cash',
+            idempotencyKey: 'SHIPMENT_TRANSIT_BUILD:SH-001:SPLIT:PAID',
+          })
+        )
+        .mockResolvedValueOnce(
+          mockBuildEntry({
+            id: 'split-2',
+            amount: 6000,
+            creditAccount: 'Accounts Payable',
+            idempotencyKey:
+              'SHIPMENT_TRANSIT_BUILD:SH-001:SPLIT:SUPPLIER_PAYABLE',
+          })
+        );
 
       const res = await clothingPOST(
         buildRequest('/api/shipments/1/transit-build', {
@@ -444,7 +457,7 @@ describe('Transit Build Routes — Business Logic', () => {
       );
       const json = await res.json();
 
-      expect(res.status).toBe(400);
+      expect(res.status).toBe(409);
       expect(json.success).toBe(false);
       expect(json.error).toContain('already exists');
     });

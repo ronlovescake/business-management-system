@@ -27,6 +27,7 @@ type TransitReclassRequestBody = {
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 export interface TransitReclassDelegates {
+  useProductIdentity?: boolean;
   shipmentModel: {
     findUnique: (args: any) => Promise<{
       id: number;
@@ -57,8 +58,12 @@ export interface TransitReclassDelegates {
     >;
   };
   reclassModel: {
-    findMany: (args: any) => Promise<Array<{ productCode?: string | null }>>;
-    createMany: (args: any) => Promise<unknown>;
+    findMany: (
+      args: any
+    ) => Promise<
+      Array<{ productCode?: string | null; productId?: number | null }>
+    >;
+    createMany: (args: any) => Promise<{ count: number }>;
   };
 }
 
@@ -218,7 +223,11 @@ export function createTransitReclassRoutes(delegates: TransitReclassDelegates) {
         ? 'product'
         : 'shipment';
 
-      let valuedProducts: Array<{ productCode: string; amount: number }> = [];
+      let valuedProducts: Array<{
+        productCode: string;
+        productId?: number;
+        amount: number;
+      }> = [];
       let expectedTotalAmount = 0;
 
       if (sourceFlow === 'product') {
@@ -231,7 +240,10 @@ export function createTransitReclassRoutes(delegates: TransitReclassDelegates) {
           }
         });
 
-        const amountByProductCode = new Map<string, number>();
+        const amountByProductCode = new Map<
+          string,
+          { productCode: string; productId: number; amount: number }
+        >();
         for (const entry of transitBuildEntries) {
           const productId = parseProductIdFromTransitBuildKey(
             entry.idempotencyKey
@@ -249,15 +261,22 @@ export function createTransitReclassRoutes(delegates: TransitReclassDelegates) {
             );
           }
 
+          const identity = delegates.useProductIdentity
+            ? String(productId)
+            : productCode;
           const nextAmount =
-            Number(amountByProductCode.get(productCode) ?? 0) +
+            Number(amountByProductCode.get(identity)?.amount ?? 0) +
             Number(entry.amount ?? 0);
-          amountByProductCode.set(productCode, nextAmount);
+          amountByProductCode.set(identity, {
+            productCode,
+            productId,
+            amount: nextAmount,
+          });
         }
 
-        valuedProducts = Array.from(amountByProductCode.entries())
-          .map(([productCode, amount]) => ({ productCode, amount }))
-          .filter((row) => Number.isFinite(row.amount) && row.amount > 0);
+        valuedProducts = Array.from(amountByProductCode.values()).filter(
+          (row) => Number.isFinite(row.amount) && row.amount > 0
+        );
 
         expectedTotalAmount = valuedProducts.reduce(
           (sum, row) => sum + row.amount,
@@ -276,7 +295,7 @@ export function createTransitReclassRoutes(delegates: TransitReclassDelegates) {
               return null;
             }
 
-            return { productCode, amount };
+            return { productCode, productId: p.id, amount };
           })
           .filter(Boolean) as Array<{ productCode: string; amount: number }>;
 
@@ -305,35 +324,56 @@ export function createTransitReclassRoutes(delegates: TransitReclassDelegates) {
           fromAccount: IN_TRANSIT_ACCOUNT,
           toAccount: STOCK_ON_HAND_ACCOUNT,
         },
-        select: { productCode: true },
+        select: {
+          productCode: true,
+          ...(delegates.useProductIdentity ? { productId: true } : {}),
+        },
       });
 
       const alreadyReclassedProductCodes = new Set(
-        existingReclassEntries.map((row) => (row.productCode ?? '').trim())
+        existingReclassEntries
+          .filter((row) => !delegates.useProductIdentity || !row.productId)
+          .map((row) => (row.productCode ?? '').trim())
+      );
+      const alreadyReclassedProductIds = new Set(
+        existingReclassEntries.map((row) => row.productId).filter(Boolean)
       );
 
       const sanitizedNotes = body?.notes ? sanitizers.notes(body.notes) : null;
 
       const rowsToCreate = valuedProducts
-        .filter((row) => !alreadyReclassedProductCodes.has(row.productCode))
+        .filter(
+          (row) =>
+            !alreadyReclassedProductCodes.has(row.productCode) &&
+            !(
+              delegates.useProductIdentity &&
+              row.productId &&
+              alreadyReclassedProductIds.has(row.productId)
+            )
+        )
         .map((row) => ({
           postingDate,
           shipmentId: shipment.id,
           shipmentCode,
           productCode: row.productCode,
+          ...(delegates.useProductIdentity && row.productId
+            ? { productId: row.productId }
+            : {}),
           amount: row.amount,
           fromAccount: IN_TRANSIT_ACCOUNT,
           toAccount: STOCK_ON_HAND_ACCOUNT,
           triggerStatus: 'Manual',
-          idempotencyKey: `SHIPMENT_TRANSIT_RECLASS:${shipmentCode}:${row.productCode}`,
+          idempotencyKey: `SHIPMENT_TRANSIT_RECLASS:${shipmentCode}:${delegates.useProductIdentity && row.productId ? `PRODUCT:${row.productId}` : row.productCode}`,
           notes: sanitizedNotes,
         }));
 
+      let createdCount = 0;
       if (rowsToCreate.length > 0) {
-        await delegates.reclassModel.createMany({
+        const result = await delegates.reclassModel.createMany({
           data: rowsToCreate,
           skipDuplicates: true,
         });
+        createdCount = result.count;
       }
 
       return ApiResponse.success(
@@ -343,10 +383,10 @@ export function createTransitReclassRoutes(delegates: TransitReclassDelegates) {
           postingDate: postingDate.toISOString(),
           selectedTransitTotalAmount: selectedTransitTotal,
           expectedTotalAmount,
-          createdCount: rowsToCreate.length,
-          skippedCount: valuedProducts.length - rowsToCreate.length,
+          createdCount,
+          skippedCount: valuedProducts.length - createdCount,
         },
-        rowsToCreate.length === 0
+        createdCount === 0
           ? 'Reclass entries already exist for this shipment'
           : 'Reclass entries created'
       );

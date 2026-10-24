@@ -1,4 +1,7 @@
 import { describe, expect, it, beforeEach, vi } from 'vitest';
+vi.mock('@/lib/auth/session', () => ({
+  getCurrentUser: vi.fn(async () => ({ id: 'test-admin', role: 'ADMIN' })),
+}));
 import { getTestApiUrl, mockNextRequest } from '@/core/testing/test-helpers';
 
 // Freeze cutover for test determinism.

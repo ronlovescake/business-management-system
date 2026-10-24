@@ -91,7 +91,7 @@ describe('Post Template Notice Routes — Business Logic', () => {
 
     it('BL#3: creates default notice when none exists', async () => {
       mockPrisma.postTemplateNotice.findUnique.mockResolvedValue(null);
-      mockPrisma.postTemplateNotice.create.mockResolvedValue(
+      mockPrisma.postTemplateNotice.upsert.mockResolvedValue(
         mockNoticeRecord()
       );
 
@@ -100,9 +100,10 @@ describe('Post Template Notice Routes — Business Logic', () => {
 
       expect(res.status).toBe(200);
       expect(json.success).toBe(true);
-      expect(mockPrisma.postTemplateNotice.create).toHaveBeenCalledWith(
+      expect(mockPrisma.postTemplateNotice.upsert).toHaveBeenCalledWith(
         expect.objectContaining({
-          data: expect.objectContaining({
+          update: {},
+          create: expect.objectContaining({
             slug: NOTICE_SLUG,
           }),
         })
@@ -111,8 +112,8 @@ describe('Post Template Notice Routes — Business Logic', () => {
 
     it('default notice contains populated introParagraphs and bulletPoints', async () => {
       mockPrisma.postTemplateNotice.findUnique.mockResolvedValue(null);
-      mockPrisma.postTemplateNotice.create.mockImplementation(
-        async ({ data }: { data: Record<string, unknown> }) => ({
+      mockPrisma.postTemplateNotice.upsert.mockImplementation(
+        async ({ create: data }: { create: Record<string, unknown> }) => ({
           id: 'new-uuid',
           slug: data.slug as string,
           introParagraphs: data.introParagraphs,
@@ -369,7 +370,7 @@ describe('Post Template Notice Routes — Business Logic', () => {
       mockPrisma.generalMerchandisePostTemplateNotice.findUnique.mockResolvedValue(
         null
       );
-      mockPrisma.generalMerchandisePostTemplateNotice.create.mockResolvedValue(
+      mockPrisma.generalMerchandisePostTemplateNotice.upsert.mockResolvedValue(
         mockNoticeRecord()
       );
 
@@ -379,7 +380,7 @@ describe('Post Template Notice Routes — Business Logic', () => {
       expect(res.status).toBe(200);
       expect(json.success).toBe(true);
       expect(
-        mockPrisma.generalMerchandisePostTemplateNotice.create
+        mockPrisma.generalMerchandisePostTemplateNotice.upsert
       ).toHaveBeenCalled();
     });
 

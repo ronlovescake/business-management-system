@@ -52,6 +52,18 @@ export const ROUTE_PERMISSIONS: Record<string, RouteRole[]> = {
   '/clothing/employees/thirteenth-month': ['ADMIN', 'SUPER_ADMIN'],
   '/clothing/employees/expenses': ['ADMIN', 'SUPER_ADMIN'],
   '/clothing/accounting': ['ADMIN', 'SUPER_ADMIN'],
+  '/api/accounting': ['ADMIN', 'SUPER_ADMIN'],
+  '/api/clothing/employees': ['ADMIN', 'SUPER_ADMIN'],
+  '/api/employees': ['ADMIN', 'SUPER_ADMIN'],
+  '/api/payroll': ['ADMIN', 'SUPER_ADMIN'],
+  '/api/attendance': ['ADMIN', 'SUPER_ADMIN'],
+  '/api/schedules': ['ADMIN', 'SUPER_ADMIN'],
+  '/api/leave-requests': ['ADMIN', 'SUPER_ADMIN'],
+  '/api/cash-advances': ['ADMIN', 'SUPER_ADMIN'],
+  '/api/thirteenth-month-pay': ['ADMIN', 'SUPER_ADMIN'],
+  '/api/employee-automation-settings': ['ADMIN', 'SUPER_ADMIN'],
+  '/api/expenses': ['ADMIN', 'SUPER_ADMIN'],
+  '/api/products/transit-build': ['ADMIN', 'SUPER_ADMIN'],
   '/api/clothing/investors': ['ADMIN', 'SUPER_ADMIN'],
   '/clothing/ledger': ['ADMIN', 'SUPER_ADMIN'],
 
@@ -91,10 +103,18 @@ export const ROUTE_PERMISSIONS: Record<string, RouteRole[]> = {
  * ROUTE_PERMISSIONS table, or null if no entry matches.
  */
 export function getRequiredRolesForPath(pathname: string): RouteRole[] | null {
+  if (
+    /^\/api\/shipments\/[^/]+\/transit-(build|reclass)(?:\/|$)/.test(pathname)
+  ) {
+    return ['ADMIN', 'SUPER_ADMIN'];
+  }
   let bestMatchLength = -1;
   let bestRoles: RouteRole[] | null = null;
   for (const [route, roles] of Object.entries(ROUTE_PERMISSIONS)) {
-    if (pathname.startsWith(route) && route.length > bestMatchLength) {
+    if (
+      (pathname === route || pathname.startsWith(`${route}/`)) &&
+      route.length > bestMatchLength
+    ) {
       bestMatchLength = route.length;
       bestRoles = roles;
     }

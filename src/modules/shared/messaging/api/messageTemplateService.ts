@@ -96,6 +96,7 @@ export function createMessageTemplateService(
     }
 
     await model.createMany({
+      skipDuplicates: true,
       data: DEFAULT_MESSAGE_TEMPLATES.map((template) => ({
         slug: template.id,
         title: template.title,

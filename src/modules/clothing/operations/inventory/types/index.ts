@@ -85,6 +85,8 @@ export interface InventoryMovementFromAPI {
   quantity: number;
   fromBucket: InventoryBucket;
   toBucket: InventoryBucket;
+  movementSource?: string | null;
+  movementType?: string | null;
   supplierShortResolution?: SupplierShortResolution | null;
   supplierShortExpectedShipmentCode?: string | null;
   supplierCreditReference?: string | null;

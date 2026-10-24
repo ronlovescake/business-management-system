@@ -5,6 +5,7 @@ This index is the shortest path to the domain and workspace logic documents with
 ## Clothing
 
 - [Business overview](./business-logic/clothing/business-overview.md)
+- [Integrity audit and remediation](./reports/CLOTHING_INTEGRITY_AUDIT_2026-10-24.md)
 
 ### Operations
 

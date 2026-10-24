@@ -60,6 +60,7 @@ export function buildInventoryItems(
   const mixReservedQtyByProduct = new Map<string, number>();
   const mixSoldQtyByProduct = new Map<string, number>();
   const scrapQtyByProduct = new Map<string, number>();
+  const returnedStockQtyByProduct = new Map<string, number>();
   const additionalsQtyByProduct = new Map<string, number>();
   const transferSellableDeltaByProduct = new Map<string, number>();
   const totalSalesByProduct = new Map<string, number>();
@@ -186,6 +187,17 @@ export function buildInventoryItems(
     }
 
     const qty = movement.quantity ?? 0;
+    if (
+      movement.fromBucket === 'sold' &&
+      (movement.toBucket === 'sellable' ||
+        movement.toBucket === 'damaged_hold' ||
+        movement.toBucket === 'scrap')
+    ) {
+      returnedStockQtyByProduct.set(
+        normalizedProductCode,
+        (returnedStockQtyByProduct.get(normalizedProductCode) ?? 0) + qty
+      );
+    }
     const isAdditionalsMovement = (movement.notes ?? '')
       .toLowerCase()
       .startsWith(ADDITIONALS_NOTE_PREFIX);
@@ -256,12 +268,26 @@ export function buildInventoryItems(
       }
     }
 
-    if (movement.toBucket !== 'scrap' || movement.fromBucket === 'scrap') {
+    const isScrapReversal =
+      movement.fromBucket === 'scrap' &&
+      movement.toBucket === 'sellable' &&
+      movement.movementSource === 'inventory_adjustment';
+    if (
+      !isScrapReversal &&
+      (movement.toBucket !== 'scrap' || movement.fromBucket === 'scrap')
+    ) {
       return;
     }
 
     const current = scrapQtyByProduct.get(normalizedProductCode) ?? 0;
-    scrapQtyByProduct.set(normalizedProductCode, current + qty);
+    scrapQtyByProduct.set(
+      normalizedProductCode,
+      current + (isScrapReversal ? -qty : qty)
+    );
+  });
+
+  scrapQtyByProduct.forEach((quantity, code) => {
+    scrapQtyByProduct.set(code, Math.max(quantity, 0));
   });
 
   const actualQuantityByProduct = new Map<string, number>();
@@ -287,13 +313,21 @@ export function buildInventoryItems(
       transferSellableDeltaByProduct.get(normalizedProductCode) || 0;
     const committedQty = committedQtyByProduct.get(normalizedProductCode) || 0;
     const soldQty = soldQtyByProduct.get(normalizedProductCode) || 0;
+    const scrapQty = scrapQtyByProduct.get(normalizedProductCode) || 0;
+    const returnedStockQty =
+      returnedStockQtyByProduct.get(normalizedProductCode) || 0;
 
     const actualQuantityReceived = Math.max(
       quantity + additionalsQty - manualSupplierShortQty - damagedOnHand,
       0
     );
     const directSellableQty = Math.max(
-      actualQuantityReceived - committedQty - soldQty + transferSellableDelta,
+      actualQuantityReceived -
+        committedQty -
+        soldQty -
+        scrapQty +
+        returnedStockQty +
+        transferSellableDelta,
       0
     );
 
@@ -401,6 +435,8 @@ export function buildInventoryItems(
       (soldQtyByProduct.get(normalizedProductCode) || 0) +
       (mixSoldQtyByProduct.get(normalizedProductCode) || 0);
     const scrapQty = scrapQtyByProduct.get(normalizedProductCode) || 0;
+    const returnedStockQty =
+      returnedStockQtyByProduct.get(normalizedProductCode) || 0;
     const additionalsQty = Math.max(
       additionalsQtyByProduct.get(normalizedProductCode) || 0,
       0
@@ -414,7 +450,12 @@ export function buildInventoryItems(
         0
       );
     const sellableOnHand = Math.max(
-      actualQuantityReceived - committedQty - soldQty + transferSellableDelta,
+      actualQuantityReceived -
+        committedQty -
+        soldQty -
+        scrapQty +
+        returnedStockQty +
+        transferSellableDelta,
       0
     );
     const reservedOnHand = Math.max(committedQty, 0);

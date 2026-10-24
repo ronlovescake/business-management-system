@@ -2,6 +2,19 @@
 
 > **Note:** In the navigation sidebar this module is labelled **"Invoicing"**. The underlying route is `/checkout-links`.
 
+## CSV Persistence Contract
+
+Import and export share a PapaParse schema for Weight, Width, Length, Height,
+Checkout Links, Product Portals, and Product Names. Reordered columns and legacy
+header spellings are accepted; quoted commas/newlines/quotes round-trip. Invalid
+headers, dimensions, field counts, and malformed CSV fail before saving.
+
+Import retains the prior list until POST succeeds and canonical records reload.
+It never invents IDs; immediate edit/delete therefore targets database records.
+Save failures retain the list. If persistence succeeds but refresh fails, the
+message says so without showing a fabricated local replacement. Import stays
+busy through persistence and reload.
+
 > **Source files:**
 >
 > - `src/modules/clothing/operations/checkout-links/hooks/useCheckoutLinksPage.ts`

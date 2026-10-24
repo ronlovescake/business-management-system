@@ -55,6 +55,9 @@ type TransitBuildPatchRequestBody = {
  */
 /* eslint-disable @typescript-eslint/no-explicit-any */
 export interface TransitBuildDelegates {
+  enforceExclusiveSource?: boolean;
+  hasActiveReclass?: (shipmentCode: string) => Promise<boolean>;
+  hasActiveSupplierSettlement?: (shipmentCode: string) => Promise<boolean>;
   shipmentModel: {
     findUnique: (...args: any[]) => Promise<{
       id: number;
@@ -92,6 +95,20 @@ export interface TransitBuildDelegates {
 export function createTransitBuildRoutes<T extends TransitBuildDelegates>(
   delegates: T
 ) {
+  const reclassConflict = async (shipmentCode: string) => {
+    if (await delegates.hasActiveReclass?.(shipmentCode)) {
+      return ApiResponse.conflict(
+        'Transit build-up has already been reclassified. Reverse the reclassification before changing its source.'
+      );
+    }
+    if (await delegates.hasActiveSupplierSettlement?.(shipmentCode)) {
+      return ApiResponse.conflict(
+        'Transit build-up has supplier settlements. Reverse the settlements before changing their source.'
+      );
+    }
+    return null;
+  };
+
   const GET = withErrorHandler<RouteContext>(
     async (_request: NextRequest, context) => {
       const idResult = parseShipmentId(context);
@@ -289,6 +306,11 @@ export function createTransitBuildRoutes<T extends TransitBuildDelegates>(
 
       const debitAccount = 'Inventory in Transit';
 
+      const conflict = await reclassConflict(shipmentCode);
+      if (conflict) {
+        return conflict;
+      }
+
       // Prevent accidentally mixing old single-entry mode with new split mode.
       const existingBuildEntries = (await delegates.transitBuildModel.findMany({
         where: { shipmentCode, deletedAt: null },
@@ -296,6 +318,29 @@ export function createTransitBuildRoutes<T extends TransitBuildDelegates>(
       })) as Array<{ idempotencyKey: string }>;
 
       const hasAnyExisting = existingBuildEntries.length > 0;
+      if (
+        delegates.enforceExclusiveSource &&
+        existingBuildEntries.some((row) => {
+          if (
+            !row.idempotencyKey.startsWith(
+              `SHIPMENT_TRANSIT_BUILD:${shipmentCode}:`
+            )
+          ) {
+            return true;
+          }
+          const existingIsSplit = row.idempotencyKey.includes(':SPLIT:');
+          return (
+            existingIsSplit !== isSplitMode ||
+            (!isSplitMode &&
+              row.idempotencyKey !==
+                `SHIPMENT_TRANSIT_BUILD:${shipmentCode}:${creditAccountRaw}`)
+          );
+        })
+      ) {
+        return ApiResponse.conflict(
+          'A different transit build-up source already exists for this shipment. Resolve it before posting another source.'
+        );
+      }
       const isLegacyOnly = existingBuildEntries.some(
         (row) =>
           row.idempotencyKey.startsWith(
@@ -478,6 +523,16 @@ export function createTransitBuildRoutes<T extends TransitBuildDelegates>(
       }
 
       const partKeys = parts.map((part) => part.key);
+      if (
+        delegates.enforceExclusiveSource &&
+        existingBuildEntries.some(
+          (row) => !partKeys.includes(row.idempotencyKey)
+        )
+      ) {
+        return ApiResponse.conflict(
+          'Resolve existing split parts before changing the funding allocation.'
+        );
+      }
       const existingParts = (await delegates.transitBuildModel.findMany({
         where: { idempotencyKey: { in: partKeys }, deletedAt: null },
         select: { idempotencyKey: true },
@@ -656,6 +711,17 @@ export function createTransitBuildRoutes<T extends TransitBuildDelegates>(
         });
       }
 
+      if (
+        next.amount !== undefined ||
+        next.creditAccount !== undefined ||
+        next.postingDate !== undefined
+      ) {
+        const conflict = await reclassConflict(shipmentCode);
+        if (conflict) {
+          return conflict;
+        }
+      }
+
       const updated = (await delegates.transitBuildModel.update({
         where: { id: existing.id },
         data: { ...next, deletedAt: null },
@@ -743,6 +809,11 @@ export function createTransitBuildRoutes<T extends TransitBuildDelegates>(
 
       if (!existing) {
         return ApiResponse.notFound('Transit build-up entry');
+      }
+
+      const conflict = await reclassConflict(shipmentCode);
+      if (conflict) {
+        return conflict;
       }
 
       const deletedAt = new Date();

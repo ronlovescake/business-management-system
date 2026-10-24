@@ -1,17 +1,24 @@
 # Clothing — Dispatching Business Logic
 
-> **Status: Placeholder / Upcoming Module**
+> **Status: Retired Clothing Alias**
 >
-> This module exists in the sidebar navigation but is not yet fully implemented.
-> The underlying `DispatchingComponent` is a scaffold with mock data and simulation-only actions.
+> `/clothing/operations/dispatching` redirects to the real
+> `/clothing/operations/dispatch` workflow. Module metadata points to Dispatch.
+> Clothing no longer presents sample rows or simulated CRUD as operational work.
 
 > **Source files:**
 >
 > - `src/modules/clothing/operations/dispatching/components/DispatchingComponent.tsx`
+> - `src/app/clothing/operations/dispatching/page.tsx`
+> - `src/app/api/modules/route.ts`
 
 ---
 
-## A — Current State
+## A — Historical Scaffold
+
+The following describes the retained shared component, not the clothing route.
+General merchandise still consumes it; deleting it requires separate caller
+migration. Existing clothing bookmarks use the compatibility redirect.
 
 | #   | Logic                                                                        | Explanation                                                                                                                                                                          |
 | --- | ---------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
@@ -23,7 +30,7 @@
 
 ---
 
-## B — Planned Functionality
+## B — Historical Plan
 
 | #   | Logic                                                             | Explanation                                                                                                                           |
 | --- | ----------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |

@@ -5,6 +5,18 @@ import {
 } from '../transaction-refund.validation';
 
 describe('transaction refund limits', () => {
+  it('does not subtract the per-item discount again when the total is absent', () => {
+    expect(
+      computeTransactionRefundLimit({
+        lineTotal: null,
+        adjustment: 900,
+        quantity: 10,
+        unitPrice: 95,
+        discount: 5,
+      })
+    ).toBe(950);
+  });
+
   it('includes prior payments when computing the maximum refundable amount', () => {
     expect(
       computeTransactionRefundLimit({

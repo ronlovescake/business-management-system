@@ -148,6 +148,24 @@ async function deactivateMixAutoMovements(
   ]);
 }
 
+export async function deactivateInventoryMovementsForTransaction(
+  client: TransactionClientLike,
+  transactionId: number
+) {
+  await deactivateAllAutoMovements(
+    client,
+    buildAutoMovementNotes(transactionId)
+  );
+  await client.inventoryMovement.updateMany({
+    where: {
+      sourceTransactionId: transactionId,
+      movementSource: 'transaction',
+      deletedAt: null,
+    },
+    data: { deletedAt: new Date() },
+  });
+}
+
 function deriveMovementState(
   transaction: TransactionForInventorySync
 ): DerivedMovementState {

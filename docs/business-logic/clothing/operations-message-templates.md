@@ -1,5 +1,8 @@
 # Clothing — Message Templates Business Logic
 
+Default initialization uses duplicate-safe inserts so concurrent first page
+loads do not fail on the same default slug. Saved templates are not overwritten.
+
 > **Source files:**
 >
 > - `src/modules/clothing/operations/settings/components/InvoiceMessageTab.tsx`

@@ -14,9 +14,12 @@ const { mockProductService } = vi.hoisted(() => ({
 
 vi.mock('@/modules/products/api/service', () => ({
   productService: mockProductService,
+  ProductShipmentAccountingConflictError: class extends Error {},
+  ProductSupplierSettlementError: class extends Error {},
 }));
 
 import { GET, POST, PUT, DELETE } from '@/app/api/products/route';
+import { ProductShipmentAccountingConflictError } from '@/modules/products/api/service';
 
 type NextRequestInit = ConstructorParameters<typeof NextRequest>[1];
 
@@ -93,6 +96,19 @@ describe('Products API Routes', () => {
   });
 
   describe('POST /api/products', () => {
+    it('returns 409 for an import accounting dependency conflict', async () => {
+      mockProductService.bulkImport.mockRejectedValue(
+        new ProductShipmentAccountingConflictError('SHIP-1')
+      );
+      const response = await POST(
+        buildRequest('/api/products', {
+          method: 'POST',
+          body: JSON.stringify([sampleProduct, sampleProduct]),
+        })
+      );
+      expect(response.status).toBe(409);
+    });
+
     it('creates a single product when array length is 1', async () => {
       mockProductService.createSingle.mockResolvedValue({
         ...sampleProduct,

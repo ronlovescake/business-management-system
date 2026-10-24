@@ -10,6 +10,14 @@ tiers. Composite SKU pricing still follows the separate split/bundle/mix rules.
 Tier rows linked by `Product.id` follow product-code changes without changing
 previous transaction unit prices.
 
+## Safe Edit Recalculation
+
+Tier clearing uses the same envelope-aware, composite-aware lookup as normal
+edits. Responses apply only while the same modal snapshot and request version
+remain current. Changing products, editing values, resetting, closing, or
+unmounting invalidates older responses. A stale submit does not save a prior
+snapshot. Async recalculation does not run inside React state updaters.
+
 > **Source files:**
 >
 > - `src/modules/clothing/operations/prices/services/PriceService.ts`

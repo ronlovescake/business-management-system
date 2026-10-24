@@ -35,15 +35,20 @@ export const hasMinimumCreateFields = (draft: TransactionData): boolean => {
 };
 
 export const computeRemainingBalance = (row: TransactionData): number => {
-  const lineTotal = Number(row['Line Total']);
+  const storedTotal = row['Line Total'];
+  const lineTotal =
+    storedTotal === null ||
+    storedTotal === undefined ||
+    (typeof storedTotal === 'string' && String(storedTotal).trim() === '')
+      ? Number.NaN
+      : Number(storedTotal);
   if (Number.isFinite(lineTotal)) {
     return lineTotal;
   }
 
   const quantity = Number(row.Quantity) || 0;
   const unitPrice = Number(row['Unit Price']) || 0;
-  const discount = Number(row.Discount) || 0;
   const adjustment = Number(row.Adjustment) || 0;
 
-  return quantity * unitPrice - discount - adjustment;
+  return quantity * unitPrice - adjustment;
 };

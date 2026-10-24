@@ -6,7 +6,9 @@ import {
 import {
   hasMinimumCreateFields,
   computeRemainingBalance,
+  createEmptyTransaction,
 } from '@/modules/clothing/operations/transactions/hooks/transactionDraftUtils';
+import { computeRemainingBalance as computeServiceRemainingBalance } from '@/modules/transactions/api/service-calculations';
 import {
   truncateText,
   isPaidOrderStatus,
@@ -192,7 +194,7 @@ describe('computeRemainingBalance', () => {
     expect(computeRemainingBalance(row)).toBe(200);
   });
 
-  it('computes balance from qty/price/discount/adjustment when lineTotal is missing', () => {
+  it('computes balance from net unit price and adjustment when lineTotal is missing', () => {
     const row = {
       'Order Date': '',
       Customers: '',
@@ -208,8 +210,63 @@ describe('computeRemainingBalance', () => {
       'Packed Date': '',
       'Shipment Code': '',
     };
-    // 3 * 200 - 50 - 100 = 450
-    expect(computeRemainingBalance(row)).toBe(450);
+    expect(computeRemainingBalance(row)).toBe(500);
+  });
+
+  it.each([null, undefined, NaN, ''])(
+    'uses the net-price fallback for absent total %s',
+    (lineTotal) => {
+      const row = {
+        ...createEmptyTransaction(),
+        Quantity: 10,
+        'Unit Price': 95,
+        Discount: 5,
+        Adjustment: 900,
+        'Line Total': lineTotal as number,
+      };
+      expect(computeRemainingBalance(row)).toBe(50);
+      expect(
+        computeServiceRemainingBalance({
+          lineTotal,
+          quantity: 10,
+          unitPrice: 95,
+          discount: 5,
+          adjustment: 900,
+        })
+      ).toBe(50);
+    }
+  );
+
+  it.each([0, '0'])('preserves an explicit zero total %s', (lineTotal) => {
+    expect(
+      computeRemainingBalance({
+        ...createEmptyTransaction(),
+        Quantity: 10,
+        'Unit Price': 95,
+        'Line Total': lineTotal as number,
+      })
+    ).toBe(0);
+    expect(
+      computeServiceRemainingBalance({
+        lineTotal,
+        quantity: 10,
+        unitPrice: 95,
+        discount: 5,
+        adjustment: 0,
+      })
+    ).toBe(0);
+  });
+
+  it('preserves a negative adjustment surcharge in the fallback', () => {
+    expect(
+      computeServiceRemainingBalance({
+        lineTotal: null,
+        quantity: 10,
+        unitPrice: 95,
+        discount: 5,
+        adjustment: -50,
+      })
+    ).toBe(1000);
   });
 });
 

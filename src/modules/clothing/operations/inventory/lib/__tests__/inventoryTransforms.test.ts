@@ -227,9 +227,137 @@ describe('buildInventoryItems', () => {
     const abc = items.find((i) => i.productCode === 'ABC-1');
 
     expect(abc).toBeDefined();
-    expect(abc?.sellableOnHand).toBe(10);
+    expect(abc?.sellableOnHand).toBe(7);
     expect(abc?.scrapQty).toBe(3);
     expect(abc?.actualQuantityReceived).toBe(10);
+  });
+
+  it.each([
+    { bucket: 'sellable' as const, available: 85, damaged: 0, scrap: 0 },
+    { bucket: 'damaged_hold' as const, available: 80, damaged: 5, scrap: 0 },
+    { bucket: 'scrap' as const, available: 80, damaged: 0, scrap: 5 },
+    { bucket: 'reserved' as const, available: 80, damaged: 0, scrap: 0 },
+    { bucket: 'assembly_wip' as const, available: 80, damaged: 0, scrap: 0 },
+  ])(
+    'accounts for physical returns to $bucket exactly once',
+    ({ bucket, available, damaged, scrap }) => {
+      const products: ProductFromAPI[] = [
+        {
+          id: 'p1',
+          'Product Code': 'ABC-1',
+          Quantity: 100,
+          COGS: 0,
+          'Actual Price': 5,
+          'Shipment Code': null,
+          'Shipment Status': 'Delivered',
+        },
+      ];
+      const transactions: TransactionFromAPI[] = [
+        {
+          id: 't1',
+          'Product Code': 'ABC-1',
+          Quantity: 20,
+          'Unit Price': 10,
+          'Order Status': 'Shipped',
+        },
+      ];
+      const movements: InventoryMovementFromAPI[] = [
+        {
+          id: 1,
+          productCode: 'ABC-1',
+          quantity: 5,
+          fromBucket: 'sold',
+          toBucket: bucket,
+          notes: 'auto-return refund 1',
+        },
+      ];
+
+      const [item] = buildInventoryItems(products, transactions, [], movements);
+
+      expect(item.availableStock).toBe(available);
+      expect(item.damagedOnHand).toBe(damaged);
+      expect(item.scrapQty).toBe(scrap);
+    }
+  );
+
+  it('does not release sellable stock when damaged goods are scrapped', () => {
+    const products: ProductFromAPI[] = [
+      {
+        id: 'p1',
+        'Product Code': 'ABC-1',
+        Quantity: 100,
+        COGS: 0,
+        'Actual Price': 5,
+        'Shipment Code': null,
+        'Shipment Status': 'Delivered',
+      },
+    ];
+    const movements: InventoryMovementFromAPI[] = [
+      {
+        id: 1,
+        productCode: 'ABC-1',
+        quantity: 10,
+        fromBucket: 'sellable',
+        toBucket: 'damaged_hold',
+      },
+      {
+        id: 2,
+        productCode: 'ABC-1',
+        quantity: 5,
+        fromBucket: 'damaged_hold',
+        toBucket: 'scrap',
+      },
+    ];
+
+    const [item] = buildInventoryItems(products, [], [], movements);
+
+    expect(item.availableStock).toBe(90);
+    expect(item.damagedOnHand).toBe(5);
+    expect(item.scrapQty).toBe(5);
+  });
+
+  it('reverses manual scrap without treating the original receipt as a reversal', () => {
+    const products: ProductFromAPI[] = [
+      {
+        id: 'p1',
+        'Product Code': 'ABC-1',
+        Quantity: 10,
+        COGS: 0,
+        'Actual Price': 5,
+        'Shipment Code': null,
+        'Shipment Status': 'Delivered',
+      },
+    ];
+    const movements: InventoryMovementFromAPI[] = [
+      {
+        id: 1,
+        productCode: 'ABC-1',
+        quantity: 10,
+        fromBucket: 'scrap',
+        toBucket: 'sellable',
+      },
+      {
+        id: 2,
+        productCode: 'ABC-1',
+        quantity: 3,
+        fromBucket: 'sellable',
+        toBucket: 'scrap',
+      },
+      {
+        id: 3,
+        productCode: 'ABC-1',
+        quantity: 2,
+        fromBucket: 'scrap',
+        toBucket: 'sellable',
+        movementSource: 'inventory_adjustment',
+      },
+    ];
+
+    const [item] = buildInventoryItems(products, [], [], movements);
+
+    expect(item.availableStock).toBe(9);
+    expect(item.scrapQty).toBe(1);
+    expect(item.actualQuantityReceived).toBe(10);
   });
 
   it('does not auto-create supplier short quantities from PO vs received', () => {

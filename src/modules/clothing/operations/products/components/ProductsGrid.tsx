@@ -150,6 +150,7 @@ export const ProductsGrid = memo(function ProductsGrid({
 
       <Stack gap="md">
         <ProductsGridControls
+          apiBasePath={apiBasePath}
           searchQuery={searchQuery}
           onSearchChange={handleSearch}
           isEditMode={isEditMode}

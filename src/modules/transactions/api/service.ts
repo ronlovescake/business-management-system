@@ -26,6 +26,7 @@ export {
 import {
   computeLineTotalForUpdate,
   computeRemainingBalance,
+  isPaidStatus,
 } from './service-calculations';
 import { calculateAccountsReceivableDueDate } from '@/lib/transactions/accounts-receivable';
 import { isClothingAccountsReceivableStatus } from '@/lib/transactions/order-status';
@@ -50,6 +51,7 @@ import {
 import {
   assertCanSetPaidStatus,
   assertOrderStatusNotBackwardToInTransit,
+  deactivateInventoryMovementsForTransaction,
   syncInventoryMovementsForTransaction,
 } from './transactionInventorySync';
 
@@ -815,10 +817,78 @@ export const transactionService: TransactionService = {
       where: { deletedAt: { not: null } },
     });
 
-    const result = await prisma.transaction.updateMany({
-      where: { deletedAt: null },
-      data: { deletedAt: new Date() },
-    });
+    const result = await prisma.$transaction(
+      async (tx) => {
+        const transactions = await tx.transaction.findMany({
+          where: { deletedAt: null },
+          include: {
+            payments: { where: { deletedAt: null }, take: 1 },
+            refunds: { where: { deletedAt: null }, take: 1 },
+            statusChanges: { select: { newStatus: true } },
+          },
+        });
+        for (const transaction of transactions) {
+          if (
+            isFulfilledStatus(transaction.orderStatus) ||
+            isPaidStatus(transaction.orderStatus) ||
+            transaction.statusChanges?.some(
+              (change) =>
+                isFulfilledStatus(change.newStatus) ||
+                isPaidStatus(change.newStatus)
+            ) ||
+            (transaction.adjustment ?? 0) > 0 ||
+            (transaction.refundAmount ?? 0) > 0 ||
+            (transaction.refundQty ?? 0) > 0 ||
+            transaction.shippedAt ||
+            transaction.packedDate ||
+            transaction.invoiceDate ||
+            transaction.payments.length > 0 ||
+            transaction.refunds.length > 0
+          ) {
+            throw new TransactionValidationError(
+              'Cannot mass-delete transactions with payment, refund, invoice or shipment history. Use the supported reversal workflow.'
+            );
+          }
+        }
+
+        const ids = transactions.map((transaction) => transaction.id);
+        if (ids.length === 0) {
+          return { count: 0 };
+        }
+        const postedMovement = await tx.inventoryMovement.findFirst({
+          where: {
+            deletedAt: null,
+            AND: [
+              { OR: [{ fromBucket: 'sold' }, { toBucket: 'sold' }] },
+              {
+                OR: [
+                  { sourceTransactionId: { in: ids } },
+                  ...ids.flatMap((id) => [
+                    { notes: `auto-sale txn ${id}` },
+                    { notes: { startsWith: `auto-sale txn ${id} mix ` } },
+                  ]),
+                ],
+              },
+            ],
+          },
+          select: { id: true },
+        });
+        if (postedMovement) {
+          throw new TransactionValidationError(
+            'Cannot mass-delete transactions with posted inventory movements. Reverse them first.'
+          );
+        }
+
+        for (const transaction of transactions) {
+          await deactivateInventoryMovementsForTransaction(tx, transaction.id);
+        }
+        return tx.transaction.updateMany({
+          where: { id: { in: ids }, deletedAt: null },
+          data: { deletedAt: new Date() },
+        });
+      },
+      { isolationLevel: 'Serializable' }
+    );
 
     await logOperationNotification(
       'transactions',

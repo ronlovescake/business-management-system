@@ -1,7 +1,281 @@
-import { describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { randomUUID } from 'crypto';
 import { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/db';
+import { NextRequest } from 'next/server';
+import { productService } from '@/modules/products/api/service';
+import { mapToDTO } from '@/modules/products/api/dto';
+import { POST as createShipmentTransit } from '@/app/api/shipments/[id]/transit-build/route';
+import { POST as reclassifyShipment } from '@/app/api/shipments/[id]/transit-reclass/route';
+import { PATCH as patchTransit } from '@/app/api/accounting/transit-build/route';
+import { getTestApiUrl } from '@/core/testing/test-helpers';
+import { getServerSession } from 'next-auth/next';
+
+vi.mock('next-auth/next', () => ({
+  getServerSession: vi.fn(),
+}));
+beforeEach(() => {
+  vi.mocked(getServerSession).mockResolvedValue({
+    user: {
+      id: 'integration-admin',
+      name: 'Integration Admin',
+      email: 'integration@example.test',
+      role: 'ADMIN',
+    },
+    expires: '2099-01-01T00:00:00.000Z',
+  });
+});
+
+let failSettlementForProduct: string | null = null;
+prisma.$use(async (parameters, next) => {
+  if (
+    failSettlementForProduct &&
+    parameters.model === 'ClothingAccountingJournalLine' &&
+    parameters.action === 'upsert'
+  ) {
+    const source = parameters.args.where.sourceType_sourceId_sourceLineKey;
+    if (
+      source.sourceId === failSettlementForProduct &&
+      source.sourceLineKey === 'SUPPLIER_SETTLEMENT:credit'
+    ) {
+      throw new Error('INJECTED_SECOND_SETTLEMENT_LINE_FAILURE');
+    }
+  }
+  return next(parameters);
+});
+
+async function createClothingAccountingFixture() {
+  const shipmentCode = `AUDIT-${randomUUID().slice(0, 8)}`;
+  const shipment = await prisma.shipment.create({
+    data: {
+      shipmentCode,
+      shipmentStatus: 'Delivered',
+      dateDelivered: '2026-10-24',
+    },
+  });
+  const product = await prisma.product.create({
+    data: {
+      product: 'Audit product',
+      productCode: shipmentCode,
+      shipmentCode,
+      payment: 'Unpaid',
+      paymentMethod: 'BANK',
+      postingDate: '2026-10-24',
+      unitPrice: 10,
+      exchangeRates: 1,
+      quantity: 10,
+      grandTotal: 100,
+      cogs: 100,
+    },
+  });
+  await prisma.inventoryMovement.create({
+    data: {
+      productId: product.id,
+      productCode: shipmentCode,
+      quantity: 10,
+      fromBucket: 'opening_inventory',
+      toBucket: 'sellable',
+      movementSource: 'product',
+      notes: `Receipt for product #${product.id}`,
+    },
+  });
+  return { shipment, product, shipmentCode };
+}
+
+async function createSupplierTransit(
+  fixture: Awaited<ReturnType<typeof createClothingAccountingFixture>>
+) {
+  return prisma.clothingInventoryTransitBuildEntry.create({
+    data: {
+      postingDate: new Date('2026-10-24T00:00:00Z'),
+      shipmentCode: fixture.shipmentCode,
+      amount: 100,
+      debitAccount: 'Inventory in Transit',
+      creditAccount: 'Supplier Payable',
+      idempotencyKey: `PRODUCT_TRANSIT_BUILD:${fixture.product.id}:GRAND_TOTAL`,
+    },
+  });
+}
+
+describe('Integration • Clothing accounting lifecycle', () => {
+  it('rolls back the product and first journal line when the second settlement write fails', async () => {
+    const fixture = await createClothingAccountingFixture();
+    await createSupplierTransit(fixture);
+    failSettlementForProduct = String(fixture.product.id);
+    try {
+      await expect(
+        productService.bulkUpdate([
+          {
+            ...mapToDTO(fixture.product),
+            Payment: 'Paid',
+            'Payment Method': 'BANK',
+          },
+        ])
+      ).rejects.toThrow('INJECTED_SECOND_SETTLEMENT_LINE_FAILURE');
+    } finally {
+      failSettlementForProduct = null;
+    }
+    expect(
+      (
+        await prisma.product.findUniqueOrThrow({
+          where: { id: fixture.product.id },
+        })
+      ).payment
+    ).toBe('Unpaid');
+    expect(
+      await prisma.clothingAccountingJournalLine.count({
+        where: { sourceType: 'PRODUCT', sourceId: String(fixture.product.id) },
+      })
+    ).toBe(0);
+  });
+
+  it('settles and retries Paid idempotently without changing posting dates', async () => {
+    const fixture = await createClothingAccountingFixture();
+    const transit = await createSupplierTransit(fixture);
+    const paid = {
+      ...mapToDTO(fixture.product),
+      Payment: 'Paid',
+      'Payment Method': 'BANK',
+    };
+    await productService.bulkUpdate([paid]);
+    const where = {
+      sourceType: 'PRODUCT',
+      sourceId: String(fixture.product.id),
+    };
+    const before = await prisma.clothingAccountingJournalLine.findMany({
+      where,
+      orderBy: { sourceLineKey: 'asc' },
+    });
+    await productService.bulkUpdate([paid]);
+    expect(
+      await prisma.clothingAccountingJournalLine.findMany({
+        where,
+        orderBy: { sourceLineKey: 'asc' },
+      })
+    ).toEqual(before);
+    expect(before).toHaveLength(2);
+    expect(
+      before.reduce((total, line) => total + line.debit - line.credit, 0)
+    ).toBe(0);
+    expect(before.reduce((total, line) => total + line.debit, 0)).toBe(100);
+    const response = await patchTransit(
+      new NextRequest(getTestApiUrl('/api/accounting/transit-build'), {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ entryId: transit.id, amount: 50 }),
+      })
+    );
+    expect(response.status).toBe(409);
+    expect(
+      (
+        await prisma.clothingInventoryTransitBuildEntry.findUniqueOrThrow({
+          where: { id: transit.id },
+        })
+      ).amount
+    ).toBe(100);
+  });
+
+  it('restores the same soft-deleted transit row rather than purging or skipping it', async () => {
+    const fixture = await createClothingAccountingFixture();
+    const entry = await createSupplierTransit(fixture);
+    await prisma.clothingInventoryTransitBuildEntry.delete({
+      where: { id: entry.id },
+    });
+    expect(
+      await prisma.clothingInventoryTransitBuildEntry.count({
+        where: { id: entry.id },
+      })
+    ).toBe(0);
+    expect(
+      (
+        await productService.postManualTransitBuildUpByShipmentCode({
+          shipmentCode: fixture.shipmentCode,
+        })
+      ).created
+    ).toBe(1);
+    const restored =
+      await prisma.clothingInventoryTransitBuildEntry.findUniqueOrThrow({
+        where: { id: entry.id },
+      });
+    expect(restored.idempotencyKey).toBe(entry.idempotencyKey);
+    expect(restored.deletedAt).toBeNull();
+    expect(restored.amount).toBe(100);
+  });
+
+  it('cannot commit both product-origin and shipment-origin sources concurrently', async () => {
+    const fixture = await createClothingAccountingFixture();
+    const results = await Promise.allSettled([
+      productService.postManualTransitBuildUpByShipmentCode({
+        shipmentCode: fixture.shipmentCode,
+      }),
+      createShipmentTransit(
+        new NextRequest(
+          getTestApiUrl(`/api/shipments/${fixture.shipment.id}/transit-build`),
+          {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              postingDate: '2026-10-24',
+              creditAccount: 'Cash',
+            }),
+          }
+        ),
+        { params: { id: String(fixture.shipment.id) } }
+      ),
+    ]);
+    const entries = await prisma.clothingInventoryTransitBuildEntry.findMany({
+      where: { shipmentCode: fixture.shipmentCode },
+    });
+    expect(entries).toHaveLength(1);
+    expect(entries[0].amount).toBe(100);
+    const shipmentResult = results[1];
+    expect(shipmentResult.status).toBe('fulfilled');
+    if (shipmentResult.status === 'fulfilled') {
+      expect([200, 409]).toContain(shipmentResult.value.status);
+    }
+  });
+
+  it('keeps reclassification and source amounts consistent during concurrent writes', async () => {
+    const fixture = await createClothingAccountingFixture();
+    const entry = await createSupplierTransit(fixture);
+    const responses = await Promise.all([
+      reclassifyShipment(
+        new NextRequest(
+          getTestApiUrl(
+            `/api/shipments/${fixture.shipment.id}/transit-reclass`
+          ),
+          {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ postingDate: '2026-10-24' }),
+          }
+        ),
+        { params: { id: String(fixture.shipment.id) } }
+      ),
+      patchTransit(
+        new NextRequest(getTestApiUrl('/api/accounting/transit-build'), {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ entryId: entry.id, amount: 50 }),
+        })
+      ),
+    ]);
+    for (const response of responses) {
+      expect([200, 409]).toContain(response.status);
+    }
+    const source =
+      await prisma.clothingInventoryTransitBuildEntry.findUniqueOrThrow({
+        where: { id: entry.id },
+      });
+    const reclass = await prisma.clothingInventoryReclassEntry.findMany({
+      where: { shipmentCode: fixture.shipmentCode },
+    });
+    expect(reclass.length).toBeLessThanOrEqual(1);
+    if (reclass.length > 0) {
+      expect(reclass[0].amount).toBe(source.amount);
+    }
+  });
+});
 
 const rawCount = async (tableName: string) => {
   const [row] = await prisma.$queryRawUnsafe<{ count: number }[]>(

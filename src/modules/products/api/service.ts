@@ -1,4 +1,5 @@
 import { randomUUID } from 'crypto';
+import { hasSupplierSettlementForTransitKeys } from '@/lib/accounting/supplier-settlement-dependencies';
 import type { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
@@ -48,11 +49,21 @@ function buildProductTransitBuildIdempotencyKey(productId: number): string {
   return `PRODUCT_TRANSIT_BUILD:${productId}:`;
 }
 
-async function postSupplierSettlementForProduct(params: {
-  productId: number;
-  productCode: string | null;
-  shipmentCode: string | null;
-}): Promise<void> {
+async function postSupplierSettlementForProduct(
+  params: {
+    productId: number;
+    productCode: string | null;
+    shipmentCode: string | null;
+    paymentMethod: string | null;
+    existingSettlement: Array<{
+      sourceLineKey: string;
+      account: string;
+      debit: number;
+      credit: number;
+    }>;
+  },
+  tx: Prisma.TransactionClient
+): Promise<void> {
   const { productId, productCode, shipmentCode } = params;
 
   const today = normalizeToUtcMidnight(new Date());
@@ -60,27 +71,8 @@ async function postSupplierSettlementForProduct(params: {
     return;
   }
 
-  const product = await prisma.product.findUnique({
-    where: { id: productId },
-    select: { paymentMethod: true },
-  });
-  const settlementCreditAccount = getSupplierSettlementCreditAccount(
-    product?.paymentMethod
-  );
-  if (!settlementCreditAccount) {
-    logger.warn(
-      'Skip supplier settlement: payment method is missing or unknown',
-      {
-        productId,
-        productCode,
-        shipmentCode,
-      }
-    );
-    return;
-  }
-
-  const transitBuildRows = await prisma.clothingInventoryTransitBuildEntry
-    .findMany({
+  const transitBuildRows = await tx.clothingInventoryTransitBuildEntry.findMany(
+    {
       where: {
         deletedAt: null,
         idempotencyKey: {
@@ -89,8 +81,8 @@ async function postSupplierSettlementForProduct(params: {
         creditAccount: SUPPLIER_PAYABLE_ACCOUNT,
       },
       select: { amount: true },
-    })
-    .catch(() => []);
+    }
+  );
 
   if (transitBuildRows.length === 0) {
     logger.info('Skip supplier settlement: missing transit build-up entry', {
@@ -109,6 +101,60 @@ async function postSupplierSettlementForProduct(params: {
     return;
   }
 
+  const settlementCreditAccount = getSupplierSettlementCreditAccount(
+    params.paymentMethod
+  );
+  if (!settlementCreditAccount) {
+    throw new ProductSupplierSettlementError(
+      "A supported Payment Method is required to settle this product's Supplier Payable."
+    );
+  }
+
+  const expectedLines = [
+    {
+      sourceLineKey: 'SUPPLIER_SETTLEMENT:debit',
+      account: SUPPLIER_PAYABLE_ACCOUNT,
+      debit: amount,
+      credit: 0,
+    },
+    {
+      sourceLineKey: 'SUPPLIER_SETTLEMENT:credit',
+      account: settlementCreditAccount,
+      debit: 0,
+      credit: amount,
+    },
+  ];
+  for (const line of params.existingSettlement) {
+    const expected = expectedLines.find(
+      (candidate) => candidate.sourceLineKey === line.sourceLineKey
+    );
+    if (
+      !expected ||
+      expected.account !== line.account ||
+      Math.round(expected.debit * 100) !== Math.round(line.debit * 100) ||
+      Math.round(expected.credit * 100) !== Math.round(line.credit * 100)
+    ) {
+      throw new ProductSupplierSettlementError(
+        'Supplier settlement already exists with different payment details. Reverse it before changing the payment.',
+        409
+      );
+    }
+  }
+  if (params.existingSettlement.length === 2) {
+    return;
+  }
+  const { getCurrentUser } = await import('@/lib/auth/session');
+  const user = await getCurrentUser();
+  if (!user) {
+    throw new ProductSupplierSettlementError('Authentication required', 401);
+  }
+  if (!['ADMIN', 'SUPER_ADMIN'].includes(user.role)) {
+    throw new ProductSupplierSettlementError(
+      'Only an administrator may post a supplier settlement.',
+      403
+    );
+  }
+
   const ref = productCode ? `PRODUCT:${productCode}` : `PRODUCT:${productId}`;
   const descriptionParts = [
     'Supplier payment settlement',
@@ -117,87 +163,101 @@ async function postSupplierSettlementForProduct(params: {
   ].filter(Boolean);
   const description = descriptionParts.join(' | ');
 
-  await prisma.$transaction(async (tx) => {
-    await tx.clothingAccountingJournalLine.upsert({
-      where: {
-        sourceType_sourceId_sourceLineKey: {
-          sourceType: 'PRODUCT',
-          sourceId: String(productId),
-          sourceLineKey: 'SUPPLIER_SETTLEMENT:debit',
-        },
-      },
-      create: {
-        date: today,
-        ref,
-        account: SUPPLIER_PAYABLE_ACCOUNT,
-        debit: amount,
-        credit: 0,
-        description,
+  const debitLine = await tx.clothingAccountingJournalLine.upsert({
+    where: {
+      sourceType_sourceId_sourceLineKey: {
         sourceType: 'PRODUCT',
         sourceId: String(productId),
         sourceLineKey: 'SUPPLIER_SETTLEMENT:debit',
-        systemGenerated: true,
       },
-      update: {
-        date: today,
-        ref,
-        account: SUPPLIER_PAYABLE_ACCOUNT,
-        debit: amount,
-        credit: 0,
-        description,
-        systemGenerated: true,
-      },
-    });
+    },
+    create: {
+      date: today,
+      ref,
+      account: SUPPLIER_PAYABLE_ACCOUNT,
+      debit: amount,
+      credit: 0,
+      description,
+      sourceType: 'PRODUCT',
+      sourceId: String(productId),
+      sourceLineKey: 'SUPPLIER_SETTLEMENT:debit',
+      systemGenerated: true,
+    },
+    update: {},
+  });
 
-    await tx.clothingAccountingJournalLine.upsert({
-      where: {
-        sourceType_sourceId_sourceLineKey: {
-          sourceType: 'PRODUCT',
-          sourceId: String(productId),
-          sourceLineKey: 'SUPPLIER_SETTLEMENT:credit',
-        },
-      },
-      create: {
-        date: today,
-        ref,
-        account: settlementCreditAccount,
-        debit: 0,
-        credit: amount,
-        description,
+  const creditLine = await tx.clothingAccountingJournalLine.upsert({
+    where: {
+      sourceType_sourceId_sourceLineKey: {
         sourceType: 'PRODUCT',
         sourceId: String(productId),
         sourceLineKey: 'SUPPLIER_SETTLEMENT:credit',
-        systemGenerated: true,
       },
-      update: {
-        date: today,
-        ref,
-        account: settlementCreditAccount,
-        debit: 0,
-        credit: amount,
-        description,
-        systemGenerated: true,
-      },
-    });
+    },
+    create: {
+      date: today,
+      ref,
+      account: settlementCreditAccount,
+      debit: 0,
+      credit: amount,
+      description,
+      sourceType: 'PRODUCT',
+      sourceId: String(productId),
+      sourceLineKey: 'SUPPLIER_SETTLEMENT:credit',
+      systemGenerated: true,
+    },
+    update: {},
   });
+  if (debitLine.deletedAt || creditLine.deletedAt) {
+    throw new ProductSupplierSettlementError(
+      'A deleted supplier settlement already owns these posting keys. Resolve or reverse it before retrying the payment.',
+      409
+    );
+  }
 }
 
-export async function postSupplierSettlementForProductPaymentChange(params: {
-  productId: number;
-  prevPayment: string | null | undefined;
-  nextPayment: string | null | undefined;
-  productCode: string | null;
-  shipmentCode: string | null;
-}): Promise<void> {
-  const { productId, prevPayment, nextPayment, productCode, shipmentCode } =
+export async function postSupplierSettlementForProductPaymentChange(
+  params: {
+    productId: number;
+    prevPayment: string | null | undefined;
+    nextPayment: string | null | undefined;
+    productCode: string | null;
+    shipmentCode: string | null;
+    paymentMethod: string | null;
+  },
+  tx: Prisma.TransactionClient
+): Promise<void> {
+  const { productId, nextPayment, productCode, shipmentCode, paymentMethod } =
     params;
 
-  if (isPaid(nextPayment) && !isPaid(prevPayment)) {
-    await postSupplierSettlementForProduct({
-      productId,
-      productCode,
-      shipmentCode,
-    });
+  const existingSettlement = await tx.clothingAccountingJournalLine.findMany({
+    where: {
+      sourceType: 'PRODUCT',
+      sourceId: String(productId),
+      deletedAt: null,
+      sourceLineKey: {
+        in: ['SUPPLIER_SETTLEMENT:debit', 'SUPPLIER_SETTLEMENT:credit'],
+      },
+    },
+    select: { sourceLineKey: true, account: true, debit: true, credit: true },
+  });
+  if (!isPaid(nextPayment) && existingSettlement.length > 0) {
+    throw new ProductSupplierSettlementError(
+      'Reverse the existing supplier settlement before changing the product to Unpaid.',
+      409
+    );
+  }
+  if (isPaid(nextPayment)) {
+    await postSupplierSettlementForProduct(
+      {
+        productId,
+        productCode,
+        shipmentCode,
+        paymentMethod,
+        existingSettlement,
+      },
+      tx
+    );
   }
 }
 
@@ -278,9 +338,98 @@ function isPaid(payment?: string | null): boolean {
 export class ProductShipmentAccountingConflictError extends Error {
   constructor(shipmentCode: string) {
     super(
-      `Cannot change Shipment Code from ${shipmentCode} while active transit-build or reclass entries exist. Reverse or resolve those entries first.`
+      `Cannot change Product Code or Shipment Code, or delete this product, while active transit-build, reclass, or supplier settlement entries exist for ${shipmentCode || 'this product'}. Reverse or resolve those entries first.`
     );
     this.name = 'ProductShipmentAccountingConflictError';
+  }
+}
+
+export class ProductSupplierSettlementError extends Error {
+  constructor(
+    message: string,
+    public readonly status: 400 | 401 | 403 | 409 = 400
+  ) {
+    super(message);
+  }
+}
+
+export async function assertProductAccountingIdentityChange(
+  client: Pick<
+    Prisma.TransactionClient,
+    | 'clothingInventoryTransitBuildEntry'
+    | 'clothingInventoryReclassEntry'
+    | 'clothingAccountingJournalLine'
+  >,
+  existing: {
+    id: number;
+    productCode: string | null;
+    shipmentCode: string | null;
+  },
+  next: { productCode?: string | null; shipmentCode?: string | null } | null
+): Promise<void> {
+  if (
+    next &&
+    (existing.productCode ?? '').trim() === (next.productCode ?? '').trim() &&
+    (existing.shipmentCode ?? '').trim() === (next.shipmentCode ?? '').trim()
+  ) {
+    return;
+  }
+
+  const [transitEntries, reclassEntries, settlementEntries] = await Promise.all(
+    [
+      client.clothingInventoryTransitBuildEntry.findMany({
+        where: {
+          deletedAt: null,
+          OR: [
+            {
+              idempotencyKey: {
+                startsWith: buildProductTransitBuildIdempotencyKey(existing.id),
+              },
+            },
+            ...(existing.shipmentCode
+              ? [
+                  {
+                    shipmentCode: existing.shipmentCode,
+                    idempotencyKey: { startsWith: 'SHIPMENT_TRANSIT_BUILD:' },
+                  },
+                ]
+              : []),
+          ],
+        },
+        select: { id: true },
+      }),
+      client.clothingInventoryReclassEntry.findMany({
+        where: {
+          deletedAt: null,
+          OR: [
+            { productId: existing.id },
+            ...(existing.productCode
+              ? [{ productCode: existing.productCode }]
+              : []),
+          ],
+        },
+        select: { id: true },
+      }),
+      client.clothingAccountingJournalLine.findMany({
+        where: {
+          deletedAt: null,
+          sourceType: 'PRODUCT',
+          sourceId: String(existing.id),
+          sourceLineKey: { startsWith: 'SUPPLIER_SETTLEMENT:' },
+        },
+        select: { id: true },
+      }),
+    ]
+  );
+
+  if (
+    transitEntries.length > 0 ||
+    reclassEntries.length > 0 ||
+    settlementEntries.length > 0
+  ) {
+    throw new ProductShipmentAccountingConflictError(
+      existing.shipmentCode ?? ''
+    );
   }
 }
 
@@ -516,72 +665,65 @@ export const productService: ProductService = {
 
   async bulkImport(payload) {
     const postings: Array<{ productId: number; dto: ProductDTO }> = [];
-    const settlements: Array<{
-      productId: number;
-      productCode: string | null;
-      shipmentCode: string | null;
-    }> = [];
 
-    const result = await prisma.$transaction(async (tx) => {
-      let created = 0;
-      let updated = 0;
-      let restored = 0;
+    const result = await prisma.$transaction(
+      async (tx) => {
+        let created = 0;
+        let updated = 0;
+        let restored = 0;
 
-      for (const dto of payload) {
-        const data = mapFromDTO(dto);
-        const productCode = data.productCode;
-        if (!productCode) {
-          continue;
-        }
+        for (const dto of payload) {
+          const data = mapFromDTO(dto);
+          const productCode = data.productCode;
+          if (!productCode) {
+            continue;
+          }
 
-        const existing = await findProductForWrite(tx, dto);
+          const existing = await findProductForWrite(tx, dto);
 
-        if (existing) {
-          const prevPayment = (existing as { payment?: string | null }).payment;
-          const wasDeleted = existing.deletedAt !== null;
-          await tx.product.update({
-            where: { id: existing.id },
-            data: buildUpdateData(dto),
-          });
-          postings.push({ productId: existing.id, dto });
-
-          const nextPayment = dto.Payment;
-          if (isPaid(nextPayment) && !isPaid(prevPayment)) {
-            settlements.push({
-              productId: existing.id,
-              productCode: existing.productCode,
-              shipmentCode: existing.shipmentCode,
+          if (existing) {
+            const prevPayment = (existing as { payment?: string | null })
+              .payment;
+            const wasDeleted = existing.deletedAt !== null;
+            await assertProductAccountingIdentityChange(tx, existing, data);
+            await tx.product.update({
+              where: { id: existing.id },
+              data: buildUpdateData(dto),
             });
-          }
+            postings.push({ productId: existing.id, dto });
 
-          if (wasDeleted) {
-            restored++;
+            await postSupplierSettlementForProductPaymentChange(
+              {
+                productId: existing.id,
+                prevPayment,
+                nextPayment: dto.Payment,
+                productCode: data.productCode ?? null,
+                shipmentCode: data.shipmentCode ?? null,
+                paymentMethod: dto['Payment Method'] ?? null,
+              },
+              tx
+            );
+
+            if (wasDeleted) {
+              restored++;
+            } else {
+              updated++;
+            }
           } else {
-            updated++;
+            const createdProduct = await tx.product.create({ data });
+            postings.push({ productId: createdProduct.id, dto });
+            created++;
           }
-        } else {
-          const createdProduct = await tx.product.create({ data });
-          postings.push({ productId: createdProduct.id, dto });
-          created++;
         }
-      }
 
-      return { created, updated, restored };
-    });
+        return { created, updated, restored };
+      },
+      { isolationLevel: 'Serializable' }
+    );
 
     await Promise.all(
       postings.map(({ productId, dto }) =>
         postExpenseForProduct(productId, dto)
-      )
-    );
-
-    await Promise.all(
-      settlements.map(({ productId, productCode, shipmentCode }) =>
-        postSupplierSettlementForProduct({
-          productId,
-          productCode,
-          shipmentCode,
-        })
       )
     );
 
@@ -610,191 +752,144 @@ export const productService: ProductService = {
 
   async bulkUpdate(payload) {
     const postings: Array<{ productId: number; dto: ProductDTO }> = [];
-    const settlements: Array<{
-      productId: number;
-      productCode: string | null;
-      shipmentCode: string | null;
-    }> = [];
 
-    const result = await prisma.$transaction(async (tx) => {
-      let created = 0;
-      let updated = 0;
-      let restored = 0;
-      const changeTracking: Array<{
-        productId: number;
-        productCode: string | null;
-        shipmentCode: string | null;
-        changes: string[];
-      }> = [];
+    const result = await prisma.$transaction(
+      async (tx) => {
+        let created = 0;
+        let updated = 0;
+        let restored = 0;
+        const changeTracking: Array<{
+          productId: number;
+          productCode: string | null;
+          shipmentCode: string | null;
+          changes: string[];
+        }> = [];
 
-      for (const dto of payload) {
-        const data = mapFromDTO(dto);
-        const productCode = data.productCode;
-        if (!productCode) {
-          continue;
-        }
-
-        const existing = await findProductForWrite(tx, dto);
-
-        if (existing) {
-          const prevPayment = (existing as { payment?: string | null }).payment;
-          const changes: string[] = [];
-
-          const existingShipmentCode = (existing.shipmentCode ?? '').trim();
-          const nextShipmentCode = (data.shipmentCode ?? '').trim();
-          if (
-            existingShipmentCode &&
-            existingShipmentCode !== nextShipmentCode
-          ) {
-            const [transitBuildEntries, reclassEntries] = await Promise.all([
-              tx.clothingInventoryTransitBuildEntry.findMany({
-                where: {
-                  deletedAt: null,
-                  idempotencyKey: {
-                    startsWith: buildProductTransitBuildIdempotencyKey(
-                      existing.id
-                    ),
-                  },
-                },
-                select: { id: true },
-              }),
-              tx.clothingInventoryReclassEntry.findMany({
-                where: {
-                  deletedAt: null,
-                  ...(existing.productCode
-                    ? {
-                        OR: [
-                          { productId: existing.id },
-                          { productCode: existing.productCode },
-                        ],
-                      }
-                    : { productId: existing.id }),
-                },
-                select: { id: true },
-              }),
-            ]);
-
-            if (transitBuildEntries.length > 0 || reclassEntries.length > 0) {
-              throw new ProductShipmentAccountingConflictError(
-                existingShipmentCode
-              );
-            }
+        for (const dto of payload) {
+          const data = mapFromDTO(dto);
+          const productCode = data.productCode;
+          if (!productCode) {
+            continue;
           }
 
-          const compare = <T>(label: string, prevValue: T, nextValue: T) => {
-            if (prevValue !== nextValue) {
-              changes.push(
-                `${label}: ${prevValue ?? 'empty'} → ${nextValue ?? 'empty'}`
-              );
-            }
-          };
+          const existing = await findProductForWrite(tx, dto);
 
-          compare(
-            'shipmentCode',
-            existing.shipmentCode ?? 'empty',
-            data.shipmentCode ?? 'empty'
-          );
-          compare(
-            'productCode',
-            existing.productCode ?? 'empty',
-            data.productCode ?? 'empty'
-          );
-          compare('unitPrice', existing.unitPrice ?? 0, data.unitPrice ?? 0);
-          compare('quantity', existing.quantity ?? 0, data.quantity ?? 0);
-          compare(
-            'alibabaShipping',
-            existing.alibabaShippingCost ?? 0,
-            data.alibabaShippingCost ?? 0
-          );
-          compare(
-            'exchangeRate',
-            existing.exchangeRates ?? 0,
-            data.exchangeRates ?? 0
-          );
+          if (existing) {
+            const prevPayment = (existing as { payment?: string | null })
+              .payment;
+            const changes: string[] = [];
 
-          const wasDeleted = existing.deletedAt !== null;
-          await tx.product.update({
-            where: { id: existing.id },
-            data: buildUpdateData(dto),
-          });
+            await assertProductAccountingIdentityChange(tx, existing, data);
 
-          postings.push({ productId: existing.id, dto });
+            const compare = <T>(label: string, prevValue: T, nextValue: T) => {
+              if (prevValue !== nextValue) {
+                changes.push(
+                  `${label}: ${prevValue ?? 'empty'} → ${nextValue ?? 'empty'}`
+                );
+              }
+            };
 
-          const nextPayment = dto.Payment;
-          if (isPaid(nextPayment) && !isPaid(prevPayment)) {
-            settlements.push({
-              productId: existing.id,
-              productCode: existing.productCode,
-              shipmentCode: existing.shipmentCode,
+            compare(
+              'shipmentCode',
+              existing.shipmentCode ?? 'empty',
+              data.shipmentCode ?? 'empty'
+            );
+            compare(
+              'productCode',
+              existing.productCode ?? 'empty',
+              data.productCode ?? 'empty'
+            );
+            compare('unitPrice', existing.unitPrice ?? 0, data.unitPrice ?? 0);
+            compare('quantity', existing.quantity ?? 0, data.quantity ?? 0);
+            compare(
+              'alibabaShipping',
+              existing.alibabaShippingCost ?? 0,
+              data.alibabaShippingCost ?? 0
+            );
+            compare(
+              'exchangeRate',
+              existing.exchangeRates ?? 0,
+              data.exchangeRates ?? 0
+            );
+
+            const wasDeleted = existing.deletedAt !== null;
+            await tx.product.update({
+              where: { id: existing.id },
+              data: buildUpdateData(dto),
             });
-          }
 
-          if (changes.length > 0) {
-            changeTracking.push({
-              productId: existing.id,
-              productCode: productCode,
-              shipmentCode: data.shipmentCode || null,
-              changes,
-            });
-          }
+            postings.push({ productId: existing.id, dto });
 
-          if (wasDeleted) {
-            restored++;
+            await postSupplierSettlementForProductPaymentChange(
+              {
+                productId: existing.id,
+                prevPayment,
+                nextPayment: dto.Payment,
+                productCode: data.productCode ?? null,
+                shipmentCode: data.shipmentCode ?? null,
+                paymentMethod: dto['Payment Method'] ?? null,
+              },
+              tx
+            );
+
+            if (changes.length > 0) {
+              changeTracking.push({
+                productId: existing.id,
+                productCode: productCode,
+                shipmentCode: data.shipmentCode || null,
+                changes,
+              });
+            }
+
+            if (wasDeleted) {
+              restored++;
+            } else {
+              updated++;
+            }
           } else {
-            updated++;
-          }
-        } else {
-          const createdProduct = await tx.product.create({ data });
-          postings.push({ productId: createdProduct.id, dto });
-          created++;
+            const createdProduct = await tx.product.create({ data });
+            postings.push({ productId: createdProduct.id, dto });
+            created++;
 
-          const changes: string[] = [];
-          if (data.shipmentCode) {
-            changes.push(`shipmentCode: empty → ${data.shipmentCode}`);
-          }
-          if (data.productCode) {
-            changes.push(`productCode: empty → ${data.productCode}`);
-          }
-          if (data.unitPrice) {
-            changes.push(`unitPrice: 0 → ${data.unitPrice}`);
-          }
-          if (data.quantity) {
-            changes.push(`quantity: 0 → ${data.quantity}`);
-          }
-          if (data.alibabaShippingCost) {
-            changes.push(`alibabaShipping: 0 → ${data.alibabaShippingCost}`);
-          }
-          if (data.exchangeRates) {
-            changes.push(`exchangeRate: 0 → ${data.exchangeRates}`);
-          }
+            const changes: string[] = [];
+            if (data.shipmentCode) {
+              changes.push(`shipmentCode: empty → ${data.shipmentCode}`);
+            }
+            if (data.productCode) {
+              changes.push(`productCode: empty → ${data.productCode}`);
+            }
+            if (data.unitPrice) {
+              changes.push(`unitPrice: 0 → ${data.unitPrice}`);
+            }
+            if (data.quantity) {
+              changes.push(`quantity: 0 → ${data.quantity}`);
+            }
+            if (data.alibabaShippingCost) {
+              changes.push(`alibabaShipping: 0 → ${data.alibabaShippingCost}`);
+            }
+            if (data.exchangeRates) {
+              changes.push(`exchangeRate: 0 → ${data.exchangeRates}`);
+            }
 
-          if (changes.length > 0) {
-            changeTracking.push({
-              productId: createdProduct.id,
-              productCode,
-              shipmentCode: data.shipmentCode || null,
-              changes,
-            });
+            if (changes.length > 0) {
+              changeTracking.push({
+                productId: createdProduct.id,
+                productCode,
+                shipmentCode: data.shipmentCode || null,
+                changes,
+              });
+            }
           }
         }
-      }
 
-      return { created, updated, restored, changeTracking };
-    });
+        return { created, updated, restored, changeTracking };
+      },
+      { isolationLevel: 'Serializable' }
+    );
 
     await Promise.all(
       postings.map(({ productId, dto }) =>
         postExpenseForProduct(productId, dto)
-      )
-    );
-
-    await Promise.all(
-      settlements.map(({ productId, productCode, shipmentCode }) =>
-        postSupplierSettlementForProduct({
-          productId,
-          productCode,
-          shipmentCode,
-        })
       )
     );
 
@@ -853,213 +948,239 @@ export const productService: ProductService = {
       return { created: 0, skipped: 0, products: 0 };
     }
 
-    const products = await prisma.product.findMany({
-      where: {
-        deletedAt: null,
-        shipmentCode: {
-          equals: shipmentCode,
-          mode: 'insensitive',
-        },
-      },
-      select: {
-        id: true,
-        productCode: true,
-        product: true,
-        payment: true,
-        paymentMethod: true,
-        postingDate: true,
-        orderDate: true,
-        grandTotal: true,
-        forwardersFee: true,
-        lalamove: true,
-      },
-      orderBy: { id: 'asc' },
-    });
-
-    const existingBuildKeys = await prisma.clothingInventoryTransitBuildEntry
-      .findMany({
-        where: {
-          deletedAt: null,
-          shipmentCode: {
-            equals: shipmentCode,
-            mode: 'insensitive',
-          },
-          idempotencyKey: {
-            startsWith: 'PRODUCT_TRANSIT_BUILD:',
-          },
-        },
-        select: { idempotencyKey: true },
-      })
-      .catch(() => []);
-
-    const alreadyPostedProductIds = new Set<number>();
-    for (const row of existingBuildKeys) {
-      const parts = (row.idempotencyKey ?? '').split(':');
-      const productId = Number(parts[1] ?? NaN);
-      if (Number.isFinite(productId)) {
-        alreadyPostedProductIds.add(productId);
-      }
-    }
-
-    const entries: Prisma.ClothingInventoryTransitBuildEntryCreateManyInput[] =
-      [];
-
-    const toAmount = (value: unknown) => Number(value ?? 0);
-    const addEntry = (params: {
-      productId: number;
-      productCode: string | null;
-      productName: string | null;
-      payment: string;
-      postingDate: Date;
-      debitAccount: string;
-      creditAccount: string;
-      componentKey: 'GRAND_TOTAL' | 'FORWARDER_FEE' | 'LALAMOVE';
-      componentLabel: string;
-      amount: number;
-    }) => {
-      if (!Number.isFinite(params.amount) || params.amount <= 0) {
-        return;
-      }
-
-      const notesParts = [
-        `Product #${params.productId}`,
-        params.productCode ? `Code: ${params.productCode}` : null,
-        params.productName ? `Name: ${params.productName}` : null,
-        `Component: ${params.componentLabel}`,
-        `Payment: ${params.payment}`,
-      ].filter(Boolean);
-
-      entries.push({
-        postingDate: params.postingDate,
-        shipmentId: null,
-        shipmentCode,
-        amount: params.amount,
-        debitAccount: params.debitAccount,
-        creditAccount: params.creditAccount,
-        idempotencyKey: `PRODUCT_TRANSIT_BUILD:${params.productId}:${params.componentKey}`,
-        notes: notesParts.join(' | '),
-      });
-    };
-
-    let skippedProducts = 0;
-
-    for (const product of products) {
-      if (alreadyPostedProductIds.has(product.id)) {
-        skippedProducts += 1;
-        continue;
-      }
-
-      const payment = (product.payment ?? '').toString().trim();
-      if (!payment) {
-        continue;
-      }
-
-      const paymentCreditAccount = isPaid(payment)
-        ? getPaymentAccountForMethod(product.paymentMethod)
-        : SUPPLIER_PAYABLE_ACCOUNT;
-      if (!paymentCreditAccount) {
-        skippedProducts += 1;
-        continue;
-      }
-
-      const postingDate = resolvePostingDateFromProduct({
-        postingDate: product.postingDate,
-        orderDate: product.orderDate,
-      });
-      if (!postingDate) {
-        continue;
-      }
-
-      if (!isOnOrAfterAccountingCutover(postingDate)) {
-        continue;
-      }
-
-      const forwarderCreditAccount = isPaid(payment)
-        ? paymentCreditAccount
-        : FORWARDER_PAYABLE_ACCOUNT;
-
-      const courierCreditAccount = isPaid(payment)
-        ? paymentCreditAccount
-        : COURIER_PAYABLE_ACCOUNT;
-
-      addEntry({
-        productId: product.id,
-        productCode: product.productCode,
-        productName: product.product,
-        payment,
-        postingDate,
-        debitAccount: INVENTORY_IN_TRANSIT_ACCOUNT,
-        creditAccount: paymentCreditAccount,
-        componentKey: 'GRAND_TOTAL',
-        componentLabel: 'Grand Total',
-        amount: toAmount(product.grandTotal),
-      });
-
-      if (ENABLE_TRANSIT_BUILD_LOGISTICS_COMPONENTS) {
-        addEntry({
-          productId: product.id,
-          productCode: product.productCode,
-          productName: product.product,
-          payment,
-          postingDate,
-          debitAccount: LANDED_COST_CLEARING_ACCOUNT,
-          creditAccount: forwarderCreditAccount,
-          componentKey: 'FORWARDER_FEE',
-          componentLabel: "Forwarder's Fee",
-          amount: toAmount(product.forwardersFee),
-        });
-
-        addEntry({
-          productId: product.id,
-          productCode: product.productCode,
-          productName: product.product,
-          payment,
-          postingDate,
-          debitAccount: LANDED_COST_CLEARING_ACCOUNT,
-          creditAccount: courierCreditAccount,
-          componentKey: 'LALAMOVE',
-          componentLabel: 'Lalamove',
-          amount: toAmount(product.lalamove),
-        });
-      }
-    }
-
-    if (entries.length === 0) {
-      return {
-        created: 0,
-        skipped: skippedProducts,
-        products: products.length,
-      };
-    }
-
-    // Purge soft-deleted entries whose idempotency keys would conflict with the
-    // new rows, then insert — wrapped in a transaction so the delete is visible
-    // to createMany within the same atomic operation.
-    const newKeys = entries.map((e) => e.idempotencyKey).filter(Boolean);
-
-    const result = await prisma.$transaction(async (tx) => {
-      if (newKeys.length > 0) {
-        await tx.clothingInventoryTransitBuildEntry.deleteMany({
+    return prisma.$transaction(
+      async (tx) => {
+        const products = await tx.product.findMany({
           where: {
-            deletedAt: { not: null },
-            idempotencyKey: { in: newKeys as string[] },
+            deletedAt: null,
+            shipmentCode: {
+              equals: shipmentCode,
+              mode: 'insensitive',
+            },
           },
+          select: {
+            id: true,
+            productCode: true,
+            product: true,
+            payment: true,
+            paymentMethod: true,
+            postingDate: true,
+            orderDate: true,
+            grandTotal: true,
+            forwardersFee: true,
+            lalamove: true,
+          },
+          orderBy: { id: 'asc' },
         });
-      }
 
-      return tx.clothingInventoryTransitBuildEntry.createMany({
-        data: entries,
-        skipDuplicates: true,
-      });
-    });
+        const existingBuildKeys =
+          await tx.clothingInventoryTransitBuildEntry.findMany({
+            where: {
+              deletedAt: null,
+              shipmentCode: {
+                equals: shipmentCode,
+                mode: 'insensitive',
+              },
+            },
+            select: { idempotencyKey: true },
+          });
 
-    const skippedEntries = Math.max(0, entries.length - result.count);
+        if (
+          existingBuildKeys.some(
+            (row) => !row.idempotencyKey.startsWith('PRODUCT_TRANSIT_BUILD:')
+          )
+        ) {
+          throw new ProductShipmentAccountingConflictError(shipmentCode);
+        }
 
-    return {
-      created: result.count,
-      skipped: skippedProducts + skippedEntries,
-      products: products.length,
-    };
+        const alreadyPostedProductIds = new Set<number>();
+        for (const row of existingBuildKeys) {
+          const parts = (row.idempotencyKey ?? '').split(':');
+          const productId = Number(parts[1] ?? NaN);
+          if (Number.isFinite(productId)) {
+            alreadyPostedProductIds.add(productId);
+          }
+        }
+
+        const entries: Prisma.ClothingInventoryTransitBuildEntryCreateManyInput[] =
+          [];
+
+        const toAmount = (value: unknown) => Number(value ?? 0);
+        const addEntry = (params: {
+          productId: number;
+          productCode: string | null;
+          productName: string | null;
+          payment: string;
+          postingDate: Date;
+          debitAccount: string;
+          creditAccount: string;
+          componentKey: 'GRAND_TOTAL' | 'FORWARDER_FEE' | 'LALAMOVE';
+          componentLabel: string;
+          amount: number;
+        }) => {
+          if (!Number.isFinite(params.amount) || params.amount <= 0) {
+            return;
+          }
+
+          const notesParts = [
+            `Product #${params.productId}`,
+            params.productCode ? `Code: ${params.productCode}` : null,
+            params.productName ? `Name: ${params.productName}` : null,
+            `Component: ${params.componentLabel}`,
+            `Payment: ${params.payment}`,
+          ].filter(Boolean);
+
+          entries.push({
+            postingDate: params.postingDate,
+            shipmentId: null,
+            shipmentCode,
+            amount: params.amount,
+            debitAccount: params.debitAccount,
+            creditAccount: params.creditAccount,
+            idempotencyKey: `PRODUCT_TRANSIT_BUILD:${params.productId}:${params.componentKey}`,
+            notes: notesParts.join(' | '),
+          });
+        };
+
+        let skippedProducts = 0;
+
+        for (const product of products) {
+          if (alreadyPostedProductIds.has(product.id)) {
+            skippedProducts += 1;
+            continue;
+          }
+
+          const payment = (product.payment ?? '').toString().trim();
+          if (!payment) {
+            continue;
+          }
+
+          const paymentCreditAccount = isPaid(payment)
+            ? getPaymentAccountForMethod(product.paymentMethod)
+            : SUPPLIER_PAYABLE_ACCOUNT;
+          if (!paymentCreditAccount) {
+            skippedProducts += 1;
+            continue;
+          }
+
+          const postingDate = resolvePostingDateFromProduct({
+            postingDate: product.postingDate,
+            orderDate: product.orderDate,
+          });
+          if (!postingDate) {
+            continue;
+          }
+
+          if (!isOnOrAfterAccountingCutover(postingDate)) {
+            continue;
+          }
+
+          const forwarderCreditAccount = isPaid(payment)
+            ? paymentCreditAccount
+            : FORWARDER_PAYABLE_ACCOUNT;
+
+          const courierCreditAccount = isPaid(payment)
+            ? paymentCreditAccount
+            : COURIER_PAYABLE_ACCOUNT;
+
+          addEntry({
+            productId: product.id,
+            productCode: product.productCode,
+            productName: product.product,
+            payment,
+            postingDate,
+            debitAccount: INVENTORY_IN_TRANSIT_ACCOUNT,
+            creditAccount: paymentCreditAccount,
+            componentKey: 'GRAND_TOTAL',
+            componentLabel: 'Grand Total',
+            amount: toAmount(product.grandTotal),
+          });
+
+          if (ENABLE_TRANSIT_BUILD_LOGISTICS_COMPONENTS) {
+            addEntry({
+              productId: product.id,
+              productCode: product.productCode,
+              productName: product.product,
+              payment,
+              postingDate,
+              debitAccount: LANDED_COST_CLEARING_ACCOUNT,
+              creditAccount: forwarderCreditAccount,
+              componentKey: 'FORWARDER_FEE',
+              componentLabel: "Forwarder's Fee",
+              amount: toAmount(product.forwardersFee),
+            });
+
+            addEntry({
+              productId: product.id,
+              productCode: product.productCode,
+              productName: product.product,
+              payment,
+              postingDate,
+              debitAccount: LANDED_COST_CLEARING_ACCOUNT,
+              creditAccount: courierCreditAccount,
+              componentKey: 'LALAMOVE',
+              componentLabel: 'Lalamove',
+              amount: toAmount(product.lalamove),
+            });
+          }
+        }
+
+        if (entries.length === 0) {
+          return {
+            created: 0,
+            skipped: skippedProducts,
+            products: products.length,
+          };
+        }
+
+        const reclass = await tx.clothingInventoryReclassEntry.findFirst({
+          where: {
+            shipmentCode: { equals: shipmentCode, mode: 'insensitive' },
+            deletedAt: null,
+          },
+          select: { id: true },
+        });
+        if (reclass) {
+          throw new ProductShipmentAccountingConflictError(shipmentCode);
+        }
+        if (
+          await hasSupplierSettlementForTransitKeys(
+            tx,
+            entries.map((entry) => entry.idempotencyKey)
+          )
+        ) {
+          throw new ProductShipmentAccountingConflictError(shipmentCode);
+        }
+
+        let restored = 0;
+        for (const entry of entries) {
+          const updated =
+            await tx.clothingInventoryTransitBuildEntry.updateMany({
+              where: {
+                deletedAt: { not: null },
+                idempotencyKey: entry.idempotencyKey,
+              },
+              data: { ...entry, deletedAt: null },
+            });
+          restored += updated.count;
+        }
+
+        const created = await tx.clothingInventoryTransitBuildEntry.createMany({
+          data: entries,
+          skipDuplicates: true,
+        });
+        const result = { count: created.count + restored };
+
+        const skippedEntries = Math.max(0, entries.length - result.count);
+
+        return {
+          created: result.count,
+          skipped: skippedProducts + skippedEntries,
+          products: products.length,
+        };
+      },
+      { isolationLevel: 'Serializable' }
+    );
   },
 
   async softDeleteAll() {
@@ -1067,10 +1188,22 @@ export const productService: ProductService = {
       where: { deletedAt: { not: null } },
     });
 
-    const result = await prisma.product.updateMany({
-      where: { deletedAt: null },
-      data: { deletedAt: new Date() },
-    });
+    const result = await prisma.$transaction(
+      async (tx) => {
+        const products = await tx.product.findMany({
+          where: { deletedAt: null },
+          select: { id: true, productCode: true, shipmentCode: true },
+        });
+        for (const product of products) {
+          await assertProductAccountingIdentityChange(tx, product, null);
+        }
+        return tx.product.updateMany({
+          where: { deletedAt: null },
+          data: { deletedAt: new Date() },
+        });
+      },
+      { isolationLevel: 'Serializable' }
+    );
 
     return { deleted: result.count, alreadyDeleted };
   },

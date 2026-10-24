@@ -35,8 +35,12 @@ export const useInventoryMovementDerivedData = ({
       .filter(
         (m) =>
           !m.deletedAt &&
-          m.fromBucket === 'sellable' &&
-          (m.toBucket === 'damaged_hold' || m.toBucket === 'scrap')
+          ((m.fromBucket === 'sellable' &&
+            (m.toBucket === 'damaged_hold' || m.toBucket === 'scrap')) ||
+            (m.toBucket === 'sellable' &&
+              (m.fromBucket === 'damaged_hold' ||
+                (m.fromBucket === 'scrap' &&
+                  m.movementSource === 'inventory_adjustment'))))
       )
       .slice()
       .sort((a, b) => Number(b.id) - Number(a.id));

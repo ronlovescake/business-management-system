@@ -3,8 +3,19 @@ import { render } from '@testing-library/react';
 import { MantineProvider } from '@mantine/core';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { fireEvent, screen, waitFor } from '@testing-library/dom';
-import { describe, expect, it, vi, beforeEach } from 'vitest';
+import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
 import { ProductsPage } from '../ProductsPage';
+import { ProductsGridControls } from '../ProductsGridControls';
+
+const auth = vi.hoisted(() => ({ useSession: vi.fn() }));
+vi.mock('next-auth/react', () => auth);
+beforeEach(() => {
+  vi.stubGlobal('React', React);
+  auth.useSession.mockReturnValue({ data: { user: { role: 'ADMIN' } } });
+});
+afterEach(() => {
+  vi.unstubAllGlobals();
+});
 
 const mockUseProductsData = vi.fn();
 
@@ -116,4 +127,37 @@ describe('ProductsPage', () => {
     expect(screen.getByText('shipping-calculator')).toBeVisible();
     expect(screen.getByText('products-grid')).not.toBeVisible();
   });
+});
+
+describe('product accounting controls', () => {
+  it.each(['USER', 'ADMIN', 'SUPER_ADMIN'])(
+    'shows financial actions only to authorized clothing role %s',
+    (role) => {
+      auth.useSession.mockReturnValue({ data: { user: { role } } });
+      render(
+        <MantineProvider>
+          <ProductsGridControls
+            searchQuery=""
+            onSearchChange={vi.fn()}
+            isEditMode={false}
+            onToggleEditMode={vi.fn()}
+            onAddProduct={vi.fn()}
+            selectedShipmentCode="SHIP-1"
+            selectedProductCode="P-1"
+            onTransitBuildUp={vi.fn()}
+            onTransitReclass={vi.fn()}
+          />
+        </MantineProvider>
+      );
+      expect(screen.getByRole('button', { name: 'Add Product' })).toBeVisible();
+      const postingButton = screen.queryByRole('button', {
+        name: 'Transit Build-Up',
+      });
+      if (role === 'USER') {
+        expect(postingButton).toBeNull();
+      } else {
+        expect(postingButton).toBeVisible();
+      }
+    }
+  );
 });

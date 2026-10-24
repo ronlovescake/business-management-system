@@ -132,6 +132,21 @@ export function PricesPage({ apiBasePath }: PricesPageProps) {
     ],
     priceAdjustment: 0,
   });
+  const editFormRef = useRef(editForm);
+  const editPriceRequest = useRef(0);
+  const editOpenRef = useRef(false);
+  const commitEditForm = useCallback((nextForm: typeof form) => {
+    editPriceRequest.current += 1;
+    editFormRef.current = nextForm;
+    setEditForm(nextForm);
+  }, []);
+  useEffect(
+    () => () => {
+      editPriceRequest.current += 1;
+      editOpenRef.current = false;
+    },
+    []
+  );
 
   const getActualPriceForProduct = useCallback(
     async (productCode: string): Promise<number | null> => {
@@ -141,20 +156,21 @@ export function PricesPage({ apiBasePath }: PricesPageProps) {
       }
 
       try {
-        const [products, bundles, mixAndMatchRows, splitBatches] = await Promise.all([
-          api.get<Array<Record<string, unknown>>>(
-            buildApiPath(apiBasePath, '/products')
-          ),
-          api.get<Array<Record<string, unknown>>>(
-            buildApiPath(apiBasePath, '/bundles')
-          ),
-          api.get<Array<Record<string, unknown>>>(
-            buildApiPath(apiBasePath, '/mix-and-match')
-          ),
-          api.get<Array<Record<string, unknown>>>(
-            buildApiPath(apiBasePath, '/split-batches')
-          ),
-        ]);
+        const [products, bundles, mixAndMatchRows, splitBatches] =
+          await Promise.all([
+            api.get<Array<Record<string, unknown>>>(
+              buildApiPath(apiBasePath, '/products')
+            ),
+            api.get<Array<Record<string, unknown>>>(
+              buildApiPath(apiBasePath, '/bundles')
+            ),
+            api.get<Array<Record<string, unknown>>>(
+              buildApiPath(apiBasePath, '/mix-and-match')
+            ),
+            api.get<Array<Record<string, unknown>>>(
+              buildApiPath(apiBasePath, '/split-batches')
+            ),
+          ]);
 
         const product = products.find((p) => {
           const rawCode =
@@ -163,13 +179,16 @@ export function PricesPage({ apiBasePath }: PricesPageProps) {
         });
 
         const bundle = bundles.find((b) => {
-          const rawCode = typeof b['bundleSku'] === 'string' ? b['bundleSku'] : '';
+          const rawCode =
+            typeof b['bundleSku'] === 'string' ? b['bundleSku'] : '';
           return normalizeProductCode(rawCode) === normalizedTarget;
         });
 
         const mixAndMatch = mixAndMatchRows.find((row) => {
           const rawCode =
-            typeof row['mixAndMatchSku'] === 'string' ? row['mixAndMatchSku'] : '';
+            typeof row['mixAndMatchSku'] === 'string'
+              ? row['mixAndMatchSku']
+              : '';
           return normalizeProductCode(rawCode) === normalizedTarget;
         });
 
@@ -215,10 +234,18 @@ export function PricesPage({ apiBasePath }: PricesPageProps) {
   );
 
   const syncEditFormWithProductPrice = useCallback(
-    async (formSnapshot: typeof editForm): Promise<typeof editForm> => {
+    async (formSnapshot: typeof editForm): Promise<typeof editForm | null> => {
+      const requestVersion = ++editPriceRequest.current;
       const actualPrice = await getActualPriceForProduct(
         formSnapshot.productCode
       );
+      if (
+        requestVersion !== editPriceRequest.current ||
+        !editOpenRef.current ||
+        editFormRef.current !== formSnapshot
+      ) {
+        return null;
+      }
       if (!actualPrice) {
         return formSnapshot;
       }
@@ -228,10 +255,10 @@ export function PricesPage({ apiBasePath }: PricesPageProps) {
         tiers: applyActualPriceToTiers(formSnapshot.tiers, actualPrice),
       };
 
-      setEditForm(updatedForm);
+      commitEditForm(updatedForm);
       return updatedForm;
     },
-    [getActualPriceForProduct]
+    [getActualPriceForProduct, commitEditForm]
   );
 
   // Edit modal handlers
@@ -244,19 +271,22 @@ export function PricesPage({ apiBasePath }: PricesPageProps) {
 
       // Convert to form format
       const formData = PriceService.priceDataToForm(allTiersForProduct);
-      setEditForm(formData);
+      commitEditForm(formData);
+      editOpenRef.current = true;
       setIsEditOpen(true);
       void syncEditFormWithProductPrice(formData);
     },
-    [prices, syncEditFormWithProductPrice]
+    [prices, syncEditFormWithProductPrice, commitEditForm]
   );
 
   const closeEditModal = useCallback(() => {
+    editOpenRef.current = false;
+    editPriceRequest.current += 1;
     setIsEditOpen(false);
   }, []);
 
   const resetEditForm = useCallback(() => {
-    setEditForm({
+    commitEditForm({
       productCode: '',
       tiers: [
         { lowerLimit: 0, upperLimit: 0, price: 0 },
@@ -266,7 +296,7 @@ export function PricesPage({ apiBasePath }: PricesPageProps) {
       ],
       priceAdjustment: 0,
     });
-  }, []);
+  }, [commitEditForm]);
 
   const updateEditTier = useCallback(
     (
@@ -274,145 +304,46 @@ export function PricesPage({ apiBasePath }: PricesPageProps) {
       field: 'lowerLimit' | 'upperLimit' | 'price',
       value: number
     ) => {
-      let formNeedingPriceSync: typeof editForm | null = null;
-
-      setEditForm((prev) => {
-        const newTiers = [...prev.tiers];
-        const numValue = value || 0;
-
-        // Handle lower limit changes with clearing logic
-        if (field === 'lowerLimit') {
-          // Allow clearing the field (value = 0 or empty)
-          // But validate if there's an actual value being set
-          if (index > 0 && numValue > 0) {
-            const previousLowerLimit = newTiers[index - 1]?.lowerLimit ?? 0;
-            if (numValue <= previousLowerLimit) {
-              // Don't update if the value is not greater than previous tier
-              return prev;
-            }
-          }
-
-          newTiers[index].lowerLimit = numValue;
-
-          // If clearing the lower limit (numValue = 0), also clear upper limit AND price
-          if (numValue === 0) {
-            newTiers[index].upperLimit = 0;
-            newTiers[index].price = 0;
-
-            // Recalculate prices for remaining tiers if product code is set
-            const updatedForm = {
-              ...prev,
-              tiers: newTiers,
-            };
-
-            if (prev.productCode.trim()) {
-              // Schedule the recalculation to happen after this state update
-              setTimeout(async () => {
-                try {
-                  // Fetch all products
-                  const response = await fetch(
-                    buildApiPath(apiBasePath, '/products')
-                  );
-                  const products = await response.json();
-
-                  // Find the product by product code
-                  const product = products.find(
-                    (p: Record<string, unknown>) =>
-                      p['Product Code'] === prev.productCode.trim()
-                  );
-
-                  if (product && product['Actual Price']) {
-                    const actualPrice = Number(product['Actual Price']) || 0;
-
-                    // Find the highest filled tier
-                    let highestFilledTier = -1;
-                    for (let i = updatedForm.tiers.length - 1; i >= 0; i--) {
-                      if (updatedForm.tiers[i].lowerLimit > 0) {
-                        highestFilledTier = i;
-                        break;
-                      }
-                    }
-
-                    // If no tier has lower limit, default to Tier 1 (index 0)
-                    if (highestFilledTier === -1) {
-                      highestFilledTier = 0;
-                    }
-
-                    // Calculate prices based on highest filled tier
-                    const newTiersWithPrices = updatedForm.tiers.map(
-                      (tier, i) => {
-                        if (tier.lowerLimit > 0 && i <= highestFilledTier) {
-                          const priceIncrement = (highestFilledTier - i) * 5;
-                          return {
-                            ...tier,
-                            price: actualPrice + priceIncrement,
-                          };
-                        }
-                        return tier;
-                      }
-                    );
-
-                    setEditForm((current) => ({
-                      ...current,
-                      tiers: newTiersWithPrices,
-                    }));
-                  }
-                } catch (error) {
-                  logger.error('Failed to recalculate prices:', error);
-                }
-              }, 0);
-            }
-
-            return updatedForm;
-          }
-
-          // Auto-fill logic based on tier (only when numValue > 0)
-          if (index === 0 && numValue > 0) {
-            newTiers[index].upperLimit = 10000;
-          } else if (index === 1 && numValue > 0) {
-            newTiers[index].upperLimit = 10000;
-            newTiers[0].upperLimit = numValue - 1;
-          } else if (index === 2 && numValue > 0) {
-            newTiers[index].upperLimit = 10000;
-            newTiers[1].upperLimit = numValue - 1;
-          } else if (index === 3 && numValue > 0) {
-            newTiers[index].upperLimit = 10000;
-            newTiers[2].upperLimit = numValue - 1;
-          }
-
-          // After updating lower limit, recalculate prices if product code is set
-          const updatedForm = {
-            ...prev,
-            tiers: newTiers,
-          };
-
-          formNeedingPriceSync = updatedForm;
-
-          // Trigger price recalculation after state update (only if numValue > 0)
-          // Actual price will be applied after state update via syncEditFormWithProductPrice
-
-          return updatedForm;
-        } else {
-          // For upperLimit and price, just update the field
-          newTiers[index][field] = numValue;
+      const previous = editFormRef.current;
+      const tiers = previous.tiers.map((tier) => ({ ...tier }));
+      const numericValue = value || 0;
+      if (
+        field === 'lowerLimit' &&
+        index > 0 &&
+        numericValue > 0 &&
+        numericValue <= tiers[index - 1].lowerLimit
+      ) {
+        return;
+      }
+      tiers[index][field] = numericValue;
+      if (field === 'lowerLimit') {
+        if (numericValue === 0) {
+          tiers[index] = { lowerLimit: 0, upperLimit: 0, price: 0 };
         }
-
-        return {
-          ...prev,
-          tiers: newTiers,
-        };
-      });
-
-      if (formNeedingPriceSync) {
-        void syncEditFormWithProductPrice(formNeedingPriceSync);
+        tiers.forEach((tier, tierIndex) => {
+          if (tier.lowerLimit > 0) {
+            const nextTier = tiers
+              .slice(tierIndex + 1)
+              .find((candidate) => candidate.lowerLimit > 0);
+            tier.upperLimit = nextTier ? nextTier.lowerLimit - 1 : 10000;
+          }
+        });
+      }
+      const updated = { ...previous, tiers };
+      commitEditForm(updated);
+      if (field === 'lowerLimit' && updated.productCode.trim()) {
+        void syncEditFormWithProductPrice(updated);
       }
     },
-    [apiBasePath, syncEditFormWithProductPrice]
+    [commitEditForm, syncEditFormWithProductPrice]
   );
 
-  const setEditPriceAdjustment = useCallback((value: number) => {
-    setEditForm((prev) => ({ ...prev, priceAdjustment: value }));
-  }, []);
+  const setEditPriceAdjustment = useCallback(
+    (value: number) => {
+      commitEditForm({ ...editFormRef.current, priceAdjustment: value });
+    },
+    [commitEditForm]
+  );
 
   // Local state
   const [file, setFile] = useState<File | null>(null);
@@ -659,6 +590,11 @@ export function PricesPage({ apiBasePath }: PricesPageProps) {
   // Handle edit price submission
   const handleEditPriceSubmit = async () => {
     const formForSubmit = await syncEditFormWithProductPrice(editForm);
+    if (!formForSubmit) {
+      throw new Error(
+        'The price form changed while loading. Review it before saving again.'
+      );
+    }
 
     // Convert form to multiple price data (one per tier)
     const priceDataArray = PriceService.formToMultiplePriceData(formForSubmit);

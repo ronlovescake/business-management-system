@@ -1,20 +1,11 @@
-/**
- * Dispatching Page
- * Manage dispatching operations
- */
-
 import type { Metadata } from 'next';
-import { DispatchingRoutePage } from '@/app/operations/dispatching/_shared/DispatchingRoutePage';
-import { renderOperationsPage } from '@/app/operations/_shared/renderOperationsPage';
+import { redirect } from 'next/navigation';
 
 export const metadata: Metadata = {
-  title: 'Dispatching - Business Management',
-  description: 'Manage dispatching operations and tracking',
+  title: 'Dispatch - Business Management',
+  description: 'Manage clothing dispatch operations',
 };
 
-export default async function DispatchingPage() {
-  return renderOperationsPage(
-    '/clothing/operations/dispatching',
-    <DispatchingRoutePage />
-  );
+export default function DispatchingPage() {
+  redirect('/clothing/operations/dispatch');
 }

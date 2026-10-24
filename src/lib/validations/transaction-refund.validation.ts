@@ -41,8 +41,7 @@ export function computeTransactionRefundLimit(params: {
   const total =
     lineTotal !== null && Number.isFinite(lineTotal)
       ? lineTotal + (params.adjustment ?? 0)
-      : (params.quantity ?? 0) * (params.unitPrice ?? 0) -
-        (params.discount ?? 0);
+      : (params.quantity ?? 0) * (params.unitPrice ?? 0);
 
   return Number.isFinite(total) ? Math.max(total, 0) : 0;
 }

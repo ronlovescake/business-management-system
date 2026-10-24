@@ -2,6 +2,7 @@ import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
+import { authorizeApiRequest } from '@/core/api/middleware';
 import {
   DASHBOARD_SELECTS,
   buildEmployeeDashboard,
@@ -14,6 +15,10 @@ export const dynamic = 'force-dynamic';
 
 export async function GET(request: NextRequest) {
   try {
+    const authorization = await authorizeApiRequest(request);
+    if (authorization) {
+      return authorization;
+    }
     const range = getDashboardRange(new URL(request.url).searchParams);
     const where = getDashboardFilters(range);
 

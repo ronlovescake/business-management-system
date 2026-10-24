@@ -12,10 +12,14 @@
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { NextRequest } from 'next/server';
+vi.mock('@/lib/auth/session', () => ({
+  getCurrentUser: vi.fn(async () => ({ id: 'test-admin', role: 'ADMIN' })),
+}));
 import { getTestApiUrl, mockLogger } from '@/core/testing/test-helpers';
 
 // ── Prisma mock ──────────────────────────────────────────────────────────
 const mockPrisma = vi.hoisted(() => ({
+  $transaction: vi.fn(),
   shipment: {
     findUnique: vi.fn(),
   },
@@ -86,6 +90,10 @@ const mockBuildEntries = (amount: number = 5000) => [
 describe('Transit Reclass Routes — Business Logic', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockPrisma.$transaction.mockImplementation(
+      async (operation: (client: typeof mockPrisma) => Promise<unknown>) =>
+        operation(mockPrisma)
+    );
     mockPrisma.shipment.findUnique.mockResolvedValue(mockShipment());
     mockPrisma.product.findMany.mockResolvedValue(mockProducts());
     mockPrisma.clothingInventoryTransitBuildEntry.findMany.mockResolvedValue(

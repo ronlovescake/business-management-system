@@ -1,5 +1,8 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { NextRequest } from 'next/server';
+vi.mock('@/lib/auth/session', () => ({
+  getCurrentUser: vi.fn(async () => ({ id: 'test-admin', role: 'ADMIN' })),
+}));
 import { getTestApiUrl } from '@/core/testing/test-helpers';
 import { Prisma } from '@prisma/client';
 import { investorPostingLines } from '@/lib/investors/accounting';

@@ -1,5 +1,22 @@
 # Clothing - Accounting: Ledger Business Logic
 
+## Server Authorization And Posting Integrity
+
+Accounting APIs, clothing expenses, and supplier/transit posting actions require
+ADMIN or SUPER_ADMIN. Anonymous requests return 401 and other roles 403 before
+business reads/writes. Page access and permission-driven controls agree with
+the API; hiding a button is not authorization.
+
+Product payment and required supplier settlement are atomic and retry by stable
+keys. Posted transit sources cannot be changed/deleted beneath reclassification
+or supplier settlement. Historical journals, logistics costs, and orphan COGS
+are not automatically repaired. See [Products](operations-products.md) and
+[Shipments](operations-shipments.md).
+
+The runtime cutover reads only the requested module's saved date. Clothing does
+not depend on the optional GM settings column. Missing settings still use the
+module-specific environment value or the existing default date.
+
 > **Source files:**
 >
 > - `src/app/clothing/accounting/ledger/hooks/useLedger.ts`

@@ -110,8 +110,8 @@ const APP_MODULES = [
   },
   {
     name: 'clothing-operations-dispatching',
-    displayName: 'Dispatching',
-    path: '/clothing/operations/dispatching',
+    displayName: 'Dispatch',
+    path: '/clothing/operations/dispatch',
     category: 'clothing',
     icon: 'IconSend',
     parentName: 'clothing-operations',

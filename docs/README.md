@@ -33,6 +33,8 @@ The detailed business-logic documents still live under `docs/business-logic/**`,
 
 ## Repository Maps And Deep Analysis
 
+- [Clothing integrity audit and remediation](./reports/CLOTHING_INTEGRITY_AUDIT_2026-10-24.md) - confirmed fixes, verification evidence, all 40 page paths, and remaining review limits.
+
 Dated structural snapshots have been archived under `docs/reports/archive/` to keep this hub focused on living docs:
 
 - [REPOSITORY_LOGIC_AND_COMPUTATION_MAP_2026-02-20.md](./reports/archive/REPOSITORY_LOGIC_AND_COMPUTATION_MAP_2026-02-20.md)

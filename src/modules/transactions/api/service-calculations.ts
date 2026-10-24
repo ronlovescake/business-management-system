@@ -28,17 +28,21 @@ export function computeRemainingBalance(params: {
   discount: unknown;
   adjustment: unknown;
 }): number {
-  const lineTotal = toFiniteNumber(params.lineTotal, Number.NaN);
+  const lineTotal =
+    params.lineTotal === null ||
+    params.lineTotal === undefined ||
+    (typeof params.lineTotal === 'string' && params.lineTotal.trim() === '')
+      ? Number.NaN
+      : toFiniteNumber(params.lineTotal, Number.NaN);
   if (Number.isFinite(lineTotal)) {
     return lineTotal;
   }
 
   const quantity = toFiniteNumber(params.quantity, 0);
   const unitPrice = toFiniteNumber(params.unitPrice, 0);
-  const discount = toFiniteNumber(params.discount, 0);
   const adjustment = toFiniteNumber(params.adjustment, 0);
 
-  return quantity * unitPrice - discount - adjustment;
+  return quantity * unitPrice - adjustment;
 }
 
 export function computeLineTotalForUpdate(params: {

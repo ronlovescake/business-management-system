@@ -9,6 +9,8 @@ type CustomerOrdersResponse = {
 
 type DataEnvelope<T> = {
   data?: T;
+  success?: boolean;
+  error?: string;
 };
 
 export const fetchCustomerOrders = async (
@@ -33,7 +35,10 @@ export const fetchCheckoutLinksData = async (
 ): Promise<CheckoutLinkData[]> => {
   const response = await fetch(apiPath);
   const result = (await response.json()) as DataEnvelope<CheckoutLinkData[]>;
-  return Array.isArray(result.data) ? result.data : [];
+  if (!response.ok || result.success === false || !Array.isArray(result.data)) {
+    throw new Error(result.error || 'Failed to load checkout links');
+  }
+  return result.data;
 };
 
 export const fetchProductsData = async (

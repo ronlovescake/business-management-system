@@ -1,8 +1,10 @@
 import { memo } from 'react';
+import { useSession } from 'next-auth/react';
 import { Button, Group, TextInput } from '@mantine/core';
 import { IconEdit, IconLock, IconPlus, IconSearch } from '@tabler/icons-react';
 
 interface ProductsGridControlsProps {
+  apiBasePath?: string;
   searchQuery: string;
   onSearchChange: (value: string) => void;
   isEditMode: boolean;
@@ -16,6 +18,7 @@ interface ProductsGridControlsProps {
 }
 
 export const ProductsGridControls = memo(function ProductsGridControls({
+  apiBasePath,
   searchQuery,
   onSearchChange,
   isEditMode,
@@ -27,6 +30,10 @@ export const ProductsGridControls = memo(function ProductsGridControls({
   onTransitReclass,
   transitReclassDisabledReason,
 }: ProductsGridControlsProps) {
+  const { data: session } = useSession();
+  const canPostAccounting =
+    Boolean(apiBasePath?.includes('/general-merchandise')) ||
+    ['ADMIN', 'SUPER_ADMIN'].includes(session?.user?.role ?? '');
   return (
     <Group justify="space-between" align="flex-end" wrap="wrap" gap="md">
       <TextInput
@@ -41,38 +48,42 @@ export const ProductsGridControls = memo(function ProductsGridControls({
       />
 
       <Group gap="sm">
-        <Button
-          variant="filled"
-          color="dark"
-          size="sm"
-          radius="sm"
-          disabled={!selectedShipmentCode}
-          onClick={onTransitBuildUp}
-          title={
-            selectedShipmentCode
-              ? `Post transit build-up for ${selectedShipmentCode}${selectedProductCode ? ` (${selectedProductCode})` : ''}`
-              : 'Select a product row with a Shipment Code first'
-          }
-        >
-          Transit Build-Up
-        </Button>
-        <Button
-          variant="filled"
-          color="grape"
-          size="sm"
-          radius="sm"
-          disabled={Boolean(transitReclassDisabledReason)}
-          onClick={onTransitReclass}
-          title={
-            transitReclassDisabledReason
-              ? transitReclassDisabledReason
-              : selectedShipmentCode
-                ? `Reclass ${selectedShipmentCode}${selectedProductCode ? ` (${selectedProductCode})` : ''} from Inventory in Transit to Stock on Hand`
-                : 'Select a delivered product row with a Shipment Code first'
-          }
-        >
-          Reclass to Stock on Hand
-        </Button>
+        {canPostAccounting && (
+          <>
+            <Button
+              variant="filled"
+              color="dark"
+              size="sm"
+              radius="sm"
+              disabled={!selectedShipmentCode}
+              onClick={onTransitBuildUp}
+              title={
+                selectedShipmentCode
+                  ? `Post transit build-up for ${selectedShipmentCode}${selectedProductCode ? ` (${selectedProductCode})` : ''}`
+                  : 'Select a product row with a Shipment Code first'
+              }
+            >
+              Transit Build-Up
+            </Button>
+            <Button
+              variant="filled"
+              color="grape"
+              size="sm"
+              radius="sm"
+              disabled={Boolean(transitReclassDisabledReason)}
+              onClick={onTransitReclass}
+              title={
+                transitReclassDisabledReason
+                  ? transitReclassDisabledReason
+                  : selectedShipmentCode
+                    ? `Reclass ${selectedShipmentCode}${selectedProductCode ? ` (${selectedProductCode})` : ''} from Inventory in Transit to Stock on Hand`
+                    : 'Select a delivered product row with a Shipment Code first'
+              }
+            >
+              Reclass to Stock on Hand
+            </Button>
+          </>
+        )}
         <Button
           leftSection={
             isEditMode ? <IconLock size={16} /> : <IconEdit size={16} />

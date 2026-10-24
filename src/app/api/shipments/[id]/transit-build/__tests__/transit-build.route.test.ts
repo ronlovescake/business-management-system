@@ -1,5 +1,17 @@
 import { describe, expect, it, beforeEach, vi } from 'vitest';
-import { GET, POST } from '@/app/api/shipments/[id]/transit-build/route';
+vi.mock('@/lib/auth/session', () => ({
+  getCurrentUser: vi.fn(async () => ({ id: 'test-admin', role: 'ADMIN' })),
+}));
+import {
+  GET,
+  POST,
+  PATCH,
+  DELETE,
+} from '@/app/api/shipments/[id]/transit-build/route';
+import {
+  PATCH as accountingPATCH,
+  DELETE as accountingDELETE,
+} from '@/app/api/accounting/transit-build/route';
 import { mockNextRequest, getTestApiUrl } from '@/core/testing/test-helpers';
 
 const mockPrisma = vi.hoisted(() => ({
@@ -12,11 +24,14 @@ const mockPrisma = vi.hoisted(() => ({
   clothingInventoryTransitBuildEntry: {
     create: vi.fn(),
     findMany: vi.fn(),
+    findFirst: vi.fn(),
     findUnique: vi.fn(),
     upsert: vi.fn(),
     update: vi.fn(),
   },
   $transaction: vi.fn(),
+  clothingInventoryReclassEntry: { count: vi.fn() },
+  clothingAccountingJournalLine: { count: vi.fn() },
 }));
 
 vi.mock('@/lib/db', () => ({
@@ -26,7 +41,143 @@ vi.mock('@/lib/db', () => ({
 describe('POST /api/shipments/[id]/transit-build', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockPrisma.clothingInventoryReclassEntry.count.mockResolvedValue(0);
+    mockPrisma.clothingAccountingJournalLine.count.mockResolvedValue(0);
+    mockPrisma.clothingInventoryTransitBuildEntry.findMany.mockResolvedValue(
+      []
+    );
+    mockPrisma.$transaction.mockImplementation(async (operation: unknown) =>
+      typeof operation === 'function'
+        ? operation(mockPrisma)
+        : Promise.all(operation as Promise<unknown>[])
+    );
   });
+
+  it.each(['shipment', 'accounting'] as const)(
+    'locks both source writes after supplier settlement through %s',
+    async (endpoint) => {
+      mockPrisma.shipment.findUnique.mockResolvedValue({
+        id: 1,
+        shipmentCode: 'KPC-001',
+      });
+      const entry = {
+        id: 'tb-1',
+        shipmentCode: 'KPC-001',
+        idempotencyKey: 'PRODUCT_TRANSIT_BUILD:10:GRAND_TOTAL',
+      };
+      mockPrisma.clothingInventoryTransitBuildEntry.findFirst.mockResolvedValue(
+        entry
+      );
+      mockPrisma.clothingInventoryTransitBuildEntry.findMany.mockResolvedValue([
+        entry,
+      ]);
+      mockPrisma.clothingAccountingJournalLine.count.mockResolvedValue(1);
+      for (const method of ['PATCH', 'DELETE'] as const) {
+        const path =
+          endpoint === 'shipment'
+            ? '/api/shipments/1/transit-build'
+            : '/api/accounting/transit-build';
+        const request = mockNextRequest({
+          method,
+          url: getTestApiUrl(`${path}?entryId=tb-1`),
+          body: { entryId: 'tb-1', amount: 50 },
+        });
+        const response =
+          endpoint === 'shipment'
+            ? await (method === 'PATCH' ? PATCH : DELETE)(request, {
+                params: { id: '1' },
+              })
+            : await (method === 'PATCH' ? accountingPATCH : accountingDELETE)(
+                request
+              );
+        expect(response.status).toBe(409);
+      }
+      expect(
+        mockPrisma.clothingInventoryTransitBuildEntry.update
+      ).not.toHaveBeenCalled();
+    }
+  );
+
+  it.each([
+    'PRODUCT_TRANSIT_BUILD:10:GRAND_TOTAL',
+    'SHIPMENT_TRANSIT_BUILD:KPC-001:Bank',
+    'SHIPMENT_TRANSIT_BUILD:KPC-001:SPLIT:PAID',
+  ])('rejects incompatible active source %s', async (key) => {
+    mockPrisma.shipment.findUnique.mockResolvedValue({
+      id: 1,
+      shipmentCode: 'KPC-001',
+    });
+    mockPrisma.product.findMany.mockResolvedValue([{ cogs: 100 }]);
+    mockPrisma.clothingInventoryTransitBuildEntry.findMany.mockResolvedValue([
+      { idempotencyKey: key },
+    ]);
+
+    const response = await POST(
+      mockNextRequest({
+        method: 'POST',
+        url: getTestApiUrl('/api/shipments/1/transit-build'),
+        body: { creditAccount: 'Cash' },
+      }),
+      { params: { id: '1' } }
+    );
+
+    expect(response.status).toBe(409);
+    expect(
+      mockPrisma.clothingInventoryTransitBuildEntry.create
+    ).not.toHaveBeenCalled();
+  });
+
+  it.each(['PATCH', 'DELETE'] as const)(
+    'rejects %s after reclassification',
+    async (method) => {
+      mockPrisma.shipment.findUnique.mockResolvedValue({
+        id: 1,
+        shipmentCode: 'KPC-001',
+      });
+      mockPrisma.clothingInventoryTransitBuildEntry.findFirst.mockResolvedValue(
+        { id: 'tb-1' }
+      );
+      mockPrisma.clothingInventoryReclassEntry.count.mockResolvedValue(1);
+      const request = mockNextRequest({
+        method,
+        url: getTestApiUrl('/api/shipments/1/transit-build?entryId=tb-1'),
+        body: { entryId: 'tb-1', amount: 50 },
+      });
+
+      const response = await (method === 'PATCH' ? PATCH : DELETE)(request, {
+        params: { id: '1' },
+      });
+
+      expect(response.status).toBe(409);
+      expect(
+        mockPrisma.clothingInventoryTransitBuildEntry.update
+      ).not.toHaveBeenCalled();
+    }
+  );
+
+  it.each(['PATCH', 'DELETE'] as const)(
+    'also protects the accounting %s endpoint after reclassification',
+    async (method) => {
+      mockPrisma.clothingInventoryTransitBuildEntry.findFirst.mockResolvedValue(
+        { id: 'tb-1', shipmentCode: 'KPC-001' }
+      );
+      mockPrisma.clothingInventoryReclassEntry.count.mockResolvedValue(1);
+      const request = mockNextRequest({
+        method,
+        url: getTestApiUrl('/api/accounting/transit-build?entryId=tb-1'),
+        body: { entryId: 'tb-1', amount: 50 },
+      });
+
+      const response = await (
+        method === 'PATCH' ? accountingPATCH : accountingDELETE
+      )(request);
+
+      expect(response.status).toBe(409);
+      expect(
+        mockPrisma.clothingInventoryTransitBuildEntry.update
+      ).not.toHaveBeenCalled();
+    }
+  );
 
   it('creates a new transit build-up entry', async () => {
     mockPrisma.shipment.findUnique.mockResolvedValue({
@@ -177,10 +328,6 @@ describe('POST /api/shipments/[id]/transit-build', () => {
         idempotencyKey: create.idempotencyKey,
         deletedAt: null,
       })
-    );
-
-    mockPrisma.$transaction.mockImplementation(
-      async (ops: Array<Promise<unknown>>) => Promise.all(ops)
     );
 
     const request = mockNextRequest({

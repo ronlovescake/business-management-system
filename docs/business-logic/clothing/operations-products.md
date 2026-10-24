@@ -3,7 +3,7 @@
 ## Stable Product Identity
 
 `Product.id` is the unique, permanent database identifier. The generated Product
-Code remains editable by changing the product name/date and is not a unique
+Code remains editable for unposted products by changing the product name/date and is not a unique
 database key. Linked price tiers, transactions, inventory movements, sorting,
 batch components, and reclassification entries use nullable `productId` links;
 their visible codes follow product-code changes. The previous code is retained
@@ -12,6 +12,22 @@ changed by a code rename.
 
 Selective backups exclude aliases for soft-deleted products when those products
 are omitted; database dumps retain all aliases.
+
+### Accounting Identity And Payment Locks
+
+Active transit builds, reclassifications, or supplier settlement journal lines
+block product-code/shipment-code changes and deletion. The same guard applies
+to direct-ID edits, imports, bulk updates, and mass deletion. Identity-preserving
+cost estimate edits remain supported; reclassification uses posted source costs,
+not later estimates.
+
+Where product-origin Supplier Payable exists, changing to Paid requires a
+supported payment method and administrator authority for missing journal lines.
+Product state and both settlement lines commit together. Retrying Paid reconciles
+stable keys without changing completed posting dates. Conflicting payment details,
+reverting a settled product to Unpaid, or deleted settlement lines retaining those
+keys require accounting resolution and return 409. Ordinary edits to a completely
+settled product do not repost it.
 
 New code-only rows are linked only when one active product matches. A missing or
 ambiguous code remains unlinked; code-only bulk edits with duplicate matches

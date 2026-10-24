@@ -11,23 +11,20 @@ type TransitBuildEntry = {
 
 const mockPrisma = vi.hoisted(() => {
   const clothingCreateMany = vi.fn();
+  const clothingUpdateMany = vi.fn();
   return {
     product: {
       findMany: vi.fn(),
     },
+    clothingInventoryReclassEntry: { findFirst: vi.fn() },
+    clothingAccountingJournalLine: { count: vi.fn() },
     clothingInventoryTransitBuildEntry: {
       findMany: vi.fn(),
       createMany: clothingCreateMany,
+      updateMany: clothingUpdateMany,
       deleteMany: vi.fn(),
     },
-    $transaction: vi.fn((cb: (tx: unknown) => Promise<unknown>) =>
-      cb({
-        clothingInventoryTransitBuildEntry: {
-          deleteMany: vi.fn().mockResolvedValue({ count: 0 }),
-          createMany: clothingCreateMany,
-        },
-      })
-    ),
+    $transaction: vi.fn(),
   };
 });
 
@@ -44,12 +41,21 @@ vi.mock('@/modules/clothing/ledger/api/service', () => ({
 describe('productService manual transit build-up (by shipment code)', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockPrisma.$transaction.mockImplementation(
+      async (operation: (client: typeof mockPrisma) => Promise<unknown>) =>
+        operation(mockPrisma)
+    );
     mockPrisma.clothingInventoryTransitBuildEntry.findMany.mockResolvedValue(
       []
     );
     mockPrisma.clothingInventoryTransitBuildEntry.createMany.mockResolvedValue({
       count: 0,
     });
+    mockPrisma.clothingInventoryTransitBuildEntry.updateMany.mockResolvedValue({
+      count: 0,
+    });
+    mockPrisma.clothingInventoryReclassEntry.findFirst.mockResolvedValue(null);
+    mockPrisma.clothingAccountingJournalLine.count.mockResolvedValue(0);
   });
 
   it('posts Grand Total to Inventory in Transit, but Forwarder/Lalamove to Landed Cost Clearing (Paid)', async () => {
@@ -175,6 +181,89 @@ describe('productService manual transit build-up (by shipment code)', () => {
       creditAccount: 'Bank',
       amount: 300,
     });
+  });
+
+  it('restores a deleted posting without purging its audit record', async () => {
+    const { productService } = await import('../service');
+    mockPrisma.product.findMany.mockResolvedValue([
+      {
+        id: 3,
+        productCode: 'TP-003',
+        payment: 'Paid',
+        paymentMethod: 'BANK',
+        postingDate: '2026-01-18',
+        grandTotal: 300,
+      },
+    ]);
+    mockPrisma.clothingInventoryTransitBuildEntry.updateMany.mockResolvedValue({
+      count: 1,
+    });
+
+    const result = await productService.postManualTransitBuildUpByShipmentCode({
+      shipmentCode: 'KPC-003',
+    });
+
+    expect(result.created).toBe(1);
+    expect(
+      mockPrisma.clothingInventoryTransitBuildEntry.updateMany
+    ).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          deletedAt: { not: null },
+          idempotencyKey: 'PRODUCT_TRANSIT_BUILD:3:GRAND_TOTAL',
+        },
+        data: expect.objectContaining({ deletedAt: null, amount: 300 }),
+      })
+    );
+    expect(
+      mockPrisma.clothingInventoryTransitBuildEntry.deleteMany
+    ).not.toHaveBeenCalled();
+  });
+
+  it('rejects product posting when a shipment-origin build is already active', async () => {
+    const { productService } = await import('../service');
+    mockPrisma.product.findMany.mockResolvedValue([]);
+    mockPrisma.clothingInventoryTransitBuildEntry.findMany.mockResolvedValue([
+      { idempotencyKey: 'SHIPMENT_TRANSIT_BUILD:KPC-003:Cash' },
+    ]);
+
+    await expect(
+      productService.postManualTransitBuildUpByShipmentCode({
+        shipmentCode: 'KPC-003',
+      })
+    ).rejects.toThrow('active transit-build');
+    expect(
+      mockPrisma.clothingInventoryTransitBuildEntry.createMany
+    ).not.toHaveBeenCalled();
+  });
+
+  it('does not recreate a source while its downstream reclassification is active', async () => {
+    const { productService } = await import('../service');
+    mockPrisma.product.findMany.mockResolvedValue([
+      {
+        id: 3,
+        productCode: 'TP-003',
+        payment: 'Paid',
+        paymentMethod: 'BANK',
+        postingDate: '2026-01-18',
+        grandTotal: 300,
+      },
+    ]);
+    mockPrisma.clothingInventoryReclassEntry.findFirst.mockResolvedValue({
+      id: 'reclass-1',
+    });
+
+    await expect(
+      productService.postManualTransitBuildUpByShipmentCode({
+        shipmentCode: 'KPC-003',
+      })
+    ).rejects.toThrow('active transit-build');
+    expect(
+      mockPrisma.clothingInventoryTransitBuildEntry.createMany
+    ).not.toHaveBeenCalled();
+    expect(
+      mockPrisma.clothingInventoryTransitBuildEntry.updateMany
+    ).not.toHaveBeenCalled();
   });
 
   it('does not post a Paid product with an unsupported payment method', async () => {

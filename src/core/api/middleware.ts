@@ -9,9 +9,34 @@ import { NextResponse } from 'next/server';
 import type { ZodSchema } from 'zod';
 import { ApiResponseUtil } from './response';
 import { logger } from '@/lib/logger';
+import { getRequiredRolesForPath } from '@/core/routePermissions';
 
 interface ErrorHandlerOptions {
   onError?: (error: unknown, request: NextRequest) => NextResponse | undefined;
+}
+
+export async function authorizeApiRequest(
+  request: NextRequest
+): Promise<NextResponse | null> {
+  const pathname =
+    request.nextUrl?.pathname ??
+    (request.url ? new URL(request.url).pathname : '');
+  if (!pathname.startsWith('/api/')) {
+    return null;
+  }
+  const roles = getRequiredRolesForPath(pathname);
+  if (!roles || roles.includes('*')) {
+    return null;
+  }
+  const { getCurrentUser } = await import('@/lib/auth/session');
+  const user = await getCurrentUser();
+  if (!user) {
+    return ApiResponseUtil.unauthorized();
+  }
+  if (!roles.some((role) => role === user.role)) {
+    return ApiResponseUtil.forbidden();
+  }
+  return null;
 }
 
 /**
@@ -31,6 +56,10 @@ export function withErrorHandler<T = unknown>(
 ) {
   return async (request: NextRequest, context?: T): Promise<NextResponse> => {
     try {
+      const authorization = await authorizeApiRequest(request);
+      if (authorization) {
+        return authorization;
+      }
       return await handler(request, context);
     } catch (error) {
       const path = (() => {
@@ -53,6 +82,16 @@ export function withErrorHandler<T = unknown>(
       const mappedResponse = options.onError?.(error, request);
       if (mappedResponse) {
         return mappedResponse;
+      }
+      if (
+        typeof error === 'object' &&
+        error !== null &&
+        'code' in error &&
+        error.code === 'P2034'
+      ) {
+        return ApiResponseUtil.conflict(
+          'Another request changed this data. Refresh and retry the operation.'
+        );
       }
 
       if (error instanceof Error) {

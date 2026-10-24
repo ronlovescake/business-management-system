@@ -13,6 +13,7 @@
 'use client';
 
 import { memo, useMemo, useState } from 'react';
+import { useSession } from 'next-auth/react';
 import { Button, Tabs, FileButton } from '@mantine/core';
 import {
   IconPackage,
@@ -53,6 +54,10 @@ interface ShipmentsPageProps {
 export const ShipmentsPage = memo(function ShipmentsPage({
   apiBasePath,
 }: ShipmentsPageProps) {
+  const { data: session } = useSession();
+  const canManageAccounting =
+    Boolean(apiBasePath?.includes('/general-merchandise')) ||
+    ['ADMIN', 'SUPER_ADMIN'].includes(session?.user?.role ?? '');
   // ==========================================================================
   // STATE
   // ==========================================================================
@@ -275,7 +280,9 @@ export const ShipmentsPage = memo(function ShipmentsPage({
           <Tabs.Tab value="shipments">Shipments</Tabs.Tab>
           <Tabs.Tab value="dashboard">Shipments Dashboard</Tabs.Tab>
           <Tabs.Tab value="pickup">Pickup Form</Tabs.Tab>
-          <Tabs.Tab value="logistics">Logistics Costs</Tabs.Tab>
+          {canManageAccounting && (
+            <Tabs.Tab value="logistics">Logistics Costs</Tabs.Tab>
+          )}
         </Tabs.List>
 
         {/* Shipments Tab */}
@@ -365,9 +372,14 @@ export const ShipmentsPage = memo(function ShipmentsPage({
         </Tabs.Panel>
 
         {/* Logistics Costs Tab */}
-        <Tabs.Panel value="logistics" pt="md">
-          <LogisticsCostsTab shipments={shipments} apiBasePath={apiBasePath} />
-        </Tabs.Panel>
+        {canManageAccounting && (
+          <Tabs.Panel value="logistics" pt="md">
+            <LogisticsCostsTab
+              shipments={shipments}
+              apiBasePath={apiBasePath}
+            />
+          </Tabs.Panel>
+        )}
       </Tabs>
     </PageLayout>
   );

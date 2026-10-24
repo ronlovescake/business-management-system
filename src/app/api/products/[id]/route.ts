@@ -8,6 +8,9 @@ import { recalculateProductFinancials } from '@/modules/products/api/financials'
 import { mapToDTO } from '@/modules/products/api/dto';
 import { sanitizeProductRecord } from '@/modules/products/api/sanitizers';
 import {
+  assertProductAccountingIdentityChange,
+  ProductShipmentAccountingConflictError,
+  ProductSupplierSettlementError,
   postExpenseForProduct,
   postSupplierSettlementForProductPaymentChange,
 } from '@/modules/products/api/service';
@@ -41,125 +44,148 @@ export async function PUT(
     const sanitizedProductCode =
       sanitizers.productCode(productData['Product Code']) || null;
 
-    // Sanitize and update the product in the database
-    const updatedProduct = await prisma.product.update({
-      where: { id },
-      data: {
-        // Sanitize code fields
-        shipmentCode:
-          sanitizers.productCode(productData['Shipment Code']) || null,
-        cvNumber: sanitizers.name(productData['CV Number']) || null,
-        // Split child SKUs are defined by the split batch and must remain stable
-        // when users edit product fields like price in the Products table.
-        productCode: splitChild
-          ? existingProductCode || sanitizedProductCode
-          : sanitizedProductCode,
-
-        // Sanitize text fields
-        product: sanitizers.name(productData['Product']) || null,
-        ageRange: sanitizers.name(productData['Age Range']) || null,
-        unit: sanitizers.name(productData['Unit']) || null,
-        shipmentStatus: sanitizers.name(productData['Shipment Status']) || null,
-        payment: sanitizers.name(productData['Payment']) || null,
-        paymentMethod: sanitizers.name(productData['Payment Method']) || null,
-        paymentCardId: sanitizers.name(productData['Payment Card Id']) || null,
-        linkToPost: sanitizers.url(productData['Link To Post']) || null,
-
-        // Sanitize date fields
-        postingDate: sanitizers.date(productData['Posting Date']) || null,
-        orderDate: sanitizers.date(productData['Order Date']) || null,
-
-        // Sanitize numeric fields
-        noOfSacks:
-          sanitizers.number(productData['No. Of Sacks'], {
-            min: 0,
-            decimals: 2,
-          }) || 0,
-        totalCBM:
-          sanitizers.number(productData['Total CBM'], {
-            min: 0,
-            decimals: 2,
-          }) || 0,
-        weight:
-          sanitizers.number(productData['Weight'], { min: 0, decimals: 2 }) ||
-          0,
-        unitPrice:
-          sanitizers.number(productData['Unit Price'], {
-            min: 0,
-            decimals: 2,
-          }) || 0,
-        quantity:
-          sanitizers.number(productData['Quantity'], { min: 0, decimals: 2 }) ||
-          0,
-        alibabaShippingCost:
-          sanitizers.number(productData['Alibaba Shipping Cost'], {
-            min: 0,
-            decimals: 2,
-          }) || 0,
-        exchangeRates:
-          sanitizers.number(productData['Exchange Rates'], {
-            min: 0,
-            decimals: 2,
-          }) || 0,
-        php: calculatedProduct.PHP,
-        subTotalPHP: calculatedProduct['Sub Total (PHP)'],
-        transactionFee: calculatedProduct['Transaction Fee'],
-        grandTotal: calculatedProduct['Grand Total'],
-        forwardersFee:
-          sanitizers.number(productData["Forwarder's Fee"], {
-            min: 0,
-            decimals: 2,
-          }) || 0,
-        lalamove:
-          sanitizers.number(productData['Lalamove'], { min: 0, decimals: 2 }) ||
-          0,
-        packagingCost:
-          sanitizers.number(productData['Packaging Cost'], {
-            min: 0,
-            decimals: 2,
-          }) || 0,
-        suggestedPrice: calculatedProduct['Suggested Price'],
-        actualPrice:
-          sanitizers.number(productData['Actual Price'], {
-            min: 0,
-            decimals: 2,
-          }) || 0,
-        landedUnitCost: calculatedProduct['Landed Unit Cost'],
-        cogs: calculatedProduct.COGS,
-        projectedSales: calculatedProduct['Projected Sales'],
-        projectedProfit: calculatedProduct['Projected Profit'],
-        projectedProfitPercent: calculatedProduct['Projected Profit (%)'],
-        totalMarkup: calculatedProduct['Total Markup'],
-        bulkQuantity:
-          sanitizers.number(productData['Bulk Quantity'], {
-            min: 0,
-            decimals: 2,
-          }) || 0,
-        bulkWeight:
-          sanitizers.number(productData['Bulk Weight'], {
-            min: 0,
-            decimals: 2,
-          }) || 0,
-        weightPerPiece: calculatedProduct['Weight Per Piece'],
-      },
-    });
-
-    if (existingProduct) {
-      try {
-        await postSupplierSettlementForProductPaymentChange({
-          productId: id,
-          prevPayment: existingProduct.payment,
-          nextPayment: updatedProduct.payment,
-          productCode: updatedProduct.productCode,
-          shipmentCode: updatedProduct.shipmentCode,
-        });
-      } catch (error) {
-        logger.warn('Failed to post supplier settlement after product update', {
-          error,
-          productId: id,
-        });
-      }
+    if (!existingProduct) {
+      return NextResponse.json({ error: 'Product not found' }, { status: 404 });
     }
+    const updatedProduct = await prisma.$transaction(
+      async (tx) => {
+        const current = await tx.product.findUnique({ where: { id } });
+        if (!current) {
+          throw new Error('Product no longer exists');
+        }
+        await assertProductAccountingIdentityChange(tx, current, {
+          productCode: splitChild ? existingProductCode : sanitizedProductCode,
+          shipmentCode:
+            sanitizers.productCode(productData['Shipment Code']) || null,
+        });
+
+        // Sanitize and update the product in the database
+        const updated = await tx.product.update({
+          where: { id },
+          data: {
+            // Sanitize code fields
+            shipmentCode:
+              sanitizers.productCode(productData['Shipment Code']) || null,
+            cvNumber: sanitizers.name(productData['CV Number']) || null,
+            // Split child SKUs are defined by the split batch and must remain stable
+            // when users edit product fields like price in the Products table.
+            productCode: splitChild
+              ? existingProductCode || sanitizedProductCode
+              : sanitizedProductCode,
+
+            // Sanitize text fields
+            product: sanitizers.name(productData['Product']) || null,
+            ageRange: sanitizers.name(productData['Age Range']) || null,
+            unit: sanitizers.name(productData['Unit']) || null,
+            shipmentStatus:
+              sanitizers.name(productData['Shipment Status']) || null,
+            payment: sanitizers.name(productData['Payment']) || null,
+            paymentMethod:
+              sanitizers.name(productData['Payment Method']) || null,
+            paymentCardId:
+              sanitizers.name(productData['Payment Card Id']) || null,
+            linkToPost: sanitizers.url(productData['Link To Post']) || null,
+
+            // Sanitize date fields
+            postingDate: sanitizers.date(productData['Posting Date']) || null,
+            orderDate: sanitizers.date(productData['Order Date']) || null,
+
+            // Sanitize numeric fields
+            noOfSacks:
+              sanitizers.number(productData['No. Of Sacks'], {
+                min: 0,
+                decimals: 2,
+              }) || 0,
+            totalCBM:
+              sanitizers.number(productData['Total CBM'], {
+                min: 0,
+                decimals: 2,
+              }) || 0,
+            weight:
+              sanitizers.number(productData['Weight'], {
+                min: 0,
+                decimals: 2,
+              }) || 0,
+            unitPrice:
+              sanitizers.number(productData['Unit Price'], {
+                min: 0,
+                decimals: 2,
+              }) || 0,
+            quantity:
+              sanitizers.number(productData['Quantity'], {
+                min: 0,
+                decimals: 2,
+              }) || 0,
+            alibabaShippingCost:
+              sanitizers.number(productData['Alibaba Shipping Cost'], {
+                min: 0,
+                decimals: 2,
+              }) || 0,
+            exchangeRates:
+              sanitizers.number(productData['Exchange Rates'], {
+                min: 0,
+                decimals: 2,
+              }) || 0,
+            php: calculatedProduct.PHP,
+            subTotalPHP: calculatedProduct['Sub Total (PHP)'],
+            transactionFee: calculatedProduct['Transaction Fee'],
+            grandTotal: calculatedProduct['Grand Total'],
+            forwardersFee:
+              sanitizers.number(productData["Forwarder's Fee"], {
+                min: 0,
+                decimals: 2,
+              }) || 0,
+            lalamove:
+              sanitizers.number(productData['Lalamove'], {
+                min: 0,
+                decimals: 2,
+              }) || 0,
+            packagingCost:
+              sanitizers.number(productData['Packaging Cost'], {
+                min: 0,
+                decimals: 2,
+              }) || 0,
+            suggestedPrice: calculatedProduct['Suggested Price'],
+            actualPrice:
+              sanitizers.number(productData['Actual Price'], {
+                min: 0,
+                decimals: 2,
+              }) || 0,
+            landedUnitCost: calculatedProduct['Landed Unit Cost'],
+            cogs: calculatedProduct.COGS,
+            projectedSales: calculatedProduct['Projected Sales'],
+            projectedProfit: calculatedProduct['Projected Profit'],
+            projectedProfitPercent: calculatedProduct['Projected Profit (%)'],
+            totalMarkup: calculatedProduct['Total Markup'],
+            bulkQuantity:
+              sanitizers.number(productData['Bulk Quantity'], {
+                min: 0,
+                decimals: 2,
+              }) || 0,
+            bulkWeight:
+              sanitizers.number(productData['Bulk Weight'], {
+                min: 0,
+                decimals: 2,
+              }) || 0,
+            weightPerPiece: calculatedProduct['Weight Per Piece'],
+          },
+        });
+
+        await postSupplierSettlementForProductPaymentChange(
+          {
+            productId: id,
+            prevPayment: existingProduct.payment,
+            nextPayment: updated.payment,
+            productCode: updated.productCode,
+            shipmentCode: updated.shipmentCode,
+            paymentMethod: updated.paymentMethod,
+          },
+          tx
+        );
+        return updated;
+      },
+      { isolationLevel: 'Serializable' }
+    );
 
     try {
       const dto = mapToDTO(updatedProduct);
@@ -176,6 +202,15 @@ export async function PUT(
       product: updatedProduct,
     });
   } catch (error) {
+    if (error instanceof ProductSupplierSettlementError) {
+      return NextResponse.json(
+        { error: error.message },
+        { status: error.status }
+      );
+    }
+    if (error instanceof ProductShipmentAccountingConflictError) {
+      return NextResponse.json({ error: error.message }, { status: 409 });
+    }
     logger.error('Failed to update product:', error);
     return NextResponse.json(
       { error: 'Failed to update product' },
@@ -228,14 +263,24 @@ export async function DELETE(
       );
     }
 
-    await prisma.product.delete({
-      where: { id },
-    });
+    await prisma.$transaction(
+      async (tx) => {
+        const product = await tx.product.findUnique({ where: { id } });
+        if (product) {
+          await assertProductAccountingIdentityChange(tx, product, null);
+        }
+        await tx.product.delete({ where: { id } });
+      },
+      { isolationLevel: 'Serializable' }
+    );
 
     return NextResponse.json({
       message: 'Product deleted successfully',
     });
   } catch (error) {
+    if (error instanceof ProductShipmentAccountingConflictError) {
+      return NextResponse.json({ error: error.message }, { status: 409 });
+    }
     logger.error('Failed to delete product:', error);
     return NextResponse.json(
       { error: 'Failed to delete product' },

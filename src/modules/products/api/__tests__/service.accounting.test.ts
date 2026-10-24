@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import type { Prisma } from '@prisma/client';
 import type { ProductDTO } from '../dto';
 
 process.env.ACCOUNTING_CUTOVER_DATE = '2026-01-17';
@@ -23,6 +24,7 @@ const mockPrisma = vi.hoisted(() => ({
     findMany: vi.fn(),
   },
   clothingAccountingJournalLine: {
+    findMany: vi.fn(),
     upsert: vi.fn(),
   },
   $executeRaw: vi.fn(),
@@ -32,6 +34,9 @@ const mockPrisma = vi.hoisted(() => ({
 vi.mock('@/lib/db', () => ({
   prisma: mockPrisma,
 }));
+const mockTransactionClient = mockPrisma as unknown as Prisma.TransactionClient;
+const auth = vi.hoisted(() => ({ getCurrentUser: vi.fn() }));
+vi.mock('@/lib/auth/session', () => auth);
 
 // Expense posting is disabled by default in the service; still stub the module
 // to keep the test focused.
@@ -87,6 +92,60 @@ function buildDto(overrides: Partial<ProductDTO> = {}): ProductDTO {
 }
 
 describe('productService accounting automation', () => {
+  it('blocks identity changes and deletion when only supplier settlement lines remain', async () => {
+    const {
+      assertProductAccountingIdentityChange,
+      ProductShipmentAccountingConflictError,
+    } = await import('../service');
+    mockPrisma.clothingAccountingJournalLine.findMany.mockResolvedValue([
+      { id: 'settled' },
+    ]);
+    const existing = {
+      id: 123,
+      productCode: 'TP-001',
+      shipmentCode: 'KPC-001',
+    };
+    await expect(
+      assertProductAccountingIdentityChange(
+        mockTransactionClient,
+        existing,
+        null
+      )
+    ).rejects.toBeInstanceOf(ProductShipmentAccountingConflictError);
+    await expect(
+      assertProductAccountingIdentityChange(mockTransactionClient, existing, {
+        productCode: 'RENAMED',
+        shipmentCode: 'KPC-001',
+      })
+    ).rejects.toBeInstanceOf(ProductShipmentAccountingConflictError);
+  });
+
+  it('rejects a payment retry when deleted journal lines retain the settlement keys', async () => {
+    const { postSupplierSettlementForProductPaymentChange } = await import(
+      '../service'
+    );
+    mockPrisma.clothingInventoryTransitBuildEntry.findMany.mockResolvedValue([
+      { amount: 100 },
+    ]);
+    mockPrisma.clothingAccountingJournalLine.upsert.mockResolvedValue({
+      id: 'deleted-settlement',
+      deletedAt: new Date(),
+    });
+    await expect(
+      postSupplierSettlementForProductPaymentChange(
+        {
+          productId: 123,
+          prevPayment: 'Paid',
+          nextPayment: 'Paid',
+          productCode: 'TP-001',
+          shipmentCode: 'KPC-001',
+          paymentMethod: 'BANK',
+        },
+        mockTransactionClient
+      )
+    ).rejects.toMatchObject({ status: 409 });
+  });
+
   beforeEach(() => {
     vi.clearAllMocks();
     mockPrisma.$transaction.mockImplementation(
@@ -98,6 +157,12 @@ describe('productService accounting automation', () => {
       []
     );
     mockPrisma.clothingInventoryReclassEntry.findMany.mockResolvedValue([]);
+    mockPrisma.clothingAccountingJournalLine.findMany.mockResolvedValue([]);
+    mockPrisma.clothingAccountingJournalLine.upsert.mockResolvedValue({
+      id: 'settlement',
+      deletedAt: null,
+    });
+    auth.getCurrentUser.mockResolvedValue({ id: 'test-admin', role: 'ADMIN' });
   });
 
   it('does not auto-post transit build-up when creating a PAID product', async () => {
@@ -223,6 +288,128 @@ describe('productService accounting automation', () => {
     });
   });
 
+  it.each(['bulkUpdate', 'bulkImport'] as const)(
+    '%s rejects an unsupported settlement method inside the product transaction',
+    async (method) => {
+      const { productService, ProductSupplierSettlementError } = await import(
+        '../service'
+      );
+      mockPrisma.product.findUnique.mockResolvedValue({
+        id: 789,
+        productCode: 'TP-003',
+        shipmentCode: 'KPC-001',
+        payment: 'Unpaid',
+        deletedAt: null,
+      });
+      mockPrisma.clothingInventoryTransitBuildEntry.findMany.mockResolvedValue([
+        { amount: 100 },
+      ]);
+
+      await expect(
+        productService[method]([
+          buildDto({
+            id: 789,
+            'Product Code': 'TP-003',
+            'Payment Method': null,
+          }),
+        ])
+      ).rejects.toBeInstanceOf(ProductSupplierSettlementError);
+      expect(mockPrisma.$transaction).toHaveBeenCalledTimes(1);
+      expect(
+        mockPrisma.clothingAccountingJournalLine.upsert
+      ).not.toHaveBeenCalled();
+    }
+  );
+
+  it('reconciles a Paid retry without changing existing journal dates or amounts', async () => {
+    const { productService } = await import('../service');
+    mockPrisma.product.findUnique.mockResolvedValue({
+      id: 789,
+      productCode: 'TP-003',
+      shipmentCode: 'KPC-001',
+      payment: 'Paid',
+      deletedAt: null,
+    });
+    mockPrisma.clothingInventoryTransitBuildEntry.findMany.mockResolvedValue([
+      { amount: 100 },
+    ]);
+
+    await productService.bulkUpdate([
+      buildDto({ id: 789, 'Product Code': 'TP-003', 'Payment Method': 'BANK' }),
+    ]);
+
+    expect(mockPrisma.$transaction).toHaveBeenCalledTimes(1);
+    expect(
+      mockPrisma.clothingAccountingJournalLine.upsert
+    ).toHaveBeenCalledTimes(2);
+    for (const [args] of mockPrisma.clothingAccountingJournalLine.upsert.mock
+      .calls) {
+      expect(args.update).toEqual({});
+    }
+  });
+
+  it('rejects an operational USER posting a supplier settlement', async () => {
+    const { productService } = await import('../service');
+    auth.getCurrentUser.mockResolvedValue({ id: 'test-user', role: 'USER' });
+    mockPrisma.product.findUnique.mockResolvedValue({
+      id: 789,
+      productCode: 'TP-003',
+      shipmentCode: 'KPC-001',
+      payment: 'Unpaid',
+      deletedAt: null,
+    });
+    mockPrisma.clothingInventoryTransitBuildEntry.findMany.mockResolvedValue([
+      { amount: 100 },
+    ]);
+    await expect(
+      productService.bulkUpdate([
+        buildDto({
+          id: 789,
+          'Product Code': 'TP-003',
+          'Payment Method': 'BANK',
+        }),
+      ])
+    ).rejects.toMatchObject({ status: 403 });
+    expect(
+      mockPrisma.clothingAccountingJournalLine.upsert
+    ).not.toHaveBeenCalled();
+  });
+
+  it('allows a harmless USER edit after settlement without reposting it', async () => {
+    const { productService } = await import('../service');
+    auth.getCurrentUser.mockResolvedValue({ id: 'test-user', role: 'USER' });
+    mockPrisma.product.findUnique.mockResolvedValue({
+      id: 789,
+      productCode: 'TP-003',
+      shipmentCode: 'KPC-001',
+      payment: 'Paid',
+      deletedAt: null,
+    });
+    mockPrisma.clothingInventoryTransitBuildEntry.findMany.mockResolvedValue([
+      { amount: 100 },
+    ]);
+    mockPrisma.clothingAccountingJournalLine.findMany.mockResolvedValue([
+      {
+        sourceLineKey: 'SUPPLIER_SETTLEMENT:debit',
+        account: 'Supplier Payable',
+        debit: 100,
+        credit: 0,
+      },
+      {
+        sourceLineKey: 'SUPPLIER_SETTLEMENT:credit',
+        account: 'Bank',
+        debit: 0,
+        credit: 100,
+      },
+    ]);
+    await productService.bulkUpdate([
+      buildDto({ id: 789, 'Product Code': 'TP-003', 'Payment Method': 'BANK' }),
+    ]);
+    expect(
+      mockPrisma.clothingAccountingJournalLine.upsert
+    ).not.toHaveBeenCalled();
+  });
+
   it('updates a renamed product by ID without creating another product', async () => {
     const { productService } = await import('../service');
     mockPrisma.product.findUnique.mockResolvedValue({
@@ -264,6 +451,53 @@ describe('productService accounting automation', () => {
     );
     expect(mockPrisma.product.update).not.toHaveBeenCalled();
     expect(mockPrisma.product.create).not.toHaveBeenCalled();
+  });
+
+  it.each(['bulkUpdate', 'bulkImport'] as const)(
+    '%s blocks product renames after accounting has been posted',
+    async (method) => {
+      const { productService, ProductShipmentAccountingConflictError } =
+        await import('../service');
+      mockPrisma.product.findUnique.mockResolvedValue({
+        id: 789,
+        productCode: 'TP-003',
+        shipmentCode: 'KPC-001',
+        payment: 'Paid',
+        deletedAt: null,
+      });
+      mockPrisma.clothingInventoryReclassEntry.findMany.mockResolvedValue([
+        { id: 'reclass-1' },
+      ]);
+
+      await expect(
+        productService[method]([
+          buildDto({ id: 789, 'Product Code': 'RENAMED' }),
+        ])
+      ).rejects.toBeInstanceOf(ProductShipmentAccountingConflictError);
+      expect(mockPrisma.product.update).not.toHaveBeenCalled();
+    }
+  );
+
+  it('blocks imported shipment reassignment after transit build-up', async () => {
+    const { productService, ProductShipmentAccountingConflictError } =
+      await import('../service');
+    mockPrisma.product.findUnique.mockResolvedValue({
+      id: 789,
+      productCode: 'TP-003',
+      shipmentCode: 'KPC-001',
+      payment: 'Paid',
+      deletedAt: null,
+    });
+    mockPrisma.clothingInventoryTransitBuildEntry.findMany.mockResolvedValue([
+      { id: 'transit-1' },
+    ]);
+
+    await expect(
+      productService.bulkImport([
+        buildDto({ id: 789, 'Shipment Code': 'KPC-002' }),
+      ])
+    ).rejects.toBeInstanceOf(ProductShipmentAccountingConflictError);
+    expect(mockPrisma.product.update).not.toHaveBeenCalled();
   });
 
   it('blocks shipment reassignment while active transit accounting entries exist', async () => {

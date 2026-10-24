@@ -166,6 +166,8 @@ export async function POST(request: Request) {
         quantity,
         fromBucket,
         toBucket,
+        movementSource: 'inventory_adjustment',
+        movementType: 'adjustment',
         postingDate: postingDate?.trim() || null,
         notes,
         supplierShortResolution:

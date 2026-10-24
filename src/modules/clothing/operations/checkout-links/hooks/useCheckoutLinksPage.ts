@@ -29,6 +29,7 @@ import { findCheckoutLinkByWeight } from '../utils/checkoutLinkMatcher';
 import { generateInvoiceMessage } from '../utils/messageGenerator';
 import { copyTextToClipboard } from '../lib/clipboard';
 import { hasWeightData, mapProductToItemWeight } from '../lib/weights';
+import { parseCheckoutLinksCsv, serializeCheckoutLinksCsv } from '../lib/csv';
 import type {
   CheckoutLinkData,
   CheckoutLinkFormValues,
@@ -535,137 +536,57 @@ export const useCheckoutLinksPage = ({
       setIsImporting(true);
 
       const reader = new FileReader();
-      reader.onload = (e) => {
+      reader.onload = async (e) => {
+        let persisted = false;
         try {
           const text = e.target?.result as string;
-          const lines = text.split('\n').filter((line) => line.trim());
-
-          if (lines.length < 2) {
-            throw new Error('CSV file is empty or invalid');
-          }
-
-          const headers = lines[0]
-            .split(',')
-            .map((h) => h.trim().toUpperCase());
-          const expectedHeaders = [
-            'WEIGHT',
-            'WIDTH',
-            'LENGTH',
-            'HEIGHT',
-            'CHECKOUT LINKS',
-            'PRODUCT PORTALS',
-            'PRODUCT NAMES',
-          ];
-
-          const hasValidHeaders = expectedHeaders.every((header) =>
-            headers.includes(header)
+          const parsedData = parseCheckoutLinksCsv(text);
+          const response = await fetch(
+            resolveCheckoutLinksApiPath('/checkout-links'),
+            {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({
+                items: parsedData.map((item) => ({
+                  weight: item.weight || '',
+                  width: item.width || '',
+                  length: item.length || '',
+                  height: item.height || '',
+                  checkoutLinks: item.checkoutLinks || null,
+                  productPortals: item.productPortals || null,
+                  productNames: item.productNames || null,
+                })),
+              }),
+            }
           );
-
-          if (!hasValidHeaders) {
-            throw new Error(
-              'Invalid CSV format. Expected headers: WEIGHT, WIDTH, LENGTH, HEIGHT, CHECKOUT LINKS, PRODUCT PORTALS, PRODUCT NAMES'
-            );
+          const result = await response.json();
+          if (!response.ok || !result.success) {
+            throw new Error(result.error || 'Failed to save checkout links');
           }
-
-          const parsedData: CheckoutLinkData[] = [];
-          for (let i = 1; i < lines.length; i++) {
-            const line = lines[i];
-            const values: string[] = [];
-            let currentValue = '';
-            let insideQuotes = false;
-
-            for (let j = 0; j < line.length; j++) {
-              const char = line[j];
-              if (char === '"') {
-                insideQuotes = !insideQuotes;
-              } else if (char === ',' && !insideQuotes) {
-                values.push(currentValue.trim());
-                currentValue = '';
-              } else {
-                currentValue += char;
-              }
-            }
-            values.push(currentValue.trim());
-
-            if (values.length >= 7) {
-              const [
-                weight,
-                width,
-                length,
-                height,
-                checkoutLinksValue,
-                productPortals,
-                productNames,
-              ] = values;
-
-              parsedData.push({
-                id: `${weight}-${width}-${length}-${height}-${Date.now()}-${i}`,
-                weight: weight || '',
-                width: width || '',
-                length: length || '',
-                height: height || '',
-                checkoutLinks: checkoutLinksValue || '',
-                productPortals: productPortals || '',
-                productNames: productNames || '',
-              });
-            }
-          }
-
-          setCheckoutLinks(parsedData);
-
-          fetch(resolveCheckoutLinksApiPath('/checkout-links'), {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              items: parsedData.map((item) => ({
-                weight: item.weight || '',
-                width: item.width || '',
-                length: item.length || '',
-                height: item.height || '',
-                checkoutLinks: item.checkoutLinks || null,
-                productPortals: item.productPortals || null,
-                productNames: item.productNames || null,
-              })),
-            }),
-          })
-            .then((response) => response.json())
-            .then((result) => {
-              if (result.success) {
-                showNotification({
-                  title: 'Import Successful',
-                  message:
-                    result.message ||
-                    `Successfully imported ${parsedData.length} checkout links`,
-                  color: 'green',
-                });
-              } else {
-                throw new Error(result.error || 'Failed to save to database');
-              }
-            })
-            .catch((error) => {
-              showNotification({
-                title: 'Database Error',
-                message:
-                  error instanceof Error
-                    ? error.message
-                    : 'Failed to save to database',
-                color: 'orange',
-              });
-            })
-            .finally(() => {
-              setIsImporting(false);
-            });
+          persisted = true;
+          const savedLinks = await fetchCheckoutLinksData(
+            resolveCheckoutLinksApiPath('/checkout-links')
+          );
+          setCheckoutLinks(savedLinks);
+          showNotification({
+            title: 'Import Successful',
+            message:
+              result.message ||
+              `Successfully imported ${parsedData.length} checkout links`,
+            color: 'green',
+          });
         } catch (error) {
           showNotification({
-            title: 'Import Failed',
+            title: persisted ? 'Import saved, refresh failed' : 'Import Failed',
             message:
               error instanceof Error
                 ? error.message
                 : 'Failed to parse CSV file',
             color: 'red',
           });
+        } finally {
           setIsImporting(false);
         }
       };
@@ -694,44 +615,7 @@ export const useCheckoutLinksPage = ({
       return;
     }
 
-    const headers = [
-      'weight',
-      'width',
-      'length',
-      'height',
-      'checkoutLinks',
-      'productPortals',
-      'productNames',
-    ];
-
-    const escapeCsv = (value: unknown): string => {
-      const normalized =
-        value === null || value === undefined ? '' : String(value);
-      if (
-        normalized.includes(',') ||
-        normalized.includes('"') ||
-        normalized.includes('\n')
-      ) {
-        return `"${normalized.replace(/"/g, '""')}"`;
-      }
-      return normalized;
-    };
-
-    const rows = filteredCheckoutLinks.map((row) =>
-      [
-        row.weight,
-        row.width,
-        row.length,
-        row.height,
-        row.checkoutLinks,
-        row.productPortals,
-        row.productNames,
-      ]
-        .map(escapeCsv)
-        .join(',')
-    );
-
-    const csv = [headers.join(','), ...rows].join('\n');
+    const csv = serializeCheckoutLinksCsv(filteredCheckoutLinks);
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
