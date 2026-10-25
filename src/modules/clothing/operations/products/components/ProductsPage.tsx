@@ -59,6 +59,7 @@ interface ProductsPageProps {
 
 export function ProductsPage({ apiBasePath }: ProductsPageProps) {
   const [activeTab, setActiveTab] = useState<string | null>('products');
+  const [hasPendingChanges, setHasPendingChanges] = useState(false);
   const { isLoading, statistics } = useProductsData(apiBasePath);
 
   return (
@@ -70,19 +71,39 @@ export function ProductsPage({ apiBasePath }: ProductsPageProps) {
           {/* Stats cards */}
           <ProductStatsCards statistics={statistics} />
 
-          <Tabs value={activeTab} onChange={setActiveTab}>
+          <Tabs
+            value={activeTab}
+            onChange={(value) => {
+              if (!hasPendingChanges) {
+                setActiveTab(value);
+              }
+            }}
+          >
             <Tabs.List>
               <Tabs.Tab value="products">Products</Tabs.Tab>
-              <Tabs.Tab value="bundles">Bundles</Tabs.Tab>
-              <Tabs.Tab value="mix-and-match">Mix & Match</Tabs.Tab>
-              <Tabs.Tab value="shipping-calculator">
+              <Tabs.Tab value="bundles" disabled={hasPendingChanges}>
+                Bundles
+              </Tabs.Tab>
+              <Tabs.Tab value="mix-and-match" disabled={hasPendingChanges}>
+                Mix & Match
+              </Tabs.Tab>
+              <Tabs.Tab
+                value="shipping-calculator"
+                disabled={hasPendingChanges}
+              >
                 Shipping Fee Calculator
               </Tabs.Tab>
-              <Tabs.Tab value="split">Split</Tabs.Tab>
+              <Tabs.Tab value="split" disabled={hasPendingChanges}>
+                Split
+              </Tabs.Tab>
             </Tabs.List>
 
             <Tabs.Panel value="products" pt="md">
-              <ProductsGrid apiBasePath={apiBasePath} />
+              <ProductsGrid
+                key={apiBasePath ?? 'default'}
+                apiBasePath={apiBasePath}
+                onPendingChanges={setHasPendingChanges}
+              />
             </Tabs.Panel>
 
             <Tabs.Panel value="bundles" pt="md">

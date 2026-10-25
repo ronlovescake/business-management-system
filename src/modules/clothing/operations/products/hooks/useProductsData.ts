@@ -36,16 +36,19 @@ export function useProductsData(apiBasePath?: string) {
     refetch: refreshProducts,
   } = useQuery({
     queryKey: productsQueryKey,
-    queryFn: async () => {
-      try {
-        return await ProductService.loadProducts(apiBasePath);
-      } catch (error) {
-        logger.error('Failed to load products:', error);
-        return [];
-      }
-    },
+    queryFn: () =>
+      ProductService.loadProducts(apiBasePath, { throwOnError: true }),
     staleTime: 30 * 1000,
   });
+
+  const reconcileProducts = useCallback(async () => {
+    await queryClient.cancelQueries({ queryKey: productsQueryKey });
+    const result = await refreshProducts({ throwOnError: true });
+    if (!result.data) {
+      throw new Error('Unable to refresh products');
+    }
+    return result.data;
+  }, [queryClient, productsQueryKey, refreshProducts]);
 
   /**
    * Handle search input change
@@ -146,15 +149,6 @@ export function useProductsData(apiBasePath?: string) {
   /**
    * Bulk update products mutation
    */
-  const bulkUpdateProductsOptimistic = createOptimisticUpdateHandlers<
-    ProductData,
-    ProductData[]
-  >({
-    queryClient,
-    queryKey: productsQueryKey,
-    updater: (_previousProducts, updatedProducts) => updatedProducts,
-  });
-
   const bulkUpdateProductsMutation = useMutation({
     mutationFn: async (updatedProducts: ProductData[]) => {
       return await ProductService.bulkUpdateProducts(
@@ -162,14 +156,9 @@ export function useProductsData(apiBasePath?: string) {
         apiBasePath
       );
     },
-    onMutate: bulkUpdateProductsOptimistic.onMutate,
-    onError: (error, variables, context) => {
-      bulkUpdateProductsOptimistic.onError(error, variables, context);
+    retry: false,
+    onError: (error) => {
       logger.error('Failed to bulk update products:', error);
-    },
-    onSettled: () => {
-      // Always refetch after error or success
-      queryClient.invalidateQueries({ queryKey: productsQueryKey });
     },
   });
 
@@ -205,6 +194,7 @@ export function useProductsData(apiBasePath?: string) {
     products,
     filteredProducts,
     searchQuery,
+    debouncedSearch,
     statistics,
     isLoading,
 
@@ -214,5 +204,6 @@ export function useProductsData(apiBasePath?: string) {
     updateProduct,
     bulkUpdateProducts,
     refreshProducts,
+    reconcileProducts,
   };
 }

@@ -178,6 +178,33 @@ describe('Products API Routes', () => {
   });
 
   describe('PUT /api/products', () => {
+    it('returns original skipped indices when only part of a grid save is valid', async () => {
+      mockProductService.bulkUpdate.mockResolvedValue({
+        created: 0,
+        updated: 1,
+        restored: 0,
+      });
+      const response = await PUT(
+        buildRequest('/api/products', {
+          method: 'PUT',
+          body: JSON.stringify([
+            { ...sampleProduct, id: 1, 'Product Code': '' },
+            { ...sampleProduct, id: 2 },
+          ]),
+        })
+      );
+      const body = await response.json();
+      expect(response.status).toBe(200);
+      expect(body.data).toMatchObject({
+        total: 1,
+        skipped: 1,
+        skippedDetails: [{ index: 0 }],
+      });
+      expect(mockProductService.bulkUpdate).toHaveBeenCalledWith([
+        expect.objectContaining({ id: 2 }),
+      ]);
+    });
+
     it('updates products successfully', async () => {
       mockProductService.bulkUpdate.mockResolvedValue({
         created: 0,

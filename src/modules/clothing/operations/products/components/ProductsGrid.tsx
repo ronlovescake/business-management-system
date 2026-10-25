@@ -1,8 +1,9 @@
 'use client';
 
-import { memo } from 'react';
+import { memo, useEffect } from 'react';
 import dynamic from 'next/dynamic';
-import { Stack } from '@mantine/core';
+import { Alert, Button, Group, Stack, Text } from '@mantine/core';
+import { IconRefresh, IconTrash } from '@tabler/icons-react';
 import { HotTable } from '@handsontable/react';
 import { registerAllModules } from 'handsontable/registry';
 import 'handsontable/styles/handsontable.min.css';
@@ -27,12 +28,15 @@ const AddProductModal = dynamic(
 
 interface ProductsGridProps {
   apiBasePath?: string;
+  onPendingChanges?: (pending: boolean) => void;
 }
 
 export const ProductsGrid = memo(function ProductsGrid({
   apiBasePath,
+  onPendingChanges,
 }: ProductsGridProps) {
   const {
+    saveQueue,
     searchQuery,
     handleSearch,
     isEditMode,
@@ -60,6 +64,10 @@ export const ProductsGrid = memo(function ProductsGrid({
     closeTransitReclassModal,
     handleSubmitTransitReclass,
   } = useProductsGrid({ apiBasePath });
+
+  useEffect(() => {
+    onPendingChanges?.(saveQueue.hasPendingChanges);
+  }, [onPendingChanges, saveQueue.hasPendingChanges]);
 
   return (
     <>
@@ -161,7 +169,61 @@ export const ProductsGrid = memo(function ProductsGrid({
           onTransitBuildUp={handleTransitBuildUp}
           onTransitReclass={handleTransitReclass}
           transitReclassDisabledReason={transitReclassDisabledReason}
+          hasPendingChanges={saveQueue.hasPendingChanges}
         />
+
+        {saveQueue.error ? (
+          <Alert color="red" title="Unsaved product changes" role="alert">
+            <Stack gap="xs">
+              <Text size="sm">{saveQueue.error}</Text>
+              <Text size="sm">
+                Some changes may already be saved. Review before retrying.
+              </Text>
+              <Group gap="sm">
+                <Button
+                  size="xs"
+                  leftSection={<IconRefresh size={14} />}
+                  disabled={saveQueue.isSaving}
+                  onClick={() => {
+                    if (
+                      window.confirm(
+                        'Refresh and retry unacknowledged product edits? Some changes may already be saved.'
+                      )
+                    ) {
+                      void saveQueue.retry();
+                    }
+                  }}
+                >
+                  Refresh and Retry
+                </Button>
+                <Button
+                  size="xs"
+                  color="red"
+                  variant="outline"
+                  leftSection={<IconTrash size={14} />}
+                  disabled={saveQueue.isSaving}
+                  onClick={() => {
+                    if (
+                      window.confirm(
+                        'Discard local product drafts and reload saved values? This does not undo changes already saved.'
+                      )
+                    ) {
+                      void saveQueue.discard();
+                    }
+                  }}
+                >
+                  Discard Drafts
+                </Button>
+              </Group>
+            </Stack>
+          </Alert>
+        ) : (
+          <Text size="xs" c="dimmed" role="status" aria-live="polite">
+            {saveQueue.hasPendingChanges
+              ? 'Saving changes...'
+              : 'All changes saved'}
+          </Text>
+        )}
 
         <AddProductModal
           opened={addProductOpen}

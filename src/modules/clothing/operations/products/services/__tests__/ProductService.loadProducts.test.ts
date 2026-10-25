@@ -59,6 +59,60 @@ const createProduct = (overrides: Partial<ProductData> = {}): ProductData => ({
   createdAt: overrides.createdAt,
 });
 
+describe('ProductService.bulkUpdateProducts acknowledgements', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('propagates product read failures for queue reconciliation but preserves legacy fallback', async () => {
+    vi.mocked(api.get).mockRejectedValue(new Error('Read failed'));
+    await expect(
+      ProductService.loadProducts(undefined, { throwOnError: true })
+    ).rejects.toThrow('Read failed');
+    await expect(ProductService.loadProducts()).resolves.toEqual([]);
+  });
+
+  it.each([undefined, '/api/general-merchandise'])(
+    'retains skipped row indices and disables write retries for %s',
+    async (scope) => {
+      const skippedDetails = [{ index: 1, issues: ['Invalid code'] }];
+      vi.mocked(api.put).mockResolvedValue({
+        total: 1,
+        skipped: 1,
+        skippedDetails,
+      });
+      const rows = [createProduct({ id: 1 }), createProduct({ id: 2 })];
+
+      await expect(
+        ProductService.bulkUpdateProducts(rows, scope)
+      ).resolves.toEqual({ skippedDetails });
+      expect(api.put).toHaveBeenCalledWith(
+        `${scope ?? '/api'}/products`,
+        rows,
+        { retryEnabled: false }
+      );
+    }
+  );
+
+  it('propagates failed saves instead of reporting mutation success', async () => {
+    vi.mocked(api.put).mockRejectedValue(new Error('Save failed'));
+    await expect(
+      ProductService.bulkUpdateProducts([createProduct()])
+    ).rejects.toThrow('Save failed');
+  });
+
+  it('rejects an incomplete acknowledgement', async () => {
+    vi.mocked(api.put).mockResolvedValue({
+      total: 0,
+      skipped: 0,
+      skippedDetails: [],
+    });
+    await expect(
+      ProductService.bulkUpdateProducts([createProduct()])
+    ).rejects.toThrow('Incomplete');
+  });
+});
+
 describe('ProductService.loadProducts sorting', () => {
   const mockedGet = vi.mocked(api.get);
 

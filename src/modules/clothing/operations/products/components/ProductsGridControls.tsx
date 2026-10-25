@@ -15,6 +15,7 @@ interface ProductsGridControlsProps {
   onTransitBuildUp: () => void;
   onTransitReclass: () => void;
   transitReclassDisabledReason?: string;
+  hasPendingChanges?: boolean;
 }
 
 export const ProductsGridControls = memo(function ProductsGridControls({
@@ -29,6 +30,7 @@ export const ProductsGridControls = memo(function ProductsGridControls({
   onTransitBuildUp,
   onTransitReclass,
   transitReclassDisabledReason,
+  hasPendingChanges = false,
 }: ProductsGridControlsProps) {
   const { data: session } = useSession();
   const canPostAccounting =
@@ -55,7 +57,7 @@ export const ProductsGridControls = memo(function ProductsGridControls({
               color="dark"
               size="sm"
               radius="sm"
-              disabled={!selectedShipmentCode}
+              disabled={hasPendingChanges || !selectedShipmentCode}
               onClick={onTransitBuildUp}
               title={
                 selectedShipmentCode
@@ -70,7 +72,9 @@ export const ProductsGridControls = memo(function ProductsGridControls({
               color="grape"
               size="sm"
               radius="sm"
-              disabled={Boolean(transitReclassDisabledReason)}
+              disabled={
+                hasPendingChanges || Boolean(transitReclassDisabledReason)
+              }
               onClick={onTransitReclass}
               title={
                 transitReclassDisabledReason
@@ -103,6 +107,7 @@ export const ProductsGridControls = memo(function ProductsGridControls({
           size="sm"
           radius="sm"
           onClick={onAddProduct}
+          disabled={hasPendingChanges}
         >
           Add Product
         </Button>

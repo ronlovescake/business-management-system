@@ -123,6 +123,33 @@ describe('GM products API', () => {
     expect(body.data.product.id).toBe(1);
   });
 
+  it('returns original skipped indices for partially valid GM grid saves', async () => {
+    mockProductService.bulkUpdate.mockResolvedValue({
+      created: 0,
+      updated: 1,
+      restored: 0,
+    });
+    const response = await PUT(
+      buildRequest('/api/general-merchandise/products', {
+        method: 'PUT',
+        body: JSON.stringify([
+          sampleProduct,
+          { ...sampleProduct, id: 2, 'Product Code': '' },
+        ]),
+      })
+    );
+    const body = await response.json();
+    expect(response.status).toBe(200);
+    expect(body.data).toMatchObject({
+      total: 1,
+      skipped: 1,
+      skippedDetails: [{ index: 1 }],
+    });
+    expect(mockProductService.bulkUpdate).toHaveBeenCalledWith([
+      expect.objectContaining({ id: 1 }),
+    ]);
+  });
+
   it('bulk updates GM products on PUT', async () => {
     mockProductService.bulkUpdate.mockResolvedValue({
       created: 0,

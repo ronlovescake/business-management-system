@@ -700,7 +700,10 @@ export class ProductService {
    * Fetches products and enriches with shipment data
    * Sorted by newest first (highest ID first)
    */
-  static async loadProducts(apiBasePath?: string): Promise<ProductData[]> {
+  static async loadProducts(
+    apiBasePath?: string,
+    options?: { throwOnError?: boolean }
+  ): Promise<ProductData[]> {
     try {
       // Fetch products from API
       const productResponse = await api.get<
@@ -747,6 +750,9 @@ export class ProductService {
       return this.sortProducts(enrichedProducts);
     } catch (error) {
       logger.error('Failed to load products:', error);
+      if (options?.throwOnError) {
+        throw error;
+      }
       return [];
     }
   }
@@ -878,19 +884,34 @@ export class ProductService {
   static async bulkUpdateProducts(
     products: ProductData[],
     apiBasePath?: string
-  ): Promise<{ success: boolean; error?: string }> {
-    try {
-      await api.put(buildApiPath(apiBasePath, '/products'), products);
-      return { success: true };
-    } catch (error) {
-      return {
-        success: false,
-        error:
-          error instanceof Error
-            ? error.message
-            : 'Failed to update products in database',
-      };
+  ): Promise<{ skippedDetails: Array<{ index: number; issues: unknown }> }> {
+    const result = await api.put<{
+      total: number;
+      skipped: number;
+      skippedDetails: Array<{ index: number; issues: unknown }>;
+    }>(buildApiPath(apiBasePath, '/products'), products, {
+      retryEnabled: false,
+    });
+    const skipped = result?.skippedDetails;
+    if (
+      !Array.isArray(skipped) ||
+      !Number.isInteger(result.total) ||
+      result.total < 0 ||
+      result.skipped !== skipped.length ||
+      result.total + result.skipped !== products.length ||
+      new Set(skipped.map((row) => row.index)).size !== skipped.length ||
+      skipped.some(
+        (row) =>
+          !Number.isInteger(row.index) ||
+          row.index < 0 ||
+          row.index >= products.length
+      )
+    ) {
+      throw new Error(
+        'Incomplete product save acknowledgement. Refresh before retrying.'
+      );
     }
+    return { skippedDetails: skipped };
   }
 
   static async postTransitBuildUpByShipmentCode(

@@ -17,6 +17,7 @@ import { ApiError } from '@/lib/api/client';
 import { logger } from '@/lib/logger';
 import { calculateProductFinancials } from '@/lib/productCalculations';
 import { useProductsData } from './useProductsData';
+import { useProductGridSaveQueue } from './useProductGridSaveQueue';
 import { useProductForm } from './useProductForm';
 import { ProductService } from '../services/ProductService';
 import type { ProductData } from '../types/product.types';
@@ -59,6 +60,7 @@ function toSafeNumber(value: unknown): number {
 }
 
 interface UseProductsGridResult {
+  saveQueue: ReturnType<typeof useProductGridSaveQueue>;
   searchQuery: string;
   handleSearch: (query: string) => void;
   isEditMode: boolean;
@@ -109,17 +111,48 @@ export function useProductsGrid({
   apiBasePath,
 }: UseProductsGridParams = {}): UseProductsGridResult {
   const {
-    products,
-    filteredProducts,
+    products: serverProducts,
     searchQuery,
-    statistics,
+    debouncedSearch,
     isLoading,
     handleSearch,
     addProduct,
     updateProduct,
     bulkUpdateProducts,
     refreshProducts,
+    reconcileProducts,
   } = useProductsData(apiBasePath);
+
+  const saveQueue = useProductGridSaveQueue({
+    scope: apiBasePath,
+    products: serverProducts,
+    save: bulkUpdateProducts,
+    refresh: reconcileProducts,
+  });
+  const products = saveQueue.products;
+  const filteredProducts = useMemo(
+    () =>
+      debouncedSearch.trim()
+        ? ProductService.searchProducts(products, debouncedSearch)
+        : products,
+    [products, debouncedSearch]
+  );
+  const statistics = useMemo(
+    () => ProductService.calculateStatistics(filteredProducts),
+    [filteredProducts]
+  );
+  const blockPendingAction = useCallback(() => {
+    if (!saveQueue.isBusy()) {
+      return false;
+    }
+    showNotification({
+      title: 'Unsaved product changes',
+      message:
+        'Wait for inline edits to save, or resolve the save error first.',
+      color: 'orange',
+    });
+    return true;
+  }, [saveQueue]);
 
   const productForm = useProductForm();
 
@@ -525,11 +558,18 @@ export function useProductsGrid({
         return;
       }
 
-      const updatedProducts = [...products];
+      const updatedProducts = products.map((product) =>
+        product.id ? (saveQueue.getProduct(product.id) ?? product) : product
+      );
+      const changedIndexes = new Set<number>();
       const recalcGlobalIndexes = new Set<number>();
 
       changes.forEach(([row, col, _oldValue, newValue]) => {
-        if (row < filteredProducts.length) {
+        if (
+          row >= 0 &&
+          row < filteredProducts.length &&
+          _oldValue !== newValue
+        ) {
           const product = filteredProducts[row];
           const globalIndex = products.findIndex((p) => p.id === product.id);
 
@@ -538,6 +578,7 @@ export function useProductsGrid({
             if (!key) {
               return;
             }
+            changedIndexes.add(globalIndex);
 
             if (col === 0 && (!newValue || newValue === '')) {
               updatedProducts[globalIndex] = {
@@ -601,9 +642,13 @@ export function useProductsGrid({
         };
       });
 
-      bulkUpdateProducts(updatedProducts);
+      if (changedIndexes.size > 0) {
+        saveQueue.enqueue(
+          Array.from(changedIndexes).map((index) => updatedProducts[index])
+        );
+      }
     },
-    [products, filteredProducts, bulkUpdateProducts]
+    [products, filteredProducts, saveQueue]
   );
 
   const handleCellClick = useCallback(
@@ -627,6 +672,9 @@ export function useProductsGrid({
           coords.row >= 0 &&
           coords.row < filteredProducts.length
         ) {
+          if (blockPendingAction()) {
+            return;
+          }
           const product = filteredProducts[coords.row];
           productForm.populateForm(product);
           setAddProductOpen(true);
@@ -641,10 +689,13 @@ export function useProductsGrid({
         };
       }
     },
-    [filteredProducts, productForm]
+    [filteredProducts, productForm, blockPendingAction]
   );
 
   const handleTransitBuildUp = useCallback(async () => {
+    if (blockPendingAction()) {
+      return;
+    }
     if (!selectedShipmentCode) {
       showNotification({
         title: 'Select a Shipment Code',
@@ -779,6 +830,9 @@ export function useProductsGrid({
     if (!shouldConfirm) {
       return;
     }
+    if (blockPendingAction()) {
+      return;
+    }
 
     const { ProductService } = await import('../services/ProductService');
     const result = await ProductService.postTransitBuildUpByShipmentCode(
@@ -802,7 +856,13 @@ export function useProductsGrid({
       message: result.error,
       color: 'red',
     });
-  }, [apiBasePath, products, refreshProducts, selectedShipmentCode]);
+  }, [
+    apiBasePath,
+    products,
+    refreshProducts,
+    selectedShipmentCode,
+    blockPendingAction,
+  ]);
 
   const closeTransitReclassModal = useCallback(() => {
     setTransitReclassOpened(false);
@@ -810,6 +870,9 @@ export function useProductsGrid({
   }, []);
 
   const handleTransitReclass = useCallback(async () => {
+    if (blockPendingAction()) {
+      return;
+    }
     if (transitReclassDisabledReason) {
       showNotification({
         title: 'Transit Reclass Unavailable',
@@ -837,9 +900,18 @@ export function useProductsGrid({
       return;
     }
 
+    if (blockPendingAction()) {
+      return;
+    }
+
     setTransitReclassShipment(shipment);
     setTransitReclassOpened(true);
-  }, [apiBasePath, selectedShipmentCode, transitReclassDisabledReason]);
+  }, [
+    apiBasePath,
+    selectedShipmentCode,
+    transitReclassDisabledReason,
+    blockPendingAction,
+  ]);
 
   const handleSubmitTransitReclass = useCallback(
     async (input: {
@@ -847,6 +919,9 @@ export function useProductsGrid({
       selectedIdempotencyKeys: string[];
       notes?: string;
     }): Promise<boolean> => {
+      if (blockPendingAction()) {
+        return false;
+      }
       if (!transitReclassShipment) {
         return false;
       }
@@ -904,10 +979,13 @@ export function useProductsGrid({
         return false;
       }
     },
-    [apiBasePath, refreshProducts, transitReclassShipment]
+    [apiBasePath, refreshProducts, transitReclassShipment, blockPendingAction]
   );
 
   const handleSubmitProduct = useCallback(async () => {
+    if (blockPendingAction()) {
+      return;
+    }
     const validation = productForm.validate();
     if (!validation.isValid) {
       showNotification({
@@ -985,16 +1063,19 @@ export function useProductsGrid({
         });
       }
     }
-  }, [productForm, products, updateProduct, addProduct]);
+  }, [productForm, products, updateProduct, addProduct, blockPendingAction]);
 
   const toggleEditMode = useCallback(() => {
     setIsEditMode((prev) => !prev);
   }, []);
 
   const openCreateProductModal = useCallback(() => {
+    if (blockPendingAction()) {
+      return;
+    }
     productForm.resetForm();
     setAddProductOpen(true);
-  }, [productForm]);
+  }, [productForm, blockPendingAction]);
 
   const closeProductModal = useCallback(() => {
     productForm.resetForm();
@@ -1002,6 +1083,7 @@ export function useProductsGrid({
   }, [productForm]);
 
   return {
+    saveQueue,
     searchQuery,
     handleSearch,
     isEditMode,

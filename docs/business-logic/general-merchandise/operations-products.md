@@ -63,3 +63,13 @@ GM product writes use the shared financial calculation helper to recompute
 derived metrics before persistence, including direct-ID updates. The formulas
 are unchanged; this does not change GM's separate transit build-up accounting
 workflow described above.
+
+## F - Inline Grid Save Reliability
+
+| #   | Logic                                 | Explanation                                                                                                                                                                                                                                                              |
+| --- | ------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| 15  | GM shares the local-draft save queue  | The shared `useProductGridSaveQueue` merges rapid edits by permanent product ID and submits complete DTOs for changed rows only, with one request active at a time. Later revisions cannot be cleared by older responses. API scope isolates clothing and GM drafts.     |
+| 16  | Reconciliation preserves pending work | Drafts overlay query data until the queue drains and a fresh read succeeds. Failed/skipped rows remain visible; incomplete acknowledgements are errors. Bulk saves no longer replace the whole query cache or refresh after every request.                               |
+| 17  | Recovery is explicit                  | Refresh and Retry first refreshes server state and refuses to recreate missing products. Discard Drafts reloads server values without undoing committed writes. No automatic write replay occurs after errors; a timeout/5xx may have committed, so review before retry. |
+| 18  | Conflicting local actions wait        | Add/edit modal writes, transit actions, and other product tabs are blocked while drafts remain unresolved. Unload and link navigation warn. Drafts are memory-only; other clients/programmatic navigation are not coordinated.                                           |
+| 19  | GM accounting rules remain separate   | GM bulk service, payment/identity guards, financial formulas, imports, jobs, and direct-ID enforcement are unchanged. This is client save coordination, not new accounting policy or cross-user concurrency protection.                                                  |
