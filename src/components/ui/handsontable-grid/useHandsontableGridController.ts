@@ -18,6 +18,7 @@ import {
   hasSelectionSummaryChanged,
 } from '../handsontableSelectionSummary';
 import type { HandsontableGridProps, SelectionSummary } from './types';
+import { getDataBoundary } from './dataBoundaryNavigation';
 
 type DropdownCancelEditor = {
   cancelChanges?: () => void;
@@ -427,7 +428,11 @@ export function useHandsontableGridController<T extends object>({
       }
 
       const hotInstance = hotRef.current?.hotInstance;
-      if (!hotInstance) {
+      if (
+        !hotInstance ||
+        !hotInstance.rootElement.contains(document.activeElement) ||
+        hotInstance.getActiveEditor()?.isOpened()
+      ) {
         return;
       }
 
@@ -437,162 +442,14 @@ export function useHandsontableGridController<T extends object>({
       }
 
       const [startRow, startCol] = selected[0];
-      let targetRow = startRow;
-      let targetCol = startCol;
-
-      const isCellEmpty = (row: number, col: number) => {
-        const value = hotInstance.getDataAtCell(row, col);
-        return value === null || value === undefined || value === '';
-      };
-
-      event.preventDefault();
-      event.stopPropagation();
-
-      if (event.key === 'ArrowDown') {
-        const maxRow = hotInstance.countRows() - 1;
-        const currentEmpty = isCellEmpty(startRow, startCol);
-        if (currentEmpty) {
-          for (let row = startRow + 1; row <= maxRow; row += 1) {
-            if (!isCellEmpty(row, startCol)) {
-              targetRow = row;
-              break;
-            }
-          }
-          if (targetRow === startRow) {
-            targetRow = maxRow;
-          }
-        } else {
-          let lastNonEmpty = startRow;
-          for (let row = startRow + 1; row <= maxRow; row += 1) {
-            if (!isCellEmpty(row, startCol)) {
-              lastNonEmpty = row;
-            } else {
-              break;
-            }
-          }
-          if (lastNonEmpty > startRow) {
-            targetRow = lastNonEmpty;
-          } else {
-            for (let row = startRow + 1; row <= maxRow; row += 1) {
-              if (!isCellEmpty(row, startCol)) {
-                targetRow = row;
-                break;
-              }
-            }
-            if (targetRow === startRow) {
-              targetRow = maxRow;
-            }
-          }
-        }
-      } else if (event.key === 'ArrowUp') {
-        const currentEmpty = isCellEmpty(startRow, startCol);
-        if (currentEmpty) {
-          for (let row = startRow - 1; row >= 0; row -= 1) {
-            if (!isCellEmpty(row, startCol)) {
-              targetRow = row;
-              break;
-            }
-          }
-          if (targetRow === startRow) {
-            targetRow = 0;
-          }
-        } else {
-          let firstNonEmpty = startRow;
-          for (let row = startRow - 1; row >= 0; row -= 1) {
-            if (!isCellEmpty(row, startCol)) {
-              firstNonEmpty = row;
-            } else {
-              break;
-            }
-          }
-          if (firstNonEmpty < startRow) {
-            targetRow = firstNonEmpty;
-          } else {
-            for (let row = startRow - 1; row >= 0; row -= 1) {
-              if (!isCellEmpty(row, startCol)) {
-                targetRow = row;
-                break;
-              }
-            }
-            if (targetRow === startRow) {
-              targetRow = 0;
-            }
-          }
-        }
-      } else if (event.key === 'ArrowRight') {
-        const maxCol = hotInstance.countCols() - 1;
-        const currentEmpty = isCellEmpty(startRow, startCol);
-        if (currentEmpty) {
-          for (let col = startCol + 1; col <= maxCol; col += 1) {
-            if (!isCellEmpty(startRow, col)) {
-              targetCol = col;
-              break;
-            }
-          }
-          if (targetCol === startCol) {
-            targetCol = maxCol;
-          }
-        } else {
-          let lastNonEmpty = startCol;
-          for (let col = startCol + 1; col <= maxCol; col += 1) {
-            if (!isCellEmpty(startRow, col)) {
-              lastNonEmpty = col;
-            } else {
-              break;
-            }
-          }
-          if (lastNonEmpty > startCol) {
-            targetCol = lastNonEmpty;
-          } else {
-            for (let col = startCol + 1; col <= maxCol; col += 1) {
-              if (!isCellEmpty(startRow, col)) {
-                targetCol = col;
-                break;
-              }
-            }
-            if (targetCol === startCol) {
-              targetCol = maxCol;
-            }
-          }
-        }
-      } else if (event.key === 'ArrowLeft') {
-        const currentEmpty = isCellEmpty(startRow, startCol);
-        if (currentEmpty) {
-          for (let col = startCol - 1; col >= 0; col -= 1) {
-            if (!isCellEmpty(startRow, col)) {
-              targetCol = col;
-              break;
-            }
-          }
-          if (targetCol === startCol) {
-            targetCol = 0;
-          }
-        } else {
-          let firstNonEmpty = startCol;
-          for (let col = startCol - 1; col >= 0; col -= 1) {
-            if (!isCellEmpty(startRow, col)) {
-              firstNonEmpty = col;
-            } else {
-              break;
-            }
-          }
-          if (firstNonEmpty < startCol) {
-            targetCol = firstNonEmpty;
-          } else {
-            for (let col = startCol - 1; col >= 0; col -= 1) {
-              if (!isCellEmpty(startRow, col)) {
-                targetCol = col;
-                break;
-              }
-            }
-            if (targetCol === startCol) {
-              targetCol = 0;
-            }
-          }
-        }
+      if (startRow < 0 || startCol < 0) {
+        return;
       }
-
-      hotInstance.selectCell(targetRow, targetCol);
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      hotInstance.selectCell(
+        ...getDataBoundary(hotInstance, startRow, startCol, event.key)
+      );
     };
 
     document.addEventListener('keydown', handleKeyDown, true);

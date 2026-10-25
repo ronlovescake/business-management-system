@@ -189,6 +189,15 @@ and unlinked counts before relying on historical rollups. The audit is read-only
 
 ### Autosave Change Record (2026-10-25)
 
+Ctrl/Cmd+arrow now uses the same data-boundary navigation as Transactions:
+move to the end of a contiguous nonempty run, or across a gap to the next
+nonempty cell; fall back to the row/column edge without wrapping. Zero and false
+are nonempty. An open cell editor retains normal cursor behavior. This applies
+to the shared clothing/GM Products grid; it changes no save or financial rule.
+Regression evidence is in
+`src/components/ui/handsontable-grid/__tests__/dataBoundaryNavigation.test.ts`
+and `tests/e2e/handsontable-grid.interactions.spec.ts`.
+
 - Request and approval: the requesting project owner approved the queued-save proposal with "Start implementation" in this task. No new accounting policy, permission, migration, or deployment approval is inferred.
 - Invariant and boundary: rapid inline edits merge by permanent product ID and revision; only acknowledged revisions may reconcile. `useProductGridSaveQueue` coordinates client writes; existing clothing and GM bulk services remain the enforcement owners for business rules.
 - Domains and divergence: clothing and general merchandise share client coordination, with isolated API scopes. Their distinct posting/settlement behavior is intentionally unchanged. Imports, background jobs, direct-ID endpoints, and calculator persistence do not use this queue and are unchanged.

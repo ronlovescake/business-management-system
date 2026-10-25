@@ -10,7 +10,7 @@ export function TransactionsRoutePage(props: TransactionsRoutePageProps) {
 
   return (
     <TransactionsErrorBoundary>
-      <TransactionsPage apiBasePath={apiBasePath} />
+      <TransactionsPage key={apiBasePath ?? '/api'} apiBasePath={apiBasePath} />
     </TransactionsErrorBoundary>
   );
 }

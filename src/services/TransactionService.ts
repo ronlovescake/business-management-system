@@ -24,12 +24,14 @@ export class TransactionService extends BaseService {
 
   static async update(
     id: string | number,
-    transaction: Partial<TransactionDTO>
+    transaction: Partial<TransactionDTO>,
+    retryConfig?: { maxRetries: number }
   ): Promise<TransactionDTO> {
-    return this.patch<TransactionDTO>(`${this.endpoint}`, {
-      id,
-      ...transaction,
-    });
+    return this.patch<TransactionDTO>(
+      this.endpoint,
+      { id, ...transaction },
+      retryConfig
+    );
   }
 
   static async deleteById(id: string | number): Promise<void> {
@@ -43,9 +45,14 @@ export class TransactionService extends BaseService {
   }
 
   static async bulkUpdate(
-    transactions: TransactionDTO[]
+    transactions: TransactionDTO[],
+    retryConfig?: { maxRetries: number }
   ): Promise<{ count: number }> {
-    return this.put<{ count: number }>(this.endpoint, transactions);
+    return this.put<{ count: number }>(
+      this.endpoint,
+      transactions,
+      retryConfig
+    );
   }
 
   static async deleteAll(): Promise<{ count: number }> {

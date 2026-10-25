@@ -75,6 +75,124 @@ const createProps = () => {
 };
 
 describe('useTransactionOperations', () => {
+  it('does not flush an older paste field over a newer individual edit', async () => {
+    const props = createProps();
+    const saveBulkChanges = vi.fn().mockResolvedValue({ count: 1 });
+    const { result } = renderHook(() =>
+      useTransactionOperations({ ...props, saveBulkChanges })
+    );
+    const edit = {
+      column: { id: 'notes', title: 'NOTES' },
+      columnId: 'notes',
+      columnIndex: 9,
+      row: 0,
+      rowData: props.filteredData[0],
+      oldValue: '',
+      source: 'edit',
+    };
+    await act(async () => {
+      window.dispatchEvent(new Event('handsontable-batch-start'));
+      await result.current.handleCellEdited({
+        ...edit,
+        value: 'paste',
+        isBatch: true,
+      });
+      await result.current.handleCellEdited({
+        ...edit,
+        value: 'newer',
+        isBatch: false,
+      });
+      window.dispatchEvent(
+        new CustomEvent('handsontable-batch-complete', { detail: { count: 1 } })
+      );
+    });
+    expect(props.update).toHaveBeenCalledWith({
+      id: 1,
+      data: { Notes: 'newer' },
+    });
+    expect(saveBulkChanges).not.toHaveBeenCalled();
+  });
+
+  it('does not clear earlier edits when paste batches overlap', async () => {
+    const props = createProps();
+    const saveBulkChanges = vi.fn().mockResolvedValue({ count: 1 });
+    const logNotification = vi.fn();
+    const { result } = renderHook(() =>
+      useTransactionBatchMode({
+        transactions: props.transactions,
+        bulkUpdate: props.bulkUpdate,
+        saveBulkChanges,
+        logNotification,
+      })
+    );
+    await act(async () => {
+      window.dispatchEvent(new Event('handsontable-batch-start'));
+      result.current.batchUpdatesRef.current.set(1, { Notes: 'first paste' });
+      window.dispatchEvent(new Event('handsontable-batch-start'));
+      result.current.batchUpdatesRef.current.set(1, {
+        ...result.current.batchUpdatesRef.current.get(1),
+        Quantity: 8,
+      });
+      window.dispatchEvent(
+        new CustomEvent('handsontable-batch-complete', { detail: { count: 1 } })
+      );
+    });
+    expect(saveBulkChanges).not.toHaveBeenCalled();
+    await act(async () => {
+      window.dispatchEvent(
+        new CustomEvent('handsontable-batch-complete', { detail: { count: 1 } })
+      );
+    });
+    expect(saveBulkChanges).toHaveBeenCalledWith([
+      { id: 1, data: { Notes: 'first paste', Quantity: 8 } },
+    ]);
+    expect(logNotification).toHaveBeenCalledWith(
+      expect.any(String),
+      expect.objectContaining({ cellsEdited: 2 })
+    );
+  });
+
+  it('supersedes a pending pasted status before an individual status save', async () => {
+    const props = createProps();
+    props.filteredData[0]['Product Code'] = 'SKU-1';
+    const saveBulkChanges = vi.fn().mockResolvedValue({ count: 1 });
+    const saveOrderStatus = vi
+      .fn()
+      .mockResolvedValue({ 'Order Status': 'Prepared' });
+    const { result } = renderHook(() =>
+      useTransactionOperations({ ...props, saveBulkChanges, saveOrderStatus })
+    );
+    const edit: CellEditEvent = {
+      column: {
+        id: 'orderStatus',
+        title: 'ORDER STATUS',
+      } as HandsontableColumn,
+      columnId: 'orderStatus',
+      columnIndex: 8,
+      row: 0,
+      rowData: props.filteredData[0],
+      oldValue: 'In Transit',
+      value: 'Warehouse',
+      isBatch: true,
+      source: 'edit',
+    };
+    await act(async () => {
+      window.dispatchEvent(new Event('handsontable-batch-start'));
+      await result.current.handleCellEdited(edit);
+      await result.current.handleCellEdited({
+        ...edit,
+        value: 'Prepared',
+        oldValue: 'Warehouse',
+        isBatch: false,
+      });
+      window.dispatchEvent(
+        new CustomEvent('handsontable-batch-complete', { detail: { count: 1 } })
+      );
+    });
+    expect(saveOrderStatus).toHaveBeenCalledWith(1, 'Prepared');
+    expect(saveBulkChanges).not.toHaveBeenCalled();
+  });
+
   beforeEach(() => {
     vi.mocked(notifications.show).mockClear();
     vi.mocked(showNotification).mockClear();

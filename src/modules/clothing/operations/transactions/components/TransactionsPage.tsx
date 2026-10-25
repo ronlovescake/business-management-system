@@ -28,7 +28,8 @@ import React, {
   useRef,
   useState,
 } from 'react';
-import { Button } from '@mantine/core';
+import { Alert, Button, Group, Stack, Text } from '@mantine/core';
+import { IconRefresh, IconTrash } from '@tabler/icons-react';
 import { showNotification } from '@mantine/notifications';
 import { PageLayout } from '@/components/layout/PageLayout';
 import { TableSkeleton } from '@/components/ui/TableSkeleton';
@@ -71,6 +72,8 @@ interface TransactionsPageProps {
 }
 
 export function TransactionsPage({ apiBasePath }: TransactionsPageProps) {
+  const actionInProgress = useRef(false);
+  const pendingVoidedCustomer = useRef<string | null>(null);
   // ============================================================================
   // SETTINGS STATE - Fetch read-only config
   // ============================================================================
@@ -156,6 +159,8 @@ export function TransactionsPage({ apiBasePath }: TransactionsPageProps) {
   // DATA HOOKS - All data fetching and filtering
   // ============================================================================
   const {
+    saveQueue,
+    saveBulkChanges,
     transactions,
     isLoading,
     filteredData,
@@ -177,13 +182,44 @@ export function TransactionsPage({ apiBasePath }: TransactionsPageProps) {
     productCodeSearchQuery: tabProductCodeSearchQueries[activeTab] ?? '',
   });
 
+  const blockPendingAction = useCallback(() => {
+    if (!saveQueue.isBusy()) {
+      return false;
+    }
+    showNotification({
+      title: 'Unsaved transaction changes',
+      message:
+        'Wait for inline edits to save, or resolve the save error first.',
+      color: 'orange',
+    });
+    return true;
+  }, [saveQueue]);
+
+  const runSavedAction = useCallback(
+    async (action: () => Promise<void>) => {
+      if (blockPendingAction() || actionInProgress.current) {
+        return;
+      }
+      actionInProgress.current = true;
+      try {
+        await action();
+      } finally {
+        actionInProgress.current = false;
+      }
+    },
+    [blockPendingAction]
+  );
+
   const handleTabChange = useCallback(
     (value: TransactionsTabValue) => {
+      if (blockPendingAction() || actionInProgress.current) {
+        return;
+      }
       setActiveTab(value);
       const nextQuery = tabSearchQueries[value] ?? '';
       handleSearch(nextQuery);
     },
-    [handleSearch, tabSearchQueries]
+    [handleSearch, tabSearchQueries, blockPendingAction]
   );
 
   const handleTabSearchChange = useCallback(
@@ -326,8 +362,14 @@ export function TransactionsPage({ apiBasePath }: TransactionsPageProps) {
 
   const openCustomerDetailsByName = useCallback(
     async (customerName: string) => {
+      if (blockPendingAction()) {
+        return;
+      }
       try {
         const customerId = await resolveCustomerIdByName(customerName);
+        if (blockPendingAction()) {
+          return;
+        }
         if (!customerId) {
           showNotification({
             title: 'Customer not found',
@@ -348,8 +390,16 @@ export function TransactionsPage({ apiBasePath }: TransactionsPageProps) {
         });
       }
     },
-    [resolveCustomerIdByName]
+    [resolveCustomerIdByName, blockPendingAction]
   );
+
+  useEffect(() => {
+    if (!saveQueue.hasPendingChanges && pendingVoidedCustomer.current) {
+      const customer = pendingVoidedCustomer.current;
+      pendingVoidedCustomer.current = null;
+      void openCustomerDetailsByName(customer);
+    }
+  }, [saveQueue.hasPendingChanges, openCustomerDetailsByName]);
 
   useEffect(() => {
     const activeQuery = tabSearchQueries[activeTab] ?? '';
@@ -389,8 +439,12 @@ export function TransactionsPage({ apiBasePath }: TransactionsPageProps) {
     update,
     saveOrderStatus,
     saveBulkUpdate,
+    saveBulkChanges,
+    getTransaction: saveQueue.getTransaction,
     apiBasePath,
-    onVoidedStatusSaved: openCustomerDetailsByName,
+    onVoidedStatusSaved: (customer) => {
+      pendingVoidedCustomer.current = customer;
+    },
     onCustomerWarning: (data) => {
       setCustomerWarningData({
         ...data,
@@ -412,6 +466,14 @@ export function TransactionsPage({ apiBasePath }: TransactionsPageProps) {
   const handleCellEditedWithPasteTracking = useCallback(
     (edit: CellEditEvent<TransactionData>) => {
       if (
+        actionInProgress.current ||
+        showPaymentsModal ||
+        isCustomerDetailsOpen ||
+        showDistributionModal
+      ) {
+        return false;
+      }
+      if (
         edit.columnId === 'customers' &&
         typeof edit.source === 'string' &&
         edit.source.toLowerCase().includes('paste')
@@ -422,9 +484,16 @@ export function TransactionsPage({ apiBasePath }: TransactionsPageProps) {
         };
       }
 
-      return handleCellEdited(edit);
+      const finish = saveQueue.beginValidation();
+      return Promise.resolve(handleCellEdited(edit)).finally(finish);
     },
-    [handleCellEdited]
+    [
+      handleCellEdited,
+      saveQueue,
+      showPaymentsModal,
+      isCustomerDetailsOpen,
+      showDistributionModal,
+    ]
   );
 
   // ============================================================================
@@ -779,7 +848,12 @@ export function TransactionsPage({ apiBasePath }: TransactionsPageProps) {
     () => (
       <Button
         variant="outline"
-        onClick={() => setShowPaymentsModal(true)}
+        disabled={saveQueue.hasPendingChanges}
+        onClick={() => {
+          if (!blockPendingAction() && !actionInProgress.current) {
+            setShowPaymentsModal(true);
+          }
+        }}
         radius="sm"
         style={{
           backgroundColor: '#c8e6fd',
@@ -792,7 +866,7 @@ export function TransactionsPage({ apiBasePath }: TransactionsPageProps) {
         Record Payment
       </Button>
     ),
-    []
+    [saveQueue.hasPendingChanges, blockPendingAction]
   );
 
   const defaultPaymentsCustomer = useMemo(() => {
@@ -876,6 +950,63 @@ export function TransactionsPage({ apiBasePath }: TransactionsPageProps) {
   return (
     <Profiler id="TransactionsPage" onRender={onRenderCallback}>
       <PageLayout fluid withPadding>
+        {saveQueue.error ? (
+          <Alert
+            color="red"
+            title="Unsaved transaction changes"
+            role="alert"
+            mb="md"
+          >
+            <Stack gap="xs">
+              <Text size="sm">{saveQueue.error}</Text>
+              <Text size="sm">
+                Some changes may already be saved. Review before retrying.
+              </Text>
+              <Group gap="sm">
+                <Button
+                  size="xs"
+                  leftSection={<IconRefresh size={14} />}
+                  disabled={saveQueue.isSaving}
+                  onClick={() => {
+                    if (
+                      window.confirm(
+                        'Refresh and retry unacknowledged transaction edits? Some changes may already be saved.'
+                      )
+                    ) {
+                      void saveQueue.retry();
+                    }
+                  }}
+                >
+                  Refresh and Retry
+                </Button>
+                <Button
+                  size="xs"
+                  color="red"
+                  variant="outline"
+                  leftSection={<IconTrash size={14} />}
+                  disabled={saveQueue.isSaving}
+                  onClick={() => {
+                    if (
+                      window.confirm(
+                        'Discard local transaction drafts and reload saved values? This does not undo changes already saved.'
+                      )
+                    ) {
+                      void saveQueue.discard();
+                    }
+                  }}
+                >
+                  Discard Drafts
+                </Button>
+              </Group>
+            </Stack>
+          </Alert>
+        ) : (
+          <Text size="xs" c="dimmed" role="status" aria-live="polite" mb="sm">
+            {saveQueue.hasPendingChanges
+              ? 'Saving changes...'
+              : 'All changes saved'}
+          </Text>
+        )}
         <TransactionPaymentsModal
           opened={showPaymentsModal}
           onClose={handlePaymentsModalClose}
@@ -908,7 +1039,7 @@ export function TransactionsPage({ apiBasePath }: TransactionsPageProps) {
         <DistributionGenerationModal
           opened={showDistributionModal}
           onClose={cancelDistributionGeneration}
-          onConfirm={confirmDistributionGeneration}
+          onConfirm={() => runSavedAction(confirmDistributionGeneration)}
           data={distributionData}
           isGenerating={isGeneratingDistribution}
         />
@@ -965,9 +1096,15 @@ export function TransactionsPage({ apiBasePath }: TransactionsPageProps) {
           statusOptions={statusFilterOptions}
           selectedStatuses={selectedStatuses}
           onStatusFilter={handleStatusFilter}
-          onGenerateInvoice={prepareInvoiceGeneration}
-          onGeneratePackingList={preparePackingListGeneration}
-          onGenerateDistribution={prepareDistributionGeneration}
+          onGenerateInvoice={(rows) =>
+            runSavedAction(() => prepareInvoiceGeneration(rows))
+          }
+          onGeneratePackingList={(rows) =>
+            runSavedAction(() => preparePackingListGeneration(rows))
+          }
+          onGenerateDistribution={(rows) =>
+            runSavedAction(() => prepareDistributionGeneration(rows))
+          }
           isGeneratingInvoice={isGeneratingInvoice}
           isGeneratingPackingList={isGeneratingPackingList}
           isGeneratingDistribution={isGeneratingDistribution}

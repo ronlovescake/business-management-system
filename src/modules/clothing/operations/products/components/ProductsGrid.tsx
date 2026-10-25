@@ -1,10 +1,11 @@
 'use client';
 
-import { memo, useEffect } from 'react';
+import { memo, useEffect, useRef } from 'react';
 import dynamic from 'next/dynamic';
 import { Alert, Button, Group, Stack, Text } from '@mantine/core';
 import { IconRefresh, IconTrash } from '@tabler/icons-react';
-import { HotTable } from '@handsontable/react';
+import { HotTable, type HotTableClass } from '@handsontable/react';
+import { getDataBoundary } from '@/components/ui/handsontable-grid/dataBoundaryNavigation';
 import { registerAllModules } from 'handsontable/registry';
 import 'handsontable/styles/handsontable.min.css';
 import 'handsontable/styles/ht-theme-horizon.min.css';
@@ -35,6 +36,7 @@ export const ProductsGrid = memo(function ProductsGrid({
   apiBasePath,
   onPendingChanges,
 }: ProductsGridProps) {
+  const hotRef = useRef<HotTableClass>(null);
   const {
     saveQueue,
     searchQuery,
@@ -252,6 +254,30 @@ export const ProductsGrid = memo(function ProductsGrid({
           }}
         >
           <HotTable
+            ref={hotRef}
+            beforeKeyDown={(event: KeyboardEvent) => {
+              const grid = hotRef.current?.hotInstance;
+              if (
+                !grid ||
+                !(event.ctrlKey || event.metaKey) ||
+                !['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(
+                  event.key
+                ) ||
+                grid.getActiveEditor()?.isOpened()
+              ) {
+                return;
+              }
+              const selected = grid.getSelected()?.[0];
+              if (!selected || selected[0] < 0 || selected[1] < 0) {
+                return;
+              }
+              event.preventDefault();
+              event.stopImmediatePropagation();
+              grid.selectCell(
+                ...getDataBoundary(grid, selected[0], selected[1], event.key)
+              );
+              return false;
+            }}
             data={tableData}
             columns={columns}
             colHeaders

@@ -63,3 +63,17 @@
 - Transaction imports resolve only active current product codes. Missing products continue to fail reference validation, and duplicate active code matches are rejected. Previous codes retained as aliases are history-only and do not resolve new transactions.
 - Changing a GM product's shipment code propagates to linked transactions. Renaming a product or changing its shipment code does not recalculate existing transaction unit prices, line totals, discounts, or adjustments.
 - Run `npx tsx scripts/audit-general-merchandise-product-identity.ts` to inspect linked rows and any blank, ambiguous, or unmatched historical codes.
+
+## F - Inline Autosave And Recovery
+
+| #   | Logic                                      | Explanation                                                                                                                                                                                                                                                                                                                 |
+| --- | ------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 20  | GM shares the serial inline save queue     | Accepted edits merge by permanent ID, with partial PATCH for individual edits and bounded full-row PUT for paste batches. Latest draft values feed calculations, overlapping pastes accumulate, and newer individual fields supersede older pending paste fields.                                                           |
+| 21  | Pending drafts survive saves and refreshes | Acknowledged writes reconcile only after a fresh read with no newer edit. Failed/ambiguous writes or refreshes retain visible drafts and pause automatic saving. Confirmed Refresh and Retry refreshes first and refuses missing IDs; Discard Drafts reloads server values without reversing committed writes.              |
+| 22  | Conflicting local actions wait             | Invoice, packing/distribution, payment entry, customer details and tab switches are blocked while work is unresolved. Active generation/editing modals block grid edits. Unload/link navigation warns, but drafts are memory-only and other clients/programmatic navigation are not coordinated.                            |
+| 23  | GM enforcement remains separate            | The queue uses `/api/general-merchandise/transactions` and is isolated from clothing. Existing GM validation, pricing, payment/status and movement rules remain in the GM server service; imports, jobs, direct API calls, placeholder creation and non-grid modal writes are unchanged.                                    |
+| 24  | Existing audit behavior remains            | Per-edit and paste-batch notifications/logging retain their boundaries. Batch success waits for acknowledgement. Server change logs are the authoritative persistence record. Automatic transport retries are disabled for queued writes; a timeout/5xx may have committed, so explicit retry is not exactly-once delivery. |
+
+Ron approved sharing client reliability without unifying domain policies. The
+full change record, failure/race evidence and remaining risks are in
+[the clothing contract](../clothing/operations-transactions.md#change-record).

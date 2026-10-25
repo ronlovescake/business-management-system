@@ -10,6 +10,7 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { useQueries, useQueryClient } from '@tanstack/react-query';
 import { useTransactionData } from '@/hooks/useSheetData';
+import { useTransactionGridSaveQueue } from './useTransactionGridSaveQueue';
 import { useDataTable } from '@/components/ui';
 import { TransactionService } from '../services/TransactionService';
 import { TransactionService as TransactionApiService } from '@/services/TransactionService';
@@ -55,6 +56,10 @@ const extractCustomerName = (
             return await fetchArray<PriceTier>('/api/prices');
  */
 interface UseTransactionsDataReturn {
+  saveQueue: ReturnType<typeof useTransactionGridSaveQueue>;
+  saveBulkChanges: (
+    patches: Array<{ id: number; data: Partial<TransactionData> }>
+  ) => Promise<{ count: number }>;
   // Core data
   transactions: TransactionData[];
   isLoading: boolean;
@@ -173,16 +178,33 @@ export function useTransactionsData({
   // ============================================================================
 
   const {
-    data: transactions,
+    data: serverTransactions,
     isLoading: transactionsLoading,
     bulkUpdate: bulkUpdateTransactions,
-    update: updateTransaction,
-    updateAsync: updateTransactionAsync,
     bulkUpdateAsync: bulkUpdateTransactionsAsync,
   } = useTransactionData({
     service: transactionService,
     queryKey: transactionQueryKey,
   });
+
+  const saveQueue = useTransactionGridSaveQueue({
+    scope: resolvedApiBasePath,
+    transactions: serverTransactions as TransactionData[],
+    patch: (id, data) =>
+      transactionService.update(id, data as never, { maxRetries: 0 }),
+    bulk: (rows) =>
+      transactionService.bulkUpdate(
+        TransactionService.sanitizeTransactions(rows) as never,
+        { maxRetries: 0 }
+      ),
+    refresh: async () => {
+      await queryClient.cancelQueries({ queryKey: transactionQueryKey });
+      const rows = await transactionService.getAll();
+      queryClient.setQueryData(transactionQueryKey, rows);
+      return rows as TransactionData[];
+    },
+  });
+  const transactions = saveQueue.transactions;
 
   // logger.debug(`Loaded ${transactions.length} transactions from service layer`);
 
@@ -750,6 +772,9 @@ export function useTransactionsData({
           TransactionService.sanitizeTransactions(changedTransactions);
 
         // Update via service layer
+        if (saveQueue.isBusy()) {
+          return 0;
+        }
         bulkUpdateTransactions(sanitized as never);
 
         // Show notification (will be handled by caller)
@@ -758,7 +783,7 @@ export function useTransactionsData({
 
       return 0;
     },
-    [transactions, bulkUpdateTransactions]
+    [transactions, bulkUpdateTransactions, saveQueue]
   );
 
   // Sync on mount and when mappings change (only once when mappings are loaded)
@@ -787,9 +812,13 @@ export function useTransactionsData({
   );
 
   const saveOrderStatus = useCallback(
-    (id: number, status: string) =>
-      updateTransactionAsync({ id, data: { 'Order Status': status } }),
-    [updateTransactionAsync]
+    async (id: number, status: string) => {
+      const rows = await saveQueue.enqueue([
+        { id, data: { 'Order Status': status } },
+      ]);
+      return rows[0];
+    },
+    [saveQueue]
   );
 
   const saveBulkUpdate = useCallback(
@@ -826,9 +855,13 @@ export function useTransactionsData({
         }
       });
 
-      updateTransaction({ id: params.id, data: sanitizedData as never });
+      void saveQueue
+        .enqueue([
+          { id: params.id, data: sanitizedData as Partial<TransactionData> },
+        ])
+        .catch(() => {});
     },
-    [updateTransaction]
+    [saveQueue]
   );
 
   // ============================================================================
@@ -836,6 +869,8 @@ export function useTransactionsData({
   // ============================================================================
 
   return {
+    saveQueue,
+    saveBulkChanges: saveQueue.enqueueBulk,
     // Core data
     transactions,
     isLoading: transactionsLoading,

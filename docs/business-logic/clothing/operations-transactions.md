@@ -96,10 +96,10 @@ The implementation lives in
 
 ## E — Bulk Update & Soft Delete
 
-| #   | Logic                                                     | Explanation                                     |
-| --- | --------------------------------------------------------- | ----------------------------------------------- |
-| 17  | Bulk update still validates and syncs row-by-row          | One failing row does not block successful rows. |
-| 18  | Transactions remain soft-deleted rather than hard-deleted | Live queries still filter `deletedAt: null`.    |
+| #   | Logic                                                              | Explanation                                                                                      |
+| --- | ------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------ |
+| 17  | Bulk update validates and syncs rows inside a database transaction | Observed implementation rolls back the request on a row failure; see the discrepancy note below. |
+| 18  | Transactions remain soft-deleted rather than hard-deleted          | Live queries still filter `deletedAt: null`.                                                     |
 
 ---
 
@@ -134,3 +134,89 @@ The transaction workflow now supports split-child selling without requiring chil
 product rows or child price rows to exist first. The authoritative split
 definition is the split batch, while inventory movement sync and stock checks
 translate that definition into transaction-time behavior.
+
+## I - Inline Autosave And Recovery
+
+| #   | Logic                                                           | Explanation                                                                                                                                                                                                                                                                                                                                                              |
+| --- | --------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| 30  | Accepted edits merge by permanent transaction ID                | A local draft overlays server rows while a serial queue saves. Async cell validation is ordered; calculations consult the latest draft and pending paste fields. Status-only renders do not replace grid data. Placeholder creation retains its existing path.                                                                                                           |
+| 31  | Individual and pasted edits retain their existing transports    | Individual edits use partial PATCH requests; paste batches use complete row DTOs via PUT, bounded by the existing request limit. Rows are reconstructed from acknowledged state at send time. Overlapping batches accumulate, and newer individual fields supersede older pending paste fields.                                                                          |
+| 32  | Acknowledgements do not erase newer edits                       | Only one inline write request runs at a time. Drafts remain visible until the queue drains and a fresh canonical read succeeds. Edits during that read trigger another save/read cycle. PATCH IDs and bulk counts must match.                                                                                                                                            |
+| 33  | Errors retain drafts and pause automatic saving                 | HTTP errors, timeouts, invalid acknowledgements and failed reconciliation show a retained-draft alert. Confirmed Refresh and Retry reads server state first; Discard Drafts reloads server values without undoing committed writes. Missing rows cannot be recreated through retry. Queue writes disable automatic transport retries.                                    |
+| 34  | Dependent actions wait for saved data                           | Invoice, packing/distribution generation, payment entry, customer details and tab switches are blocked while validation/saves/drafts remain unresolved. Generation and transaction-editing modals block inline edits while active. Browser unload/link navigation warns; other users/tabs and programmatic navigation are not coordinated.                               |
+| 35  | Audit and domain enforcement remain authoritative on the server | Existing per-edit notifications/logging and paste-batch notifications/logging are retained. Batch success waits for acknowledgement; ordinary edit notices are not proof of persistence. Server change logs remain the authoritative persisted-change record. Stock validation, financial formulas, payment/status guards and inventory movement services are unchanged. |
+
+### Change Record
+
+Ron, the requesting clothing operations owner, approved retained drafts with
+explicit Retry/Discard, blocking conflicting actions, and preserving existing
+per-edit/paste-batch audit behavior. No job/import, schema, accounting, permission,
+deployment or cross-domain policy change is authorized by this work.
+
+The shared page/route, `useTransactionsData`, `useTransactionOperations`,
+`useTransactionBatchMode` and `useTransactionGridSaveQueue` own client coordination.
+`src/modules/transactions/api/service.ts` and
+`src/modules/general-merchandise/transactions/api/service.ts` remain the separate
+enforcement boundaries. Both UI API scopes use this queue; direct API clients,
+imports, background jobs, placeholder creation and non-grid modal writes retain
+their existing paths. Existing clothing/GM financial differences are not
+homogenized. Shared grid navigation uses the same nonempty-boundary helper as
+Products, without intercepting arrows inside an open editor.
+
+**Documentation discrepancy:** the previous bulk-update explanation claimed
+independent row success. Source inspection shows clothing bulk writes inside a
+Prisma transaction. Rule 17 now records that observed implementation, not a new
+owner-approved atomicity policy. No server behavior is changed; deciding whether
+partial success should instead be supported remains a separate policy decision.
+
+Drafts do not survive reload or a confirmed departure. A network/5xx failure may
+already have committed; review saved values before retrying. Explicit retry is
+not an exactly-once guarantee. Discard does not reverse inventory/accounting
+effects of an already committed request. There is no cross-user locking.
+
+The following declaration is ready to adapt into the required PR record; no PR,
+commit or deployment is created by the implementation.
+
+```json
+{
+  "businessRuleChange": true,
+  "rationale": "Coordinate rapid inline saves and explicit recovery without changing server business rules; align Products keyboard navigation with Transactions.",
+  "owner": "Ron, requesting clothing operations owner; client coordination in useTransactionGridSaveQueue, domain enforcement in the existing separate transaction services.",
+  "invariant": "Later accepted edits must not be erased by older saves or refreshes; unresolved drafts remain visible and block dependent local actions until explicit recovery or reconciliation.",
+  "domains": ["clothing", "general-merchandise", "shared"],
+  "policyPaths": [
+    "docs/business-logic/clothing/operations-transactions.md",
+    "docs/business-logic/general-merchandise/operations-transactions.md"
+  ],
+  "affectedPaths": [
+    "src/app/operations/transactions/_shared/TransactionsRoutePage.tsx",
+    "src/modules/clothing/operations/transactions",
+    "src/services/TransactionService.ts",
+    "src/services/GeneralMerchandiseTransactionService.ts",
+    "src/components/ui/handsontable-grid",
+    "src/modules/clothing/operations/products/components/ProductsGrid.tsx"
+  ],
+  "tests": {
+    "paths": [
+      "tests/unit/transactions/useTransactionGridSaveQueue.test.tsx",
+      "tests/unit/transactions/useTransactionOperations.test.tsx",
+      "tests/unit/transactions/transactionService.test.ts",
+      "src/components/ui/handsontable-grid/__tests__/dataBoundaryNavigation.test.ts",
+      "tests/e2e/handsontable-grid.interactions.spec.ts"
+    ],
+    "results": "Focused queue, operations, service and navigation tests passed. All seven Chromium grid cases passed, including ten delayed individual pastes, explicit retry/discard and Products navigation. Lint, typecheck, full unit, integration (59 tests) and hardening (12 tests) passed. guardrails:check failed on the preceding committed Products checkpoint: useProductsGrid.test.tsx contains a blocked as unknown as cast. That file is unchanged in this implementation; the guard scans HEAD~1...HEAD, not the uncommitted worktree. No guard was disabled. Authenticated manual testing, Docker rebuild and deployment were not performed."
+  },
+  "docs": {
+    "paths": [
+      "docs/business-logic/clothing/operations-transactions.md",
+      "docs/business-logic/general-merchandise/operations-transactions.md",
+      "docs/business-logic/clothing/operations-products.md",
+      "docs/business-logic/general-merchandise/operations-products.md"
+    ]
+  },
+  "divergence": {
+    "status": "none",
+    "reason": "Both domains share the same isolated client queue/navigation behavior. Existing distinct server policies and financial rules remain unchanged; Ron approved preserving them, not unifying them."
+  }
+}
+```

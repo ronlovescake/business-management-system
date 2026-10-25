@@ -60,6 +60,10 @@ interface UseTransactionOperationsProps {
     status: string
   ) => Promise<Pick<TransactionData, 'Order Status'>>;
   saveBulkUpdate?: (data: TransactionData[]) => Promise<{ count: number }>;
+  saveBulkChanges?: (
+    patches: Array<{ id: number; data: Partial<TransactionData> }>
+  ) => Promise<{ count: number }>;
+  getTransaction?: (id: number) => TransactionData | undefined;
   apiBasePath?: string;
   onCustomerWarning?: (data: {
     customerName: string;
@@ -102,6 +106,8 @@ export function useTransactionOperations(
     update,
     saveOrderStatus,
     saveBulkUpdate,
+    saveBulkChanges,
+    getTransaction,
     apiBasePath,
     onCustomerWarning,
     onVoidedStatusSaved,
@@ -177,6 +183,7 @@ export function useTransactionOperations(
     transactions,
     bulkUpdate,
     saveBulkUpdate,
+    saveBulkChanges,
     logNotification,
   });
 
@@ -184,7 +191,7 @@ export function useTransactionOperations(
   // CELL EDITING HANDLER
   // ============================================================================
 
-  const handleCellEdited = useCallback(
+  const processCellEdited = useCallback(
     async (edit: CellEditEvent<TransactionData>) => {
       const Swal = await getSwal();
       const { columnId, row: rowIndex, value: rawValue, isBatch } = edit;
@@ -194,15 +201,44 @@ export function useTransactionOperations(
         return;
       }
 
-      const transaction = filteredData[rowIndex] ?? ensureDraftRow(rowIndex);
+      const selected =
+        edit.rowData ?? filteredData[rowIndex] ?? ensureDraftRow(rowIndex);
+      const latestTransaction = selected.id
+        ? (getTransaction?.(selected.id) ?? selected)
+        : selected;
+      const pending = selected.id
+        ? batchUpdatesRef.current.get(selected.id)
+        : undefined;
+      const transaction = pending
+        ? { ...latestTransaction, ...pending }
+        : latestTransaction;
       const isNewTransaction = !transaction.id;
 
       // Check if this is part of a batch operation
-      const isBatchEdit = Boolean(isBatch || isBatchModeRef.current);
+      const isBatchEdit = Boolean(isBatch);
       const shouldLog = !isBatchEdit && !isNewTransaction;
       const transactionDescriptor = describeTransaction(transaction);
 
       const newValue = rawValue;
+
+      const supersedePendingBatch = (data: Partial<TransactionData>) => {
+        if (!transaction.id) {
+          return;
+        }
+        const pendingBatch = batchUpdatesRef.current.get(transaction.id);
+        if (!pendingBatch) {
+          return;
+        }
+        const remaining = { ...pendingBatch };
+        Object.keys(data).forEach((key) => {
+          delete remaining[key as keyof TransactionData];
+        });
+        if (Object.keys(remaining).length > 0) {
+          batchUpdatesRef.current.set(transaction.id, remaining);
+        } else {
+          batchUpdatesRef.current.delete(transaction.id);
+        }
+      };
 
       // Helper: Update transaction (batched or immediate)
       const updateTransactionData = async (data: Partial<TransactionData>) => {
@@ -237,11 +273,14 @@ export function useTransactionOperations(
           return;
         }
 
-        if (isBatchEdit || isBatchModeRef.current) {
+        if (isBatchEdit && isBatchModeRef.current) {
           logger.debug(`📦 Batching update for transaction ${id}:`, data);
           const existing = batchUpdatesRef.current.get(id) || {};
           batchUpdatesRef.current.set(id, { ...existing, ...data });
+        } else if (isBatchEdit && saveBulkChanges) {
+          void saveBulkChanges([{ id, data }]).catch(logger.error);
         } else {
+          supersedePendingBatch(data);
           logger.debug(`🔄 Immediate update for transaction ${id}:`, data);
           update({ id, data });
         }
@@ -249,7 +288,7 @@ export function useTransactionOperations(
 
       // Helper: Show notification (suppressed during batch)
       const notify = (options: NotificationData) => {
-        if (!isBatchEdit && !isBatchModeRef.current) {
+        if (!isBatchEdit) {
           showNotification(options);
         } else {
           logger.debug(
@@ -265,11 +304,13 @@ export function useTransactionOperations(
           return draftRowsRef.current.get(rowIndex) ?? transaction;
         }
 
+        const currentTransaction =
+          getTransaction?.(transaction.id) ?? transaction;
         const batchedUpdates = batchUpdatesRef.current.get(transaction.id);
         if (batchedUpdates) {
-          return { ...transaction, ...batchedUpdates };
+          return { ...currentTransaction, ...batchedUpdates };
         }
-        return transaction;
+        return currentTransaction;
       };
 
       const simpleColumnHandled = handleSimpleTransactionColumnEdit({
@@ -417,11 +458,7 @@ export function useTransactionOperations(
         // 2. Transaction has no ID (new row) OR is being created
         // 3. Not in batch mode (skip during paste operations)
         // =====================================================================
-        if (
-          dropdownValue &&
-          dropdownValue.trim() !== '' &&
-          !isBatchModeRef.current
-        ) {
+        if (dropdownValue && dropdownValue.trim() !== '' && !isBatchEdit) {
           try {
             const currentQuantity = getCurrentTransaction().Quantity ?? 0;
 
@@ -745,7 +782,7 @@ export function useTransactionOperations(
         transactionDescriptor,
         shouldLog,
         apiBasePath,
-        isBatchMode: isBatchModeRef.current,
+        isBatchMode: isBatchEdit,
         priceTiers,
         getCurrentTransaction,
         updateTransactionData,
@@ -790,12 +827,8 @@ export function useTransactionOperations(
         formatCurrencyValue,
         notify,
         updateTransactionData: (data) => {
-          if (
-            transaction.id &&
-            !isBatchEdit &&
-            !isBatchModeRef.current &&
-            saveOrderStatus
-          ) {
+          if (transaction.id && !isBatchEdit && saveOrderStatus) {
+            supersedePendingBatch(data);
             return saveOrderStatus(transaction.id, data['Order Status']);
           }
           return updateTransactionData(data);
@@ -816,6 +849,8 @@ export function useTransactionOperations(
       productToShipmentStatusMap,
       update,
       saveOrderStatus,
+      saveBulkChanges,
+      getTransaction,
       onCustomerWarning,
       onVoidedStatusSaved,
       logNotification,
@@ -825,6 +860,16 @@ export function useTransactionOperations(
       batchUpdatesRef,
       isBatchModeRef,
     ]
+  );
+
+  const editChain = useRef<Promise<unknown>>(Promise.resolve());
+  const handleCellEdited = useCallback(
+    (edit: CellEditEvent<TransactionData>) => {
+      const task = editChain.current.then(() => processCellEdited(edit));
+      editChain.current = task.catch(() => {});
+      return task;
+    },
+    [processCellEdited]
   );
 
   // ============================================================================

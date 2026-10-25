@@ -8,6 +8,9 @@ interface UseTransactionBatchModeParams {
   transactions: TransactionData[];
   bulkUpdate: (data: TransactionData[]) => void;
   saveBulkUpdate?: (data: TransactionData[]) => Promise<{ count: number }>;
+  saveBulkChanges?: (
+    patches: Array<{ id: number; data: Partial<TransactionData> }>
+  ) => Promise<{ count: number }>;
   logNotification: (
     message: string,
     metadata?: Record<string, unknown>
@@ -25,9 +28,12 @@ export function useTransactionBatchMode({
   transactions,
   bulkUpdate,
   saveBulkUpdate,
+  saveBulkChanges,
   logNotification,
 }: UseTransactionBatchModeParams): UseTransactionBatchModeResult {
   const isBatchModeRef = useRef(false);
+  const activeBatchesRef = useRef(0);
+  const cellCountRef = useRef(0);
   const batchUpdatesRef = useRef<Map<number, Partial<TransactionData>>>(
     new Map()
   );
@@ -36,11 +42,22 @@ export function useTransactionBatchMode({
     const handleBatchStart = () => {
       logger.debug('🚀 Batch mode STARTED - preparing batched save');
       isBatchModeRef.current = true;
-      batchUpdatesRef.current.clear();
+      activeBatchesRef.current += 1;
     };
 
     const handleBatchComplete = async (event: Event) => {
       const customEvent = event as CustomEvent<{ count?: number }>;
+      cellCountRef.current += customEvent.detail?.count ?? 0;
+      activeBatchesRef.current = Math.max(0, activeBatchesRef.current - 1);
+      if (activeBatchesRef.current > 0) {
+        return;
+      }
+      const cellsEdited = cellCountRef.current;
+      cellCountRef.current = 0;
+      const patches = Array.from(batchUpdatesRef.current, ([id, data]) => ({
+        id,
+        data: { ...data },
+      }));
       const batchedUpdates = buildBatchedTransactions(
         transactions,
         batchUpdatesRef.current
@@ -67,7 +84,9 @@ export function useTransactionBatchMode({
           `📤 Flushing ${batchedUpdates.length} batched updates (cells edited: ${customEvent.detail?.count ?? 0})`
         );
         try {
-          if (saveBulkUpdate) {
+          if (saveBulkChanges) {
+            await saveBulkChanges(patches);
+          } else if (saveBulkUpdate) {
             await saveBulkUpdate(batchedUpdates);
           } else {
             bulkUpdate(batchedUpdates);
@@ -79,13 +98,13 @@ export function useTransactionBatchMode({
           });
 
           logNotification(
-            `Batched edit applied to ${batchedUpdates.length} transactions (${customEvent.detail?.count ?? 0} cells).`,
+            `Batched edit applied to ${batchedUpdates.length} transactions (${cellsEdited} cells).`,
             {
               type: 'batch-update',
               transactionIds: batchedUpdates
                 .map((update) => update.id)
                 .filter((id): id is number => Number.isFinite(id)),
-              cellsEdited: customEvent.detail?.count ?? null,
+              cellsEdited,
             }
           );
         } catch (error) {
@@ -111,7 +130,13 @@ export function useTransactionBatchMode({
         handleBatchComplete
       );
     };
-  }, [transactions, bulkUpdate, saveBulkUpdate, logNotification]);
+  }, [
+    transactions,
+    bulkUpdate,
+    saveBulkUpdate,
+    saveBulkChanges,
+    logNotification,
+  ]);
 
   return {
     isBatchModeRef,

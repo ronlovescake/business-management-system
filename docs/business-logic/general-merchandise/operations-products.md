@@ -73,3 +73,7 @@ workflow described above.
 | 17  | Recovery is explicit                  | Refresh and Retry first refreshes server state and refuses to recreate missing products. Discard Drafts reloads server values without undoing committed writes. No automatic write replay occurs after errors; a timeout/5xx may have committed, so review before retry. |
 | 18  | Conflicting local actions wait        | Add/edit modal writes, transit actions, and other product tabs are blocked while drafts remain unresolved. Unload and link navigation warn. Drafts are memory-only; other clients/programmatic navigation are not coordinated.                                           |
 | 19  | GM accounting rules remain separate   | GM bulk service, payment/identity guards, financial formulas, imports, jobs, and direct-ID enforcement are unchanged. This is client save coordination, not new accounting policy or cross-user concurrency protection.                                                  |
+
+The shared Products grid also supports Transactions-style Ctrl/Cmd+arrow
+navigation to nonempty-data boundaries, including zero/false values, with edge
+fallback and no wrapping. Open cell editors keep their normal cursor behavior.
