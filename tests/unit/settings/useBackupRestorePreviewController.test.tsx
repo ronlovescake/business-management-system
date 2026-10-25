@@ -5,15 +5,12 @@ import { showNotification } from '@mantine/notifications';
 import { useBackupRestorePreviewController } from '@/modules/clothing/operations/settings/components/backup-restore/useBackupRestorePreviewController';
 import type { Backup } from '@/modules/clothing/operations/settings/backup/types';
 
-const {
-  mockFetchWithTimeout,
-  mockSetSidebarActive,
-  mockClearSidebar,
-} = vi.hoisted(() => ({
-  mockFetchWithTimeout: vi.fn(),
-  mockSetSidebarActive: vi.fn(),
-  mockClearSidebar: vi.fn(),
-}));
+const { mockFetchWithTimeout, mockSetSidebarActive, mockClearSidebar } =
+  vi.hoisted(() => ({
+    mockFetchWithTimeout: vi.fn(),
+    mockSetSidebarActive: vi.fn(),
+    mockClearSidebar: vi.fn(),
+  }));
 
 vi.mock('@mantine/notifications', () => ({
   showNotification: vi.fn(),
@@ -80,8 +77,7 @@ describe('useBackupRestorePreviewController', () => {
         }
 
         if (
-          input ===
-          '/api/backup/2026-04-14T15-00-21-differential-backup/plan'
+          input === '/api/backup/2026-04-14T15-00-21-differential-backup/plan'
         ) {
           return {
             ok: true,
@@ -203,6 +199,29 @@ describe('useBackupRestorePreviewController', () => {
     );
   });
 
+  it('does not refetch continuously when the runner returns a completed job object', async () => {
+    mockFetchWithTimeout.mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        success: true,
+        runnerAvailable: true,
+        status: { phase: 'succeeded', jobId: 'previous-job' },
+      }),
+    });
+    const { result, rerender } = renderHook(() =>
+      useBackupRestorePreviewController({
+        backups: [],
+        isAdminBackupRestore: false,
+        pageTab: 'backup',
+      })
+    );
+    await waitFor(() =>
+      expect(result.current.restoreJobStatus?.phase).toBe('succeeded')
+    );
+    rerender();
+    expect(mockFetchWithTimeout).toHaveBeenCalledTimes(1);
+  });
+
   it('submits restore for a json-only differential backup when the planner provides a dump baseline', async () => {
     const { result } = renderHook(() =>
       useBackupRestorePreviewController({
@@ -243,8 +262,7 @@ describe('useBackupRestorePreviewController', () => {
         method: 'POST',
         body: JSON.stringify({
           timestamp: '2026-04-14T15-00-21-differential-backup',
-          confirmationText:
-            'RESTORE 2026-04-14T15-00-21-differential-backup',
+          confirmationText: 'RESTORE 2026-04-14T15-00-21-differential-backup',
         }),
       }),
       15000

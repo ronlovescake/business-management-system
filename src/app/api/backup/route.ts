@@ -1217,7 +1217,9 @@ export async function GET() {
           }
         }
 
-        const files = fs.readdirSync(folderPath);
+        const files = fs
+          .readdirSync(folderPath)
+          .filter((file) => !file.endsWith('.summary.json'));
         const describedFolderFiles = await describeFiles(
           files.map((file) => path.join(folderPath, file))
         );

@@ -1,4 +1,4 @@
-# Operational Workflow & Accounting Policy (Supplier → Inventory)
+X# Operational Workflow & Accounting Policy (Supplier → Inventory)
 
 This document captures how we run **supplier-facing** workflows in the app and the accounting rules we want to follow.
 It prevents repeating the same Q&A and acts as a living reference as workflows evolve.

@@ -107,6 +107,16 @@
 
 ## Coverage Note
 
+### Read-Only Backup Browsing
+
+- The settings workspace lists snapshots with Overview, Browse Data, Compare and Restore views. Creation opens in a drawer; Compare and Restore open the existing review flow. Restore confirmation, planning and runner execution are unchanged.
+- Admin-only `GET /api/backup/[timestamp]/browse` lists captured tables. `GET /api/backup/[timestamp]/browse/[table]` returns a page of 100, 250 or 500 rows, with one lookahead row determining whether another page exists.
+- JSON snapshots use recorded table counts, with per-table CSV streams preferred when available. Dump-only backups use `pg_restore --list` and data-only SQL output to stdout, never a database connection or SQL execution. Dump table keys include their schema so clothing and general merchandise remain distinct.
+- Dump inspection requires a compatible PostgreSQL client and COPY-format table data. Tables with unsupported identifiers or non-COPY exports are not supported. Inspection does not validate restore readiness or replace restore checksum checks.
+- Each app process permits two concurrent dump inspections, with a 60-second timeout and a 256 MiB scan cap. Cancellation terminates the child process. Busy responses return `503` with `Retry-After`; unknown dump row totals remain unknown rather than triggering a full count.
+- Browse artifacts and manifests must resolve inside the selected backup directory. Derived `*.summary.json` files are excluded from selectable backup artifacts; browsing does not create new cache files in backup folders.
+- The Mantine table is read-only, with server-side paging, current-page search/export, column visibility and full-row details. Loading and retry state are scoped to backup, table and page; cancelled or stale responses do not overwrite a different backup's rows. Differential and log snapshots are explicitly labeled as partial captures.
+
 This file now records the core current behavior of backup / restore as implemented today.
 
 Future detailed expansions can split out:

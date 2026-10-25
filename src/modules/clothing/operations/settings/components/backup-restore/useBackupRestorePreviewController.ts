@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { showNotification } from '@mantine/notifications';
 import { getSwal } from '@/lib/alerts';
 import {
@@ -94,6 +94,7 @@ export function useBackupRestorePreviewController({
   >(null);
   const [restoreJobStatus, setRestoreJobStatus] =
     useState<RestoreJobStatus | null>(null);
+  const restoreJobStatusRef = useRef<RestoreJobStatus | null>(null);
   const [restoreJobLoading, setRestoreJobLoading] = useState(false);
   const [restoreSubmitting, setRestoreSubmitting] = useState(false);
   const [selectedBackup, setSelectedBackup] = useState<Backup | null>(null);
@@ -252,16 +253,17 @@ export function useBackupRestorePreviewController({
 
       setRestoreRunnerAvailable(Boolean(payload.runnerAvailable));
       setRestoreRunnerHeartbeatAt(payload.runnerHeartbeatAt ?? null);
+      restoreJobStatusRef.current = payload.status ?? null;
       setRestoreJobStatus(payload.status ?? null);
     } catch {
-      if (!restoreJobStatus) {
+      if (!restoreJobStatusRef.current) {
         setRestoreRunnerAvailable(false);
         setRestoreRunnerHeartbeatAt(null);
       }
     } finally {
       setRestoreJobLoading(false);
     }
-  }, [restoreJobStatus]);
+  }, []);
 
   useEffect(() => {
     void fetchRestoreRunnerStatus();
@@ -309,10 +311,12 @@ export function useBackupRestorePreviewController({
       setPreviewJsonFile(null);
 
       try {
-        const jsonFile =
-          backup.files.find(
-            (file) => file.includes('backup-') && file.endsWith('.json')
-          ) || backup.files.find((file) => file.endsWith('.json'));
+        const jsonFile = backup.files.find(
+          (file) =>
+            file.includes('backup-') &&
+            file.endsWith('.json') &&
+            !file.endsWith('.summary.json')
+        );
 
         const planPromise = fetchRestorePlan(backup.timestamp)
           .then((plan) => {

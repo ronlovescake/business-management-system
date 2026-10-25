@@ -11,12 +11,9 @@ import { getBackupDirectory } from '@/lib/backup-storage';
 import { isValidTimestampFolderName } from '@/app/api/backup-restore/sharedRouteUtils';
 import fs from 'fs';
 import path from 'path';
-import { parser } from 'stream-json';
-import { pick } from 'stream-json/filters/Pick';
-import { streamArray } from 'stream-json/streamers/StreamArray';
+import { readJsonRows, readCsvRows } from '@/lib/backup/previewReaders';
 import { logger } from '@/lib/logger';
 import { createHash } from 'crypto';
-import Papa from 'papaparse';
 
 const BACKUP_DIR = getBackupDirectory();
 export const runtime = 'nodejs';
@@ -135,84 +132,6 @@ const readSummaryFromCacheOrManifest = (
     });
     return null;
   }
-};
-
-const readTableSample = async (
-  filePath: string,
-  tableName: string,
-  offset: number,
-  limit: number
-) => {
-  return new Promise<unknown[]>((resolve, reject) => {
-    let settled = false;
-    const rows: unknown[] = [];
-    let index = 0;
-
-    const finish = () => {
-      if (settled) {
-        return;
-      }
-      settled = true;
-      resolve(rows);
-    };
-
-    const fail = (error: unknown) => {
-      if (settled) {
-        return;
-      }
-      settled = true;
-      reject(error);
-    };
-
-    const fileStream = fs.createReadStream(filePath);
-    const jsonStream = fileStream
-      .pipe(parser())
-      .pipe(pick({ filter: `tables.${tableName}.data` }))
-      .pipe(streamArray());
-
-    jsonStream.on('data', (data: { value: unknown }) => {
-      if (index >= offset && rows.length < limit) {
-        rows.push(data.value);
-      }
-      index += 1;
-
-      if (rows.length >= limit) {
-        fileStream.destroy();
-      }
-    });
-
-    jsonStream.on('end', finish);
-    jsonStream.on('close', finish);
-    jsonStream.on('error', fail);
-    fileStream.on('error', fail);
-  });
-};
-
-const readTableSampleFromCsv = (
-  csvFilePath: string,
-  offset: number,
-  limit: number
-) => {
-  const csvText = fs.readFileSync(csvFilePath, 'utf8');
-  const parsed = Papa.parse<Record<string, unknown>>(csvText, {
-    header: true,
-    skipEmptyLines: true,
-  });
-
-  if (parsed.errors.length) {
-    logger.warn('CSV preview parse issues encountered', {
-      csvFilePath,
-      errors: parsed.errors.slice(0, 3),
-    });
-  }
-
-  const allRows = parsed.data;
-  const sliced = allRows.slice(offset, offset + limit);
-
-  return {
-    sliced,
-    total: allRows.length,
-  };
 };
 
 export async function GET(
@@ -390,19 +309,35 @@ export async function GET(
        */
       if (fs.existsSync(csvFilePath)) {
         try {
-          const csvSample = readTableSampleFromCsv(csvFilePath, offset, limit);
-          sliced = csvSample.sliced;
-          csvTotal = csvSample.total;
+          sliced = await readCsvRows(
+            csvFilePath,
+            offset,
+            limit,
+            request.signal
+          );
+          csvTotal = total ?? null;
         } catch (error) {
           logger.warn('CSV-based table preview failed, falling back to JSON', {
             csvFilePath,
             tableName,
             error,
           });
-          sliced = await readTableSample(filePath, tableName, offset, limit);
+          sliced = await readJsonRows(
+            filePath,
+            tableName,
+            offset,
+            limit,
+            request.signal
+          );
         }
       } else {
-        sliced = await readTableSample(filePath, tableName, offset, limit);
+        sliced = await readJsonRows(
+          filePath,
+          tableName,
+          offset,
+          limit,
+          request.signal
+        );
       }
 
       // Only 404 when the table key is genuinely absent from the backup

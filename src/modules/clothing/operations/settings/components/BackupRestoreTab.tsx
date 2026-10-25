@@ -6,8 +6,6 @@ import { Stack } from '@mantine/core';
 import { showNotification } from '@mantine/notifications';
 import { getSwal } from '@/lib/alerts';
 import { api } from '@/lib/api/client';
-import { usePathname } from 'next/navigation';
-import { IconDatabase, IconHistory, IconTable } from '@tabler/icons-react';
 import type { Backup, BackupStrategy } from '../backup/types';
 import { STRATEGY_META, formatBackupTimestamp } from '../backup/types';
 import { useBackupSchedule } from '../backup/hooks/useBackupSchedule';
@@ -15,15 +13,8 @@ import { BackupPreviewModal } from './backup-restore/BackupPreviewModal';
 import { BackupChangeDetailModal } from './backup-restore/BackupChangeDetailModal';
 import { useBackupDownloadHandlers } from './backup-restore/useBackupDownloadHandlers';
 import { useBackupRestorePreviewController } from './backup-restore/useBackupRestorePreviewController';
-import { BackupTablesActionPanel } from './backup-restore/BackupTablesActionPanel';
 import { BackupSection } from './backup-restore/BackupSection';
-
-import { RestoreSection } from './backup-restore/RestoreSection';
-import { TablePreviewSection } from './backup-restore/TablePreviewSection';
-import {
-  ControlPanelCard,
-  type ControlPanelTabConfig,
-} from '@/components/ui/ControlPanelCard';
+import { BackupWorkspace } from './backup-restore/BackupWorkspace';
 import {
   getBackupChangePreviewRowOptions,
   getBackupChangePreviewSelectedRowsData,
@@ -33,12 +24,6 @@ import {
 } from './backup-restore/backupRestoreTabUtils';
 
 export function BackupRestoreTab() {
-  const pathname = usePathname();
-  const isAdminBackupRestore = Boolean(
-    pathname?.startsWith('/admin/backup-restore') ||
-      pathname?.startsWith('/settings')
-  );
-
   const [backups, setBackups] = useState<Backup[]>([]);
   const [loading, setLoading] = useState(false);
   const [creating, setCreating] = useState(false);
@@ -46,10 +31,7 @@ export function BackupRestoreTab() {
   const [backupStrategy, setBackupStrategy] = useState<BackupStrategy>('full');
   const [includeSoftDeleted, setIncludeSoftDeleted] = useState(false);
 
-  const [tableSearchQuery, setTableSearchQuery] = useState('');
-  const [pageTab, setPageTab] = useState<'backup' | 'restore' | 'tables'>(
-    'backup'
-  );
+  const [reviewTab, setReviewTab] = useState<'changes' | 'restore'>('restore');
 
   const {
     activeTableName,
@@ -64,7 +46,6 @@ export function BackupRestoreTab() {
     backupChangesError,
     backupChangesLoading,
     fetchTableSample,
-    handleBackupDateFilterChange,
     handleOpenBackupChangePreview,
     handlePreviewBackup,
     handleRunRestore,
@@ -98,8 +79,8 @@ export function BackupRestoreTab() {
     summaryComparisonType,
   } = useBackupRestorePreviewController({
     backups,
-    isAdminBackupRestore,
-    pageTab,
+    isAdminBackupRestore: false,
+    pageTab: 'backup',
   });
 
   const strategyOptions = useMemo(
@@ -111,17 +92,6 @@ export function BackupRestoreTab() {
     []
   );
   const isLogStrategy = backupStrategy === 'log';
-  const backupDateOptions = useMemo(
-    () =>
-      [...backups]
-        .sort((a, b) => b.timestamp.localeCompare(a.timestamp))
-        .map((backup) => ({
-          value: backup.timestamp,
-          label: formatBackupTimestamp(backup.timestamp),
-        })),
-    [backups]
-  );
-
   const fetchBackups = useCallback(async () => {
     setLoading(true);
     try {
@@ -384,56 +354,27 @@ export function BackupRestoreTab() {
 
   const { strategySchedule } = useBackupSchedule(backups);
 
-  const controlTabs: ControlPanelTabConfig[] = [
-    {
-      value: 'backup',
-      label: 'Create',
-      leftSection: <IconDatabase size={16} />,
-    },
-    {
-      value: 'restore',
-      label: 'Restore',
-      leftSection: <IconHistory size={16} />,
-    },
-    {
-      value: 'tables',
-      label: 'Browse Data',
-      leftSection: <IconTable size={16} />,
-      panel: (
-        <BackupTablesActionPanel
-          tableSearchQuery={tableSearchQuery}
-          onSearchQueryChange={setTableSearchQuery}
-          backupDateOptions={backupDateOptions}
-          selectedBackupTimestamp={selectedBackup?.timestamp ?? null}
-          onBackupDateFilterChange={handleBackupDateFilterChange}
-          selectedTableName={selectedTableName}
-          previewData={previewData}
-          selectedBackup={selectedBackup}
-          onDownloadCSV={handleDownloadCSV}
-          onDownloadXLSX={handleDownloadXLSX}
-          onDownloadJSON={handleDownloadJSON}
-          onDownloadDump={handleDownloadDump}
-          onDownloadAllCSV={handleDownloadAllCSV}
-          onDownloadAllXLSX={handleDownloadAllXLSX}
-        />
-      ),
-    },
-  ];
-
   return (
     <Stack gap="lg">
-      <ControlPanelCard
-        title="Backups"
-        tabs={controlTabs}
-        activeTab={pageTab}
-        onTabChange={(value) =>
-          setPageTab((value as 'backup' | 'restore' | 'tables') ?? 'backup')
+      <BackupWorkspace
+        backups={backups}
+        loading={loading}
+        runnerAvailable={restoreRunnerAvailable}
+        nextBackup={
+          strategySchedule
+            .map((entry) => entry.next)
+            .filter((next): next is Date => Boolean(next))
+            .sort((left, right) => left.getTime() - right.getTime())[0] ?? null
         }
-      />
-
-      {pageTab === 'backup' ? (
-        <Stack gap="lg">
+        onRefresh={() => void fetchBackups()}
+        onReview={(backup, tab) => {
+          setReviewTab(tab);
+          void handlePreviewBackup(backup);
+        }}
+        onDelete={(backup) => void handleDeleteBackup(backup.timestamp)}
+        createForm={
           <BackupSection
+            showHistory={false}
             backups={backups}
             loading={loading}
             creating={creating}
@@ -451,32 +392,11 @@ export function BackupRestoreTab() {
             onPreview={handlePreviewBackup}
             onDelete={(backup) => void handleDeleteBackup(backup.timestamp)}
           />
-        </Stack>
-      ) : null}
-
-      {pageTab === 'restore' ? (
-        <RestoreSection
-          backups={backups}
-          loading={loading}
-          onRefresh={() => void fetchBackups()}
-          onPreview={handlePreviewBackup}
-          onDelete={(backup) => void handleDeleteBackup(backup.timestamp)}
-        />
-      ) : null}
-
-      {pageTab === 'tables' ? (
-        <TablePreviewSection
-          previewLoading={previewLoading}
-          previewData={previewData}
-          activeTableName={activeTableName}
-          selectedTableDetails={selectedTableDetails}
-          searchQuery={tableSearchQuery}
-          isAdminBackupRestore={isAdminBackupRestore}
-          onSelectTable={handleSelectPreviewTable}
-        />
-      ) : null}
+        }
+      />
 
       <BackupPreviewModal
+        initialTab={reviewTab}
         opened={previewModalOpen}
         loading={previewLoading}
         previewData={previewData}

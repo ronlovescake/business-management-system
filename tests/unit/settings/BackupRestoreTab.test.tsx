@@ -1,6 +1,6 @@
 import React from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import { MantineProvider } from '@mantine/core';
 import { BackupRestoreTab } from '@/modules/clothing/operations/settings/components/BackupRestoreTab';
 
@@ -110,6 +110,27 @@ vi.mock('@/components/ui/ControlPanelCard', () => ({
     </div>
   ),
 }));
+
+vi.mock(
+  '@/modules/clothing/operations/settings/components/backup-restore/BackupWorkspace',
+  () => ({
+    BackupWorkspace: ({
+      backups,
+      runnerAvailable,
+      createForm,
+    }: {
+      backups: unknown[];
+      runnerAvailable: boolean;
+      createForm: React.ReactNode;
+    }) => (
+      <div>
+        <div>snapshot-count:{backups.length}</div>
+        <div>runner-online:{String(runnerAvailable)}</div>
+        {createForm}
+      </div>
+    ),
+  })
+);
 
 vi.mock(
   '@/modules/clothing/operations/settings/components/backup-restore/BackupSection',
@@ -251,22 +272,22 @@ describe('BackupRestoreTab', () => {
     });
   });
 
-  it('loads backup data and enables the admin sidebar mode on settings routes', async () => {
+  it('loads snapshots into the workspace without replacing global navigation', async () => {
     renderTab();
 
     await screen.findByText('backup-count:1');
 
     await waitFor(() => {
-      expect(mockSetSidebarActive).toHaveBeenCalledWith(true);
+      expect(mockApiGet).toHaveBeenCalledWith('/api/backup');
     });
+    expect(mockSetSidebarActive).not.toHaveBeenCalled();
+    expect(screen.getByText('snapshot-count:1')).toBeInTheDocument();
   });
 
-  it('passes admin mode through to the tables preview section', async () => {
+  it('shows runner availability in the workspace', async () => {
     renderTab();
 
     await screen.findByText('backup-count:1');
-    fireEvent.click(screen.getByRole('button', { name: 'Browse Data' }));
-
-    expect(await screen.findByText('tables-admin:true')).toBeInTheDocument();
+    expect(await screen.findByText('runner-online:true')).toBeInTheDocument();
   });
 });

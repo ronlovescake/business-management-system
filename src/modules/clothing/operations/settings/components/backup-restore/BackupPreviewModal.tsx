@@ -78,6 +78,7 @@ type SummaryComparisonTableRow = {
 };
 
 interface BackupPreviewModalProps {
+  initialTab?: string;
   opened: boolean;
   loading: boolean;
   previewData: BackupData | null;
@@ -330,6 +331,7 @@ export const BackupPreviewModal = ({
   backupChanges,
   backupChangesLoading,
   backupChangesError,
+  initialTab = 'summary',
   summaryComparisonTableOptions,
   summaryComparisonTable,
   summaryComparisonLoading,
@@ -389,7 +391,7 @@ export const BackupPreviewModal = ({
       {loading && !previewData && !restorePlan ? (
         <Progress value={100} animated />
       ) : previewData?.metadata || restorePlan ? (
-        <Tabs defaultValue="summary">
+        <Tabs key={initialTab} defaultValue={initialTab}>
           <Tabs.List>
             <Tabs.Tab value="summary">Summary</Tabs.Tab>
             <Tabs.Tab value="changes">Changes</Tabs.Tab>
@@ -416,9 +418,8 @@ export const BackupPreviewModal = ({
                 </Alert>
               ) : (
                 <Alert icon={<IconFileDescription size={16} />} color="gray">
-                  This backup does not include a JSON inspection artifact. Table
-                  browsing is unavailable, but restore planning and dump
-                  download remain available.
+                  No JSON inspection artifact. Use Browse Data on the backup
+                  workspace to inspect dump-backed tables.
                 </Alert>
               )}
 

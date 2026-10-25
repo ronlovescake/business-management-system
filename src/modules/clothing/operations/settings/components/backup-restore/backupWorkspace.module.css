@@ -1,0 +1,104 @@
+.workspace {
+  display: grid;
+  grid-template-columns: minmax(230px, 290px) minmax(0, 1fr);
+  border-top: 1px solid var(--mantine-color-default-border);
+}
+
+.archive {
+  padding: 16px 16px 16px 0;
+  border-right: 1px solid var(--mantine-color-default-border);
+}
+
+.detail {
+  padding: 16px 0 16px 20px;
+  min-width: 0;
+}
+
+.backupItem {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 12px;
+  border-bottom: 1px solid var(--mantine-color-default-border);
+  border-left: 3px solid transparent;
+}
+
+.backupItem:hover {
+  background: var(--mantine-color-default-hover);
+}
+.backupItem[data-active='true'] {
+  border-left-color: var(--mantine-color-teal-6);
+  background: var(--mantine-color-teal-light);
+}
+
+.browser {
+  display: grid;
+  grid-template-columns: minmax(160px, 200px) minmax(0, 1fr);
+  gap: 16px;
+}
+
+.tableList {
+  min-width: 0;
+}
+.dataTable {
+  min-width: 0;
+}
+.dataTable table {
+  width: max-content;
+  min-width: 100%;
+}
+.dataTable th:first-child,
+.dataTable td:first-child {
+  position: sticky;
+  left: 0;
+}
+.dataTable th:first-child {
+  z-index: 2;
+}
+.dataTable td:first-child {
+  background: var(--mantine-color-body);
+  z-index: 1;
+}
+
+.rowButton {
+  font: inherit;
+  color: var(--mantine-color-anchor);
+  background: transparent;
+  border: 0;
+  cursor: pointer;
+  text-align: left;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  padding: 0;
+}
+
+@media (max-width: 1000px) {
+  .workspace {
+    grid-template-columns: minmax(190px, 220px) minmax(0, 1fr);
+  }
+  .browser {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .tableList > :last-child {
+    max-height: 180px;
+  }
+}
+
+@media (max-width: 700px) {
+  .workspace {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .archive {
+    border-right: 0;
+    padding-right: 0;
+  }
+  .archive > :last-child {
+    max-height: 220px;
+  }
+  .detail {
+    padding-left: 0;
+    border-top: 1px solid var(--mantine-color-default-border);
+  }
+}
