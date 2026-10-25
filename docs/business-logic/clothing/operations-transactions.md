@@ -137,6 +137,66 @@ translate that definition into transaction-time behavior.
 
 ## I - Inline Autosave And Recovery
 
+### Current Hardening Contract (2026-10-25)
+
+Ron approved the reliability hardening and separately approved nullable unique
+creation keys in both transaction tables. Existing financial formulas, stock
+decisions, paid-status guards, permissions and domain differences remain policy.
+
+- GET/PATCH and bulk acknowledgements expose an opaque revision fingerprint of
+  persisted transaction fields. Queued writes send the acknowledged revision,
+  not a later draft revision. Clothing PATCH and bulk updates validate it inside
+  serializable Prisma transactions; stale writes and serialization conflicts
+  return HTTP 409. Row, status-history and inventory writes commit together.
+- Bulk acknowledgements include canonical saved rows. The queue checks their
+  identities and advances its canonical baseline before sending later edits.
+  Explicit retry still refreshes first; the operator must review other clients'
+  changes before choosing to reapply local intentions. There is no row lock or
+  live collaborative editing. Legacy requests without a revision remain
+  compatible, so stale full-row legacy callers are not universally protected.
+- Shipment synchronization uses status-only intents in the same queue. Work
+  skipped while busy is reconsidered when it drains. Search does not duplicate
+  saved blank-customer/product rows already included by another field.
+- Grid creation sends a single-row POST with a UUID `creationKey`. The unique
+  key and row/movement transaction provide a real saved ID and safe same-key
+  replay after an uncertain response. The first submitted payload stays frozen
+  after uncertain failures. A definite validation rejection before any uncertain
+  attempt permits a corrected request with a new key. Normal multi-row imports
+  keep their existing path and are not claimed to be idempotent or newly atomic.
+- Drafts are keyed by placeholder object, not visual row index. Creation is
+  awaited by ordered edit processing. The old placeholder retains the saved ID
+  for edits already captured against it; a new blank placeholder replaces it.
+  Later fields following an uncertain create are queued after ID reconciliation.
+  Incomplete/failed drafts retain pending-action and unload guards until saved
+  or explicitly discarded. Discard does not undo a committed creation.
+- Obsolete customer-warning responses/callbacks are ignored. Async rejection
+  rolls back only the same row, column, edit generation and current cell value.
+  Ctrl/Cmd+Shift+Arrow extends from the selection endpoint while preserving its
+  anchor on Transactions and Products; open editors retain native behavior.
+- Existing per-edit/paste audit boundaries remain; edit notifications alone do
+  not prove persistence. Server change logs remain authoritative. Local drafts
+  and creation keys are memory-only; reload/crash recovery is still deferred.
+
+The owning boundaries are `src/modules/transactions/api/service.ts`, the separate
+GM transaction service, the shared route factory, transaction data/operations
+hooks, and the grid controller. GM preserves its own formulas and per-row bulk
+success boundary; only an individual GM row and its movements become atomic.
+Its flat-field validation, omitted-customer preservation and Adjustment storage
+are corrected, not replaced with clothing financial rules.
+
+The additive migration is
+`prisma/migrations/20261025150000_transaction_creation_keys/migration.sql`.
+Apply it through the reviewed environment-specific release procedure before
+running the new app code. Only the isolated localhost test database received
+the SQL during development; its missing migration history prevented normal
+`migrate deploy`. No migration baseline, app database, production checkout,
+build or deployment was changed.
+
+### Original Queue Checkpoint (Historical)
+
+The table and change record below describe the earlier client-only checkpoint
+`0ec2bffc`, not the additional server/schema hardening above.
+
 | #   | Logic                                                           | Explanation                                                                                                                                                                                                                                                                                                                                                              |
 | --- | --------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | 30  | Accepted edits merge by permanent transaction ID                | A local draft overlays server rows while a serial queue saves. Async cell validation is ordered; calculations consult the latest draft and pending paste fields. Status-only renders do not replace grid data. Placeholder creation retains its existing path.                                                                                                           |
@@ -174,8 +234,8 @@ already have committed; review saved values before retrying. Explicit retry is
 not an exactly-once guarantee. Discard does not reverse inventory/accounting
 effects of an already committed request. There is no cross-user locking.
 
-The following declaration is ready to adapt into the required PR record; no PR,
-commit or deployment is created by the implementation.
+The following declaration records the historical client-only change. The current
+hardening record follows it; no new commit, push or deployment is authorized.
 
 ```json
 {
@@ -220,3 +280,71 @@ commit or deployment is created by the implementation.
   }
 }
 ```
+
+### Hardening Change Record
+
+```json
+{
+  "businessRuleChange": true,
+  "rationale": "Prevent stale writes, partial row/movement persistence, lost new-row edits and unsafe create replay without changing approved financial rules.",
+  "owner": "Ron; separate clothing and general-merchandise transaction services own domain enforcement.",
+  "invariant": "Accepted edits survive older acknowledgements; stale revision-bearing writes are rejected; each row and dependent movement writes commit together; a grid creation key identifies one saved row.",
+  "domains": ["clothing", "general-merchandise", "shared"],
+  "policyPaths": [
+    "docs/business-logic/clothing/operations-transactions.md",
+    "docs/business-logic/general-merchandise/operations-transactions.md"
+  ],
+  "affectedPaths": [
+    "src/modules/transactions/api",
+    "src/modules/general-merchandise/transactions/api",
+    "src/modules/clothing/operations/transactions",
+    "src/components/ui/handsontable-grid",
+    "src/modules/clothing/operations/products/components/ProductsGrid.tsx",
+    "src/services/TransactionService.ts",
+    "src/services/GeneralMerchandiseTransactionService.ts",
+    "prisma/schema.prisma",
+    "prisma/migrations/20261025150000_transaction_creation_keys/migration.sql"
+  ],
+  "tests": {
+    "paths": [
+      "tests/unit/api/transaction-accounts-receivable.service.test.ts",
+      "tests/unit/api/transactions.api.test.ts",
+      "tests/unit/transactions/generalMerchandiseTransactionPersistence.test.ts",
+      "tests/unit/transactions/useTransactionGridSaveQueue.test.tsx",
+      "tests/unit/transactions/useTransactionOperations.test.tsx",
+      "tests/integration/transaction-save-concurrency.integration.test.ts",
+      "tests/e2e/handsontable-grid.interactions.spec.ts"
+    ],
+    "results": "Guardrails, lint, typecheck, full unit (4032 tests), coverage (4032 tests), integration and hardening (12 tests) passed. PostgreSQL regressions verify rollback, stale bulk rejection, simultaneous writers, canonical revision progression and same-key creation in both domains. Ten Chromium cases passed across full and focused runs, including twenty-row Product Code paste and delayed creation. Isolated-test inventory ledger controls and accounting sanitycheck passed with zero accounting issues. Existing unrelated lint warnings remain; coverage passing is not a claim of exhaustive coverage or error-free behavior."
+  },
+  "docs": {
+    "paths": [
+      "docs/business-logic/clothing/operations-transactions.md",
+      "docs/business-logic/general-merchandise/operations-transactions.md"
+    ]
+  },
+  "divergence": {
+    "status": "intentional",
+    "reason": "Clothing bulk is one transaction; GM bulk retains per-row success. Domain formulas/status rules and normal multi-row imports remain separate and unchanged."
+  }
+}
+```
+
+The Product Code handler and customer-tab selectors were mechanically extracted
+to keep the touched coordinator files within existing size guardrails. Their
+business computations and stock/confirmation decisions were copied unchanged.
+
+### Validation And Release Limits
+
+- Required gates: guardrails, lint, typecheck, unit (4,032), integration (65),
+  hardening (12), and coverage passed. Repository-wide line coverage is 30.04%;
+  the targeted concurrency/lifecycle regressions do not certify every workflow.
+- Chromium: ten scenarios passed across full and focused runs. This includes
+  ten rapid individual pastes, retained retry/discard, twenty-row Product Code
+  creation paste, later edits during delayed creation, and both grids' range
+  navigation. Firefox/WebKit and authenticated manual testing were not run.
+- Test-database inventory ledger controls and accounting sanitycheck passed;
+  accounting reported zero issues. No production-data certification is implied.
+- Checkpoint `0ec2bffc` is local and was not pushed. This hardening remains
+  uncommitted. No production build, Docker rebuild, app migration or deployment
+  was performed. The new nullable unique columns must be migrated before release.

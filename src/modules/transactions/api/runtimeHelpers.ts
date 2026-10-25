@@ -30,6 +30,8 @@ export async function fetchExistingTransaction(
   return delegate.findUnique({
     where: { id },
     select: {
+      updatedAt: true,
+      deletedAt: true,
       orderDate: true,
       customers: true,
       productCode: true,

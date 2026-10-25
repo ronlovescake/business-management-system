@@ -1,3 +1,4 @@
+import { getTransactionRevision } from '@/modules/transactions/api/updateConcurrency';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const {
@@ -98,6 +99,10 @@ describe('transactionService Accounts Receivable transition', () => {
     mockPrisma.customer.findMany.mockResolvedValue([
       { id: 7, creditApproved: true },
     ]);
+    mockPrisma.$transaction.mockImplementation(async (callback) =>
+      callback(mockPrisma)
+    );
+    mockSyncInventoryMovementsForTransaction.mockResolvedValue(undefined);
     mockPrisma.transaction.update.mockImplementation(
       async ({ data }: { data: Record<string, unknown> }) => ({
         ...existingTransaction,
@@ -110,6 +115,31 @@ describe('transactionService Accounts Receivable transition', () => {
 
   afterEach(() => {
     vi.useRealTimers();
+  });
+
+  it('keeps single-row status and movement writes inside the transaction and rejects movement failures', async () => {
+    const tx = { transaction: mockPrisma.transaction };
+    mockPrisma.$transaction.mockImplementation(async (callback) =>
+      callback(tx)
+    );
+    mockSyncInventoryMovementsForTransaction.mockRejectedValueOnce(
+      new Error('movement failure')
+    );
+    await expect(
+      transactionService.updateTransaction({ id: 51, Notes: 'changed' })
+    ).rejects.toThrow('movement failure');
+    expect(mockLogStatusChange).toHaveBeenCalledWith(
+      tx,
+      51,
+      'Prepared',
+      'Prepared'
+    );
+    expect(mockSyncInventoryMovementsForTransaction).toHaveBeenCalledWith(
+      tx,
+      expect.objectContaining({ id: 51 })
+    );
+    expect(mockLogOperationNotification).not.toHaveBeenCalled();
+    expect(mockLogUpdateChanges).not.toHaveBeenCalled();
   });
 
   it('saves the reported positive-balance order as A/R without customer credit approval', async () => {
@@ -163,6 +193,37 @@ describe('transactionService Accounts Receivable transition', () => {
         shippedAt: new Date('2026-10-23T12:00:00.000Z'),
         accountsReceivableDueAt: new Date('2026-12-23T12:00:00.000Z'),
       }),
+    });
+  });
+
+  it('rejects a stale revision without writing transaction or movements', async () => {
+    await expect(
+      transactionService.updateTransaction({
+        id: 51,
+        revision: getTransactionRevision({
+          ...existingTransaction,
+          notes: 'older',
+        }),
+        Notes: 'stale',
+      })
+    ).rejects.toThrow('changed since');
+    expect(mockPrisma.transaction.update).not.toHaveBeenCalled();
+    expect(mockSyncInventoryMovementsForTransaction).not.toHaveBeenCalled();
+  });
+
+  it('conditionally writes the revision read by the client', async () => {
+    await transactionService.updateTransaction({
+      id: 51,
+      revision: getTransactionRevision(existingTransaction),
+      Notes: 'current',
+    });
+    expect(mockPrisma.transaction.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: 51, updatedAt: existingTransaction.updatedAt },
+      })
+    );
+    expect(mockPrisma.$transaction).toHaveBeenCalledWith(expect.any(Function), {
+      isolationLevel: 'Serializable',
     });
   });
 

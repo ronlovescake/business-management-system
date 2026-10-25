@@ -1,95 +1,50 @@
-import type { QueryClient } from '@tanstack/react-query';
-import { showNotification } from '@mantine/notifications';
-import { api } from '@/lib/api/client';
+import { api, ApiError } from '@/lib/api/client';
 import { buildApiPath } from '@/lib/api/paths';
-import { logger } from '@/lib/logger';
 import type { TransactionData } from '../types/transaction.types';
-import {
-  buildDraftCreatePayload,
-  buildOptimisticTransaction,
-  getCreateDraftTransactionErrorMessage,
-} from './transactionOperationUtils';
-import {
-  createEmptyTransaction,
-  hasMinimumCreateFields,
-} from './transactionDraftUtils';
+import { buildDraftCreatePayload } from './transactionOperationUtils';
 
-interface CreateDraftTransactionFromRowParams {
-  rowIndex: number;
-  draft: TransactionData;
-  placeholderRow?: TransactionData;
-  creatingDraftRowsRef: React.MutableRefObject<Set<number>>;
-  draftRowsRef: React.MutableRefObject<Map<number, TransactionData>>;
-  apiBasePath?: string;
-  queryClient: QueryClient;
-  transactionsQueryKey: readonly unknown[];
+export interface TransactionCreationRequest {
+  key: string;
+  payload?: ReturnType<typeof buildDraftCreatePayload>;
+  mayHaveCommitted?: boolean;
 }
 
-export async function createDraftTransactionFromRow({
-  rowIndex,
-  draft,
-  placeholderRow,
-  creatingDraftRowsRef,
-  draftRowsRef,
-  apiBasePath,
-  queryClient,
-  transactionsQueryKey,
-}: CreateDraftTransactionFromRowParams): Promise<boolean> {
-  if (creatingDraftRowsRef.current.has(rowIndex)) {
-    return false;
-  }
-
-  if (!hasMinimumCreateFields(draft)) {
-    return false;
-  }
-
-  creatingDraftRowsRef.current.add(rowIndex);
+export async function createDraftTransactionFromRow(
+  draft: TransactionData,
+  request: TransactionCreationRequest,
+  apiBasePath?: string
+): Promise<TransactionData> {
+  request.payload ??= buildDraftCreatePayload(draft);
   try {
-    const payload = buildDraftCreatePayload(draft);
-
-    await api.post(buildApiPath(apiBasePath, '/transactions'), [payload]);
-
-    const optimisticId = Number(Date.now() * -1);
-    const optimisticTransaction = buildOptimisticTransaction(
-      payload,
-      optimisticId
+    const result = await api.post<{
+      count: number;
+      transactions?: TransactionData[];
+    }>(
+      buildApiPath(apiBasePath, '/transactions'),
+      [{ ...request.payload, creationKey: request.key }],
+      { retryEnabled: false }
     );
-
-    queryClient.setQueryData<TransactionData[] | undefined>(
-      transactionsQueryKey,
-      (existing) =>
-        existing
-          ? [...existing, optimisticTransaction]
-          : [optimisticTransaction]
-    );
-
-    Object.assign(draft, createEmptyTransaction());
-    if (placeholderRow) {
-      Object.assign(placeholderRow, createEmptyTransaction());
+    const saved = result.transactions?.[0];
+    if (
+      result.count !== 1 ||
+      result.transactions?.length !== 1 ||
+      !saved?.id ||
+      !saved.revision
+    ) {
+      throw new Error(
+        'Missing creation acknowledgement. Retry the same draft to reconcile its saved identity.'
+      );
     }
-    draftRowsRef.current.delete(rowIndex);
-
-    await queryClient.invalidateQueries({
-      queryKey: transactionsQueryKey,
-    });
-
-    showNotification({
-      title: 'Success',
-      message: 'New transaction created',
-      color: 'green',
-    });
-    return true;
+    return saved;
   } catch (error) {
-    logger.error('Failed to create transaction from draft row:', error);
-    const friendlyMessage = getCreateDraftTransactionErrorMessage(error);
-
-    showNotification({
-      title: '❌ Save Failed',
-      message: friendlyMessage,
-      color: 'red',
-    });
-    return false;
-  } finally {
-    creatingDraftRowsRef.current.delete(rowIndex);
+    const rejected =
+      error instanceof ApiError && [400, 404, 409, 422].includes(error.status);
+    if (rejected && !request.mayHaveCommitted) {
+      request.key = crypto.randomUUID();
+      request.payload = undefined;
+    } else {
+      request.mayHaveCommitted = true;
+    }
+    throw error;
   }
 }

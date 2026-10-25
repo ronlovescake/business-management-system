@@ -66,6 +66,7 @@ export interface ProductDTO {
 
 export interface TransactionDTO {
   id?: number;
+  revision?: string;
   'Order Date': string;
   Customers: string;
   'Product Code': string;

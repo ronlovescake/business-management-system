@@ -273,9 +273,22 @@ export const ProductsGrid = memo(function ProductsGrid({
               }
               event.preventDefault();
               event.stopImmediatePropagation();
-              grid.selectCell(
-                ...getDataBoundary(grid, selected[0], selected[1], event.key)
+              const [destinationRow, destinationCol] = getDataBoundary(
+                grid,
+                event.shiftKey ? selected[2] : selected[0],
+                event.shiftKey ? selected[3] : selected[1],
+                event.key
               );
+              if (event.shiftKey) {
+                grid.selectCell(
+                  selected[0],
+                  selected[1],
+                  destinationRow,
+                  destinationCol
+                );
+              } else {
+                grid.selectCell(destinationRow, destinationCol);
+              }
               return false;
             }}
             data={tableData}

@@ -9,6 +9,7 @@ import { waitForTransactionsContent } from './helpers/transactions';
 
 type MockTransaction = {
   id: number;
+  revision?: string;
   'Order Date': string;
   Customers: string;
   'Product Code': string;
@@ -88,6 +89,23 @@ test.describe('Handsontable grid interactions', () => {
     await expect(searchInput).toBeFocused();
   });
 
+  test('extends and contracts data-boundary selections without moving the anchor', async ({
+    page,
+  }) => {
+    await clickGridCell(page, 0, ORDER_DATE_COL);
+    await page.keyboard.press('Control+Shift+ArrowRight');
+    await expect
+      .poll(() => page.locator('.transactions-grid .ht_master td.area').count())
+      .toBeGreaterThan(1);
+    await expect
+      .poll(() => getCurrentCellCoordinates(page))
+      .toMatchObject({ row: 0, col: ORDER_DATE_COL });
+    await page.keyboard.press('Control+Shift+ArrowLeft');
+    await expect(
+      page.locator('.transactions-grid .ht_master td.area')
+    ).toHaveCount(0);
+  });
+
   test('commits notes cell edits from the keyboard', async ({ page }) => {
     const noteValue = `pw-note-${Date.now()}`;
 
@@ -115,6 +133,67 @@ test.describe('Handsontable grid interactions', () => {
       .first();
 
     await expect(editor).toBeVisible({ timeout: 10000 });
+  });
+
+  test('retains edits made while a new transaction is being created', async ({
+    page,
+    context,
+  }) => {
+    await context.grantPermissions(['clipboard-read', 'clipboard-write']);
+    mockStore.pauseWrites();
+    await clickGridCell(page, 1, ORDER_DATE_COL);
+    await page.keyboard.press('ArrowRight');
+    await editSelectedCell(page, 'Mock Customer');
+    await expect.poll(() => mockStore.createRequests()).toBe(1);
+    await expect(
+      page.getByRole('button', { name: 'Record Payment' })
+    ).toBeDisabled();
+    for (let col = 2; col < NOTES_COL; col += 1) {
+      await page.keyboard.press('ArrowRight');
+    }
+    await page.evaluate(() =>
+      navigator.clipboard.writeText('After creation started')
+    );
+    await page.keyboard.press('Control+v');
+    mockStore.releaseWrites();
+    await expect(
+      page.getByRole('status').filter({ hasText: 'All changes saved' })
+    ).toBeVisible();
+    await expect
+      .poll(() => mockStore.createdNotes())
+      .toBe('After creation started');
+    expect(mockStore.createRequests()).toBe(1);
+    await expect(
+      page.getByRole('button', { name: 'Record Payment' })
+    ).toBeEnabled();
+  });
+
+  test('creates twenty rows from one Product Code column paste without losing identities', async ({
+    page,
+    context,
+  }) => {
+    await context.grantPermissions(['clipboard-read', 'clipboard-write']);
+    await clickGridCell(page, 1, ORDER_DATE_COL);
+    await page.keyboard.press('ArrowRight');
+    await page.keyboard.press('ArrowRight');
+    await page.evaluate(() =>
+      navigator.clipboard.writeText(
+        Array.from({ length: 20 }, () => 'SKU-001').join('\n')
+      )
+    );
+    await page.keyboard.press('Control+v');
+    await expect
+      .poll(() => mockStore.createRequests(), { timeout: 20000 })
+      .toBe(20);
+    await expect(
+      page.getByRole('status').filter({ hasText: 'All changes saved' })
+    ).toBeVisible();
+    expect(mockStore.createdProductCodes()).toEqual(
+      Array.from({ length: 20 }, () => 'SKU-001')
+    );
+    await expect(
+      page.getByRole('button', { name: 'Record Payment' })
+    ).toBeEnabled();
   });
 
   test('retains ten individual pastes while a save is delayed and blocks payment entry', async ({
@@ -222,6 +301,11 @@ test.describe('Handsontable grid interactions', () => {
     );
     await page.keyboard.press('Control+ArrowLeft');
     await expect(firstRow.locator('td').nth(0)).toHaveClass(/current/);
+    await page.keyboard.press('Control+Shift+ArrowRight');
+    await expect
+      .poll(() => page.locator('.ht_master td.area').count())
+      .toBeGreaterThan(1);
+    await expect(firstRow.locator('td').nth(0)).toHaveClass(/current/);
   });
 });
 
@@ -317,6 +401,8 @@ async function installTransactionsMocks(page: Page) {
   let gate: Promise<void> | undefined;
   let activeWrites = 0;
   let maxActiveWrites = 0;
+  let createRequests = 0;
+  const created = new Map<string, MockTransaction>();
   let transaction: MockTransaction = {
     id: 101,
     'Order Date': '2026-03-01',
@@ -343,7 +429,23 @@ async function installTransactionsMocks(page: Page) {
       pathname.endsWith('/transactions') && !pathname.includes('/payments');
 
     if (isTransactionsEndpoint && method === 'GET') {
-      return fulfillJson(route, [transaction]);
+      return fulfillJson(route, [transaction, ...Array.from(created.values())]);
+    }
+
+    if (isTransactionsEndpoint && method === 'POST') {
+      createRequests += 1;
+      await gate;
+      const [payload] = route.request().postDataJSON() as Array<
+        MockTransaction & { creationKey: string }
+      >;
+      const saved = created.get(payload.creationKey) ?? {
+        ...payload,
+        id: 102 + created.size,
+        revision: 'a'.repeat(64),
+        version: 1,
+      };
+      created.set(payload.creationKey, saved);
+      return fulfillJson(route, { count: 1, transactions: [saved] });
     }
 
     if (isTransactionsEndpoint && method === 'PATCH') {
@@ -351,6 +453,16 @@ async function installTransactionsMocks(page: Page) {
       maxActiveWrites = Math.max(maxActiveWrites, activeWrites);
       await gate;
       const payload = route.request().postDataJSON() as Record<string, unknown>;
+      const createdEntry = Array.from(created.entries()).find(
+        ([, row]) => row.id === Number(payload.id)
+      );
+      if (createdEntry) {
+        const saved = { ...createdEntry[1], ...payload } as MockTransaction;
+        created.set(createdEntry[0], saved);
+        await fulfillJson(route, saved);
+        activeWrites -= 1;
+        return;
+      }
       transaction = {
         ...transaction,
         ...payload,
@@ -378,7 +490,24 @@ async function installTransactionsMocks(page: Page) {
           version: transaction.version + 1,
         };
       }
-      await fulfillJson(route, { count: update ? 1 : 0 });
+      const savedRows = update ? [transaction] : [];
+      created.forEach((row, key) => {
+        const patch = payload.find((item) => Number(item.id) === row.id);
+        if (patch) {
+          const saved = {
+            ...row,
+            ...patch,
+            id: row.id,
+            version: row.version + 1,
+          };
+          created.set(key, saved);
+          savedRows.push(saved);
+        }
+      });
+      await fulfillJson(route, {
+        count: savedRows.length,
+        transactions: savedRows,
+      });
       activeWrites -= 1;
       return;
     }
@@ -396,7 +525,15 @@ async function installTransactionsMocks(page: Page) {
     }
 
     if (pathname.endsWith('/prices') && method === 'GET') {
-      return fulfillJson(route, []);
+      return fulfillJson(route, [
+        {
+          id: 1,
+          'Product Code': 'SKU-001',
+          'Lower Limit': 1,
+          'Upper Limit': 1000,
+          Prices: 125,
+        },
+      ]);
     }
 
     if (pathname.endsWith('/products') && method === 'GET') {
@@ -467,6 +604,10 @@ async function installTransactionsMocks(page: Page) {
     return route.continue();
   });
   return {
+    createRequests: () => createRequests,
+    createdNotes: () => Array.from(created.values())[0]?.Notes,
+    createdProductCodes: () =>
+      Array.from(created.values()).map((row) => row['Product Code']),
     pauseWrites: () => {
       gate = new Promise<void>((resolve) => {
         release = resolve;

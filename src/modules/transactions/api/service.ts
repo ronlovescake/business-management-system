@@ -4,6 +4,7 @@ import { prisma } from '@/lib/db';
 import { isFulfilledStatus, isReservedStatus } from '@/lib/inventory/statuses';
 import { logger } from '@/lib/logger';
 import type { TransactionDTO } from './dto';
+import { assertTransactionRevision, getCreationKey } from './updateConcurrency';
 import { mapToDTO } from './dto';
 import {
   isEmptyRow,
@@ -59,10 +60,12 @@ interface TransactionImportSummary {
   count: number;
   withData: number;
   empty: number;
+  transactions?: TransactionDTO[];
 }
 
 interface TransactionUpdateSummary {
   count: number;
+  transactions?: TransactionDTO[];
 }
 
 interface TransactionUpdateResult {
@@ -194,6 +197,25 @@ export const transactionService: TransactionService = {
     if (!Array.isArray(payload)) {
       throw new TransactionValidationError('Invalid data format');
     }
+    const creationKey = getCreationKey(payload);
+    if (creationKey) {
+      const existing = await prisma.transaction.findUnique({
+        where: { creationKey },
+      });
+      if (existing) {
+        if (existing.deletedAt) {
+          throw new TransactionValidationError(
+            'This created transaction was deleted. Review saved rows before continuing.'
+          );
+        }
+        return {
+          count: 1,
+          withData: 1,
+          empty: 0,
+          transactions: [mapToDTO(existing)],
+        };
+      }
+    }
 
     const normalized = payload.map((entry, index) => ({
       index,
@@ -271,6 +293,38 @@ export const transactionService: TransactionService = {
 
     await validateReferences(allRows);
 
+    if (creationKey) {
+      const created = await prisma.$transaction(
+        async (tx) => {
+          const row = await tx.transaction.upsert({
+            where: { creationKey },
+            create: { ...allRows[0], creationKey },
+            update: {},
+          });
+          if (row.deletedAt) {
+            throw new TransactionValidationError(
+              'This created transaction was deleted. Review saved rows before continuing.'
+            );
+          }
+          await syncInventoryMovementsForTransaction(tx, row);
+          return row;
+        },
+        { isolationLevel: 'Serializable' }
+      );
+      await logOperationNotification(
+        'transactions',
+        'Imported 1 transaction record (1 with data, 0 empty rows skipped)',
+        { count: 1, withData: 1, empty: 0 }
+      );
+      await logImportChange(1, 1, 0, 0);
+      return {
+        count: 1,
+        withData: 1,
+        empty: 0,
+        transactions: [mapToDTO(created)],
+      };
+    }
+
     const importStartedAt = new Date();
     const result = await prisma.transaction.createMany({ data: allRows });
 
@@ -347,40 +401,341 @@ export const transactionService: TransactionService = {
 
     const changeLogEntries: ChangeLogEntryInput[] = [];
 
-    const results = await prisma.$transaction(async (tx) => {
-      // IMPORTANT:
-      // Avoid running many updates concurrently inside an interactive
-      // transaction. If any single update fails, Prisma rolls back the
-      // transaction and any in-flight queries will start throwing P2028
-      // ("Transaction already closed"), creating log spam.
-      const updateResults: Array<{
-        id: number;
-        transaction: Transaction;
-        changes: string[];
-      }> = [];
+    const results = await prisma.$transaction(
+      async (tx) => {
+        // IMPORTANT:
+        // Avoid running many updates concurrently inside an interactive
+        // transaction. If any single update fails, Prisma rolls back the
+        // transaction and any in-flight queries will start throwing P2028
+        // ("Transaction already closed"), creating log spam.
+        const updateResults: Array<{
+          id: number;
+          transaction: Transaction;
+          changes: string[];
+        }> = [];
 
-      for (const update of updates) {
-        const id = update.id;
-        const existing = await fetchExistingTransaction(tx.transaction, id);
-        if (!existing) {
-          throw new TransactionNotFoundError(`Transaction ${id} not found`);
+        for (const update of updates) {
+          const id = update.id;
+          const existing = await fetchExistingTransaction(tx.transaction, id);
+          if (!existing) {
+            throw new TransactionNotFoundError(`Transaction ${id} not found`);
+          }
+          assertTransactionRevision(
+            existing,
+            update.revision,
+            id,
+            Object.keys(update.values)
+          );
+
+          const validation = transactionUpdateSchema.safeParse({
+            ...update.values,
+            id,
+          });
+          if (!validation.success) {
+            throw new TransactionValidationError('Validation failed');
+          }
+
+          const dbData = buildUpdatePayload(update.values);
+          // ==================================================================
+          // ⚠️ AUTO LINE TOTAL UPDATE
+          // ==================================================================
+          // Keep line total consistent with operational inputs when Quantity,
+          // Unit Price, or Adjustment changes during bulk updates.
+          // ==================================================================
+          const recalcLineTotal = shouldRecalculateLineTotal(update.values);
+          const computedLineTotal =
+            recalcLineTotal ||
+            existing.lineTotal === null ||
+            existing.lineTotal === undefined
+              ? computeLineTotalForUpdate({
+                  existing,
+                  updateValues: update.values,
+                })
+              : existing.lineTotal;
+
+          if (
+            recalcLineTotal ||
+            existing.lineTotal === null ||
+            existing.lineTotal === undefined
+          ) {
+            dbData.lineTotal = computedLineTotal;
+          }
+
+          const effectiveUpdateValues = {
+            ...update.values,
+            'Line Total': computedLineTotal,
+          };
+          const resolvedOrderStatus = resolveOrderStatusForLineTotal({
+            requestedStatus: update.values['Order Status'],
+            existingStatus: existing.orderStatus,
+            lineTotal: computedLineTotal,
+          });
+
+          if (resolvedOrderStatus !== undefined) {
+            assertCanSetPaidStatus({
+              nextStatus: resolvedOrderStatus,
+              existing,
+              updateValues: effectiveUpdateValues,
+            });
+
+            assertAccountsReceivableHasBalance({
+              nextStatus: resolvedOrderStatus,
+              existing,
+              updateValues: effectiveUpdateValues,
+            });
+
+            if (isClothingAccountsReceivableStatus(resolvedOrderStatus)) {
+              dbData.orderStatus = 'Accounts Receivable';
+              Object.assign(dbData, getAccountsReceivableDateData(existing));
+            } else if (
+              update.values['Order Status'] !== undefined ||
+              resolvedOrderStatus !== existing.orderStatus
+            ) {
+              dbData.orderStatus = resolvedOrderStatus;
+            }
+
+            if (
+              update.values['Order Status'] !== undefined ||
+              resolvedOrderStatus !== existing.orderStatus
+            ) {
+              await assertOrderStatusNotBackwardToInTransit({
+                client: tx,
+                nextStatus: resolvedOrderStatus,
+                productCode:
+                  update.values['Product Code'] ?? existing.productCode,
+                shipmentCode:
+                  update.values['Shipment Code'] ?? existing.shipmentCode,
+              });
+            }
+          }
+
+          const changes: string[] = [];
+
+          if (update.values['Order Date'] !== undefined) {
+            const newValue = update.values['Order Date'] ?? '';
+            if ((existing.orderDate || '') !== newValue) {
+              changes.push(
+                describeChange('orderDate', existing.orderDate, newValue)
+              );
+            }
+          }
+          if (update.values.Customers !== undefined) {
+            const newValue = update.values.Customers ?? '';
+            if ((existing.customers || '') !== newValue) {
+              changes.push(
+                describeChange('customers', existing.customers, newValue)
+              );
+            }
+          }
+          if (update.values['Product Code'] !== undefined) {
+            const newValue = update.values['Product Code'] ?? '';
+            if ((existing.productCode || '') !== newValue) {
+              changes.push(
+                describeChange('productCode', existing.productCode, newValue)
+              );
+            }
+          }
+          if (update.values.Quantity !== undefined) {
+            const newValue = update.values.Quantity;
+            if ((existing.quantity ?? 0) !== newValue) {
+              changes.push(
+                describeChange('quantity', existing.quantity, newValue)
+              );
+            }
+          }
+          if (update.values['Unit Price'] !== undefined) {
+            const newValue = update.values['Unit Price'];
+            if ((existing.unitPrice ?? 0) !== newValue) {
+              changes.push(
+                describeChange('unitPrice', existing.unitPrice, newValue)
+              );
+            }
+          }
+          if (update.values.Discount !== undefined) {
+            const newValue = update.values.Discount;
+            if ((existing.discount ?? 0) !== newValue) {
+              changes.push(
+                describeChange('discount', existing.discount, newValue)
+              );
+            }
+          }
+          if (update.values.Adjustment !== undefined) {
+            const newValue = update.values.Adjustment;
+            if ((existing.adjustment ?? 0) !== newValue) {
+              changes.push(
+                describeChange('adjustment', existing.adjustment, newValue)
+              );
+            }
+          }
+          if (
+            recalcLineTotal ||
+            existing.lineTotal === null ||
+            existing.lineTotal === undefined
+          ) {
+            if ((existing.lineTotal ?? 0) !== computedLineTotal) {
+              changes.push(
+                describeChange(
+                  'lineTotal',
+                  existing.lineTotal,
+                  computedLineTotal
+                )
+              );
+            }
+          }
+          if (
+            resolvedOrderStatus !== undefined &&
+            (update.values['Order Status'] !== undefined ||
+              resolvedOrderStatus !== existing.orderStatus)
+          ) {
+            const newValue = resolvedOrderStatus ?? '';
+            if ((existing.orderStatus || '') !== newValue) {
+              changes.push(
+                describeChange('orderStatus', existing.orderStatus, newValue)
+              );
+            }
+          }
+          if (update.values.Notes !== undefined) {
+            const newValue = update.values.Notes ?? null;
+            if ((existing.notes ?? null) !== newValue) {
+              changes.push(describeChange('notes', existing.notes, newValue));
+            }
+          }
+          if (update.values['Invoice Date'] !== undefined) {
+            const newValue = update.values['Invoice Date'] ?? null;
+            if ((existing.invoiceDate ?? null) !== newValue) {
+              changes.push(
+                describeChange('invoiceDate', existing.invoiceDate, newValue)
+              );
+            }
+          }
+          if (update.values['Packed Date'] !== undefined) {
+            const newValue = update.values['Packed Date'] ?? null;
+            if ((existing.packedDate ?? null) !== newValue) {
+              changes.push(
+                describeChange('packedDate', existing.packedDate, newValue)
+              );
+            }
+          }
+          if (update.values['Shipment Code'] !== undefined) {
+            const newValue = update.values['Shipment Code'] ?? null;
+            if ((existing.shipmentCode ?? null) !== newValue) {
+              changes.push(
+                describeChange('shipmentCode', existing.shipmentCode, newValue)
+              );
+            }
+          }
+
+          const updated = await tx.transaction.update({
+            where: {
+              id,
+              ...(update.revision ? { updatedAt: existing.updatedAt } : {}),
+            },
+            data: dbData,
+          });
+
+          await logStatusChange(
+            tx,
+            id,
+            existing.orderStatus,
+            updated.orderStatus
+          );
+          await syncInventoryMovementsForTransaction(tx, updated);
+
+          if (changes.length > 0) {
+            changeLogEntries.push({
+              entityType: 'transaction',
+              entityId: id,
+              action: 'update',
+              oldValue: existing,
+              newValue: updated,
+            });
+          }
+
+          updateResults.push({
+            id,
+            transaction: updated,
+            changes,
+          });
         }
 
-        const validation = transactionUpdateSchema.safeParse({
-          ...update.values,
-          id,
+        return updateResults;
+      },
+      { isolationLevel: 'Serializable' }
+    );
+
+    await handleNotificationBatch(
+      results.map((result) => ({
+        id: result.id,
+        transaction: result.transaction,
+        changes: result.changes,
+      }))
+    );
+
+    await logUpdateChanges(changeLogEntries, 'transactions:bulk-update');
+
+    return {
+      count: results.length,
+      transactions: results.map((result) => mapToDTO(result.transaction)),
+    };
+  },
+
+  async updateTransaction(payload) {
+    let update: TransactionUpdateRecord;
+    try {
+      update = sanitizeTransactionUpdateRecord(payload);
+    } catch (error) {
+      throw new TransactionValidationError(
+        error instanceof Error ? error.message : 'Invalid transaction payload'
+      );
+    }
+
+    const validation = transactionUpdateSchema.safeParse({
+      ...update.values,
+      id: update.id,
+    });
+    if (!validation.success) {
+      throw new TransactionValidationError('Validation failed');
+    }
+
+    const {
+      existing,
+      updatedTransaction,
+      recalcLineTotal,
+      computedLineTotal,
+      resolvedOrderStatus,
+    } = await prisma.$transaction(
+      async (tx) => {
+        const existing = await tx.transaction.findUnique({
+          where: { id: update.id },
+          include: {
+            statusChanges: {
+              where: {
+                newStatus: { in: ['Accounts Receivable', 'Pending Payment'] },
+              },
+              orderBy: { changedAt: 'asc' },
+              take: 1,
+              select: { newStatus: true, changedAt: true },
+            },
+          },
         });
-        if (!validation.success) {
-          throw new TransactionValidationError('Validation failed');
+
+        if (!existing) {
+          throw new TransactionNotFoundError('Transaction not found');
         }
+        assertTransactionRevision(
+          existing,
+          update.revision,
+          update.id,
+          Object.keys(update.values)
+        );
 
         const dbData = buildUpdatePayload(update.values);
-        // ==================================================================
+        // ========================================================================
         // ⚠️ AUTO LINE TOTAL UPDATE
-        // ==================================================================
+        // ========================================================================
         // Keep line total consistent with operational inputs when Quantity,
-        // Unit Price, or Adjustment changes during bulk updates.
-        // ==================================================================
+        // Unit Price, or Adjustment changes during single-record updates.
+        // ========================================================================
         const recalcLineTotal = shouldRecalculateLineTotal(update.values);
         const computedLineTotal =
           recalcLineTotal ||
@@ -448,287 +803,32 @@ export const transactionService: TransactionService = {
           }
         }
 
-        const changes: string[] = [];
-
-        if (update.values['Order Date'] !== undefined) {
-          const newValue = update.values['Order Date'] ?? '';
-          if ((existing.orderDate || '') !== newValue) {
-            changes.push(
-              describeChange('orderDate', existing.orderDate, newValue)
-            );
-          }
-        }
-        if (update.values.Customers !== undefined) {
-          const newValue = update.values.Customers ?? '';
-          if ((existing.customers || '') !== newValue) {
-            changes.push(
-              describeChange('customers', existing.customers, newValue)
-            );
-          }
-        }
-        if (update.values['Product Code'] !== undefined) {
-          const newValue = update.values['Product Code'] ?? '';
-          if ((existing.productCode || '') !== newValue) {
-            changes.push(
-              describeChange('productCode', existing.productCode, newValue)
-            );
-          }
-        }
-        if (update.values.Quantity !== undefined) {
-          const newValue = update.values.Quantity;
-          if ((existing.quantity ?? 0) !== newValue) {
-            changes.push(
-              describeChange('quantity', existing.quantity, newValue)
-            );
-          }
-        }
-        if (update.values['Unit Price'] !== undefined) {
-          const newValue = update.values['Unit Price'];
-          if ((existing.unitPrice ?? 0) !== newValue) {
-            changes.push(
-              describeChange('unitPrice', existing.unitPrice, newValue)
-            );
-          }
-        }
-        if (update.values.Discount !== undefined) {
-          const newValue = update.values.Discount;
-          if ((existing.discount ?? 0) !== newValue) {
-            changes.push(
-              describeChange('discount', existing.discount, newValue)
-            );
-          }
-        }
-        if (update.values.Adjustment !== undefined) {
-          const newValue = update.values.Adjustment;
-          if ((existing.adjustment ?? 0) !== newValue) {
-            changes.push(
-              describeChange('adjustment', existing.adjustment, newValue)
-            );
-          }
-        }
-        if (
-          recalcLineTotal ||
-          existing.lineTotal === null ||
-          existing.lineTotal === undefined
-        ) {
-          if ((existing.lineTotal ?? 0) !== computedLineTotal) {
-            changes.push(
-              describeChange('lineTotal', existing.lineTotal, computedLineTotal)
-            );
-          }
-        }
-        if (
-          resolvedOrderStatus !== undefined &&
-          (update.values['Order Status'] !== undefined ||
-            resolvedOrderStatus !== existing.orderStatus)
-        ) {
-          const newValue = resolvedOrderStatus ?? '';
-          if ((existing.orderStatus || '') !== newValue) {
-            changes.push(
-              describeChange('orderStatus', existing.orderStatus, newValue)
-            );
-          }
-        }
-        if (update.values.Notes !== undefined) {
-          const newValue = update.values.Notes ?? null;
-          if ((existing.notes ?? null) !== newValue) {
-            changes.push(describeChange('notes', existing.notes, newValue));
-          }
-        }
-        if (update.values['Invoice Date'] !== undefined) {
-          const newValue = update.values['Invoice Date'] ?? null;
-          if ((existing.invoiceDate ?? null) !== newValue) {
-            changes.push(
-              describeChange('invoiceDate', existing.invoiceDate, newValue)
-            );
-          }
-        }
-        if (update.values['Packed Date'] !== undefined) {
-          const newValue = update.values['Packed Date'] ?? null;
-          if ((existing.packedDate ?? null) !== newValue) {
-            changes.push(
-              describeChange('packedDate', existing.packedDate, newValue)
-            );
-          }
-        }
-        if (update.values['Shipment Code'] !== undefined) {
-          const newValue = update.values['Shipment Code'] ?? null;
-          if ((existing.shipmentCode ?? null) !== newValue) {
-            changes.push(
-              describeChange('shipmentCode', existing.shipmentCode, newValue)
-            );
-          }
-        }
-
-        const updated = await tx.transaction.update({
-          where: { id },
+        const updatedTransaction = await tx.transaction.update({
+          where: {
+            id: update.id,
+            ...(update.revision ? { updatedAt: existing.updatedAt } : {}),
+          },
           data: dbData,
         });
 
         await logStatusChange(
           tx,
-          id,
+          update.id,
           existing.orderStatus,
-          updated.orderStatus
+          updatedTransaction.orderStatus
         );
-        await syncInventoryMovementsForTransaction(tx, updated);
 
-        if (changes.length > 0) {
-          changeLogEntries.push({
-            entityType: 'transaction',
-            entityId: id,
-            action: 'update',
-            oldValue: existing,
-            newValue: updated,
-          });
-        }
-
-        updateResults.push({
-          id,
-          transaction: updated,
-          changes,
-        });
-      }
-
-      return updateResults;
-    });
-
-    await handleNotificationBatch(
-      results.map((result) => ({
-        id: result.id,
-        transaction: result.transaction,
-        changes: result.changes,
-      }))
-    );
-
-    await logUpdateChanges(changeLogEntries, 'transactions:bulk-update');
-
-    return {
-      count: results.length,
-    };
-  },
-
-  async updateTransaction(payload) {
-    let update: TransactionUpdateRecord;
-    try {
-      update = sanitizeTransactionUpdateRecord(payload);
-    } catch (error) {
-      throw new TransactionValidationError(
-        error instanceof Error ? error.message : 'Invalid transaction payload'
-      );
-    }
-
-    const validation = transactionUpdateSchema.safeParse({
-      ...update.values,
-      id: update.id,
-    });
-    if (!validation.success) {
-      throw new TransactionValidationError('Validation failed');
-    }
-
-    const existing = await prisma.transaction.findUnique({
-      where: { id: update.id },
-      include: {
-        statusChanges: {
-          where: {
-            newStatus: { in: ['Accounts Receivable', 'Pending Payment'] },
-          },
-          orderBy: { changedAt: 'asc' },
-          take: 1,
-          select: { newStatus: true, changedAt: true },
-        },
+        await syncInventoryMovementsForTransaction(tx, updatedTransaction);
+        return {
+          existing,
+          updatedTransaction,
+          recalcLineTotal,
+          computedLineTotal,
+          resolvedOrderStatus,
+        };
       },
-    });
-
-    if (!existing) {
-      throw new TransactionNotFoundError('Transaction not found');
-    }
-
-    const dbData = buildUpdatePayload(update.values);
-    // ========================================================================
-    // ⚠️ AUTO LINE TOTAL UPDATE
-    // ========================================================================
-    // Keep line total consistent with operational inputs when Quantity,
-    // Unit Price, or Adjustment changes during single-record updates.
-    // ========================================================================
-    const recalcLineTotal = shouldRecalculateLineTotal(update.values);
-    const computedLineTotal =
-      recalcLineTotal ||
-      existing.lineTotal === null ||
-      existing.lineTotal === undefined
-        ? computeLineTotalForUpdate({
-            existing,
-            updateValues: update.values,
-          })
-        : existing.lineTotal;
-
-    if (
-      recalcLineTotal ||
-      existing.lineTotal === null ||
-      existing.lineTotal === undefined
-    ) {
-      dbData.lineTotal = computedLineTotal;
-    }
-
-    const effectiveUpdateValues = {
-      ...update.values,
-      'Line Total': computedLineTotal,
-    };
-    const resolvedOrderStatus = resolveOrderStatusForLineTotal({
-      requestedStatus: update.values['Order Status'],
-      existingStatus: existing.orderStatus,
-      lineTotal: computedLineTotal,
-    });
-
-    if (resolvedOrderStatus !== undefined) {
-      assertCanSetPaidStatus({
-        nextStatus: resolvedOrderStatus,
-        existing,
-        updateValues: effectiveUpdateValues,
-      });
-
-      assertAccountsReceivableHasBalance({
-        nextStatus: resolvedOrderStatus,
-        existing,
-        updateValues: effectiveUpdateValues,
-      });
-
-      if (isClothingAccountsReceivableStatus(resolvedOrderStatus)) {
-        dbData.orderStatus = 'Accounts Receivable';
-        Object.assign(dbData, getAccountsReceivableDateData(existing));
-      } else if (
-        update.values['Order Status'] !== undefined ||
-        resolvedOrderStatus !== existing.orderStatus
-      ) {
-        dbData.orderStatus = resolvedOrderStatus;
-      }
-
-      if (
-        update.values['Order Status'] !== undefined ||
-        resolvedOrderStatus !== existing.orderStatus
-      ) {
-        await assertOrderStatusNotBackwardToInTransit({
-          client: prisma,
-          nextStatus: resolvedOrderStatus,
-          productCode: update.values['Product Code'] ?? existing.productCode,
-          shipmentCode: update.values['Shipment Code'] ?? existing.shipmentCode,
-        });
-      }
-    }
-
-    const updatedTransaction = await prisma.transaction.update({
-      where: { id: update.id },
-      data: dbData,
-    });
-
-    await logStatusChange(
-      prisma,
-      update.id,
-      existing.orderStatus,
-      updatedTransaction.orderStatus
+      { isolationLevel: 'Serializable' }
     );
-
-    await syncInventoryMovementsForTransaction(prisma, updatedTransaction);
 
     const changes: Array<{
       field: string;

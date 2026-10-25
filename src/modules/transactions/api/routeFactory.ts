@@ -6,6 +6,10 @@ import { MAX_QUERY_LIMIT } from '@/constants/batch-sizes';
 import { logger } from '@/lib/logger';
 import type { TransactionService } from './service';
 import {
+  isTransactionWriteConflict,
+  TransactionConflictError,
+} from './updateConcurrency';
+import {
   TransactionNotFoundError,
   TransactionReferenceError,
   TransactionValidationError,
@@ -102,6 +106,23 @@ export function createTransactionRoutes(config: TransactionRouteConfig) {
       const summary = await service.bulkUpdateTransactions(payload);
       return ApiResponse.success(summary, 'Transactions updated');
     } catch (error) {
+      if (isTransactionWriteConflict(error)) {
+        const conflict =
+          error instanceof TransactionConflictError ? error : null;
+        return ApiResponse.error(
+          conflict?.transactionIds.length
+            ? `Conflict on transaction${conflict.transactionIds.length === 1 ? '' : 's'} ${conflict.transactionIds.map((id) => `#${id}`).join(', ')}.`
+            : 'A transaction in this batch changed while saving.',
+          HTTP_STATUS.CONFLICT,
+          'Refresh and review the affected row before retrying.',
+          {
+            meta: {
+              transactionIds: conflict?.transactionIds ?? [],
+              fields: conflict?.fields ?? [],
+            },
+          }
+        );
+      }
       if (error instanceof TransactionValidationError) {
         return ApiResponse.badRequest(error.message);
       }
@@ -121,6 +142,23 @@ export function createTransactionRoutes(config: TransactionRouteConfig) {
       const result = await service.updateTransaction(payload);
       return ApiResponse.success(result.transaction, 'Transaction updated');
     } catch (error) {
+      if (isTransactionWriteConflict(error)) {
+        const conflict =
+          error instanceof TransactionConflictError ? error : null;
+        return ApiResponse.error(
+          conflict?.transactionIds.length
+            ? `Conflict on transaction${conflict.transactionIds.length === 1 ? '' : 's'} ${conflict.transactionIds.map((id) => `#${id}`).join(', ')}.`
+            : 'This transaction changed while saving.',
+          HTTP_STATUS.CONFLICT,
+          'Refresh and review the affected row before retrying.',
+          {
+            meta: {
+              transactionIds: conflict?.transactionIds ?? [],
+              fields: conflict?.fields ?? [],
+            },
+          }
+        );
+      }
       if (error instanceof TransactionValidationError) {
         return ApiResponse.badRequest(error.message);
       }

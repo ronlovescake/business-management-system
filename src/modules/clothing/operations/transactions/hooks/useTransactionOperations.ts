@@ -1,4 +1,5 @@
 'use client';
+import { handleProductCodeColumnEdit } from './transactionProductCodeColumnHandler';
 
 /**
  * useTransactionOperations Hook
@@ -12,15 +13,14 @@
  * - Distribution generation
  */
 
-import { useCallback, useMemo, useRef } from 'react';
+import { useCallback, useMemo, useRef, useState, useEffect } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { showNotification } from '@mantine/notifications';
 import type { NotificationData } from '@mantine/notifications';
 import type { CellEditEvent } from '@/components/ui/HandsontableGrid';
 import { TransactionService } from '../services/TransactionService';
-import { buildApiPath } from '@/lib/api/paths';
 import { logger } from '@/lib/logger';
-import { showConfirm, getSwal } from '@/lib/alerts';
+import { getSwal } from '@/lib/alerts';
 import type { TransactionData, PriceTier } from '../types/transaction.types';
 import { queryKeys } from '@/lib/queryKeys';
 import { OperationsNotificationsService } from '../../notifications/services/OperationsNotificationsService';
@@ -31,7 +31,10 @@ import {
   formatTodayInManila,
   hasMinimumCreateFields,
 } from './transactionDraftUtils';
-import { createDraftTransactionFromRow } from './transactionDraftCreation';
+import {
+  createDraftTransactionFromRow,
+  type TransactionCreationRequest,
+} from './transactionDraftCreation';
 import { useTransactionBatchMode } from './useTransactionBatchMode';
 import { getCellValue } from './transactionCellValueUtils';
 import { importTransactionsFromCsv } from './transactionCsvImport';
@@ -41,6 +44,8 @@ import { handleOrderStatusColumnEdit } from './transactionOrderStatusHandler';
 import { handleQuantityColumnEdit } from './transactionQuantityColumnHandler';
 import {
   describeTransaction,
+  buildDraftCreatePayload,
+  getCreateDraftTransactionErrorMessage,
   formatCurrencyValue,
   formatNumberValue,
   isPaidOrderStatus,
@@ -64,6 +69,9 @@ interface UseTransactionOperationsProps {
     patches: Array<{ id: number; data: Partial<TransactionData> }>
   ) => Promise<{ count: number }>;
   getTransaction?: (id: number) => TransactionData | undefined;
+  beginDraft?: () => () => void;
+  adoptCreatedRow?: (row: TransactionData) => void;
+  replacePlaceholder?: (row: TransactionData) => void;
   apiBasePath?: string;
   onCustomerWarning?: (data: {
     customerName: string;
@@ -75,6 +83,11 @@ interface UseTransactionOperationsProps {
 }
 
 interface UseTransactionOperationsReturn {
+  draftError: string | null;
+  hasDrafts: boolean;
+  creatingDraft: boolean;
+  retryDrafts: () => Promise<void>;
+  discardDrafts: () => void;
   // Cell editing
   handleCellEdited: (
     edit: CellEditEvent<TransactionData>
@@ -108,6 +121,9 @@ export function useTransactionOperations(
     saveBulkUpdate,
     saveBulkChanges,
     getTransaction,
+    beginDraft,
+    adoptCreatedRow,
+    replacePlaceholder,
     apiBasePath,
     onCustomerWarning,
     onVoidedStatusSaved,
@@ -123,38 +139,117 @@ export function useTransactionOperations(
     [apiBasePath]
   );
 
-  const draftRowsRef = useRef<Map<number, TransactionData>>(new Map());
-  const creatingDraftRowsRef = useRef<Set<number>>(new Set());
+  const draftRowsRef = useRef(new Map<TransactionData, TransactionData>());
+  const customerRevisionsRef = useRef(
+    new Map<number | TransactionData, object>()
+  );
+  const requestsRef = useRef(
+    new Map<TransactionData, TransactionCreationRequest>()
+  );
+  const draftLeasesRef = useRef(new Map<TransactionData, () => void>());
+  const [draftError, setDraftError] = useState<string | null>(null);
+  const [creatingDraft, setCreatingDraft] = useState(false);
+  const [, publishDrafts] = useState(0);
+  const activeRef = useRef(true);
+  useEffect(() => {
+    activeRef.current = true;
+    const leases = draftLeasesRef.current;
+    return () => {
+      activeRef.current = false;
+      leases.forEach((finish) => finish());
+      leases.clear();
+    };
+  }, []);
 
-  const ensureDraftRow = useCallback((rowIndex: number): TransactionData => {
-    const existing = draftRowsRef.current.get(rowIndex);
-    if (existing) {
-      return existing;
-    }
-
+  const ensureDraftRow = useCallback((_rowIndex: number): TransactionData => {
     const emptyRow = createEmptyTransaction();
-    draftRowsRef.current.set(rowIndex, emptyRow);
     return emptyRow;
   }, []);
 
   const createDraftTransaction = useCallback(
-    async (
-      rowIndex: number,
-      draft: TransactionData,
-      placeholderRow?: TransactionData
-    ) => {
-      return createDraftTransactionFromRow({
-        rowIndex,
-        draft,
-        placeholderRow,
-        creatingDraftRowsRef,
-        draftRowsRef,
-        apiBasePath,
-        queryClient,
-        transactionsQueryKey,
-      });
+    async (placeholderRow: TransactionData) => {
+      const draft = draftRowsRef.current.get(placeholderRow);
+      if (!activeRef.current || !draft || !hasMinimumCreateFields(draft)) {
+        return;
+      }
+      const request = requestsRef.current.get(placeholderRow) ?? {
+        key: crypto.randomUUID(),
+      };
+      requestsRef.current.set(placeholderRow, request);
+      setCreatingDraft(true);
+      try {
+        const saved = await createDraftTransactionFromRow(
+          draft,
+          request,
+          apiBasePath
+        );
+        if (!activeRef.current) {
+          return;
+        }
+        const latest = buildDraftCreatePayload(
+          draftRowsRef.current.get(placeholderRow) ?? draft
+        );
+        const changes: Partial<TransactionData> = {};
+        Object.entries(latest).forEach(([field, value]) => {
+          if (request.payload?.[field as keyof typeof latest] !== value) {
+            Object.assign(changes, { [field]: value });
+          }
+        });
+        adoptCreatedRow?.(saved);
+        queryClient.setQueryData<TransactionData[]>(
+          transactionsQueryKey,
+          (rows) => [
+            ...(rows ?? []).filter((row) => row.id !== saved.id),
+            saved,
+          ]
+        );
+        if (Object.keys(changes).length && saved.id) {
+          if (saveBulkChanges) {
+            void saveBulkChanges([{ id: saved.id, data: changes }]).catch(
+              logger.error
+            );
+          } else {
+            update({ id: saved.id, data: changes });
+          }
+        }
+        replacePlaceholder?.(placeholderRow);
+        const customerRevision =
+          customerRevisionsRef.current.get(placeholderRow);
+        if (saved.id && customerRevision) {
+          customerRevisionsRef.current.set(saved.id, customerRevision);
+          customerRevisionsRef.current.delete(placeholderRow);
+        }
+        Object.assign(placeholderRow, saved, changes);
+        draftRowsRef.current.delete(placeholderRow);
+        requestsRef.current.delete(placeholderRow);
+        draftLeasesRef.current.get(placeholderRow)?.();
+        draftLeasesRef.current.delete(placeholderRow);
+        setDraftError(null);
+        showNotification({
+          title: 'Success',
+          message: 'New transaction created',
+          color: 'green',
+        });
+      } catch (error) {
+        if (activeRef.current) {
+          setDraftError(getCreateDraftTransactionErrorMessage(error));
+        }
+      } finally {
+        if (activeRef.current) {
+          setCreatingDraft(false);
+          publishDrafts((revision) => revision + 1);
+        }
+      }
     },
-    [apiBasePath, queryClient, transactionsQueryKey]
+    [
+      apiBasePath,
+      queryClient,
+      transactionsQueryKey,
+      adoptCreatedRow,
+      replacePlaceholder,
+      saveBulkChanges,
+      update,
+    ]
   );
 
   const logNotification = useCallback(
@@ -192,7 +287,7 @@ export function useTransactionOperations(
   // ============================================================================
 
   const processCellEdited = useCallback(
-    async (edit: CellEditEvent<TransactionData>) => {
+    async (edit: CellEditEvent<TransactionData>, customerRevision: object) => {
       const Swal = await getSwal();
       const { columnId, row: rowIndex, value: rawValue, isBatch } = edit;
 
@@ -205,7 +300,7 @@ export function useTransactionOperations(
         edit.rowData ?? filteredData[rowIndex] ?? ensureDraftRow(rowIndex);
       const latestTransaction = selected.id
         ? (getTransaction?.(selected.id) ?? selected)
-        : selected;
+        : (draftRowsRef.current.get(selected) ?? selected);
       const pending = selected.id
         ? batchUpdatesRef.current.get(selected.id)
         : undefined;
@@ -255,14 +350,12 @@ export function useTransactionOperations(
           }
 
           // Mutate the in-memory placeholder so the grid shows auto-populated values immediately
-          Object.assign(transaction, merged);
-          draftRowsRef.current.set(rowIndex, merged);
-
-          // Attempt creation once required fields are present (order date + either customer or product)
-          if (hasMinimumCreateFields(merged)) {
-            draftRowsRef.current.set(rowIndex, merged);
-            await createDraftTransaction(rowIndex, merged, transaction);
+          Object.assign(selected, merged);
+          draftRowsRef.current.set(selected, merged);
+          if (!draftLeasesRef.current.has(selected)) {
+            draftLeasesRef.current.set(selected, beginDraft?.() ?? (() => {}));
           }
+          publishDrafts((revision) => revision + 1);
 
           return;
         }
@@ -301,7 +394,7 @@ export function useTransactionOperations(
       // Helper: Get current transaction with any pending batch updates
       const getCurrentTransaction = (): TransactionData => {
         if (!transaction.id) {
-          return draftRowsRef.current.get(rowIndex) ?? transaction;
+          return draftRowsRef.current.get(selected) ?? transaction;
         }
 
         const currentTransaction =
@@ -349,13 +442,22 @@ export function useTransactionOperations(
 
         // Validate customer
         if (dropdownValue && dropdownValue.trim() !== '') {
+          const isCurrentCustomer = () =>
+            customerRevisionsRef.current.get(selected.id ?? selected) ===
+            customerRevision;
           TransactionService.validateCustomer(dropdownValue)
             .then((validation) => {
+              if (!isCurrentCustomer()) {
+                return;
+              }
               if (validation.warnings.length > 0 && onCustomerWarning) {
                 onCustomerWarning({
                   customerName: dropdownValue,
                   warnings: validation.warnings,
                   onProceed: () => {
+                    if (!isCurrentCustomer()) {
+                      return;
+                    }
                     notify({
                       title: '⚠️ Warning Acknowledged',
                       message: `Proceeding with customer "${dropdownValue}" despite warnings`,
@@ -364,7 +466,14 @@ export function useTransactionOperations(
                     });
                   },
                   onCancel: () => {
-                    updateTransactionData({ Customers: '' });
+                    if (!isCurrentCustomer()) {
+                      return;
+                    }
+                    if (selected.id) {
+                      update({ id: selected.id, data: { Customers: '' } });
+                    } else {
+                      void updateTransactionData({ Customers: '' });
+                    }
                     notify({
                       title: '🚫 Customer Selection Cancelled',
                       message: `Customer "${dropdownValue}" was not selected due to warnings`,
@@ -445,334 +554,23 @@ export function useTransactionOperations(
       // ⚠️ FINALIZED AUTO-POPULATION LOGIC
       // ========================================================================
       if (columnId === 'productCode') {
-        const dropdownValue = getCellValue(newValue);
-        const isBundleSku = dropdownValue
-          .trim()
-          .toLowerCase()
-          .startsWith('bundle');
-
-        // =====================================================================
-        // 🛡️ STOCK CHECK - Prevent overselling
-        // Only check if:
-        // 1. Product code is not empty
-        // 2. Transaction has no ID (new row) OR is being created
-        // 3. Not in batch mode (skip during paste operations)
-        // =====================================================================
-        if (dropdownValue && dropdownValue.trim() !== '' && !isBatchEdit) {
-          try {
-            const currentQuantity = getCurrentTransaction().Quantity ?? 0;
-
-            // If Quantity is not set yet, don't block SKU selection.
-            // Stock will be validated when Quantity is entered/changed.
-            if (currentQuantity > 0) {
-              const stockResponse = await fetch(
-                buildApiPath(apiBasePath, '/inventory/check-stock'),
-                {
-                  method: 'POST',
-                  headers: {
-                    'Content-Type': 'application/json',
-                  },
-                  body: JSON.stringify({
-                    productCode: dropdownValue.trim(),
-                    requestedQuantity: currentQuantity,
-                  }),
-                }
-              );
-
-              if (stockResponse.ok) {
-                const stockInfo = (await stockResponse.json()) as {
-                  status: string;
-                  message: string;
-                  availableStock: number;
-                  canFulfill: boolean;
-                };
-
-                // f534 SOLD OUT - Block order creation
-                if (stockInfo.status === 'SOLD_OUT') {
-                  await Swal.fire({
-                    icon: 'error',
-                    title: 'f534 Insufficient Quantity!',
-                    text: stockInfo.message,
-                    confirmButtonText: 'OK',
-                    confirmButtonColor: '#fa5252',
-                    allowOutsideClick: false,
-                  });
-                  logger.warn(
-                    `Stock check failed for ${dropdownValue}:`,
-                    stockInfo
-                  );
-                  return;
-                }
-
-                // f534 INSUFFICIENT STOCK - Offer to cap quantity to what's available
-                if (stockInfo.status === 'INSUFFICIENT_STOCK') {
-                  const available = Number(stockInfo.availableStock || 0);
-                  if (available > 0) {
-                    const result = await Swal.fire({
-                      icon: 'warning',
-                      title: 'f534 Insufficient Quantity!',
-                      text: `${stockInfo.message}\n\nUse available quantity (${available}) to sell out?`,
-                      showCancelButton: true,
-                      confirmButtonText: `Use ${available}`,
-                      cancelButtonText: 'Cancel',
-                      confirmButtonColor: '#fab005',
-                      cancelButtonColor: '#adb5bd',
-                      allowOutsideClick: false,
-                    });
-
-                    if (result.isConfirmed) {
-                      await updateTransactionData({ Quantity: available });
-                    } else {
-                      return;
-                    }
-                  } else {
-                    await Swal.fire({
-                      icon: 'error',
-                      title: 'f534 Insufficient Quantity!',
-                      text: stockInfo.message,
-                      confirmButtonText: 'OK',
-                      confirmButtonColor: '#fa5252',
-                      allowOutsideClick: false,
-                    });
-                    logger.warn(
-                      `Stock check failed for ${dropdownValue}:`,
-                      stockInfo
-                    );
-                    return;
-                  }
-                }
-
-                // f7e1 LOW STOCK - Show warning but allow order
-                if (stockInfo.status === 'LOW_STOCK') {
-                  await Swal.fire({
-                    icon: 'warning',
-                    title: 'f7e1 Low Stock Warning',
-                    text: stockInfo.message,
-                    confirmButtonText: 'OK',
-                    confirmButtonColor: '#fab005',
-                    allowOutsideClick: false,
-                  });
-                  logger.info(
-                    `Low stock warning for ${dropdownValue}:`,
-                    stockInfo
-                  );
-                }
-              }
-            }
-          } catch (error) {
-            logger.error('Stock check failed:', error);
-            // Continue with order creation on error (fail-safe)
-          }
-        }
-
-        // Auto-populate shipment code
-        const correspondingShipmentCode =
-          productToShipmentMap[dropdownValue] || '';
-        const correspondingShipmentStatus =
-          productToShipmentStatusMap[dropdownValue] || '';
-
-        // Auto-populate order status (only if blank or "In Transit")
-        const currentOrderStatus = transaction['Order Status'] || '';
-        const shouldAutoPopulateStatus =
-          currentOrderStatus === '' ||
-          currentOrderStatus.toLowerCase() === 'in transit';
-
-        let finalOrderStatus = currentOrderStatus;
-
-        if (
-          shouldAutoPopulateStatus &&
-          dropdownValue &&
-          dropdownValue.trim() !== ''
-        ) {
-          if (correspondingShipmentStatus !== '') {
-            // Has shipment status - map to order status
-            finalOrderStatus =
-              TransactionService.getOrderStatusFromShipmentStatus(
-                correspondingShipmentStatus
-              );
-          } else {
-            // No shipment status yet - bundles are on-hand, others default to "In Transit"
-            finalOrderStatus = isBundleSku ? 'Warehouse' : 'In Transit';
-          }
-        }
-
-        // Handle clearing Product Code
-        if (!dropdownValue || dropdownValue.trim() === '') {
-          if (
-            currentOrderStatus.toLowerCase() === 'in transit' ||
-            currentOrderStatus.toLowerCase() === 'warehouse'
-          ) {
-            finalOrderStatus = '';
-          } else if (
-            currentOrderStatus &&
-            currentOrderStatus.trim() !== '' &&
-            currentOrderStatus.toLowerCase() !== 'prepared'
-          ) {
-            // Show confirmation for important statuses
-            const shouldClear = await showConfirm({
-              title: '⚠️ CONFIRMATION REQUIRED',
-              message:
-                `You are about to clear the Product Code for a transaction with Order Status: "${currentOrderStatus}"\n\n` +
-                `This is an important status that may indicate:\n` +
-                `• Order is in advanced processing stage\n` +
-                `• Customer has been notified\n` +
-                `• Business processes may be affected\n\n` +
-                `Do you want to continue clearing the Product Code?\n\n` +
-                `• Click Yes to clear Product Code and preserve Order Status\n` +
-                `• Click No to keep both Product Code and Order Status unchanged`,
-              type: 'warning',
-              confirmButtonText: 'Yes, Clear Product Code',
-              cancelButtonText: 'No, Keep Both',
-            });
-
-            if (!shouldClear) {
-              notify({
-                title: '✅ Action Cancelled',
-                message: `Product Code clearing cancelled. Order Status "${currentOrderStatus}" preserved.`,
-                color: 'blue',
-                autoClose: 4000,
-              });
-              return;
-            }
-          }
-        }
-
-        // ⚠️ FINALIZED: Unit Price auto-population
-        const currentQuantity = transaction.Quantity || 0;
-        const currentDiscount = transaction.Discount || 0;
-        const currentAdjustment = transaction.Adjustment || 0;
-        let autoPopulatedUnitPrice = 0;
-        let unitPriceAutoPopulated = false;
-        let unitPriceCleared = false;
-
-        if (!dropdownValue || dropdownValue.trim() === '') {
-          unitPriceCleared = true;
-        } else if (dropdownValue && currentQuantity > 0) {
-          autoPopulatedUnitPrice = TransactionService.calculateUnitPrice(
-            dropdownValue,
-            currentQuantity,
-            currentDiscount,
-            priceTiers
-          );
-          unitPriceAutoPopulated = autoPopulatedUnitPrice > 0;
-        }
-
-        // Always recalculate line total so field order (qty first, product later) stays consistent
-        const recalculatedLineTotal = TransactionService.calculateLineTotal(
-          currentQuantity,
-          autoPopulatedUnitPrice,
-          currentAdjustment
-        );
-
-        const updatedTransaction = {
-          ...transaction,
-          'Product Code': dropdownValue,
-          'Shipment Code': correspondingShipmentCode,
-          'Order Status': finalOrderStatus,
-          'Unit Price': autoPopulatedUnitPrice,
-          'Line Total': recalculatedLineTotal,
-        };
-
-        updateTransactionData(updatedTransaction);
-
-        // Build notification message
-        let message = 'Product Code updated successfully';
-        const autopopulated: string[] = [];
-        if (correspondingShipmentCode) {
-          autopopulated.push('Shipment Code');
-        }
-        if (
-          shouldAutoPopulateStatus &&
-          finalOrderStatus !== currentOrderStatus
-        ) {
-          autopopulated.push('Order Status');
-        }
-        if (unitPriceAutoPopulated) {
-          autopopulated.push('Unit Price');
-        }
-        if (recalculatedLineTotal !== (transaction['Line Total'] ?? 0)) {
-          autopopulated.push('Line Total');
-        }
-
-        if (autopopulated.length > 0) {
-          message += ` and ${autopopulated.join(' & ')} auto-populated`;
-        }
-        if (unitPriceCleared) {
-          message += ' (Unit Price cleared)';
-        }
-
-        notify({ title: 'Success', message, color: 'green' });
-
-        if (shouldLog) {
-          const previousProduct =
-            transaction['Product Code'] &&
-            transaction['Product Code'].trim() !== ''
-              ? transaction['Product Code'].trim()
-              : 'No product';
-          const nextProduct =
-            dropdownValue && dropdownValue.trim() !== ''
-              ? dropdownValue.trim()
-              : 'No product';
-
-          const updates: string[] = [];
-
-          if (previousProduct !== nextProduct) {
-            updates.push(
-              `Product Code from ${previousProduct} to ${nextProduct}`
-            );
-          }
-
-          if (
-            correspondingShipmentCode &&
-            correspondingShipmentCode !== transaction['Shipment Code']
-          ) {
-            updates.push(`Shipment Code → ${correspondingShipmentCode}`);
-          }
-
-          if (
-            shouldAutoPopulateStatus &&
-            finalOrderStatus !== (transaction['Order Status'] ?? '') &&
-            finalOrderStatus
-          ) {
-            updates.push(`Order Status → ${finalOrderStatus}`);
-          }
-
-          if (unitPriceAutoPopulated) {
-            updates.push(
-              `Unit Price → ${formatCurrencyValue(autoPopulatedUnitPrice)}`
-            );
-          }
-
-          if (unitPriceCleared) {
-            updates.push('Unit Price cleared');
-          }
-
-          if (recalculatedLineTotal !== (transaction['Line Total'] ?? 0)) {
-            updates.push(
-              `Line Total → ${formatCurrencyValue(recalculatedLineTotal)}`
-            );
-          }
-
-          const updateSummary =
-            updates.length > 0
-              ? updates.join('; ')
-              : 'No dependent fields changed';
-
-          logNotification(
-            `Product details updated for ${transactionDescriptor}. ${updateSummary}.`,
-            {
-              column: 'Product Code',
-              transactionId: transaction.id,
-              previousValue: transaction['Product Code'] ?? '',
-              newValue: dropdownValue,
-              shipmentCode: correspondingShipmentCode || null,
-              orderStatus: finalOrderStatus,
-              unitPrice: unitPriceAutoPopulated
-                ? autoPopulatedUnitPrice
-                : (transaction['Unit Price'] ?? 0),
-            }
-          );
-        }
+        return handleProductCodeColumnEdit({
+          rawValue: newValue,
+          transaction,
+          transactionDescriptor,
+          shouldLog,
+          apiBasePath,
+          isBatchMode: isBatchEdit,
+          priceTiers,
+          getCurrentTransaction,
+          updateTransactionData,
+          notify,
+          logNotification,
+          formatCurrencyValue,
+          fireAlert: (options) => Swal.fire(options),
+          productToShipmentMap,
+          productToShipmentStatusMap,
+        });
       }
 
       const quantityHandled = await handleQuantityColumnEdit({
@@ -855,21 +653,43 @@ export function useTransactionOperations(
       onVoidedStatusSaved,
       logNotification,
       ensureDraftRow,
-      createDraftTransaction,
       apiBasePath,
       batchUpdatesRef,
       isBatchModeRef,
+      beginDraft,
     ]
   );
 
   const editChain = useRef<Promise<unknown>>(Promise.resolve());
   const handleCellEdited = useCallback(
     (edit: CellEditEvent<TransactionData>) => {
-      const task = editChain.current.then(() => processCellEdited(edit));
+      const customerRevision = {};
+      const selected = edit.rowData ?? filteredData[edit.row];
+      if (edit.columnId === 'customers' && selected) {
+        customerRevisionsRef.current.set(
+          selected.id ?? selected,
+          customerRevision
+        );
+      }
+      const task = editChain.current.then(async () => {
+        if (!activeRef.current) {
+          return false;
+        }
+        const accepted = await processCellEdited(edit, customerRevision);
+        if (
+          accepted !== false &&
+          selected &&
+          !selected.id &&
+          !requestsRef.current.has(selected)
+        ) {
+          await createDraftTransaction(selected);
+        }
+        return accepted;
+      });
       editChain.current = task.catch(() => {});
       return task;
     },
-    [processCellEdited]
+    [processCellEdited, filteredData, createDraftTransaction]
   );
 
   // ============================================================================
@@ -897,6 +717,33 @@ export function useTransactionOperations(
   // ============================================================================
 
   return {
+    draftError,
+    hasDrafts: draftRowsRef.current.size > 0,
+    creatingDraft,
+    retryDrafts: async () => {
+      const task = editChain.current.then(async () => {
+        for (const placeholder of Array.from(draftRowsRef.current.keys())) {
+          await createDraftTransaction(placeholder);
+        }
+      });
+      editChain.current = task.catch(() => {});
+      await task;
+    },
+    discardDrafts: () => {
+      if (creatingDraft) {
+        return;
+      }
+      draftRowsRef.current.forEach((_, placeholder) => {
+        replacePlaceholder?.(placeholder);
+        Object.assign(placeholder, createEmptyTransaction());
+      });
+      draftRowsRef.current.clear();
+      requestsRef.current.clear();
+      draftLeasesRef.current.forEach((finish) => finish());
+      draftLeasesRef.current.clear();
+      setDraftError(null);
+      publishDrafts((revision) => revision + 1);
+    },
     handleCellEdited,
     handleCSVImport,
     isBatchModeRef,

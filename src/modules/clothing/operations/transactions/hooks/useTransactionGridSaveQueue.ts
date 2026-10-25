@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { MAX_QUERY_LIMIT } from '@/constants/batch-sizes';
+import { ApiError } from '@/lib/api/client';
 import type { TransactionData } from '../types/transaction.types';
 
 type Patch = { id: number; data: Partial<TransactionData> };
@@ -22,8 +23,53 @@ interface Options {
     id: number,
     data: Partial<TransactionData>
   ) => Promise<TransactionData>;
-  bulk: (rows: TransactionData[]) => Promise<{ count: number }>;
+  bulk: (
+    rows: TransactionData[]
+  ) => Promise<{ count: number; transactions?: TransactionData[] }>;
   refresh: () => Promise<TransactionData[]>;
+}
+
+function describeSaveFailure(
+  error: unknown,
+  canonical: Map<number, TransactionData>,
+  transactions: TransactionData[]
+): string {
+  if (error instanceof ApiError && error.status === 409) {
+    const response = error.data as {
+      error?: unknown;
+      details?: unknown;
+      meta?: { transactionIds?: unknown; fields?: unknown };
+    } | null;
+    const ids = Array.isArray(response?.meta?.transactionIds)
+      ? response.meta.transactionIds.filter((id): id is number =>
+          Number.isInteger(id)
+        )
+      : [];
+    const fields = Array.isArray(response?.meta?.fields)
+      ? response.meta.fields.filter(
+          (field): field is string => typeof field === 'string'
+        )
+      : [];
+    if (ids.length > 0) {
+      const labels = ids.map((id) => {
+        const row =
+          canonical.get(id) ??
+          transactions.find((transaction) => transaction.id === id);
+        const identity = [row?.Customers, row?.['Product Code']]
+          .filter(
+            (value): value is string =>
+              typeof value === 'string' && value.trim().length > 0
+          )
+          .join(' / ');
+        return `#${id}${identity ? ` (${identity})` : ''}`;
+      });
+      return `Conflict on transaction${ids.length === 1 ? '' : 's'} ${labels.join(', ')}${fields.length ? `; edited fields: ${fields.join(', ')}` : ''}. ${typeof response?.details === 'string' ? response.details : 'Refresh and review these rows before retrying.'}`;
+    }
+    if (typeof response?.error === 'string') {
+      return response.error;
+    }
+  }
+  return error instanceof Error ? error.message : 'Transaction save failed';
 }
 
 export function useTransactionGridSaveQueue(options: Options) {
@@ -110,10 +156,20 @@ export function useTransactionGridSaveQueue(options: Options) {
                 'Incomplete transaction acknowledgement. Review saved values before retrying.'
               );
             }
-            saved = rows;
+            saved = result.transactions ?? rows;
+            if (
+              saved.length !== rows.length ||
+              new Set(saved.map((row) => row.id)).size !== rows.length ||
+              saved.some((row) => !rows.some((sent) => sent.id === row.id))
+            ) {
+              throw new Error('Invalid transaction bulk acknowledgement.');
+            }
           } else {
             const patch = job.patches[0];
-            const row = await transport.patch(patch.id, { ...patch.data });
+            const row = await transport.patch(patch.id, {
+              ...patch.data,
+              ...(rows[0].revision ? { revision: rows[0].revision } : {}),
+            });
             if (row.id !== patch.id) {
               throw new Error('Invalid transaction acknowledgement.');
             }
@@ -147,8 +203,13 @@ export function useTransactionGridSaveQueue(options: Options) {
       }
     } catch (error) {
       if (active()) {
-        const failure =
-          error instanceof Error ? error : new Error('Transaction save failed');
+        const failure = new Error(
+          describeSaveFailure(
+            error,
+            session.canonical,
+            latest.current.transactions
+          )
+        );
         session.error = failure.message;
         session.jobs.forEach((job) => {
           job.waiters.forEach(({ reject }) => reject(failure));
@@ -304,6 +365,11 @@ export function useTransactionGridSaveQueue(options: Options) {
   }
   return {
     transactions: visible.current,
+    adoptCreatedRow: (row: TransactionData) => {
+      if (row.id) {
+        session.canonical.set(row.id, row);
+      }
+    },
     getTransaction,
     enqueue,
     enqueueBulk: async (patches: Patch[]) => {

@@ -91,6 +91,9 @@ export function useHandsontableGridController<T extends object>({
   const searchInputRef = useRef<HTMLInputElement>(null);
   const hotRef = useRef<HotTableClass | null>(null);
   const columnsRef = useRef(columns);
+  const latestDataRef = useRef(filteredData);
+  latestDataRef.current = filteredData;
+  const editRevisionsRef = useRef(new Map<unknown, Map<number, object>>());
   const [currentGridHeight, setCurrentGridHeight] = useState<number>(600);
   const cellClassMapRef = useRef(new Map<string, string>());
   const isBatchModeRef = useRef(false);
@@ -441,15 +444,29 @@ export function useHandsontableGridController<T extends object>({
         return;
       }
 
-      const [startRow, startCol] = selected[0];
+      const [startRow, startCol, endRow, endCol] =
+        selected[selected.length - 1];
       if (startRow < 0 || startCol < 0) {
         return;
       }
       event.preventDefault();
       event.stopImmediatePropagation();
-      hotInstance.selectCell(
-        ...getDataBoundary(hotInstance, startRow, startCol, event.key)
+      const [destinationRow, destinationCol] = getDataBoundary(
+        hotInstance,
+        event.shiftKey ? endRow : startRow,
+        event.shiftKey ? endCol : startCol,
+        event.key
       );
+      if (event.shiftKey) {
+        hotInstance.selectCell(
+          startRow,
+          startCol,
+          destinationRow,
+          destinationCol
+        );
+      } else {
+        hotInstance.selectCell(destinationRow, destinationCol);
+      }
     };
 
     document.addEventListener('keydown', handleKeyDown, true);
@@ -783,6 +800,29 @@ export function useHandsontableGridController<T extends object>({
           newValue === null || newValue === undefined ? '' : String(newValue);
         const normalizedOldValue =
           oldValue === null || oldValue === undefined ? null : String(oldValue);
+        const identity = 'id' in rowData ? (rowData.id ?? rowData) : rowData;
+        const revision = {};
+        const revisions =
+          editRevisionsRef.current.get(identity) ?? new Map<number, object>();
+        revisions.set(col, revision);
+        editRevisionsRef.current.set(identity, revisions);
+        const revertCurrentEdit = () => {
+          const currentRow = latestDataRef.current[row];
+          const currentIdentity =
+            currentRow &&
+            ('id' in currentRow ? (currentRow.id ?? currentRow) : currentRow);
+          const instance = hotRef.current?.hotInstance;
+          if (
+            currentIdentity === identity &&
+            revisions.get(col) === revision &&
+            columnsRef.current[col]?.id === column.id &&
+            instance &&
+            String(instance.getDataAtCell(row, col) ?? '') ===
+              normalizedNewValue
+          ) {
+            revertCell(row, col, oldValue);
+          }
+        };
 
         try {
           const result = onCellEdited({
@@ -802,20 +842,20 @@ export function useHandsontableGridController<T extends object>({
             return maybePromise
               .then((accepted) => {
                 if (accepted === false) {
-                  revertCell(row, col, oldValue);
+                  revertCurrentEdit();
                   return false;
                 }
                 return true;
               })
               .catch((error) => {
                 logger.error('Cell edit failed during batch operation', error);
-                revertCell(row, col, oldValue);
+                revertCurrentEdit();
                 return false;
               });
           }
 
           if (result === false) {
-            revertCell(row, col, oldValue);
+            revertCurrentEdit();
             return Promise.resolve(false);
           }
 
@@ -825,7 +865,7 @@ export function useHandsontableGridController<T extends object>({
             'Cell edit threw synchronously during batch operation',
             error
           );
-          revertCell(row, col, oldValue);
+          revertCurrentEdit();
           return Promise.resolve(false);
         }
       };

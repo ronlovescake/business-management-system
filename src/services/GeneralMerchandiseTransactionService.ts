@@ -28,8 +28,8 @@ export class GeneralMerchandiseTransactionService extends BaseService {
   static async bulkUpdate(
     transactions: TransactionDTO[],
     retryConfig?: { maxRetries: number }
-  ): Promise<{ count: number }> {
-    return this.put<{ count: number }>(
+  ): Promise<{ count: number; transactions?: TransactionDTO[] }> {
+    return this.put<{ count: number; transactions?: TransactionDTO[] }>(
       this.endpoint,
       transactions,
       retryConfig

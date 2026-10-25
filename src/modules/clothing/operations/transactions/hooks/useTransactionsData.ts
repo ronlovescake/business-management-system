@@ -56,6 +56,7 @@ const extractCustomerName = (
             return await fetchArray<PriceTier>('/api/prices');
  */
 interface UseTransactionsDataReturn {
+  replacePlaceholder: (row: TransactionData) => void;
   saveQueue: ReturnType<typeof useTransactionGridSaveQueue>;
   saveBulkChanges: (
     patches: Array<{ id: number; data: Partial<TransactionData> }>
@@ -672,6 +673,9 @@ export function useTransactionsData({
     }
 
     if (searchQuery && searchQuery.trim() !== '') {
+      const included = new Set(
+        filtered.map((transaction) => transaction.id ?? transaction)
+      );
       const emptyRows = transactions.filter((transaction) => {
         const hasCustomer =
           transaction.Customers && transaction.Customers.trim() !== '';
@@ -681,7 +685,12 @@ export function useTransactionsData({
         return !hasCustomer && !hasProductCode;
       });
 
-      return [...filtered, ...emptyRows];
+      return [
+        ...filtered,
+        ...emptyRows.filter(
+          (transaction) => !included.has(transaction.id ?? transaction)
+        ),
+      ];
     }
 
     return filtered;
@@ -702,7 +711,7 @@ export function useTransactionsData({
   }, [filteredData, productCodeSearchQuery]);
 
   // Provide stable placeholder rows so users can create new transactions from the grid
-  const placeholderRows = useMemo(() => {
+  const [placeholderRows, setPlaceholderRows] = useState(() => {
     return Array.from({ length: MAX_PLACEHOLDER_ROWS }).map(
       () =>
         ({
@@ -722,7 +731,30 @@ export function useTransactionsData({
           'Shipment Code': '',
         }) as TransactionData
     );
-  }, []);
+  });
+  const replacePlaceholder = (created: TransactionData) => {
+    setPlaceholderRows((rows) =>
+      rows.map((row) =>
+        row === created
+          ? {
+              'Order Date': '',
+              Customers: '',
+              'Product Code': '',
+              Quantity: 0,
+              'Unit Price': 0,
+              Discount: 0,
+              Adjustment: 0,
+              'Line Total': 0,
+              'Order Status': '',
+              Notes: '',
+              'Invoice Date': '',
+              'Packed Date': '',
+              'Shipment Code': '',
+            }
+          : row
+      )
+    );
+  };
 
   const filteredDataWithPlaceholders = useMemo(() => {
     return [...productCodeFilteredData, ...placeholderRows];
@@ -768,14 +800,23 @@ export function useTransactionsData({
           return 0;
         }
 
-        const sanitized =
-          TransactionService.sanitizeTransactions(changedTransactions);
-
-        // Update via service layer
         if (saveQueue.isBusy()) {
           return 0;
         }
-        bulkUpdateTransactions(sanitized as never);
+        void saveQueue
+          .enqueue(
+            changedTransactions.flatMap((transaction) =>
+              transaction.id === undefined
+                ? []
+                : [
+                    {
+                      id: transaction.id,
+                      data: { 'Order Status': transaction['Order Status'] },
+                    },
+                  ]
+            )
+          )
+          .catch((error) => logger.error('Shipment status sync failed', error));
 
         // Show notification (will be handled by caller)
         return updatedCount;
@@ -783,21 +824,27 @@ export function useTransactionsData({
 
       return 0;
     },
-    [transactions, bulkUpdateTransactions, saveQueue]
+    [transactions, saveQueue]
   );
 
   // Sync on mount and when mappings change (only once when mappings are loaded)
   useEffect(() => {
     if (
       Object.keys(productToShipmentStatusMap).length > 0 &&
-      transactions.length > 0
+      transactions.length > 0 &&
+      !saveQueue.hasPendingChanges &&
+      !saveQueue.error
     ) {
       logger.log('🔄 Syncing transactions with current shipment status...');
       syncTransactionsWithShipmentStatus(productToShipmentStatusMap);
     }
-    // Only run when product mappings change, NOT when transactions change
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [productToShipmentStatusMap]);
+  }, [
+    productToShipmentStatusMap,
+    serverTransactions,
+    saveQueue.hasPendingChanges,
+    saveQueue.error,
+  ]);
 
   // ============================================================================
   // WRAPPER FUNCTIONS - Convert between TransactionData and DTO
@@ -869,6 +916,7 @@ export function useTransactionsData({
   // ============================================================================
 
   return {
+    replacePlaceholder,
     saveQueue,
     saveBulkChanges: saveQueue.enqueueBulk,
     // Core data

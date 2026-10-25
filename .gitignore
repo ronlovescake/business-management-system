@@ -65,6 +65,7 @@ snapshots/
 !prisma/migrations/20261019100000_link_gm_customers_to_clothing/migration.sql
 !prisma/migrations/20261019110000_add_clothing_investor_codes/migration.sql
 !prisma/migrations/20261020120000_clothing_product_identity/migration.sql
+!prisma/migrations/20261025150000_transaction_creation_keys/migration.sql
 !prisma/manual/20260116_create_clothing_recurring_payments.sql
 !prisma/manual/20260116_reconcile_prisma_drift.sql
 !archives/migration-scripts/20260318_backfill_missing_shipment_jt0012625740989.sql

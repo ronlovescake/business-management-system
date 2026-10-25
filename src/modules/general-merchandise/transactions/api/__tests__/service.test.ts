@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mockPrisma = vi.hoisted(() => ({
+  $transaction: vi.fn(),
   customer: {
     findMany: vi.fn(),
     findUnique: vi.fn(),
@@ -22,6 +23,7 @@ const mockPrisma = vi.hoisted(() => ({
     findMany: vi.fn(),
   },
   generalMerchandiseTransaction: {
+    findUniqueOrThrow: vi.fn(),
     createMany: vi.fn(),
     findMany: vi.fn(),
     update: vi.fn(),
@@ -50,6 +52,12 @@ vi.mock('@/lib/logger', () => ({
 describe('generalMerchandiseTransactionService', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockPrisma.$transaction.mockImplementation(async (callback) =>
+      callback(mockPrisma)
+    );
+    mockPrisma.generalMerchandiseTransaction.findUniqueOrThrow.mockResolvedValue(
+      { id: 7, updatedAt: new Date(), deletedAt: null }
+    );
 
     mockPrisma.generalMerchandisePrice.findMany.mockResolvedValue([]);
     mockPrisma.customer.findMany.mockResolvedValue([

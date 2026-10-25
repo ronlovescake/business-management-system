@@ -428,6 +428,7 @@ model TruckingVehicleAssignment {
 
 model Transaction {
   id            Int                       @id @default(autoincrement())
+  creationKey   String?                   @unique @db.Uuid
   createdAt     DateTime                  @default(now())
   updatedAt     DateTime                  @updatedAt
   orderDate     String?                   @db.VarChar(50)
@@ -2483,6 +2484,7 @@ model GeneralMerchandiseInventoryTransitBuildEntry {
 
 model GeneralMerchandiseTransaction {
   id            Int      @id @default(autoincrement())
+  creationKey   String?  @unique @db.Uuid
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
   orderDate     String?  @db.VarChar(50)

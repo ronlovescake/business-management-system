@@ -2,6 +2,7 @@ import { act, renderHook, waitFor } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import { useTransactionGridSaveQueue } from '@/modules/clothing/operations/transactions/hooks/useTransactionGridSaveQueue';
 import type { TransactionData } from '@/modules/clothing/operations/transactions/types/transaction.types';
+import { ApiError } from '@/lib/api/client';
 
 const row = (id: number) =>
   ({ id, Notes: '', Quantity: 1, Customers: 'Customer' }) as TransactionData;
@@ -16,6 +17,76 @@ function deferred<T>() {
 }
 
 describe('transaction grid save queue', () => {
+  it('carries canonical revisions through mixed bulk and partial saves', async () => {
+    const first = deferred<{
+      count: number;
+      transactions: TransactionData[];
+    }>();
+    const initial = { ...row(1), revision: '2026-10-01T00:00:00.000Z' };
+    const saved = {
+      ...initial,
+      Notes: 'bulk',
+      revision: '2026-10-02T00:00:00.000Z',
+    };
+    const patch = vi.fn().mockResolvedValue({ ...saved, Quantity: 4 });
+    const { result } = renderHook(() =>
+      useTransactionGridSaveQueue({
+        transactions: [initial],
+        patch,
+        bulk: vi.fn().mockReturnValue(first.promise),
+        refresh: vi.fn().mockResolvedValue([{ ...saved, Quantity: 4 }]),
+      })
+    );
+    let saves: Promise<unknown>[] = [];
+    act(() => {
+      saves = [
+        result.current.enqueueBulk([{ id: 1, data: { Notes: 'bulk' } }]),
+        result.current.enqueue([{ id: 1, data: { Quantity: 4 } }]),
+      ];
+    });
+    await act(async () => {
+      first.resolve({ count: 1, transactions: [saved] });
+      await Promise.all(saves);
+    });
+    expect(patch).toHaveBeenCalledWith(1, {
+      Quantity: 4,
+      revision: saved.revision,
+    });
+  });
+  it('reports the exact conflicting row and edited fields from a bulk 409', async () => {
+    const conflictedRow = {
+      ...row(2),
+      Customers: 'Maria Salinas',
+      'Product Code': 'MO-062626',
+    };
+    const { result } = renderHook(() =>
+      useTransactionGridSaveQueue({
+        transactions: [row(1), conflictedRow],
+        patch: vi.fn(),
+        bulk: vi.fn().mockRejectedValue(
+          new ApiError(409, 'Conflict', {
+            error: 'Conflict on transaction #2.',
+            details: 'Refresh and review the affected row.',
+            meta: { transactionIds: [2], fields: ['Product Code'] },
+          })
+        ),
+        refresh: vi.fn().mockResolvedValue([row(1), row(2)]),
+      })
+    );
+    await act(async () => {
+      await result.current
+        .enqueueBulk([
+          { id: 1, data: { 'Product Code': 'SKU-1' } },
+          { id: 2, data: { 'Product Code': 'SKU-2' } },
+        ])
+        .catch(() => {});
+    });
+    expect(result.current.error).toContain('#2');
+    expect(result.current.error).toContain('Product Code');
+    expect(result.current.error).toContain('Maria Salinas');
+    expect(result.current.error).toContain('MO-062626');
+    expect(result.current.error).not.toContain('#1');
+  });
   it.each(['/api', '/api/general-merchandise'])(
     'serializes ten rapid edits and overlays stale reads in %s',
     async (scope) => {

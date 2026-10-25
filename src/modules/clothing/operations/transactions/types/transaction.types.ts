@@ -21,6 +21,7 @@ import type {
  */
 export interface TransactionData {
   id?: number;
+  revision?: string;
   'Order Date': string;
   Customers: string;
   'Product Code': string;

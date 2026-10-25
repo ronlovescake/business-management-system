@@ -66,6 +66,31 @@
 
 ## F - Inline Autosave And Recovery
 
+### Current Hardening (2026-10-25)
+
+GM uses revision-bearing writes and canonical bulk row acknowledgements with
+the shared queue. Each row update and its inventory movements execute inside a
+serializable transaction; stale writes return HTTP 409. Bulk continues to process
+rows independently, so earlier successes may remain if a later row fails.
+Explicit refresh-first recovery must review that possibility. Clothing's
+all-or-nothing bulk boundary is not imposed on GM.
+
+PATCH validates the actual flat field values, persists Adjustment and leaves
+customerId untouched when Customers is omitted. Existing GM pricing, payment,
+status and fulfilled-movement formulas remain unchanged.
+
+Grid creation uses the approved nullable unique UUID creationKey and returns the
+real saved row. Same-key uncertain retries resolve the existing identity;
+normal multi-row imports retain their original path. Drafts/creates participate
+in pending-action/unload guards and explicit retry/discard. Keys and drafts are
+memory-only; reload/crash recovery remains deferred. Apply the additive migration
+before running new code outside the isolated test database.
+
+See the clothing contract's current hardening contract and change record for
+shared callback/navigation behavior, writer compatibility and actual validation.
+The following table documents the earlier client-only checkpoint and is
+superseded where the current hardening changes its persistence/creation paths.
+
 | #   | Logic                                      | Explanation                                                                                                                                                                                                                                                                                                                 |
 | --- | ------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | 20  | GM shares the serial inline save queue     | Accepted edits merge by permanent ID, with partial PATCH for individual edits and bounded full-row PUT for paste batches. Latest draft values feed calculations, overlapping pastes accumulate, and newer individual fields supersede older pending paste fields.                                                           |

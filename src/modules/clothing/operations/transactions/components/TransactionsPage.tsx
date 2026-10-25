@@ -19,6 +19,7 @@
  */
 
 'use client';
+import { useTransactionCustomerTabs } from '../hooks/useTransactionCustomerTabs';
 
 import React, {
   Profiler,
@@ -160,6 +161,7 @@ export function TransactionsPage({ apiBasePath }: TransactionsPageProps) {
   // ============================================================================
   const {
     saveQueue,
+    replacePlaceholder,
     saveBulkChanges,
     transactions,
     isLoading,
@@ -429,7 +431,14 @@ export function TransactionsPage({ apiBasePath }: TransactionsPageProps) {
   // ============================================================================
   // OPERATIONS HOOK - Cell edits and validation
   // ============================================================================
-  const { handleCellEdited } = useTransactionOperations({
+  const {
+    handleCellEdited,
+    draftError,
+    hasDrafts,
+    creatingDraft,
+    retryDrafts,
+    discardDrafts,
+  } = useTransactionOperations({
     transactions,
     filteredData,
     priceTiers,
@@ -441,6 +450,9 @@ export function TransactionsPage({ apiBasePath }: TransactionsPageProps) {
     saveBulkUpdate,
     saveBulkChanges,
     getTransaction: saveQueue.getTransaction,
+    beginDraft: saveQueue.beginValidation,
+    adoptCreatedRow: saveQueue.adoptCreatedRow,
+    replacePlaceholder,
     apiBasePath,
     onVoidedStatusSaved: (customer) => {
       pendingVoidedCustomer.current = customer;
@@ -570,181 +582,12 @@ export function TransactionsPage({ apiBasePath }: TransactionsPageProps) {
 
   const { lookupFacebookLink } = useInvoiceCustomerLookup();
 
-  const onhandEligibleTransactions = useMemo(() => {
-    const warehouseCustomers = new Set(
-      transactions
-        .filter((transaction) => transaction['Order Status'] === 'Warehouse')
-        .map((transaction) => transaction.Customers)
-        .filter((customer): customer is string => Boolean(customer))
-    );
-
-    if (warehouseCustomers.size === 0) {
-      return [];
-    }
-
-    const eligibleStatuses = new Set(['Warehouse', 'Prepared', 'On-Hold']);
-    const collator = new Intl.Collator(undefined, {
-      sensitivity: 'base',
-      ignorePunctuation: true,
-    });
-
-    return transactions
-      .map((transaction, index) => ({ transaction, index }))
-      .filter(({ transaction }) => {
-        if (!transaction.Customers) {
-          return false;
-        }
-        if (!warehouseCustomers.has(transaction.Customers)) {
-          return false;
-        }
-        const status = transaction['Order Status'];
-        if (!status) {
-          return false;
-        }
-        return eligibleStatuses.has(status);
-      })
-      .sort((a, b) => {
-        const customerA = a.transaction.Customers ?? '';
-        const customerB = b.transaction.Customers ?? '';
-        const comparison = collator.compare(customerA, customerB);
-        if (comparison !== 0) {
-          return comparison;
-        }
-        return a.index - b.index;
-      })
-      .map(({ transaction }) => transaction);
-  }, [transactions]);
-
-  const onhandEligibleFilteredTransactions = useMemo(() => {
-    if (onhandEligibleTransactions.length === 0) {
-      return [];
-    }
-
-    const orderMap = new Map(
-      onhandEligibleTransactions.map((transaction, orderIndex) => [
-        transaction.id,
-        orderIndex,
-      ])
-    );
-
-    return cappedFilteredTransactions
-      .filter((transaction) => orderMap.has(transaction.id))
-      .sort((a, b) => {
-        const orderA = orderMap.get(a.id) ?? 0;
-        const orderB = orderMap.get(b.id) ?? 0;
-        return orderA - orderB;
-      });
-  }, [cappedFilteredTransactions, onhandEligibleTransactions]);
-
-  const warehousePreparedTransactions = useMemo(() => {
-    if (transactions.length === 0) {
-      return [];
-    }
-
-    const customerStatusMap = new Map<
-      string,
-      { hasWarehouse: boolean; hasPrepared: boolean; hasOnHold: boolean }
-    >();
-
-    transactions.forEach((transaction) => {
-      const customer = transaction.Customers;
-      if (!customer) {
-        return;
-      }
-
-      const status = transaction['Order Status'];
-      if (
-        !status ||
-        (status !== 'Warehouse' &&
-          status !== 'Prepared' &&
-          status !== 'On-Hold')
-      ) {
-        return;
-      }
-
-      const statusFlags = customerStatusMap.get(customer) ?? {
-        hasWarehouse: false,
-        hasPrepared: false,
-        hasOnHold: false,
-      };
-
-      if (status === 'Warehouse') {
-        statusFlags.hasWarehouse = true;
-      } else if (status === 'Prepared') {
-        statusFlags.hasPrepared = true;
-      } else {
-        statusFlags.hasOnHold = true;
-      }
-
-      customerStatusMap.set(customer, statusFlags);
-    });
-
-    const eligibleCustomers = new Set(
-      Array.from(customerStatusMap.entries())
-        .filter(
-          ([, flags]) =>
-            flags.hasWarehouse && (flags.hasPrepared || flags.hasOnHold)
-        )
-        .map(([customer]) => customer)
-    );
-
-    if (eligibleCustomers.size === 0) {
-      return [];
-    }
-
-    const eligibleStatuses = new Set(['Warehouse', 'Prepared', 'On-Hold']);
-    const collator = new Intl.Collator(undefined, {
-      sensitivity: 'base',
-      ignorePunctuation: true,
-    });
-
-    return transactions
-      .map((transaction, index) => ({ transaction, index }))
-      .filter(({ transaction }) => {
-        if (!transaction.Customers) {
-          return false;
-        }
-        if (!eligibleCustomers.has(transaction.Customers)) {
-          return false;
-        }
-        const status = transaction['Order Status'];
-        if (!status) {
-          return false;
-        }
-        return eligibleStatuses.has(status);
-      })
-      .sort((a, b) => {
-        const customerA = a.transaction.Customers ?? '';
-        const customerB = b.transaction.Customers ?? '';
-        const comparison = collator.compare(customerA, customerB);
-        if (comparison !== 0) {
-          return comparison;
-        }
-        return a.index - b.index;
-      })
-      .map(({ transaction }) => transaction);
-  }, [transactions]);
-
-  const warehousePreparedFilteredTransactions = useMemo(() => {
-    if (warehousePreparedTransactions.length === 0) {
-      return [];
-    }
-
-    const orderMap = new Map(
-      warehousePreparedTransactions.map((transaction, orderIndex) => [
-        transaction.id,
-        orderIndex,
-      ])
-    );
-
-    return cappedFilteredTransactions
-      .filter((transaction) => orderMap.has(transaction.id))
-      .sort((a, b) => {
-        const orderA = orderMap.get(a.id) ?? 0;
-        const orderB = orderMap.get(b.id) ?? 0;
-        return orderA - orderB;
-      });
-  }, [cappedFilteredTransactions, warehousePreparedTransactions]);
+  const {
+    onhandEligibleTransactions,
+    onhandEligibleFilteredTransactions,
+    warehousePreparedTransactions,
+    warehousePreparedFilteredTransactions,
+  } = useTransactionCustomerTabs(transactions, cappedFilteredTransactions);
 
   const handleWarehousePreparedCustomerClick = useCallback(
     async (event: CellClickEvent<TransactionData>) => {
@@ -950,7 +793,7 @@ export function TransactionsPage({ apiBasePath }: TransactionsPageProps) {
   return (
     <Profiler id="TransactionsPage" onRender={onRenderCallback}>
       <PageLayout fluid withPadding>
-        {saveQueue.error ? (
+        {saveQueue.error || hasDrafts ? (
           <Alert
             color="red"
             title="Unsaved transaction changes"
@@ -958,7 +801,13 @@ export function TransactionsPage({ apiBasePath }: TransactionsPageProps) {
             mb="md"
           >
             <Stack gap="xs">
-              <Text size="sm">{saveQueue.error}</Text>
+              <Text size="sm">
+                {saveQueue.error ??
+                  draftError ??
+                  (creatingDraft
+                    ? 'Saving new transaction...'
+                    : 'New transaction is incomplete. Complete its required fields or discard the draft.')}
+              </Text>
               <Text size="sm">
                 Some changes may already be saved. Review before retrying.
               </Text>
@@ -966,14 +815,14 @@ export function TransactionsPage({ apiBasePath }: TransactionsPageProps) {
                 <Button
                   size="xs"
                   leftSection={<IconRefresh size={14} />}
-                  disabled={saveQueue.isSaving}
+                  disabled={saveQueue.isSaving || creatingDraft}
                   onClick={() => {
                     if (
                       window.confirm(
                         'Refresh and retry unacknowledged transaction edits? Some changes may already be saved.'
                       )
                     ) {
-                      void saveQueue.retry();
+                      void saveQueue.retry().then(retryDrafts);
                     }
                   }}
                 >
@@ -984,14 +833,14 @@ export function TransactionsPage({ apiBasePath }: TransactionsPageProps) {
                   color="red"
                   variant="outline"
                   leftSection={<IconTrash size={14} />}
-                  disabled={saveQueue.isSaving}
+                  disabled={saveQueue.isSaving || creatingDraft}
                   onClick={() => {
                     if (
                       window.confirm(
                         'Discard local transaction drafts and reload saved values? This does not undo changes already saved.'
                       )
                     ) {
-                      void saveQueue.discard();
+                      void saveQueue.discard().then(discardDrafts);
                     }
                   }}
                 >

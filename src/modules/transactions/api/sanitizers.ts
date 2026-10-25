@@ -23,6 +23,7 @@ export interface TransactionRecord {
 
 export interface TransactionUpdateRecord {
   id: number;
+  revision?: string;
   values: Partial<TransactionRecord>;
 }
 
@@ -134,6 +135,15 @@ export function sanitizeTransactionUpdateRecord(
     values['Shipment Code'] = normalizeShipmentCode(record['Shipment Code']);
   }
 
+  if (record.revision !== undefined) {
+    if (
+      typeof record.revision !== 'string' ||
+      !/^[a-f0-9]{64}$/.test(record.revision)
+    ) {
+      throw new Error('Invalid transaction revision');
+    }
+    return { id, values, revision: record.revision };
+  }
   return { id, values };
 }
 

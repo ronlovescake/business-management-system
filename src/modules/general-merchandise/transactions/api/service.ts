@@ -4,6 +4,10 @@ import { pickUnitCostFromProductRow } from '@/lib/accounting/inventoryCogsShared
 import { logger } from '@/lib/logger';
 import type { TransactionDTO } from '@/modules/transactions/api/dto';
 import { mapToDTO } from '@/modules/transactions/api/dto';
+import {
+  assertTransactionRevision,
+  getCreationKey,
+} from '@/modules/transactions/api/updateConcurrency';
 import { ensureGeneralMerchandiseCustomersForNames } from '@/modules/general-merchandise/customers/api/service';
 import { isFulfilledStatus, isReservedStatus } from '@/lib/inventory/statuses';
 import {
@@ -34,10 +38,12 @@ interface TransactionImportSummary {
   count: number;
   withData: number;
   empty: number;
+  transactions?: TransactionDTO[];
 }
 
 interface TransactionUpdateSummary {
   count: number;
+  transactions?: TransactionDTO[];
 }
 
 interface TransactionUpdateResult {
@@ -552,6 +558,25 @@ export const generalMerchandiseTransactionService: TransactionService = {
     if (!Array.isArray(payload)) {
       throw new TransactionValidationError('Invalid data format');
     }
+    const creationKey = getCreationKey(payload);
+    if (creationKey) {
+      const existing = await gmPrisma.generalMerchandiseTransaction.findUnique({
+        where: { creationKey },
+      });
+      if (existing) {
+        if (existing.deletedAt) {
+          throw new TransactionValidationError(
+            'This created transaction was deleted. Review saved rows before continuing.'
+          );
+        }
+        return {
+          count: 1,
+          withData: 1,
+          empty: 0,
+          transactions: [mapToDTO(existing)],
+        };
+      }
+    }
 
     const normalized = payload.map((entry, index) => ({
       index,
@@ -606,6 +631,32 @@ export const generalMerchandiseTransactionService: TransactionService = {
       }
     }
 
+    if (creationKey) {
+      const created = await prisma.$transaction(
+        async (tx) => {
+          const row = await tx.generalMerchandiseTransaction.upsert({
+            where: { creationKey },
+            create: { ...preparedRows[0], creationKey },
+            update: {},
+          });
+          if (row.deletedAt) {
+            throw new TransactionValidationError(
+              'This created transaction was deleted. Review saved rows before continuing.'
+            );
+          }
+          await syncInventoryMovementsForTransaction(tx, row);
+          return row;
+        },
+        { isolationLevel: 'Serializable' }
+      );
+      return {
+        count: 1,
+        withData: 1,
+        empty: 0,
+        transactions: [mapToDTO(created)],
+      };
+    }
+
     const importStartedAt = new Date();
     const result = await gmPrisma.generalMerchandiseTransaction.createMany({
       data: preparedRows,
@@ -652,103 +703,92 @@ export const generalMerchandiseTransactionService: TransactionService = {
       throw new TransactionValidationError('Invalid data format');
     }
 
-    let updatedCount = 0;
+    const transactions: TransactionDTO[] = [];
 
     for (const entry of payload) {
       const updateRecord = sanitizeTransactionUpdateRecord(entry);
-      const validation = transactionUpdateSchema.safeParse(updateRecord);
+      const validation = transactionUpdateSchema.safeParse({
+        id: updateRecord.id,
+        ...updateRecord.values,
+      });
       if (!validation.success) {
         continue;
       }
-
-      const customerName = updateRecord.values.Customers?.trim() ?? '';
-      const customerIdsByName = await ensureGeneralMerchandiseCustomersForNames(
-        customerName ? [customerName] : []
-      );
-      const linkedCustomerId = customerIdsByName.get(customerName);
-      const customerRelation = customerName
-        ? linkedCustomerId
-          ? { customerId: linkedCustomerId }
-          : {}
-        : { customerId: null };
-
-      const updated = (await gmPrisma.generalMerchandiseTransaction.update({
-        where: { id: updateRecord.id },
-        data: {
-          orderDate: updateRecord.values['Order Date'],
-          customers: updateRecord.values.Customers,
-          ...customerRelation,
-          productCode: updateRecord.values['Product Code'],
-          quantity: updateRecord.values.Quantity,
-          unitPrice: updateRecord.values['Unit Price'],
-          discount: updateRecord.values.Discount,
-          lineTotal: updateRecord.values['Line Total'],
-          orderStatus: updateRecord.values['Order Status'],
-          notes: updateRecord.values.Notes,
-          invoiceDate: updateRecord.values['Invoice Date'],
-          packedDate: updateRecord.values['Packed Date'],
-          shipmentCode: updateRecord.values['Shipment Code'],
-        },
-      })) as TransactionForInventorySync;
-
-      await syncInventoryMovementsForTransaction(gmPrisma, updated);
-      updatedCount += 1;
+      const result =
+        await generalMerchandiseTransactionService.updateTransaction(entry);
+      transactions.push(result.transaction);
     }
 
-    return { count: updatedCount };
+    return { count: transactions.length, transactions };
   },
 
   async updateTransaction(payload) {
     const updateRecord = sanitizeTransactionUpdateRecord(payload);
-    const validation = transactionUpdateSchema.safeParse(updateRecord);
+    const validation = transactionUpdateSchema.safeParse({
+      id: updateRecord.id,
+      ...updateRecord.values,
+    });
     if (!validation.success) {
       throw new TransactionValidationError('Invalid transaction payload');
     }
 
     const customerName = updateRecord.values.Customers?.trim() ?? '';
-    const customerIdsByName = await ensureGeneralMerchandiseCustomersForNames(
-      customerName ? [customerName] : []
-    );
+    const customerIdsByName =
+      updateRecord.values.Customers !== undefined
+        ? await ensureGeneralMerchandiseCustomersForNames(
+            customerName ? [customerName] : []
+          )
+        : new Map<string, number>();
     const linkedCustomerId = customerIdsByName.get(customerName);
-    const customerRelation = customerName
-      ? linkedCustomerId
-        ? { customerId: linkedCustomerId }
-        : {}
-      : { customerId: null };
+    const customerRelation =
+      updateRecord.values.Customers === undefined
+        ? {}
+        : customerName
+          ? linkedCustomerId
+            ? { customerId: linkedCustomerId }
+            : {}
+          : { customerId: null };
 
-    const updated = (await gmPrisma.generalMerchandiseTransaction.update({
-      where: { id: updateRecord.id },
-      data: {
-        orderDate: updateRecord.values['Order Date'],
-        customers: updateRecord.values.Customers,
-        ...customerRelation,
-        productCode: updateRecord.values['Product Code'],
-        quantity: updateRecord.values.Quantity,
-        unitPrice: updateRecord.values['Unit Price'],
-        discount: updateRecord.values.Discount,
-        lineTotal: updateRecord.values['Line Total'],
-        orderStatus: updateRecord.values['Order Status'],
-        notes: updateRecord.values.Notes,
-        invoiceDate: updateRecord.values['Invoice Date'],
-        packedDate: updateRecord.values['Packed Date'],
-        shipmentCode: updateRecord.values['Shipment Code'],
+    const updated = await prisma.$transaction(
+      async (tx) => {
+        const existing =
+          await tx.generalMerchandiseTransaction.findUniqueOrThrow({
+            where: { id: updateRecord.id },
+          });
+        assertTransactionRevision(
+          existing,
+          updateRecord.revision,
+          updateRecord.id,
+          Object.keys(updateRecord.values)
+        );
+        const saved = (await tx.generalMerchandiseTransaction.update({
+          where: {
+            id: updateRecord.id,
+            ...(updateRecord.revision ? { updatedAt: existing.updatedAt } : {}),
+          },
+          data: {
+            orderDate: updateRecord.values['Order Date'],
+            customers: updateRecord.values.Customers,
+            ...customerRelation,
+            productCode: updateRecord.values['Product Code'],
+            quantity: updateRecord.values.Quantity,
+            unitPrice: updateRecord.values['Unit Price'],
+            discount: updateRecord.values.Discount,
+            adjustment: updateRecord.values.Adjustment,
+            lineTotal: updateRecord.values['Line Total'],
+            orderStatus: updateRecord.values['Order Status'],
+            notes: updateRecord.values.Notes,
+            invoiceDate: updateRecord.values['Invoice Date'],
+            packedDate: updateRecord.values['Packed Date'],
+            shipmentCode: updateRecord.values['Shipment Code'],
+          },
+        })) as Parameters<typeof mapToDTO>[0];
+
+        await syncInventoryMovementsForTransaction(tx, saved);
+        return saved;
       },
-    })) as Parameters<typeof mapToDTO>[0];
-
-    const updatedForSync: TransactionForInventorySync = {
-      id: updated.id,
-      productCode: updated.productCode,
-      quantity: updated.quantity,
-      unitPrice: updated.unitPrice,
-      discount: updated.discount,
-      lineTotal: updated.lineTotal,
-      orderDate: updated.orderDate,
-      packedDate: updated.packedDate,
-      orderStatus: updated.orderStatus,
-      adjustment: updated.adjustment,
-    };
-
-    await syncInventoryMovementsForTransaction(gmPrisma, updatedForSync);
+      { isolationLevel: 'Serializable' }
+    );
 
     return { transaction: mapToDTO(updated) };
   },

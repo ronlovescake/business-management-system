@@ -1,6 +1,8 @@
 import { renderHook, act, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { useTransactionOperations } from '@/modules/clothing/operations/transactions/hooks/useTransactionOperations';
+import { TransactionService } from '@/modules/clothing/operations/transactions/services/TransactionService';
+import { api } from '@/lib/api/client';
 import type {
   PriceTier,
   TransactionData,
@@ -15,6 +17,7 @@ import type {
 vi.mock('@tanstack/react-query', () => ({
   useQueryClient: () => ({
     invalidateQueries: vi.fn(),
+    setQueryData: vi.fn(),
   }),
 }));
 
@@ -75,6 +78,190 @@ const createProps = () => {
 };
 
 describe('useTransactionOperations', () => {
+  it('keeps edits queued behind creation attached to the real saved ID', async () => {
+    let acknowledge!: (result: unknown) => void;
+    const post = vi.spyOn(api, 'post').mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          acknowledge = resolve;
+        })
+    );
+    const props = createProps();
+    const placeholder = {
+      ...baseTransaction,
+      id: undefined,
+      'Order Date': '2026-10-25',
+    };
+    const finish = vi.fn();
+    const replacePlaceholder = vi.fn();
+    const { result } = renderHook(() =>
+      useTransactionOperations({
+        ...props,
+        filteredData: [placeholder],
+        beginDraft: () => finish,
+        replacePlaceholder,
+      })
+    );
+    const edit = {
+      column: { id: 'notes', title: 'NOTES' } as HandsontableColumn,
+      columnId: 'notes',
+      columnIndex: 9,
+      row: 0,
+      rowData: placeholder,
+      oldValue: '',
+      source: 'edit',
+    };
+    let first!: Promise<unknown>;
+    let later!: Promise<unknown>;
+    act(() => {
+      first = Promise.resolve(
+        result.current.handleCellEdited({ ...edit, value: 'first' })
+      );
+    });
+    await waitFor(() => expect(post).toHaveBeenCalledTimes(1));
+    expect(result.current.hasDrafts).toBe(true);
+    act(() => {
+      later = Promise.resolve(
+        result.current.handleCellEdited({ ...edit, value: 'later' })
+      );
+    });
+    await act(async () => {
+      acknowledge({
+        count: 1,
+        transactions: [
+          { ...placeholder, id: 70, revision: 'a'.repeat(64), Notes: 'first' },
+        ],
+      });
+      await first;
+      await later;
+    });
+    expect(
+      post.mock.calls.filter(([url]) => url.endsWith('/transactions'))
+    ).toHaveLength(1);
+    expect(props.update).toHaveBeenCalledWith({
+      id: 70,
+      data: { Notes: 'later' },
+    });
+    expect(replacePlaceholder).toHaveBeenCalledWith(placeholder);
+    expect(finish).toHaveBeenCalledTimes(1);
+    expect(result.current.hasDrafts).toBe(false);
+    post.mockRestore();
+  });
+
+  it('retries an uncertain creation with the same frozen key and preserves later draft fields', async () => {
+    const post = vi
+      .spyOn(api, 'post')
+      .mockRejectedValueOnce(new Error('response lost'));
+    const props = createProps();
+    const placeholder = {
+      ...baseTransaction,
+      id: undefined,
+      'Order Date': '2026-10-25',
+    };
+    const saveBulkChanges = vi.fn().mockResolvedValue({ count: 1 });
+    const { result } = renderHook(() =>
+      useTransactionOperations({
+        ...props,
+        filteredData: [placeholder],
+        saveBulkChanges,
+      })
+    );
+    const edit = {
+      column: { id: 'notes', title: 'NOTES' } as HandsontableColumn,
+      columnId: 'notes',
+      columnIndex: 9,
+      row: 0,
+      rowData: placeholder,
+      oldValue: '',
+      source: 'edit',
+    };
+    await act(async () => {
+      await result.current.handleCellEdited({ ...edit, value: 'first' });
+    });
+    expect(result.current.draftError).toBe('response lost');
+    await act(async () => {
+      await result.current.handleCellEdited({ ...edit, value: 'later' });
+    });
+    expect(post).toHaveBeenCalledTimes(1);
+    post.mockResolvedValue({
+      count: 1,
+      transactions: [
+        { ...placeholder, id: 71, revision: 'a'.repeat(64), Notes: 'first' },
+      ],
+    });
+    await act(async () => {
+      await result.current.retryDrafts();
+    });
+    expect(post.mock.calls[1][1]).toEqual(post.mock.calls[0][1]);
+    expect(saveBulkChanges).toHaveBeenCalledWith([
+      { id: 71, data: { Notes: 'later' } },
+    ]);
+    post.mockRestore();
+  });
+
+  it('tracks incomplete drafts until explicitly discarded', async () => {
+    const props = createProps();
+    const placeholder = {
+      ...baseTransaction,
+      id: undefined,
+      Customers: '',
+      'Product Code': '',
+    };
+    const finish = vi.fn();
+    const { result } = renderHook(() =>
+      useTransactionOperations({
+        ...props,
+        filteredData: [placeholder],
+        beginDraft: () => finish,
+      })
+    );
+    await act(async () => {
+      await result.current.handleCellEdited({
+        column: { id: 'notes', title: 'NOTES' } as HandsontableColumn,
+        columnId: 'notes',
+        columnIndex: 9,
+        row: 0,
+        rowData: placeholder,
+        oldValue: '',
+        value: 'draft',
+        source: 'edit',
+      });
+    });
+    expect(result.current.hasDrafts).toBe(true);
+    act(() => result.current.discardDrafts());
+    expect(result.current.hasDrafts).toBe(false);
+    expect(placeholder.Notes).toBe('');
+    expect(finish).toHaveBeenCalledTimes(1);
+  });
+  it('ignores cancel from an older customer warning after another selection', async () => {
+    const validate = vi
+      .spyOn(TransactionService, 'validateCustomer')
+      .mockResolvedValue({ isValid: true, warnings: ['warning'] });
+    const props = createProps();
+    const { result } = renderHook(() => useTransactionOperations(props));
+    const edit = {
+      column: { id: 'customers', title: 'CUSTOMERS' } as HandsontableColumn,
+      columnId: 'customers',
+      columnIndex: 1,
+      row: 0,
+      rowData: props.filteredData[0],
+      oldValue: 'Acme Corp',
+      source: 'edit',
+    };
+    await act(async () => {
+      await result.current.handleCellEdited({ ...edit, value: 'First' });
+    });
+    const oldWarning = props.onCustomerWarning.mock.calls[0][0];
+    await act(async () => {
+      await result.current.handleCellEdited({ ...edit, value: 'Second' });
+    });
+    props.update.mockClear();
+    await act(async () => {
+      oldWarning.onCancel();
+    });
+    expect(props.update).not.toHaveBeenCalled();
+    validate.mockRestore();
+  });
   it('does not flush an older paste field over a newer individual edit', async () => {
     const props = createProps();
     const saveBulkChanges = vi.fn().mockResolvedValue({ count: 1 });

@@ -3,6 +3,7 @@ import { NextRequest } from 'next/server';
 import type { Transaction } from '@prisma/client';
 import { getTestApiUrl } from '@/core/testing/test-helpers';
 import { mapToDTO } from '@/modules/transactions/api/dto';
+import { TransactionConflictError } from '@/modules/transactions/api/updateConcurrency';
 
 const {
   mockTransactionService,
@@ -232,6 +233,23 @@ describe('Transactions API Routes', () => {
   });
 
   describe('PATCH /api/transactions', () => {
+    it('identifies the exact row and fields for a revision conflict', async () => {
+      mockTransactionService.updateTransaction.mockRejectedValue(
+        new TransactionConflictError([51], ['Product Code'])
+      );
+      const response = await PATCH(
+        new NextRequest(getTestApiUrl('/api/transactions'), {
+          method: 'PATCH',
+          body: JSON.stringify({ id: 1 }),
+        })
+      );
+      expect(response.status).toBe(409);
+      await expect(response.json()).resolves.toMatchObject({
+        error: 'Conflict on transaction #51.',
+        details: 'Refresh and review the affected row before retrying.',
+        meta: { transactionIds: [51], fields: ['Product Code'] },
+      });
+    });
     it('updates single transaction successfully', async () => {
       mockTransactionService.updateTransaction.mockResolvedValue({
         transaction: {

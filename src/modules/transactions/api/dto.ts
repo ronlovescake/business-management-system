@@ -1,7 +1,9 @@
+import { getTransactionRevision } from './updateConcurrency';
 import type { Prisma, Transaction } from '@prisma/client';
 
 export interface TransactionDTO {
   id?: number;
+  revision?: string;
   'Order Date': string;
   Customers: string;
   'Product Code': string;
@@ -20,15 +22,17 @@ export interface TransactionDTO {
 }
 
 export function mapToDTO(
-  transaction: Transaction & {
-    product?: {
-      productCode: string | null;
-      shipmentCode: string | null;
-    } | null;
-  }
+  transaction: Omit<Transaction, 'shippedAt' | 'accountsReceivableDueAt'> &
+    Partial<Pick<Transaction, 'shippedAt' | 'accountsReceivableDueAt'>> & {
+      product?: {
+        productCode: string | null;
+        shipmentCode: string | null;
+      } | null;
+    }
 ): TransactionDTO {
   return {
     id: transaction.id,
+    revision: getTransactionRevision(transaction),
     'Order Date': transaction.orderDate ?? '',
     Customers: transaction.customers ?? '',
     'Product Code':
