@@ -1,3 +1,11 @@
+import { dayjs, toDate } from '@/utils/date';
+
+export function parseAnalyticsDate(value: string): Date {
+  return /^\d{4}-\d{2}-\d{2}$/.test(value)
+    ? (toDate(value) ?? new Date(Number.NaN))
+    : new Date(value);
+}
+
 export type DateFilterType =
   | 'ytd'
   | 'mtd'
@@ -54,19 +62,20 @@ export function getFilterStart(
   filter: string,
   now: Date = new Date()
 ): Date | null {
+  const current = dayjs(now).tz('Asia/Manila');
   switch (filter) {
     case 'ytd':
-      return new Date(now.getFullYear(), 0, 1);
+      return current.startOf('year').toDate();
     case 'mtd':
-      return new Date(now.getFullYear(), now.getMonth(), 1);
+      return current.startOf('month').toDate();
     case 'last7days':
       return new Date(now.getTime() - 7 * DAY_MS);
     case 'last30days':
       return new Date(now.getTime() - 30 * DAY_MS);
     case 'last3months':
-      return new Date(now.getFullYear(), now.getMonth() - 3, 1);
+      return current.subtract(3, 'month').startOf('month').toDate();
     case 'last6months':
-      return new Date(now.getFullYear(), now.getMonth() - 6, 1);
+      return current.subtract(6, 'month').startOf('month').toDate();
     case 'all':
     default:
       return null;
@@ -78,7 +87,8 @@ export function getDateRangeFilter(
   now: Date = new Date()
 ): (date: Date) => boolean {
   const start = getFilterStart(filter, now);
-  return start ? (date) => date >= start && date <= now : () => true;
+  return (date) =>
+    Number.isFinite(date.getTime()) && (!start || date >= start) && date <= now;
 }
 
 export interface ComparisonRange {
@@ -89,21 +99,7 @@ export interface ComparisonRange {
 
 // Clamps the day so e.g. Mar 31 shifted back one month lands on Feb 28/29, not Mar 2/3.
 export function shiftMonths(date: Date, months: number): Date {
-  const target = new Date(date.getFullYear(), date.getMonth() + months, 1);
-  const daysInTarget = new Date(
-    target.getFullYear(),
-    target.getMonth() + 1,
-    0
-  ).getDate();
-  return new Date(
-    target.getFullYear(),
-    target.getMonth(),
-    Math.min(date.getDate(), daysInTarget),
-    date.getHours(),
-    date.getMinutes(),
-    date.getSeconds(),
-    date.getMilliseconds()
-  );
+  return dayjs(date).tz('Asia/Manila').add(months, 'month').toDate();
 }
 
 /**
@@ -128,17 +124,37 @@ export function getComparisonRange(
 
   switch (filter) {
     case 'ytd':
-      return byMonths(new Date(now.getFullYear(), 0, 1), 12);
+      return byMonths(
+        dayjs(now).tz('Asia/Manila').startOf('year').toDate(),
+        12
+      );
     case 'mtd':
-      return byMonths(new Date(now.getFullYear(), now.getMonth(), 1), 1);
+      return byMonths(
+        dayjs(now).tz('Asia/Manila').startOf('month').toDate(),
+        1
+      );
     case 'last7days':
       return byDays(7);
     case 'last30days':
       return byDays(30);
     case 'last3months':
-      return byMonths(new Date(now.getFullYear(), now.getMonth() - 3, 1), 3);
+      return byMonths(
+        dayjs(now)
+          .tz('Asia/Manila')
+          .subtract(3, 'month')
+          .startOf('month')
+          .toDate(),
+        3
+      );
     case 'last6months':
-      return byMonths(new Date(now.getFullYear(), now.getMonth() - 6, 1), 6);
+      return byMonths(
+        dayjs(now)
+          .tz('Asia/Manila')
+          .subtract(6, 'month')
+          .startOf('month')
+          .toDate(),
+        6
+      );
     case 'all':
     default:
       return null;

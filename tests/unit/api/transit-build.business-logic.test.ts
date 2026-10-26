@@ -128,6 +128,37 @@ describe('Transit Build Routes — Business Logic', () => {
 
   // ── GET ──────────────────────────────────────────────────────────────
   describe('GET /api/shipments/[id]/transit-build', () => {
+    it('identifies product-origin entries by permanent product ID', async () => {
+      mockPrisma.product.findMany.mockResolvedValue([
+        {
+          ...mockProducts()[0],
+          id: 42,
+          productCode: 'DTTP-101626',
+          product: 'Dreamgrow Tiny Tots Pants',
+        },
+      ]);
+      mockPrisma.clothingInventoryTransitBuildEntry.findMany.mockResolvedValue([
+        mockBuildEntry({
+          idempotencyKey: 'PRODUCT_TRANSIT_BUILD:42:GRAND_TOTAL',
+          amount: 19511.37,
+        }),
+      ]);
+
+      const response = await clothingGET(
+        buildRequest('/api/shipments/1/transit-build'),
+        { params: { id: '1' } }
+      );
+      const body = await response.json();
+
+      expect(body.data.entries[0]).toMatchObject({
+        productId: 42,
+        productCode: 'DTTP-101626',
+        productName: 'Dreamgrow Tiny Tots Pants',
+        amount: 19511.37,
+      });
+      expect(body.data.expectedTotalAmount).toBe(19511.37);
+    });
+
     it('returns transit build entries with expected total', async () => {
       const entry = mockBuildEntry();
       mockPrisma.clothingInventoryTransitBuildEntry.findMany.mockResolvedValue([

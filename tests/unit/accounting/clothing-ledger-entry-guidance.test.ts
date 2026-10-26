@@ -1,4 +1,6 @@
 import { describe, expect, it } from 'vitest';
+import { act, renderHook } from '@testing-library/react';
+import { useLedgerManualEntries } from '@/app/clothing/accounting/ledger/hooks/useLedgerManualEntries';
 import {
   CLOTHING_ENTRY_SCENARIOS,
   CLOTHING_NON_ROUTINE_ENTRY_ACCOUNTS,
@@ -8,6 +10,26 @@ import {
 import { buildLedgerAccounts } from '@/app/clothing/accounting/ledger/hooks/ledgerDerivedData';
 
 describe('clothing ledger entry guidance', () => {
+  it('opens the real manual-entry form with the canonical card-settlement accounts', () => {
+    const { result } = renderHook(() =>
+      useLedgerManualEntries({
+        apiPath: (path) => path,
+        refreshLedger: async () => {},
+        entries: [],
+      })
+    );
+    act(() => result.current.openManualEntryModal('card-settlement'));
+    expect(result.current.manualEntryForm).toMatchObject({
+      debitAccount: 'Cash',
+      creditAccount: 'Card Collections Clearing',
+    });
+    act(() => result.current.openManualEntryModal('card-processing-fee'));
+    expect(result.current.manualEntryForm).toMatchObject({
+      debitAccount: 'Card Processing Fees',
+      creditAccount: 'Card Collections Clearing',
+    });
+  });
+
   it('omits automatic accounts from new manual-entry options, including historical accounts', () => {
     const options = getClothingManualEntryAccounts([
       'Cash',
@@ -30,6 +52,8 @@ describe('clothing ledger entry guidance', () => {
     ]);
 
     expect(options).toContain('Cash');
+    expect(options).toContain('Card Collections Clearing');
+    expect(options).toContain('Card Processing Fees');
     expect(options).toContain('Loan Payable');
     expect(options).toContain('Accounts Payable');
     expect(options).toContain('Credit Card Payable');
@@ -83,6 +107,17 @@ describe('clothing ledger entry guidance', () => {
       creditAccount: 'Cash',
     });
     expect(logistics?.destination?.href).toBe('/clothing/operations/shipments');
-    expect(manualScenarios).toHaveLength(5);
+    expect(manualScenarios).toHaveLength(7);
+  });
+
+  it('settles incoming cards through actual Cash and a separate actual fee, never outgoing card debt', () => {
+    expect(getClothingEntryScenario('card-settlement')).toMatchObject({
+      debitAccount: 'Cash',
+      creditAccount: 'Card Collections Clearing',
+    });
+    expect(getClothingEntryScenario('card-processing-fee')).toMatchObject({
+      debitAccount: 'Card Processing Fees',
+      creditAccount: 'Card Collections Clearing',
+    });
   });
 });

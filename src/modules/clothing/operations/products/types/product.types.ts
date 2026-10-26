@@ -10,6 +10,12 @@ import type { GridCell } from '@glideapps/glide-data-grid';
  */
 export interface ProductData {
   id?: number;
+  'Supplier Reference'?: string | null;
+  'Supplier Fulfillment Status'?: string;
+  'Supplier Credit Applied'?: number;
+  'Supplier Credit Id'?: string | null;
+  'Supplier Credit Amount'?: number;
+  'Supplier Credit Request Id'?: string | null;
   'Shipment Code': string;
   'CV Number': string;
   'No. Of Sacks': number;
@@ -55,6 +61,10 @@ export interface ProductData {
  * Product Form Data (15 input fields)
  */
 export interface ProductFormData {
+  supplierReference?: string;
+  supplierCreditId?: string;
+  supplierCreditAmount?: number;
+  supplierCreditRequestId?: string;
   shipmentCode: string;
   postingDate: string;
   orderDate: string;

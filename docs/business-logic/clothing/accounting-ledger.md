@@ -36,29 +36,46 @@ module-specific environment value or the existing default date.
 | #   | Logic                                                                  | Explanation                                                                       |
 | --- | ---------------------------------------------------------------------- | --------------------------------------------------------------------------------- |
 | 1   | Four stat cards at the top                                             | Total Debits (blue), Total Credits (teal), Net Change (green), Accounts (violet). |
-| 2   | Net Change: `totalDebits - totalCredits`                               | Shown as currency; represents net position over the selected period.              |
+| 2   | Net Change: `totalDebits - totalCredits`                               | Selected-period movement, not an account closing balance.                         |
 | 3   | Accounts: count of unique account names in the filtered ledger entries | Shows how many distinct accounts have activity.                                   |
-| 4   | Data fetched via `GET /accounting/ledger?period=...`                   | Returns `{ entries: LedgerEntry[], stats: LedgerStats }`.                         |
+| 4   | Data fetched via `GET /accounting/ledger?period=...`                   | Returns entries/stats plus authoritative `openingBalances` and `closingBalances`. |
 
 ---
 
 ## B - Period Filter & Account Filter
 
-| #   | Logic                                                                                                                                                                                                                                                                                                                                                              | Explanation                                                        |
-| --- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------ |
-| 5   | Period options: `All Time`, `This Month`, `Last Month`, `This Year`, `Last Year`, `Last 30 Days`, `Last 90 Days`                                                                                                                                                                                                                                                   | Changing period triggers a new fetch.                              |
-| 6   | Account filter: dropdown of all unique accounts from entries plus a hardcoded common account list                                                                                                                                                                                                                                                                  | Shows `all` or filters to a single account.                        |
-| 7   | Hardcoded common accounts always available in the filter: Cash, Accounts Receivable, Stock on Hand, Inventory in Transit, Landed Cost Clearing, Accounts Payable, Forwarder Payable, Courier Payable, Credit Card Payable, Loan Payable, Opening Equity, Owner Contribution, Owner Draw, Sales Revenue, Sales Returns, COGS, Inventory Shrinkage, Interest Expense | Ensures standard accounts are always filterable even with no data. |
-| 8   | Search filter: matches `ref`, `account`, or `description` (case-insensitive)                                                                                                                                                                                                                                                                                       | Applied client-side.                                               |
+| #   | Logic                                                                                                                                                                                                                                                                                                                                                              | Explanation                                                                    |
+| --- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------ |
+| 5   | Period options include All Time, month/year-to-date, previous periods, rolling windows and explicit Full Calendar Year                                                                                                                                                                                                                                             | This Year is YTD, not a future December cutoff. Changing period fetches again. |
+| 6   | Account filter includes period entries, brought-forward accounts and common accounts                                                                                                                                                                                                                                                                               | An account with only prior-period activity remains selectable.                 |
+| 7   | Hardcoded common accounts always available in the filter: Cash, Accounts Receivable, Stock on Hand, Inventory in Transit, Landed Cost Clearing, Accounts Payable, Forwarder Payable, Courier Payable, Credit Card Payable, Loan Payable, Opening Equity, Owner Contribution, Owner Draw, Sales Revenue, Sales Returns, COGS, Inventory Shrinkage, Interest Expense | Ensures standard accounts are always filterable even with no data.             |
+| 8   | Search filter: matches `ref`, `account`, or `description` (case-insensitive)                                                                                                                                                                                                                                                                                       | Applied client-side.                                                           |
 
 ---
 
 ## C - Running Balances
 
-| #   | Logic                                                                                                                   | Explanation                                                                |
-| --- | ----------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------- |
-| 9   | `computeRunningBalances()` adds a `balance` field to each entry                                                         | Entries sorted by date ascending; running cumulative sum per account.      |
-| 10  | `filterAndSortLedgerEntries()` applies account/search filters, computes running balances, then sorts descending by date | The displayed table shows newest entries first with their running balance. |
+Legacy paid-transaction entries are suppressed only by payment events with a
+finite, positive amount, regardless of the selected report period. Non-posting
+zero, negative, or non-finite payment rows do not remove the legacy cash/revenue
+entry. See the Journal contract for the shared report recognition rule.
+
+| #   | Logic                                                                              | Explanation                                                                                               |
+| --- | ---------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------- |
+| 9   | `buildLedgerPeriod()` computes opening, running and closing balances before search | Earlier eligible history is brought forward; each period line retains its true account balance.           |
+| 10  | Client account/search filters preserve server balances and sort for display        | The legacy client fallback calculates before filtering; neither search nor CSV restarts balances at zero. |
+
+The selected account shows opening balance, closing balance and period movement
+separately. A prior-only account can have no visible lines and a nonzero closing
+balance. CSV exports the same authoritative Balance as the table. The table has
+a stable minimum width and contained horizontal scrolling on mobile, so headings
+and monetary values do not overlap. The isolated browser regression checks a
+100 opening, 25 receipt, 10 payout and 115 closing; searching for the receipt
+still exports its 125 running balance, not a search-derived 25.
+
+The Journal's dated customer-money/CARD contract applies unchanged here. Approval
+and actual payouts remain distinct; Card Collections Clearing and Refunds
+Payable are not folded into Cash or supplier Credit Card Payable.
 
 ---
 

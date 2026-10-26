@@ -14,6 +14,7 @@ import { getApiDataOrThrow } from '@/lib/api/response';
 import { buildApiPath } from '@/lib/api/paths';
 import type { ApiResponse } from '@/types/api';
 import { getCurrentDateISO } from '@/utils/date';
+import type { InventoryValuationSummary } from '@/lib/accounting/inventoryCogsShared';
 
 export type ProfitLossRow = {
   id: string;
@@ -38,6 +39,7 @@ export type ProfitLossDetailRow = {
 };
 
 export type ProfitLossStats = {
+  valuation?: InventoryValuationSummary;
   revenueTotal: number;
   cogsTotal: number;
   grossProfit: number;
@@ -72,7 +74,8 @@ export function useProfitLoss(options: { apiBasePath?: string } = {}) {
   const [detailRows, setDetailRows] = useState<ProfitLossDetailRow[]>([]);
   const [summaryLoadError, setSummaryLoadError] = useState<string | null>(null);
   const [detailsLoadError, setDetailsLoadError] = useState<string | null>(null);
-  const [, setStats] = useState<ProfitLossStats>({
+  const [refreshVersion, setRefreshVersion] = useState(0);
+  const [serverStats, setStats] = useState<ProfitLossStats>({
     revenueTotal: 0,
     cogsTotal: 0,
     grossProfit: 0,
@@ -132,7 +135,7 @@ export function useProfitLoss(options: { apiBasePath?: string } = {}) {
     return () => {
       isMounted = false;
     };
-  }, [apiPath, period]);
+  }, [apiPath, period, refreshVersion]);
 
   useEffect(() => {
     let isMounted = true;
@@ -182,7 +185,7 @@ export function useProfitLoss(options: { apiBasePath?: string } = {}) {
     return () => {
       isMounted = false;
     };
-  }, [activeTab, apiPath, period]);
+  }, [activeTab, apiPath, period, refreshVersion]);
 
   const filteredRows = useMemo(() => {
     const search = searchQuery.trim().toLowerCase();
@@ -240,6 +243,7 @@ export function useProfitLoss(options: { apiBasePath?: string } = {}) {
       .reduce((sum, row) => sum + row.amount, 0);
 
     return {
+      valuation: serverStats.valuation,
       revenueTotal,
       cogsTotal,
       grossProfit: revenueTotal - cogsTotal,
@@ -247,16 +251,30 @@ export function useProfitLoss(options: { apiBasePath?: string } = {}) {
       netProfit: revenueTotal - expenseTotal,
       period,
     };
-  }, [filteredRows, period]);
+  }, [filteredRows, period, serverStats.valuation]);
 
   const formatCurrency = formatCurrencyPHP;
 
   const handleExportCSV = () => {
-    const headers = ['Category', 'Type', 'Amount'];
+    const headers = [
+      'Category',
+      'Type',
+      'Amount',
+      'Valuation Status',
+      'Affected Quantity',
+    ];
     const rowsData = rows.map((row) => [
       escapeCsvValue(row.category),
       escapeCsvValue(row.type),
       escapeCsvValue(row.amount.toFixed(2)),
+      escapeCsvValue(
+        serverStats.valuation?.complete === false
+          ? 'Incomplete'
+          : serverStats.valuation
+            ? 'Complete'
+            : 'Not assessed'
+      ),
+      escapeCsvValue(serverStats.valuation?.affectedQuantity ?? ''),
     ]);
     const csvContent = buildCsvContent(headers, rowsData);
     downloadCsvFile('profit-loss.csv', csvContent);
@@ -275,6 +293,8 @@ export function useProfitLoss(options: { apiBasePath?: string } = {}) {
       'Ref',
       'Source Type',
       'Source ID',
+      'Valuation Status',
+      'Affected Quantity',
     ];
 
     const rowsData = detailRows.map((row) => [
@@ -289,6 +309,14 @@ export function useProfitLoss(options: { apiBasePath?: string } = {}) {
       escapeCsvValue(row.ref ?? ''),
       escapeCsvValue(row.sourceType),
       escapeCsvValue(row.sourceId ?? ''),
+      escapeCsvValue(
+        serverStats.valuation?.complete === false
+          ? 'Incomplete'
+          : serverStats.valuation
+            ? 'Complete'
+            : 'Not assessed'
+      ),
+      escapeCsvValue(serverStats.valuation?.affectedQuantity ?? ''),
     ]);
 
     const csvContent = buildCsvContent(headers, rowsData);
@@ -309,6 +337,7 @@ export function useProfitLoss(options: { apiBasePath?: string } = {}) {
 
   return {
     rows,
+    refresh: () => setRefreshVersion((version) => version + 1),
     filteredRows,
     detailRows,
     filteredDetailRows,

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { showNotification } from '@mantine/notifications';
 import { useQueryClient } from '@tanstack/react-query';
 import { getSwal } from '@/lib/alerts';
@@ -80,11 +80,13 @@ export function useTransactionPaymentsState({
   const [method, setMethod] = useState<string | null>('Cash');
   const [notes, setNotes] = useState('');
   const [isReservation, setIsReservation] = useState(false);
+  const [originalDepositRate, setOriginalDepositRate] = useState<10 | 20>(10);
   const [reservationTouched, setReservationTouched] = useState(false);
   const [amountByTransactionId, setAmountByTransactionId] = useState<
     Record<number, number>
   >({});
   const [isSaving, setIsSaving] = useState(false);
+  const pendingSave = useRef<{ payload: string; id: string } | null>(null);
 
   const visibleStatusFilterOptions = useMemo(
     () =>
@@ -114,6 +116,7 @@ export function useTransactionPaymentsState({
     setMethod('Cash');
     setNotes('');
     setIsReservation(false);
+    setOriginalDepositRate(10);
     setReservationTouched(false);
     setAmountByTransactionId({});
   }, []);
@@ -297,7 +300,7 @@ export function useTransactionPaymentsState({
     setIsReservation(shouldDefaultToReservation);
 
     if (shouldDefaultToReservation && !notes.trim()) {
-      setNotes('Reservation fee');
+      setNotes('Reservation Deposit');
     }
   }, [
     isGeneralMerchandise,
@@ -324,7 +327,7 @@ export function useTransactionPaymentsState({
       setIsReservation(checked);
 
       if (checked && !notes.trim()) {
-        setNotes('Reservation fee');
+        setNotes('Reservation Deposit');
       }
     },
     [notes]
@@ -336,7 +339,7 @@ export function useTransactionPaymentsState({
       setIsReservation(true);
 
       if (!notes.trim()) {
-        setNotes('Reservation fee');
+        setNotes('Reservation Deposit');
       }
 
       setAmountByTransactionId((previous) => ({
@@ -401,7 +404,7 @@ export function useTransactionPaymentsState({
           return false;
         }
 
-        return draft.amount > getTransactionBaseTotal(transaction) + 0.01;
+        return draft.amount > getTransactionBaseTotal(transaction);
       });
 
       if (overLimitDrafts.length > 0) {
@@ -419,16 +422,25 @@ export function useTransactionPaymentsState({
         method,
         notes,
         isReservation,
+        originalDepositRate: isGeneralMerchandise
+          ? undefined
+          : originalDepositRate,
       });
+      const payload = JSON.stringify(requestPayload);
+      if (pendingSave.current?.payload !== payload) {
+        pendingSave.current = { payload, id: crypto.randomUUID() };
+      }
 
       setIsSaving(true);
       try {
         await api.post(
           buildApiPath(apiBasePath, '/transactions/payments/bulk'),
-          requestPayload
+          requestPayload,
+          { headers: { 'Idempotency-Key': pendingSave.current.id } }
         );
 
         await queryClient.invalidateQueries({ queryKey: transactionsQueryKey });
+        pendingSave.current = null;
 
         showNotification({
           title: 'Payment recorded',
@@ -455,7 +467,9 @@ export function useTransactionPaymentsState({
     [
       apiBasePath,
       eligibleTransactions,
+      isGeneralMerchandise,
       isReservation,
+      originalDepositRate,
       method,
       notes,
       onClose,
@@ -495,7 +509,7 @@ export function useTransactionPaymentsState({
 
       const Swal = await getSwal();
       const reservationLabel = isReservation
-        ? 'These will be recorded as Reservation fee (Customer Deposits), not Sales Revenue.'
+        ? 'These will be recorded as Reservation Deposits (Customer Deposits), not Sales Revenue.'
         : 'These will be recorded as normal payments.';
       const afterSaveLabel =
         mode === 'close'
@@ -559,6 +573,7 @@ export function useTransactionPaymentsState({
     handleStatusFilter: onStatusFilter,
     isGeneralMerchandise,
     isReservation,
+    originalDepositRate,
     isSaving,
     method,
     notes,
@@ -569,9 +584,12 @@ export function useTransactionPaymentsState({
     setMethod,
     setNotes,
     setPaymentDate,
+    setOriginalDepositRate,
     totalEntered,
     amountByTransactionId,
     visibleStatusFilterOptions,
-    paymentMethodOptions: PAYMENT_METHOD_OPTIONS,
+    paymentMethodOptions: isGeneralMerchandise
+      ? PAYMENT_METHOD_OPTIONS
+      : [...PAYMENT_METHOD_OPTIONS, { value: 'CARD', label: 'Card' }],
   };
 }

@@ -41,6 +41,118 @@ afterEach(() => {
 });
 
 describe('buildTableQueryOptions', () => {
+  it.each([
+    'transactionPayment',
+    'transactionRefund',
+    'transactionStatusChange',
+    'clothingOrderCancellation',
+  ])('scopes %s to included order parents', (model) => {
+    const options = {
+      model,
+      strategy: 'full' as const,
+      differentialSince: null,
+    };
+    expect(
+      buildTableQueryOptions(null, { ...options, includeSoftDeleted: false })
+        .where
+    ).toEqual({ transaction: { deletedAt: null } });
+    expect(
+      buildTableQueryOptions(null, { ...options, includeSoftDeleted: true })
+        .where
+    ).toEqual({});
+  });
+
+  it('retains only payouts with included approval/order/refund parents', () => {
+    expect(
+      buildTableQueryOptions(null, {
+        model: 'clothingRefundPayout',
+        strategy: 'full',
+        differentialSince: null,
+        includeSoftDeleted: false,
+      }).where
+    ).toEqual({
+      cancellation: { transaction: { deletedAt: null } },
+      refund: { deletedAt: null },
+    });
+  });
+
+  it('keeps immutable active-event and inventory audit requests without claiming selective inventory recovery', () => {
+    const options = {
+      model: 'clothingFinancialRequest',
+      strategy: 'differential' as const,
+      differentialSince: new Date('2026-10-01'),
+    };
+    const filtered = buildTableQueryOptions(
+      { id: 'request', createdAt: new Date() },
+      { ...options, includeSoftDeleted: false }
+    );
+    expect(filtered.where).toEqual({
+      OR: [
+        {
+          payments: {
+            some: { deletedAt: null, transaction: { deletedAt: null } },
+          },
+        },
+        { cancellation: { transaction: { deletedAt: null } } },
+        {
+          payout: {
+            cancellation: { transaction: { deletedAt: null } },
+            refund: { deletedAt: null },
+          },
+        },
+        {
+          operation: {
+            in: ['ZERO_COST_CONFIRMATION', 'INVENTORY_COST_CORRECTION'],
+          },
+        },
+      ],
+    });
+    expect(filtered.differentialUnsupported).toBe(true);
+    expect(
+      buildTableQueryOptions(null, { ...options, includeSoftDeleted: true })
+        .where
+    ).toEqual({});
+  });
+
+  it.each([
+    {
+      model: 'clothingSupplierCredit',
+      where: { sourceProduct: { deletedAt: null } },
+    },
+    {
+      model: 'clothingSupplierCreditApplication',
+      where: {
+        targetProduct: { deletedAt: null },
+        credit: { sourceProduct: { deletedAt: null } },
+      },
+    },
+    {
+      model: 'clothingProductShipmentTransfer',
+      where: { product: { deletedAt: null } },
+    },
+  ])(
+    'keeps $model consistent with included product parents and mutable balances',
+    ({ model, where }) => {
+      const options = {
+        model,
+        strategy: 'differential' as const,
+        differentialSince: new Date('2026-10-01'),
+      };
+      const filtered = buildTableQueryOptions(
+        { id: 'record', createdAt: '2026-10-01' },
+        { ...options, includeSoftDeleted: false }
+      );
+      expect(filtered.where).toEqual(where);
+      expect(filtered.differentialUnsupported).toBe(true);
+      expect(
+        buildTableQueryOptions(
+          { id: 'record' },
+          { ...options, includeSoftDeleted: true }
+        ).where
+      ).toEqual({});
+    }
+  );
+
   it.each(['productCodeAlias', 'generalMerchandiseProductCodeAlias'])(
     'exports %s only when its parent product is included',
     (model) => {

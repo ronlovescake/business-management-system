@@ -123,6 +123,44 @@ describe('GM products API', () => {
     expect(body.data.product.id).toBe(1);
   });
 
+  it.each(['POST', 'PUT'])(
+    'rejects clothing supplier-credit inputs on GM %s',
+    async (method) => {
+      const handler = method === 'POST' ? POST : PUT;
+      const response = await handler(
+        buildRequest('/api/general-merchandise/products', {
+          method,
+          body: JSON.stringify([
+            {
+              ...sampleProduct,
+              'Supplier Reference': 'Supplier A',
+              'Supplier Credit Id': 'credit-42',
+              'Supplier Credit Amount': 1,
+            },
+          ]),
+        })
+      );
+      expect(response.status).toBe(400);
+      expect(mockProductService.createSingle).not.toHaveBeenCalled();
+      expect(mockProductService.bulkUpdate).not.toHaveBeenCalled();
+    }
+  );
+
+  it('rejects supplier-credit fields on a GM direct update', async () => {
+    const response = await PUT_BY_ID(
+      buildRequest('/api/general-merchandise/products/1', {
+        method: 'PUT',
+        body: JSON.stringify({
+          ...sampleProduct,
+          'Supplier Credit Id': 'credit-42',
+        }),
+      }),
+      { params: { id: '1' } }
+    );
+    expect(response.status).toBe(400);
+    expect(mockPrisma.generalMerchandiseProduct.update).not.toHaveBeenCalled();
+  });
+
   it('returns original skipped indices for partially valid GM grid saves', async () => {
     mockProductService.bulkUpdate.mockResolvedValue({
       created: 0,

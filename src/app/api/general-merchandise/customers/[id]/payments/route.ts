@@ -76,7 +76,14 @@ function sanitizeCreateInput(input: TransactionPaymentCreateInput):
     };
   }
 
-  const amount = sanitizers.number(input.amount, { min: 0, decimals: 2 }) ?? 0;
+  const amount = sanitizers.number(input.amount, { min: 0, decimals: 2 });
+  if (amount === null || amount <= 0) {
+    return {
+      error: ApiResponse.badRequest('Invalid amount', {
+        amount: 'Provide a positive amount (greater than 0 after rounding).',
+      }),
+    };
+  }
 
   const method =
     input.method === undefined || input.method === null

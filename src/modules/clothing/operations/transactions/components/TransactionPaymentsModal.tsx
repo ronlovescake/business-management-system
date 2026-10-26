@@ -49,6 +49,8 @@ export function TransactionPaymentsModal({
     handleReservationChange,
     handleStatusFilter,
     isReservation,
+    isGeneralMerchandise,
+    originalDepositRate,
     isSaving,
     method,
     notes,
@@ -60,6 +62,7 @@ export function TransactionPaymentsModal({
     setMethod,
     setNotes,
     setPaymentDate,
+    setOriginalDepositRate,
     totalEntered,
     amountByTransactionId,
     visibleStatusFilterOptions,
@@ -108,6 +111,10 @@ export function TransactionPaymentsModal({
           method={method}
           notes={notes}
           isReservation={isReservation}
+          originalDepositRate={
+            isGeneralMerchandise ? undefined : originalDepositRate
+          }
+          onOriginalDepositRateChange={setOriginalDepositRate}
           selectedStatuses={filteredSelectedStatuses}
           statusOptions={visibleStatusFilterOptions}
           paymentMethodOptions={paymentMethodOptions}
@@ -129,6 +136,7 @@ export function TransactionPaymentsModal({
           onAmountChange={handleAmountChange}
           onApplyReservationFee={handleApplyReservationFee}
           onApplyFullPayment={handleApplyFullPayment}
+          reservationRate={isGeneralMerchandise ? 10 : originalDepositRate}
         />
 
         <Group justify="space-between">

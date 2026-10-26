@@ -33,6 +33,7 @@
     "test:unit": "vitest run",
     "test:integration": "vitest run --config vitest.config.integration.ts",
     "test:hardening": "vitest run --config vitest.config.hardening.ts",
+    "test:browser:supplier-credit": "node tests/e2e/supplier-credit-modal.browser.cjs",
     "pretest:coverage": "node -e \"require('fs').mkdirSync('coverage/.tmp', { recursive: true })\"",
     "test:coverage": "vitest run --config vitest.config.coverage.ts --coverage",
     "test:coverage:enforce": "cross-env COVERAGE_ENFORCE=true vitest run --config vitest.config.coverage.ts --coverage",

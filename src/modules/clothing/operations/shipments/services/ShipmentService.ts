@@ -468,6 +468,10 @@ export class ShipmentService {
     totalAmount: number;
     entries: Array<{
       id: string;
+      productId?: number | null;
+      productCode?: string | null;
+      productName?: string | null;
+      eligibleForReclass?: boolean;
       postingDate: string;
       amount: number;
       debitAccount: string;

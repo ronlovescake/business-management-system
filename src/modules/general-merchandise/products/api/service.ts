@@ -237,8 +237,14 @@ export async function postGmSupplierSettlementForProductPaymentChange(params: {
 function mapGmFromDTO(
   dto: ProductDTO
 ): Prisma.GeneralMerchandiseProductUncheckedCreateInput {
+  if (dto['Supplier Credit Id']) {
+    throw new Error(
+      'Supplier-credit funding is supported only for clothing products.'
+    );
+  }
   const data = mapFromDTO(dto);
   delete data.paymentCard;
+  delete data.supplierReference;
   return {
     ...data,
     paymentCardId: dto['Payment Card Id'] ?? null,

@@ -7,6 +7,7 @@ import {
   parseShipmentId,
   computeExpectedAmount,
   getTransitBuildEntrySource,
+  parseProductIdFromTransitBuildKey,
 } from './shipmentUtils';
 
 const ACCOUNTING_CUTOVER = new Date(Date.UTC(2026, 0, 1));
@@ -56,6 +57,7 @@ type TransitBuildPatchRequestBody = {
 /* eslint-disable @typescript-eslint/no-explicit-any */
 export interface TransitBuildDelegates {
   enforceExclusiveSource?: boolean;
+  includeSupplierState?: boolean;
   hasActiveReclass?: (shipmentCode: string) => Promise<boolean>;
   hasActiveSupplierSettlement?: (shipmentCode: string) => Promise<boolean>;
   shipmentModel: {
@@ -67,6 +69,10 @@ export interface TransitBuildDelegates {
   productModel: {
     findMany: (...args: any[]) => Promise<
       Array<{
+        id?: number;
+        productCode?: string | null;
+        product?: string | null;
+        supplierFulfillmentStatus?: string;
         cogs: unknown;
         grandTotal: unknown;
         forwardersFee: unknown;
@@ -165,6 +171,12 @@ export function createTransitBuildRoutes<T extends TransitBuildDelegates>(
       const products = await delegates.productModel.findMany({
         where: { shipmentCode, deletedAt: null },
         select: {
+          id: true,
+          productCode: true,
+          product: true,
+          ...(delegates.includeSupplierState
+            ? { supplierFulfillmentStatus: true }
+            : {}),
           cogs: true,
           grandTotal: true,
           forwardersFee: true,
@@ -197,6 +209,25 @@ export function createTransitBuildRoutes<T extends TransitBuildDelegates>(
           totalAmount,
           entries: buildEntries.map((row) => ({
             id: row.id,
+            productId: parseProductIdFromTransitBuildKey(row.idempotencyKey),
+            productCode:
+              products.find(
+                (product) =>
+                  product.id ===
+                  parseProductIdFromTransitBuildKey(row.idempotencyKey)
+              )?.productCode ?? null,
+            productName:
+              products.find(
+                (product) =>
+                  product.id ===
+                  parseProductIdFromTransitBuildKey(row.idempotencyKey)
+              )?.product ?? null,
+            eligibleForReclass:
+              products.find(
+                (product) =>
+                  product.id ===
+                  parseProductIdFromTransitBuildKey(row.idempotencyKey)
+              )?.supplierFulfillmentStatus !== 'CREDIT_ISSUED',
             postingDate: row.postingDate.toISOString(),
             amount: row.amount,
             debitAccount: row.debitAccount,

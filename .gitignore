@@ -49,6 +49,7 @@ prisma/migrations/dev.db*
 backups/
 snapshots/
 *.sql
+!prisma/migrations/20251024125453_add_foreign_keys_and_unique_constraints/migration.sql
 !prisma/migrations/20251210103000_add_vehicle_id_to_trucking_expenses/migration.sql
 !prisma/migrations/20260111085500_create_household_accounts_baseline/migration.sql
 !prisma/migrations/20260111090000_add_household_budget_table/migration.sql
@@ -66,6 +67,7 @@ snapshots/
 !prisma/migrations/20261019110000_add_clothing_investor_codes/migration.sql
 !prisma/migrations/20261020120000_clothing_product_identity/migration.sql
 !prisma/migrations/20261025150000_transaction_creation_keys/migration.sql
+!prisma/migrations/20261026120000_clothing_supplier_credits/migration.sql
 !prisma/manual/20260116_create_clothing_recurring_payments.sql
 !prisma/manual/20260116_reconcile_prisma_drift.sql
 !archives/migration-scripts/20260318_backfill_missing_shipment_jt0012625740989.sql

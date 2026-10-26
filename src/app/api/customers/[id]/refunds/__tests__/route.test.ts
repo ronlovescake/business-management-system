@@ -7,11 +7,23 @@ const mockPrisma = vi.hoisted(() => ({
   customer: { findUnique: vi.fn() },
   transaction: { findFirst: vi.fn() },
   transactionPayment: { findMany: vi.fn() },
-  transactionRefund: { findMany: vi.fn(), create: vi.fn() },
-  inventoryMovement: { findFirst: vi.fn(), create: vi.fn() },
+  transactionRefund: {
+    findMany: vi.fn(),
+    findFirst: vi.fn(),
+    create: vi.fn(),
+    update: vi.fn(),
+  },
+  inventoryMovement: {
+    findFirst: vi.fn(),
+    create: vi.fn(),
+    updateMany: vi.fn(),
+  },
 }));
 
 vi.mock('@/lib/db', () => ({ prisma: mockPrisma }));
+vi.mock('@/lib/auth/session', () => ({
+  requireAuth: async () => ({ id: 'user-1', role: 'USER' }),
+}));
 vi.mock('@/lib/logger', () => ({
   logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn() },
 }));
@@ -77,6 +89,35 @@ describe('clothing customer refund route', () => {
     expect(body.error).toBe('Refund exceeds transaction limits');
     expect(mockPrisma.transactionRefund.create).not.toHaveBeenCalled();
     expect(mockPrisma.inventoryMovement.create).not.toHaveBeenCalled();
+  });
+
+  it('cannot bypass an approved cancellation through the legacy refund form', async () => {
+    mockPrisma.transaction.findFirst.mockResolvedValue({
+      id: 5,
+      cancellation: { id: 'approval-1' },
+    });
+    const { POST } = await import('../route');
+    const response = await POST(buildRequest(buildBody()), {
+      params: { id: '1' },
+    });
+    expect(response.status).toBe(400);
+    expect(mockPrisma.transactionRefund.create).not.toHaveBeenCalled();
+  });
+
+  it('preserves a completed cash payout and its physical return when delete is requested', async () => {
+    mockPrisma.transactionRefund.findFirst.mockResolvedValue({ id: 9 });
+    const { DELETE } = await import('../[refundId]/route');
+    const response = await DELETE(
+      new NextRequest(getTestApiUrl('/api/customers/1/refunds/9'), {
+        method: 'DELETE',
+      }),
+      {
+        params: { id: '1', refundId: '9' },
+      }
+    );
+    expect(response.status).toBe(409);
+    expect(mockPrisma.transactionRefund.update).not.toHaveBeenCalled();
+    expect(mockPrisma.inventoryMovement.updateMany).not.toHaveBeenCalled();
   });
 
   it('copies the original sale cost to a returned item movement', async () => {

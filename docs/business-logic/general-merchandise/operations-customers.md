@@ -7,6 +7,9 @@
 > - `src/app/general-merchandise/operations/_shared/renderGmOperationsPage.tsx`
 > - `src/modules/general-merchandise/operations/customers/module.config.ts`
 > - `src/modules/general-merchandise/customers/api/service.ts`
+> - `src/app/api/general-merchandise/customers/[id]/payments/route.ts`
+> - `src/app/api/general-merchandise/transactions/payments/bulk/route.ts`
+> - `src/lib/validations/transaction-payment.validation.ts`
 
 ---
 
@@ -38,6 +41,20 @@
 | 8   | The GM customer service exposes active-customer lookup, bulk sync, create, and soft-delete-all behavior               | These service methods define the customer data-management surface under GM APIs.                     |
 | 9   | GM customer DTO mapping reuses the shared customer DTO conversion helpers                                             | The service maps to and from shared customer DTO shapes while storing records in GM-specific tables. |
 | 10  | Bulk synchronization and create flows should be treated as GM customer workflow even though the DTO mapping is shared | GM data ownership stays separate from other businesses.                                              |
+
+## Payment Amount Validation
+
+| #   | Logic                                                           | Explanation                                                                                                                                                                                              |
+| --- | --------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 11  | GM direct and bulk collections require finite positive amounts  | Both consume the shared payment-create schema, which rejects zero, negative and non-finite input.                                                                                                        |
+| 12  | GM normalized payments must remain positive                     | Both routes use the existing two-decimal sanitizer and reject amounts that round to zero before inserting payments or updating balances. One-cent payments and existing rounding behavior are preserved. |
+| 13  | Invalid amounts reject the complete bulk request before writing | A batch containing both valid and invalid amounts writes neither payment. This input guarantee does not claim concurrency/idempotency protection for valid requests.                                     |
+
+Amount validity matches the
+[Clothing customer collection safeguard](../clothing/operations-customers.md#payment-amount-validation).
+GM records and its existing direct/bulk status, balance and transaction behavior
+remain separate. No historical payment, refund accounting or overpayment policy
+is changed by this safeguard.
 
 ## Permanent Order Customer Identity
 

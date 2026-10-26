@@ -21,6 +21,36 @@ describe('handleOrderStatusColumnEdit', () => {
     version: 1,
   };
 
+  it.each(['Cancelled', 'Voided'] as const)(
+    'routes %s to the approved cancellation workflow instead of a generic update',
+    async (status) => {
+      const onCancellationRequested = vi.fn().mockResolvedValue(undefined);
+      const updateTransactionData = vi.fn();
+      const fireAlert = vi.fn();
+      await handleOrderStatusColumnEdit({
+        columnId: 'orderStatus',
+        rawValue: status,
+        transaction: baseTransaction,
+        transactionDescriptor: 'TX-101',
+        shouldLog: false,
+        isPaidOrderStatus: () => false,
+        isVoidedOrderStatus: () => false,
+        formatCurrencyValue: String,
+        notify: vi.fn(),
+        updateTransactionData,
+        logNotification: vi.fn(),
+        fireAlert,
+        onCancellationRequested,
+      });
+      expect(onCancellationRequested).toHaveBeenCalledWith(
+        baseTransaction,
+        status
+      );
+      expect(updateTransactionData).not.toHaveBeenCalled();
+      expect(fireAlert).not.toHaveBeenCalled();
+    }
+  );
+
   it('updates a non-terminal order status and notifies success', async () => {
     const notify = vi.fn();
     const updateTransactionData = vi.fn();

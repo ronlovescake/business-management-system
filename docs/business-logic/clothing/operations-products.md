@@ -29,6 +29,68 @@ reverting a settled product to Unpaid, or deleted settlement lines retaining tho
 keys require accounting resolution and return 409. Ordinary edits to a completely
 settled product do not repost it.
 
+### Supplier Nonfulfillment And Future-Purchase Credit
+
+The requesting business/project owner approved this workflow on 2026-10-26:
+an entirely missing paid product receives usable credit equal to its saved
+**Grand Total**, for example PHP 19,511.37 for Dreamgrow Tiny Tots Pants
+(`DTTP-101626`). It is not a refund to Cash, Bank, GCash, or the original card.
+The owner also explicitly excluded the in-app Shipping Fee Calculator: it is
+an infrequently used pricing-estimate tool and is unchanged by this workflow.
+
+The owning enforcement boundary is
+[supplier-resolution.ts](../../../src/modules/products/api/supplier-resolution.ts).
+The Product form exposes administrator-only actions; middleware and the service
+both enforce ADMIN/SUPER_ADMIN authority. General merchandise intentionally
+does not support this clothing-only credit workflow; its shared form mapper
+omits clothing fields and its APIs reject credit requests.
+
+| #   | Rule                                                | Current implementation                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
+| --- | --------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| SC1 | Delayed goods retain their original payment         | Edit Product can transfer an unreceived whole product to exactly one existing active shipment, with a reason and stable request ID. The product and its product-origin source rows move together; amounts, posting dates, funding accounts and posting keys remain unchanged. An audit row records old/new shipment and actor. No second payment or journal is created.                                                                                                |
+| SC2 | Confirmed usable credit replaces the right to goods | Issue Credit derives the amount from the saved product, posts Dr Supplier Credits / Cr Inventory in Transit, and marks the product CREDIT_ISSUED. The original funding/card liability remains. With no source, an already-Paid purchase can materialize its acquisition source once using its valid purchase date; an unsettled Unpaid purchase cannot create funded credit.                                                                                           |
+| SC3 | Only verified whole-product resolution is supported | Active reclass, physical sale/assembly/damage history, fulfilled customer history, incompatible/deleted source rows, mixed shipment-origin funding, or source-cost drift block the action. Supplier Payable must have both matching settlement legs no later than the credit date. Partial receipt/partial nonfulfillment requires separate correction.                                                                                                                |
+| SC4 | Credits fund the gross replacement purchase         | Add Product can apply a positive PHP amount from one issued credit of the same normalized supplier. The gross Grand Total is unchanged. Product-origin funding splits into Supplier Credits and the remaining payment account or Supplier Payable. A fully credit-funded purchase needs no cash leg. Apply Credit on Edit Product is available only before any target build/reclass has been posted.                                                                   |
+| SC5 | Unused credit remains available                     | Decimal cent amounts, conditional balance decrement, unique source/target/request keys and serializable transactions prevent repeated application and overspending. One credit application per target product is supported; one issued credit can fund multiple products partially. Failed creation/application rolls back the product, funding and balance together. Repeated identical creation requests return the same product; changed purchase details conflict. |
+| SC6 | Nonfulfilled goods are not physical stock           | Issuance records only the remaining whole-product shortage, protects its movements from generic edits/deletion, and blocks new adjustments that could resurrect the old goods. Inventory presents zero received/sellable quantity for CREDIT_ISSUED products. Open customer reservations and their money are not automatically changed.                                                                                                                                |
+| SC7 | Posted funding cannot be silently rewritten         | Credit-owned products cannot be deleted or have their purchase basis changed through direct edits, imports or bulk updates. Paid method/card identity is locked; an Unpaid replacement may select a method when settling only its remaining payable. Generic transit build-up skips credit-owned products instead of recreating full cash/card funding.                                                                                                                |
+| SC8 | Resolution uses saved data, not unsaved edits       | Save/discard unrelated form edits before a supplier action. Supplier actions have their own posting date, confirmation and request ID. A committed action whose refresh fails is shown as recorded and cannot be submitted again from the same form.                                                                                                                                                                                                                   |
+
+Posting dates must be valid calendar dates at/after accounting cutover and no
+later than today; applications cannot predate either the issued credit or the
+replacement purchase. Separate forwarder, courier and packaging amounts are not
+added to the credit. Calculator inputs/results are neither read nor changed.
+
+Credit applications and issue journals are source dependencies: their underlying
+financial sources cannot be independently edited/deleted/restored as a correction.
+No credit reversal, expiry, dispute write-off, partial-receipt resolution,
+customer refund automation or historical repair is introduced. Reconcile those
+cases with the accountable owner rather than deleting source history.
+
+The inventory ledger drift control expects zero sellable stock for CREDIT_ISSUED
+products while preserving their original ordered quantity. It still fails if
+their ledger becomes nonzero; credited products are not skipped by the control.
+
+**Migration prerequisite:** apply the reviewed additive
+[supplier-credit migration](../../../prisma/migrations/20261026120000_clothing_supplier_credits/migration.sql)
+and regenerate Prisma before running this code against an existing environment.
+Do not reset existing data or substitute `db push` for the reviewed migration.
+The migration adds defaults and new financial/audit tables; it does not issue
+credits or alter historical monetary amounts. All three tables are included in
+backup coverage with their product-parent dependencies. Application to an existing
+development/production database remains an explicitly authorized operational step.
+
+Regression evidence: the service/unit/UI tests and
+[supplier-credit integration tests](../../../tests/integration/clothing-supplier-credits.integration.test.ts)
+exercise exact amounts, unchanged card liability, partial balance, rollback,
+retry, concurrent overspend rejection, transfers and complete-component reclass.
+The database-free `npm run test:browser:supplier-credit` command mounts the real
+Product modal with intercepted APIs for repeatable desktop/mobile workflows;
+it deliberately does not invoke the default database-reset E2E setup. The
+supplier-enabled modal uses full-screen layout on narrow viewports.
+See the [dated review](../../reports/ACCOUNTING_INTEGRITY_REVIEW_2026-10-26.md#12-approved-supplier-resolution-implementation)
+for executed gates and remaining limits; this is not live-balance certification.
+
 New code-only rows are linked only when one active product matches. A missing or
 ambiguous code remains unlinked; code-only bulk edits with duplicate matches
 are rejected. The additive migration links legacy rows only when their code

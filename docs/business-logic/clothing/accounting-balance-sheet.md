@@ -36,10 +36,40 @@
 
 ## C - Balance Sheet Data Model
 
+### Customer Money, Refund Obligations And CARD
+
+Apply the [Journal event contract](accounting-journal.md#dated-customer-money-and-card-events)
+at each as-of cutoff. Cancellation snapshots preserve the earlier invoice/A/R
+recognition history and actual receipts. Approval removes the unpaid receivable,
+releases/applies the relevant deposit and creates Refunds Payable without
+changing Cash. The original deposit is not left duplicated as both Customer
+Deposits and Refunds Payable. Actual partial payouts alone reduce the approved
+liability and Cash. Pending is computed from approved amount minus actual
+payouts through the cutoff, not today's mutable pending balance.
+
+Incoming CARD remains a Card Collections Clearing asset until actual settlement.
+Cash and its breakdown exclude that unsettled amount; outgoing Credit Card
+Payable retains its existing liability meaning. The shared real-data five-report
+regression verifies the equation and Cash/clearing amounts before invoice,
+after invoice, after noncash approval and after partial payout.
+
+Persisted dated cost corrections contribute their sold-cost journal delta once.
+Original movement snapshots and projected receipt basis preserve old as-of
+reports; logistics capitalization is not booked a second time. See
+[P&L valuation/correction policy](accounting-profit-loss.md#valuation-completeness-and-dated-corrections).
+
 | #   | Logic                                                                                                                                | Explanation                                                                          |
 | --- | ------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------ |
 | 10  | Each balance sheet row has: `id`, `account`, `type` (`'Asset'` or `'Liability'` or `'Equity'`), `amount`, `details` (optional array) | `details` is an array of `{ label, amount }` sub-items for accounts with breakdowns. |
 | 11  | Stats returned by the API: `assets`, `liabilities`, `equity`, `balance`, `asOf`                                                      | All are pre-computed server-side.                                                    |
+
+The balance-sheet API applies signed net movement-based COGS from cutover through
+the as-of date. Positive COGS reduces Stock on Hand and equity; negative net COGS
+(for example, a return of goods sold before cutover) restores Stock on Hand and
+reverses the corresponding equity reduction. The stock breakdown includes the
+same signed adjustment. Zero net COGS adds no adjustment. This preserves the
+existing inventory movement return treatment; it does not revalue historical
+cost snapshots or change scrap accounting.
 
 ---
 

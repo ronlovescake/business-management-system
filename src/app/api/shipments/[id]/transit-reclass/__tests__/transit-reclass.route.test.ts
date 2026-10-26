@@ -149,6 +149,74 @@ describe('POST /api/shipments/[id]/transit-reclass', () => {
     ).not.toHaveBeenCalled();
   });
 
+  it.each([
+    {
+      status: 'ACTIVE',
+      selected: ['PRODUCT_TRANSIT_BUILD:10:GRAND_TOTAL'],
+      message: 'all funding components',
+    },
+    {
+      status: 'CREDIT_ISSUED',
+      selected: [
+        'PRODUCT_TRANSIT_BUILD:10:GRAND_TOTAL',
+        'PRODUCT_TRANSIT_BUILD:10:SUPPLIER_CREDIT',
+      ],
+      message: 'supplier-nonfulfilled',
+    },
+  ])(
+    'rejects incomplete or nonfulfilled product selections: $status',
+    async ({ status, selected, message }) => {
+      mockPrisma.shipment.findUnique.mockResolvedValue({
+        id: 1,
+        shipmentCode: 'KPC-001',
+        shipmentStatus: 'Delivered',
+      });
+      const entries = [
+        {
+          id: 'tb-1',
+          idempotencyKey: 'PRODUCT_TRANSIT_BUILD:10:GRAND_TOTAL',
+          amount: 2000,
+          debitAccount: 'Inventory in Transit',
+          creditAccount: 'Credit Card Payable',
+        },
+        {
+          id: 'tb-2',
+          idempotencyKey: 'PRODUCT_TRANSIT_BUILD:10:SUPPLIER_CREDIT',
+          amount: 1000,
+          debitAccount: 'Inventory in Transit',
+          creditAccount: 'Supplier Credits',
+        },
+      ];
+      mockPrisma.clothingInventoryTransitBuildEntry.findMany.mockImplementation(
+        async (args) => {
+          const keys = args.where.idempotencyKey?.in;
+          return keys
+            ? entries.filter((entry) => keys.includes(entry.idempotencyKey))
+            : entries;
+        }
+      );
+      mockPrisma.product.findMany.mockResolvedValue([
+        { id: 10, productCode: 'P-1', supplierFulfillmentStatus: status },
+      ]);
+      const response = await POST(
+        mockNextRequest({
+          method: 'POST',
+          url: getTestApiUrl('/api/shipments/1/transit-reclass'),
+          body: {
+            postingDate: '2026-02-01',
+            selectedIdempotencyKeys: selected,
+          },
+        }),
+        { params: { id: '1' } }
+      );
+      expect(response.status).toBe(409);
+      expect((await response.json()).error).toContain(message);
+      expect(
+        mockPrisma.clothingInventoryReclassEntry.createMany
+      ).not.toHaveBeenCalled();
+    }
+  );
+
   it('reports the actual insert count when idempotency skips a row', async () => {
     mockPrisma.shipment.findUnique.mockResolvedValue({
       id: 1,

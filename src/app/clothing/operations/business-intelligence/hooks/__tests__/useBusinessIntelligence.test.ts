@@ -17,13 +17,135 @@
  */
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
+import React from 'react';
+import { act, renderHook, waitFor } from '@testing-library/react';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { api } from '@/lib/api/client';
 import { getDateRangeFilter } from '@/lib/analytics/periodComparison';
+import {
+  computeExtendedMetrics,
+  useBusinessIntelligence,
+} from '../useBusinessIntelligence';
+import type { TransactionData } from '../../types';
+
+vi.mock('next-auth/react', () => ({
+  useSession: () => ({
+    data: { user: { role: 'ADMIN' } },
+    status: 'authenticated',
+  }),
+}));
+
+describe('actual BI hook date contract', () => {
+  it('uses Manila midnight, excludes future orders and sends a cutoff for All Time profit', async () => {
+    const now = new Date('2026-01-01T01:00:00+08:00');
+    vi.setSystemTime(now);
+    const order = (date: string, amount: number): TransactionData => ({
+      'Order Date': date,
+      Customers: 'Customer',
+      'Product Code': 'SKU',
+      Quantity: 1,
+      'Unit Price': amount,
+      Discount: 0,
+      Adjustment: 0,
+      'Line Total': amount,
+      'Order Status': 'Prepared',
+    });
+    const get = vi.spyOn(api, 'get').mockImplementation(async (path) =>
+      path === '/api/transactions'
+        ? [
+            order('2025-12-30', 400),
+            order('2026-01-01', 100),
+            order('2026-01-02', 9000),
+          ]
+        : path.includes('/profit-loss')
+          ? {
+              stats: {
+                revenueTotal: 100,
+                forfeitedDepositsTotal: 75,
+                cogsTotal: 0,
+                grossProfit: 100,
+                expenseTotal: 0,
+                netProfit: 100,
+              },
+            }
+          : []
+    );
+    const client = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    });
+    try {
+      const options = {
+        initialProps: undefined,
+        wrapper: ({ children }: { children: React.ReactNode }) =>
+          React.createElement(QueryClientProvider, { client }, children),
+      };
+      const { result } = renderHook(() => useBusinessIntelligence(), options);
+      await waitFor(() => expect(result.current.isLoading).toBe(false));
+      await waitFor(() =>
+        expect(result.current.profit.data?.forfeitedDepositsTotal).toBe(75)
+      );
+      expect(result.current.metrics.ytdTotal).toBe(100);
+      expect(result.current.metrics.mtdTotal).toBe(100);
+      expect(
+        result.current.metrics.monthlyTrends.map((month) => month.month)
+      ).toEqual(['Jan']);
+      act(() => result.current.setDateFilter('all'));
+      await waitFor(() => expect(result.current.metrics.ytdTotal).toBe(500));
+      expect(
+        result.current.metrics.monthlyTrends.map((month) => month.month)
+      ).toEqual(['Dec', 'Jan']);
+      await waitFor(() =>
+        expect(
+          get.mock.calls.some(([path]) => {
+            const url = new URL(path, 'http://fixture');
+            return (
+              url.pathname === '/api/accounting/profit-loss' &&
+              !url.searchParams.has('from') &&
+              url.searchParams.get('to') === now.toISOString()
+            );
+          })
+        ).toBe(true)
+      );
+    } finally {
+      get.mockRestore();
+      client.clear();
+      vi.useRealTimers();
+    }
+  });
+});
 
 // ==========================================================================
 // DATE RANGE FILTERING
 // ==========================================================================
 
 describe('Date Range Filtering', () => {
+  it('groups month, weekday and repeat-order days in Manila rather than the process timezone', () => {
+    const order = (date: string): TransactionData => ({
+      'Order Date': date,
+      Customers: 'Customer',
+      'Product Code': 'SKU',
+      Quantity: 1,
+      'Unit Price': 100,
+      Discount: 0,
+      Adjustment: 0,
+      'Line Total': 100,
+      'Order Status': 'Prepared',
+    });
+    const orders = [
+      order('2025-12-31T16:30:00Z'),
+      order('2026-01-01T01:00:00Z'),
+    ];
+    const result = computeExtendedMetrics(orders, orders, ['2026-01']);
+    expect(result.customerMix).toEqual([
+      { month: 'Jan', newCustomers: 1, returningCustomers: 0 },
+    ]);
+    expect(result.repeatRate).toBe(0);
+    expect(result.weekdaySales.find((day) => day.day === 'Thu')).toMatchObject({
+      revenue: 200,
+      orders: 2,
+    });
+  });
+
   let now: Date;
 
   beforeEach(() => {
@@ -87,10 +209,11 @@ describe('Date Range Filtering', () => {
     expect(filter(new Date('2023-11-30'))).toBe(false);
   });
 
-  it('should return all dates for "all" filter', () => {
+  it('includes historical All Time dates but excludes future records', () => {
     const filter = getDateRangeFilter('all');
     expect(filter(new Date('2020-01-01'))).toBe(true);
-    expect(filter(new Date('2025-12-31'))).toBe(true);
+    expect(filter(now)).toBe(true);
+    expect(filter(new Date('2025-12-31'))).toBe(false);
   });
 });
 

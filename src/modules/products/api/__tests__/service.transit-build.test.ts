@@ -292,4 +292,39 @@ describe('productService manual transit build-up (by shipment code)', () => {
       mockPrisma.clothingInventoryTransitBuildEntry.createMany
     ).not.toHaveBeenCalled();
   });
+
+  it.each([
+    {
+      supplierFulfillmentStatus: 'CREDIT_ISSUED',
+      supplierCreditAppliedAmount: 0,
+    },
+    { supplierFulfillmentStatus: 'ACTIVE', supplierCreditAppliedAmount: 100 },
+  ])(
+    'never recreates credit-owned funding through the generic build command: %j',
+    async (supplierState) => {
+      const { productService } = await import('../service');
+      mockPrisma.product.findMany.mockResolvedValue([
+        {
+          id: 42,
+          productCode: 'CREDIT-42',
+          payment: 'Paid',
+          paymentMethod: 'CARD',
+          postingDate: '2026-10-26',
+          grandTotal: 3000,
+          ...supplierState,
+        },
+      ]);
+      const result =
+        await productService.postManualTransitBuildUpByShipmentCode({
+          shipmentCode: 'KPC-001',
+        });
+      expect(result).toMatchObject({ created: 0, skipped: 1 });
+      expect(
+        mockPrisma.clothingInventoryTransitBuildEntry.createMany
+      ).not.toHaveBeenCalled();
+      expect(
+        mockPrisma.clothingInventoryTransitBuildEntry.updateMany
+      ).not.toHaveBeenCalled();
+    }
+  );
 });

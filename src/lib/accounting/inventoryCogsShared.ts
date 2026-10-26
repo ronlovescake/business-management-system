@@ -1,4 +1,5 @@
 import { parseDate } from '@/lib/accounting/date-utils';
+import { toISODate } from '@/utils/date';
 
 export type DerivedJournalEntry = {
   id: string;
@@ -11,6 +12,7 @@ export type DerivedJournalEntry = {
 };
 
 export type CogsMovementInput = {
+  id?: number;
   createdAt: Date;
   postingDate: string | null;
   productCode: string;
@@ -23,7 +25,125 @@ export type CogsMovementInput = {
   movementSource?: string | null;
   movementType?: string | null;
   when: Date;
+  valuationConfirmed?: boolean;
+  costBasisProjected?: boolean;
 };
+
+export type InventoryValuationIssue = {
+  movementId: number | null;
+  productCode: string;
+  date: string;
+  quantity: number;
+  direction: 'SALE' | 'RETURN';
+  reason: 'MISSING_COST' | 'INVALID_COST' | 'LEGACY_PRODUCT_COST';
+};
+
+export function summarizeInventoryValuation(
+  issues: InventoryValuationIssue[] = []
+) {
+  return {
+    complete: issues.length === 0,
+    affectedQuantity: issues.reduce((sum, issue) => sum + issue.quantity, 0),
+    issues,
+  };
+}
+
+export type InventoryValuationSummary = ReturnType<
+  typeof summarizeInventoryValuation
+>;
+
+export type DatedInventoryCostCorrection = {
+  productCode: string;
+  date: string;
+  newUnitCost: number;
+  resolvedMovementIds: number[];
+  movementCosts: Array<{ movementId: number; unitCost: number }>;
+};
+
+export function projectDatedMovementCosts(
+  movements: CogsMovementInput[],
+  corrections: DatedInventoryCostCorrection[],
+  asOf: Date
+) {
+  const ordered = [...corrections].sort((left, right) =>
+    left.date.localeCompare(right.date)
+  );
+  const projected = movements.map((movement) => {
+    const evidence = ordered.filter(
+      (correction) =>
+        correction.productCode === movement.productCode &&
+        movement.id !== undefined &&
+        correction.movementCosts.some((cost) => cost.movementId === movement.id)
+    );
+    const firstCost = evidence
+      .flatMap((correction) => correction.movementCosts)
+      .find((cost) => cost.movementId === movement.id)?.unitCost;
+    const valuationConfirmed =
+      (typeof movement.unitCost === 'number' && movement.unitCost > 0) ||
+      evidence.some(
+        (correction) =>
+          correction.date <= toISODate(asOf) &&
+          correction.resolvedMovementIds.includes(movement.id!)
+      );
+    return {
+      ...movement,
+      unitCost:
+        movement.unitCost === null ||
+        movement.unitCost === undefined ||
+        movement.unitCost === 0
+          ? (firstCost ?? movement.unitCost)
+          : movement.unitCost,
+      valuationConfirmed,
+      costBasisProjected: firstCost !== undefined,
+    };
+  });
+  return projected.map((movement) => {
+    if (
+      movement.fromBucket !== 'sold' ||
+      !INVENTORY_ASSET_BUCKETS.has(movement.toBucket) ||
+      !movement.sourceTransactionId
+    ) {
+      return movement;
+    }
+    const sales = projected.filter(
+      (sale) =>
+        sale.toBucket === 'sold' &&
+        sale.productCode === movement.productCode &&
+        sale.sourceTransactionId === movement.sourceTransactionId &&
+        sale.when <= movement.when
+    );
+    const costs = new Set(
+      sales
+        .map((sale) => sale.unitCost)
+        .filter(
+          (cost): cost is number =>
+            typeof cost === 'number' && Number.isFinite(cost) && cost >= 0
+        )
+    );
+    if (costs.size !== 1) {
+      return movement;
+    }
+    const latest = ordered
+      .filter(
+        (correction) =>
+          correction.productCode === movement.productCode &&
+          correction.date <= toISODate(movement.when) &&
+          correction.date <= toISODate(asOf) &&
+          sales.some(
+            (sale) =>
+              sale.id !== undefined &&
+              correction.resolvedMovementIds.includes(sale.id)
+          )
+      )
+      .pop();
+    return {
+      ...movement,
+      unitCost: latest?.newUnitCost ?? Array.from(costs)[0],
+      valuationConfirmed:
+        Boolean(latest) || sales.every((sale) => sale.valuationConfirmed),
+    };
+  });
+}
 
 export const INVENTORY_ASSET_BUCKETS = new Set([
   'sellable',
@@ -177,7 +297,12 @@ export function buildCogsEntriesFromMovements(params: {
   cogsAccount: string;
   inventoryAccount: string;
   cogsDescriptionStyle: 'verbose' | 'short';
-}): { entries: DerivedJournalEntry[]; totalCogs: number } {
+  confirmedZeroCostMovementIds?: ReadonlySet<number>;
+}): {
+  entries: DerivedJournalEntry[];
+  totalCogs: number;
+  valuationIssues: InventoryValuationIssue[];
+} {
   const {
     movements,
     unitCostByProductCode,
@@ -200,6 +325,7 @@ export function buildCogsEntriesFromMovements(params: {
     }
   >();
   let totalCogs = 0;
+  const valuationIssues: InventoryValuationIssue[] = [];
 
   for (const movement of movements) {
     const qty = Number(movement.quantity ?? 0);
@@ -219,11 +345,42 @@ export function buildCogsEntriesFromMovements(params: {
     }
 
     const code = (movement.productCode ?? '').trim();
+    if (
+      movement.id &&
+      params.confirmedZeroCostMovementIds?.has(movement.id) &&
+      (movement.unitCost === null ||
+        movement.unitCost === undefined ||
+        Number(movement.unitCost) === 0)
+    ) {
+      continue;
+    }
     const recordedUnitCost = Number(movement.unitCost ?? 0);
+    const hasCost = Number.isFinite(recordedUnitCost) && recordedUnitCost > 0;
+    const hasSnapshot = hasCost && movement.valuationConfirmed !== false;
+    const fallbackCost = unitCostByProductCode.get(code) ?? 0;
     const unitCost =
-      Number.isFinite(recordedUnitCost) && recordedUnitCost > 0
-        ? recordedUnitCost
-        : (unitCostByProductCode.get(code) ?? 0);
+      movement.costBasisProjected || hasCost ? recordedUnitCost : fallbackCost;
+    if (!hasSnapshot && !movement.valuationConfirmed) {
+      valuationIssues.push({
+        movementId: movement.id ?? null,
+        productCode: code || 'Unknown Product',
+        date: toDateKey(movement.when),
+        quantity: qty,
+        direction: sign > 0 ? 'SALE' : 'RETURN',
+        reason:
+          !Number.isFinite(recordedUnitCost) ||
+          recordedUnitCost < 0 ||
+          !Number.isFinite(fallbackCost) ||
+          fallbackCost < 0
+            ? 'INVALID_COST'
+            : fallbackCost > 0
+              ? 'LEGACY_PRODUCT_COST'
+              : 'MISSING_COST',
+      });
+    }
+    if (!Number.isFinite(unitCost) || unitCost <= 0) {
+      continue;
+    }
     const cost = sign * qty * unitCost;
 
     if (!Number.isFinite(cost) || cost === 0) {
@@ -350,5 +507,5 @@ export function buildCogsEntriesFromMovements(params: {
       ];
     });
 
-  return { entries, totalCogs };
+  return { entries, totalCogs, valuationIssues };
 }

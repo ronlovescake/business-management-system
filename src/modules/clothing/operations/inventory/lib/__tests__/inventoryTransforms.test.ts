@@ -9,6 +9,90 @@ import type {
 } from '../../types';
 
 describe('buildInventoryItems', () => {
+  it.each(['Shipped', 'Cancelled', 'Voided'])(
+    'preserves an identified actual sale after status %s without double counting',
+    (status) => {
+      const products: ProductFromAPI[] = [
+        {
+          id: '1',
+          'Product Code': 'SKU',
+          Quantity: 100,
+          COGS: 0,
+          'Actual Price': 5,
+          'Shipment Code': 'S1',
+          'Shipment Status': 'Delivered',
+        },
+      ];
+      const transactions: TransactionFromAPI[] = [
+        {
+          id: '1',
+          'Product Code': 'SKU',
+          Quantity: 20,
+          'Unit Price': 10,
+          'Order Status': status,
+        },
+      ];
+      const movements: InventoryMovementFromAPI[] = [
+        {
+          id: 1,
+          productCode: 'SKU',
+          quantity: 20,
+          fromBucket: 'sellable',
+          toBucket: 'sold',
+          sourceTransactionId: 1,
+          movementSource: 'transaction',
+          movementType: 'sale',
+        },
+      ];
+      expect(
+        buildInventoryItems(products, transactions, [], movements)[0]
+      ).toMatchObject({ soldQty: 20, availableStock: 80 });
+      movements.push({
+        id: 2,
+        productCode: 'SKU',
+        quantity: 5,
+        fromBucket: 'sold',
+        toBucket: 'sellable',
+      });
+      expect(
+        buildInventoryItems(products, transactions, [], movements)[0]
+      ).toMatchObject({ soldQty: 20, availableStock: 85 });
+    }
+  );
+
+  it('never presents a credited missing purchase as received or sellable', () => {
+    const products: ProductFromAPI[] = [
+      {
+        id: '42',
+        'Product Code': 'DTTP-101626',
+        Quantity: 100,
+        COGS: 19511.37,
+        'Actual Price': 300,
+        'Shipment Code': 'KPC 23930A-239',
+        'Shipment Status': 'Delivered',
+        'Supplier Fulfillment Status': 'CREDIT_ISSUED',
+      },
+    ];
+    const movements: InventoryMovementFromAPI[] = [
+      {
+        id: 1,
+        productCode: 'DTTP-101626',
+        quantity: 100,
+        fromBucket: 'supplier_short',
+        toBucket: 'sellable',
+        notes: 'Additionals',
+      },
+    ];
+    const [item] = buildInventoryItems(products, [], [], movements);
+    expect(item).toMatchObject({
+      actualQuantityReceived: 0,
+      sellableOnHand: 0,
+      availableStock: 0,
+      endingInventoryValue: 0,
+      supplierShortQty: 100,
+    });
+  });
+
   it('derives available stock from product quantity minus active transaction demand', () => {
     const products: ProductFromAPI[] = [
       {
@@ -83,7 +167,7 @@ describe('buildInventoryItems', () => {
     expect(abc?.endingInventoryValue).toBe(4 * 5);
   });
 
-  it('falls back to product quantity when no sellable movements exist', () => {
+  it('keeps unreceived product quantity in transit when no physical receipt exists', () => {
     const products: ProductFromAPI[] = [
       {
         id: 'p1',
@@ -100,18 +184,18 @@ describe('buildInventoryItems', () => {
     const xyz = items.find((i) => i.productCode === 'XYZ-9');
 
     expect(xyz).toBeDefined();
-    expect(xyz?.sellableOnHand).toBe(7);
+    expect(xyz?.sellableOnHand).toBe(0);
     expect(xyz?.reservedOnHand).toBe(0);
-    expect(xyz?.onHandSellable).toBe(7);
+    expect(xyz?.onHandSellable).toBe(0);
     expect(xyz?.onHandReserved).toBe(0);
-    expect(xyz?.inTransitUnreserved).toBe(0);
+    expect(xyz?.inTransitUnreserved).toBe(7);
     expect(xyz?.inTransitReserved).toBe(0);
     expect(xyz?.damagedOnHand).toBe(0);
     expect(xyz?.scrapQty).toBe(0);
-    expect(xyz?.onhand).toBe(7);
-    expect(xyz?.availableStock).toBe(7);
+    expect(xyz?.onhand).toBe(0);
+    expect(xyz?.availableStock).toBe(0);
     expect(xyz?.supplierShortQty).toBe(0);
-    expect(xyz?.actualQuantityReceived).toBe(7);
+    expect(xyz?.actualQuantityReceived).toBe(0);
     expect(xyz?.shipmentCode).toBe('S1');
     expect(xyz?.shipmentStatus).toBe('In Transit');
   });
@@ -143,11 +227,58 @@ describe('buildInventoryItems', () => {
     const gpf = items.find((i) => i.productCode === 'GPF-012426');
 
     expect(gpf).toBeDefined();
-    expect(gpf?.onHandSellable).toBe(1790);
-    expect(gpf?.onHandReserved).toBe(1010);
-    expect(gpf?.inTransitReserved).toBe(0);
-    expect(gpf?.inTransitUnreserved).toBe(0);
+    expect(gpf?.onHandSellable).toBe(0);
+    expect(gpf?.onHandReserved).toBe(0);
+    expect(gpf?.inTransitReserved).toBe(1010);
+    expect(gpf?.inTransitUnreserved).toBe(1790);
   });
+
+  it.each(['In Transit', 'Delivered'])(
+    'bounds physical reservation quantities by %s supply without posting movements',
+    (status) => {
+      const products: ProductFromAPI[] = [
+        {
+          id: '1',
+          'Product Code': 'SKU',
+          Quantity: 10,
+          COGS: 0,
+          'Actual Price': 5,
+          'Shipment Code': 'S1',
+          'Shipment Status': status,
+        },
+      ];
+      const transactions: TransactionFromAPI[] = [
+        {
+          id: '1',
+          'Product Code': 'SKU',
+          Quantity: 15,
+          'Unit Price': 10,
+          'Order Status': 'Prepared',
+        },
+      ];
+      const movements: InventoryMovementFromAPI[] = [];
+      const before = structuredClone({ products, transactions, movements });
+      const [item] = buildInventoryItems(products, transactions, [], movements);
+      expect(item).toMatchObject(
+        status === 'In Transit'
+          ? {
+              onHandSellable: 0,
+              onHandReserved: 0,
+              inTransitReserved: 10,
+              inTransitUnreserved: 0,
+              actualQuantityReceived: 0,
+            }
+          : {
+              onHandSellable: 0,
+              onHandReserved: 10,
+              inTransitReserved: 0,
+              inTransitUnreserved: 0,
+              actualQuantityReceived: 10,
+            }
+      );
+      expect({ products, transactions, movements }).toEqual(before);
+    }
+  );
 
   it('tracks damaged quantity separately and derives sellable from actual quantity', () => {
     const products: ProductFromAPI[] = [

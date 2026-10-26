@@ -35,13 +35,43 @@ unmarked legacy scrap-origin receipts are not assumed to reverse write-offs.
 
 ## B — Core Inventory Derivation
 
-| #   | Logic                                                                                            | Explanation                                                                                    |
-| --- | ------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------- |
-| 5   | Sold quantity is derived from order statuses, not from manual adjustment buckets                 | `ready for dispatch`, `checked out`, and `shipped` count as sold demand.                       |
-| 6   | Reserved quantity is derived from active operational demand                                      | Non-cancelled, non-sold transaction demand is committed against sellable availability.         |
-| 7   | Additionals and transfers are still identified by note prefixes                                  | `additionals` and `transfer` movement notes remain special-case inputs to inventory math.      |
-| 8   | Actual received quantity is still adjusted by movement buckets before sellable stock is computed | Damaged-hold and supplier-short movements reduce effective on-hand; additionals restore stock. |
-| 9   | All displayed inventory bucket values floor at zero                                              | Negative UI inventory is prevented by design.                                                  |
+| #   | Logic                                                                                            | Explanation                                                                                                                                                                                                                                                                                                                      |
+| --- | ------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 5   | Identified actual sale movements remain sold through later cancellation                          | Structured transaction/source/type metadata or the existing legacy auto-sale marker ties a sale to its order. The same current fulfilled order is not counted twice; status-derived sold demand remains the legacy fallback for orders without an identified sale movement. Composite allocation excludes already-posted orders. |
+| 6   | Reserved quantity is derived from active operational demand                                      | Non-cancelled, non-sold transaction demand is committed against sellable availability.                                                                                                                                                                                                                                           |
+| 7   | Additionals and transfers are still identified by note prefixes                                  | `additionals` and `transfer` movement notes remain special-case inputs to inventory math.                                                                                                                                                                                                                                        |
+| 8   | Actual received quantity is still adjusted by movement buckets before sellable stock is computed | Damaged-hold and supplier-short movements reduce effective on-hand; additionals restore stock.                                                                                                                                                                                                                                   |
+| 9   | All displayed inventory bucket values floor at zero                                              | Negative UI inventory is prevented by design.                                                                                                                                                                                                                                                                                    |
+
+### Physical Location And Reservation Split
+
+An explicitly In Transit shipment has zero physically received, on-hand reserved
+and on-hand sellable quantity. Its remaining supply is split into in-transit
+reserved and unreserved quantities. Received products use the on-hand pair;
+reservations shown in either location cannot exceed remaining supply. Existing
+sold, scrap, physical-return, supplier-short, additionals, transfer and composite
+allocation rules still reduce or restore the appropriate supply. Available Stock
+and ending available-inventory value refer to physically available stock, not
+goods still travelling. Legacy products without an explicit In Transit status
+retain their existing received-supply fallback; the label is not evidence that
+historical physical counts have been reconciled.
+
+This projection is read-only. A shipment availability label never creates an
+accounting journal, changes a receipt or posts a financial reclassification.
+Confirmed actual goods and separately approved accounting events remain required.
+
+The actual table exposes On-Hand Reserved/Sellable and In-Transit
+Reserved/Unreserved independently. Desktop/mobile browser regressions verify
+10 received with 4 reserved shows 6 on-hand sellable, while the same explicit
+In Transit lot shows 4 transit reserved, 6 transit unreserved and zero physical
+stock. Identified actual sold movements survive a later order cancellation;
+only a real return movement restores the chosen physical bucket.
+
+This is a shipment/lot-level projection. There is no new partial-receipt or
+unknown-location inference: mixed/legacy physical locations require explicit
+operational review and a real count. The display is not evidence that historical
+inventory has been counted or reconciled. Dated cost correction and missing-cost
+controls are documented in [P&L](accounting-profit-loss.md#valuation-completeness-and-dated-corrections).
 
 ---
 

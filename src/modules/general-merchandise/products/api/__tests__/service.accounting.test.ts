@@ -125,6 +125,22 @@ describe('generalMerchandiseProductService accounting automation', () => {
     ).not.toHaveBeenCalled();
   });
 
+  it('omits clothing-only fields from a normal shared form payload', async () => {
+    const { generalMerchandiseProductService } = await import('../service');
+    mockPrisma.generalMerchandiseProduct.create.mockResolvedValue({
+      id: 456,
+      productCode: 'GM-TP-002',
+    });
+    await generalMerchandiseProductService.createSingle(
+      buildDto({ 'Supplier Reference': '' })
+    );
+    const data =
+      mockPrisma.generalMerchandiseProduct.create.mock.calls[0][0].data;
+    expect(data).not.toHaveProperty('supplierReference');
+    expect(data).not.toHaveProperty('supplierCreditAppliedAmount');
+    expect(data).not.toHaveProperty('supplierFulfillmentStatus');
+  });
+
   it('passes product-code and Actual Price edits through the GM product import path', async () => {
     const { generalMerchandiseProductService } = await import('../service');
     mockPrisma.generalMerchandiseProduct.findUnique.mockResolvedValue({

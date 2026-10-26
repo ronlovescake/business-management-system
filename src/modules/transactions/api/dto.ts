@@ -22,7 +22,15 @@ export interface TransactionDTO {
 }
 
 export function mapToDTO(
-  transaction: Omit<Transaction, 'shippedAt' | 'accountsReceivableDueAt'> &
+  transaction: Omit<
+    Transaction,
+    | 'shippedAt'
+    | 'accountsReceivableDueAt'
+    | 'initialDepositAmount'
+    | 'initialDepositRate'
+    | 'depositConfirmedAt'
+    | 'depositConfirmedBy'
+  > &
     Partial<Pick<Transaction, 'shippedAt' | 'accountsReceivableDueAt'>> & {
       product?: {
         productCode: string | null;

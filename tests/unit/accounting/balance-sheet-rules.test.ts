@@ -59,13 +59,12 @@ describe('Rule #10: Account type classification', () => {
   });
 
   describe('Loan Payable variants', () => {
-    it.each([
-      'Loan Payable',
-      'Loan Payable - BDO',
-      'Loan Payable - Metrobank',
-    ])('"%s" → Liability', (account) => {
-      expect(detectAccountType(account)).toBe('Liability');
-    });
+    it.each(['Loan Payable', 'Loan Payable - BDO', 'Loan Payable - Metrobank'])(
+      '"%s" → Liability',
+      (account) => {
+        expect(detectAccountType(account)).toBe('Liability');
+      }
+    );
   });
 
   describe('Equity', () => {
@@ -84,6 +83,11 @@ describe('Rule #10: Account type classification', () => {
   it('returns null for unclassifiable account', () => {
     expect(detectAccountType('Random Account')).toBeNull();
     expect(detectAccountType('')).toBeNull();
+  });
+
+  it('keeps forfeited-deposit income out of asset accounts and recognizes refund obligations as liabilities', () => {
+    expect(detectAccountType('Forfeited Deposits')).toBeNull();
+    expect(detectAccountType('Refunds Payable')).toBe('Liability');
   });
 });
 

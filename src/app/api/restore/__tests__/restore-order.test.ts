@@ -7,6 +7,33 @@ import {
 import { RESTORE_MODEL_MAP } from '../restoreModelMap';
 
 describe('sortTablesForRestore', () => {
+  it('restores immutable customer money requests and event parents before payouts', () => {
+    const tables = [
+      'clothing_refund_payouts',
+      'clothing_order_cancellations',
+      'transaction_refunds',
+      'transaction_payments',
+      'clothing_financial_requests',
+      'transactions',
+    ];
+    expect(sortTablesForRestore(tables)).toEqual([
+      'transactions',
+      'clothing_financial_requests',
+      'transaction_payments',
+      'transaction_refunds',
+      'clothing_order_cancellations',
+      'clothing_refund_payouts',
+    ]);
+    expect(RESTORE_MODEL_MAP.clothing_financial_requests).toBe(
+      'clothingFinancialRequest'
+    );
+    expect(RESTORE_MODEL_MAP.clothing_order_cancellations).toBe(
+      'clothingOrderCancellation'
+    );
+    expect(RESTORE_MODEL_MAP.clothing_refund_payouts).toBe(
+      'clothingRefundPayout'
+    );
+  });
   it('orders known dependencies before dependents', () => {
     const sorted = sortTablesForRestore([
       'transaction_payments',

@@ -1,4 +1,4 @@
-import dayjs from 'dayjs';
+import { dayjs } from '@/utils/date';
 import type { PeriodOption } from '@/lib/accounting/constants';
 import { endOfDay, startOfDay } from '@/lib/accounting/date-utils';
 import type {
@@ -50,40 +50,59 @@ export function getComparisonRange(
   period: PeriodOption,
   now: Date = new Date()
 ): DateRangeIso | null {
-  const y = now.getFullYear();
-  const m = now.getMonth();
+  const current = dayjs(now).tz('Asia/Manila');
   switch (period) {
     case 'This Month':
-      return range(new Date(y, m - 1, 1), new Date(y, m, 0));
+      return range(
+        current.subtract(1, 'month').startOf('month').toDate(),
+        current.subtract(1, 'month').toDate()
+      );
     case 'Last Month':
-      return range(new Date(y, m - 2, 1), new Date(y, m - 1, 0));
+      return range(
+        current.subtract(2, 'month').startOf('month').toDate(),
+        current.subtract(2, 'month').endOf('month').toDate()
+      );
     case 'Last 30 Days': {
-      const to = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
-      const from = new Date(now.getTime() - 59 * 24 * 60 * 60 * 1000);
+      const to = current.subtract(30, 'day').toDate();
+      const from = current.subtract(59, 'day').toDate();
       return range(from, to);
     }
     case 'This Year':
-      return range(new Date(y - 1, 0, 1), new Date(y - 1, m, now.getDate()));
+      return range(
+        current.subtract(1, 'year').startOf('year').toDate(),
+        current.subtract(1, 'year').toDate()
+      );
+    case 'Full Calendar Year':
+      return range(
+        current.subtract(1, 'year').startOf('year').toDate(),
+        current.subtract(1, 'year').endOf('year').toDate()
+      );
     default:
       return null;
   }
 }
 
 export function getTrendRange(now: Date = new Date()): DateRangeIso {
-  const y = now.getFullYear();
-  const m = now.getMonth();
-  return range(new Date(y, m - (TREND_MONTHS - 1), 1), new Date(y, m + 1, 0));
+  const current = dayjs(now).tz('Asia/Manila');
+  return range(
+    current
+      .startOf('month')
+      .subtract(TREND_MONTHS - 1, 'month')
+      .toDate(),
+    current.toDate()
+  );
 }
 
 export function getBalanceSheetAsOf(
   period: PeriodOption,
   now: Date = new Date()
 ): string {
-  const asOf =
+  const current = dayjs(now).tz('Asia/Manila');
+  return (
     period === 'Last Month'
-      ? new Date(now.getFullYear(), now.getMonth(), 0)
-      : now;
-  return dayjs(asOf).format('YYYY-MM-DD');
+      ? current.subtract(1, 'month').endOf('month')
+      : current
+  ).format('YYYY-MM-DD');
 }
 
 export function percentChange(
@@ -101,6 +120,7 @@ export function buildMonthlyTrend(
   now: Date = new Date()
 ): MonthlyTrendPoint[] {
   const start = dayjs(now)
+    .tz('Asia/Manila')
     .startOf('month')
     .subtract(TREND_MONTHS - 1, 'month');
   const buckets = new Map<string, MonthlyTrendPoint>();
@@ -119,11 +139,15 @@ export function buildMonthlyTrend(
   }
 
   rows.forEach((row) => {
-    const parsed = row.date ? dayjs(row.date) : null;
+    const parsed = row.date ? dayjs(row.date).tz('Asia/Manila') : null;
     const bucket = parsed?.isValid()
       ? buckets.get(parsed.format('YYYY-MM'))
       : undefined;
-    if (!bucket || !Number.isFinite(row.amount)) {
+    if (
+      !bucket ||
+      !Number.isFinite(row.amount) ||
+      parsed?.isAfter(dayjs(now).tz('Asia/Manila').endOf('day'))
+    ) {
       return;
     }
     if (row.type === 'Revenue') {

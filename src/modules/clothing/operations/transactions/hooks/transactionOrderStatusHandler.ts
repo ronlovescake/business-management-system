@@ -3,6 +3,7 @@ import type { NotificationData } from '@mantine/notifications';
 import type { TransactionData } from '../types/transaction.types';
 import { computeRemainingBalance } from './transactionDraftUtils';
 import { getCellValue } from './transactionCellValueUtils';
+import { normalizeOrderStatus } from '@/lib/transactions/order-status';
 
 interface HandleOrderStatusColumnEditParams {
   columnId: string | undefined;
@@ -22,6 +23,10 @@ interface HandleOrderStatusColumnEditParams {
     metadata?: Record<string, unknown>
   ) => void;
   onVoidedStatusSaved?: (customerName: string) => void | Promise<void>;
+  onCancellationRequested?: (
+    transaction: TransactionData,
+    status: 'Cancelled' | 'Voided'
+  ) => Promise<void>;
   fireAlert: (options: Record<string, unknown>) => Promise<SweetAlertResult>;
 }
 
@@ -38,6 +43,7 @@ export async function handleOrderStatusColumnEdit({
   updateTransactionData,
   logNotification,
   onVoidedStatusSaved,
+  onCancellationRequested,
   fireAlert,
 }: HandleOrderStatusColumnEditParams): Promise<boolean> {
   if (columnId !== 'orderStatus') {
@@ -45,6 +51,27 @@ export async function handleOrderStatusColumnEdit({
   }
 
   const dropdownValue = getCellValue(rawValue);
+  const nextStatus = normalizeOrderStatus(dropdownValue);
+  if (
+    onCancellationRequested &&
+    (nextStatus === 'cancelled' || nextStatus === 'voided') &&
+    nextStatus !== normalizeOrderStatus(transaction['Order Status'])
+  ) {
+    try {
+      await onCancellationRequested(
+        transaction,
+        nextStatus === 'voided' ? 'Voided' : 'Cancelled'
+      );
+    } catch (error) {
+      notify({
+        title: 'Order Status not saved',
+        message:
+          error instanceof Error ? error.message : 'Unable to close the order',
+        color: 'red',
+      });
+    }
+    return true;
+  }
 
   const remaining = computeRemainingBalance(transaction);
   if (isPaidOrderStatus(dropdownValue) && remaining > 0.01) {

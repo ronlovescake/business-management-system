@@ -1,6 +1,11 @@
 import type { Prisma } from '@prisma/client';
 import { logger } from '@/lib/logger';
 import type { TransactionRecord } from './sanitizers';
+import {
+  isCancelledOrderStatus,
+  isForfeitedOrderStatus,
+} from '@/lib/transactions/order-status';
+import { TransactionValidationError } from './referenceValidation';
 
 export interface PriceTier {
   productCode: string | null;
@@ -45,6 +50,16 @@ export function buildCreateInput(
   row: TransactionRecord,
   priceTiers: PriceTier[]
 ): Prisma.TransactionCreateManyInput {
+  if (isForfeitedOrderStatus(row['Order Status'])) {
+    throw new TransactionValidationError(
+      'Forfeited is historical only. Use Cancelled and the money-decision workflow.'
+    );
+  }
+  if (isCancelledOrderStatus(row['Order Status']) && row.Adjustment > 0) {
+    throw new TransactionValidationError(
+      'Import paid orders before closing them through the cancellation decision workflow.'
+    );
+  }
   const quantity = row.Quantity;
   const discount = row.Discount;
   const adjustment = row.Adjustment;

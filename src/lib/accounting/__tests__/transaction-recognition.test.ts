@@ -9,9 +9,89 @@ import {
   getTransactionPaymentCreditAccount,
   getTransactionPaymentDebitAccount,
   hasAccountsReceivableShipment,
+  getFinancialSourceTransaction,
 } from '../transaction-recognition';
 
 describe('Accounts Receivable shipment recognition', () => {
+  it('keeps pre-invoice installments dated as revenue and recognizes only the remaining invoice revenue', () => {
+    const transaction = {
+      id: 1,
+      orderStatus: 'Accounts Receivable',
+      quantity: 1,
+      unitPrice: 1000,
+      shippedAt: new Date('2026-01-22'),
+    };
+    const payments = [
+      {
+        transactionId: 1,
+        paymentDate: '2026-01-20',
+        amount: 100,
+        isReservation: true,
+      },
+      {
+        transactionId: 1,
+        paymentDate: '2026-01-20',
+        amount: 300,
+        isReservation: false,
+      },
+      {
+        transactionId: 1,
+        paymentDate: '2026-01-23',
+        amount: 200,
+        isReservation: false,
+      },
+    ];
+    expect(
+      getTransactionPaymentCreditAccount({ ...payments[1], transaction })
+    ).toBe('Sales Revenue');
+    expect(
+      getTransactionPaymentCreditAccount({ ...payments[2], transaction })
+    ).toBe('Accounts Receivable');
+    expect(
+      buildAccountsReceivableShipmentEntries(transaction, payments)
+    ).toEqual([
+      expect.objectContaining({ account: 'Accounts Receivable', debit: 700 }),
+      expect.objectContaining({ account: 'Sales Revenue', credit: 700 }),
+    ]);
+    expect(
+      getReservationDepositRecognitionCreditAccount({
+        orderStatus: transaction.orderStatus,
+        transaction,
+        isForfeited: false,
+      })
+    ).toBe('Accounts Receivable');
+  });
+
+  it.each(['Prepared', 'Accounts Receivable'])(
+    'keeps incoming card collections out of Cash and card debt for %s',
+    (orderStatus) => {
+      expect(
+        getTransactionPaymentDebitAccount({
+          method: 'CARD',
+          transaction: { orderStatus },
+        })
+      ).toBe('Card Collections Clearing');
+    }
+  );
+  it('uses the immutable pre-cancellation source without mutating the operational status', () => {
+    const order = {
+      orderStatus: 'Cancelled',
+      cancellation: { previousStatus: 'Prepared' },
+    };
+    expect(getFinancialSourceTransaction(order).orderStatus).toBe('Prepared');
+    expect(order.orderStatus).toBe('Cancelled');
+  });
+
+  it('settles an approved refund liability without creating another sales return', () => {
+    expect(
+      getTransactionRefundDebitAccount({
+        orderStatus: 'Cancelled',
+        isReservationRefund: false,
+        isApprovedCancellationPayout: true,
+      })
+    ).toBe('Refunds Payable');
+  });
+
   it('keeps voided reservation deposits in Customer Deposits until refunded', () => {
     expect(
       getReservationDepositRecognitionCreditAccount({

@@ -160,32 +160,65 @@ export async function POST(request: Request) {
 
     const normalizedCode = normalizeProductCode(productCode);
 
-    const created = await prisma.inventoryMovement.create({
-      data: {
-        productCode: normalizedCode,
-        quantity,
-        fromBucket,
-        toBucket,
-        movementSource: 'inventory_adjustment',
-        movementType: 'adjustment',
-        postingDate: postingDate?.trim() || null,
-        notes,
-        supplierShortResolution:
-          fromBucket === 'sellable' &&
-          toBucket === 'supplier_short' &&
-          !(notes ?? '').toLowerCase().startsWith('additionals') &&
-          !(notes ?? '').toLowerCase().startsWith('transfer')
-            ? (supplierShortResolution ?? 'UNRESOLVED')
-            : null,
-        supplierShortExpectedShipmentCode:
-          supplierShortExpectedShipmentCode?.trim() || null,
-        supplierCreditReference: supplierCreditReference?.trim() || null,
-        supplierCreditAmount: supplierCreditAmount ?? null,
-      },
-    });
+    return await prisma.$transaction(
+      async (tx) => {
+        const creditedProduct = await tx.product.findFirst({
+          where: {
+            deletedAt: null,
+            supplierFulfillmentStatus: 'CREDIT_ISSUED',
+            productCode: { equals: normalizedCode, mode: 'insensitive' },
+          },
+          select: { id: true },
+        });
+        if (creditedProduct) {
+          return NextResponse.json(
+            {
+              error:
+                'A supplier-nonfulfilled product cannot be moved back into physical inventory. Use the replacement purchase.',
+            },
+            { status: 409 }
+          );
+        }
+        const created = await tx.inventoryMovement.create({
+          data: {
+            productCode: normalizedCode,
+            quantity,
+            fromBucket,
+            toBucket,
+            movementSource: 'inventory_adjustment',
+            movementType: 'adjustment',
+            postingDate: postingDate?.trim() || null,
+            notes,
+            supplierShortResolution:
+              fromBucket === 'sellable' &&
+              toBucket === 'supplier_short' &&
+              !(notes ?? '').toLowerCase().startsWith('additionals') &&
+              !(notes ?? '').toLowerCase().startsWith('transfer')
+                ? (supplierShortResolution ?? 'UNRESOLVED')
+                : null,
+            supplierShortExpectedShipmentCode:
+              supplierShortExpectedShipmentCode?.trim() || null,
+            supplierCreditReference: supplierCreditReference?.trim() || null,
+            supplierCreditAmount: supplierCreditAmount ?? null,
+          },
+        });
 
-    return NextResponse.json({ data: created }, { status: 201 });
+        return NextResponse.json({ data: created }, { status: 201 });
+      },
+      { isolationLevel: 'Serializable' }
+    );
   } catch (error) {
+    if (
+      error &&
+      typeof error === 'object' &&
+      'code' in error &&
+      error.code === 'P2034'
+    ) {
+      return NextResponse.json(
+        { error: 'Inventory changed concurrently. Refresh before retrying.' },
+        { status: 409 }
+      );
+    }
     logger.error('Failed to create inventory movement', { error });
     return NextResponse.json(
       { error: 'Failed to create inventory movement' },
@@ -218,120 +251,147 @@ export async function PATCH(request: Request) {
       supplierCreditAmount,
     } = parsed.data;
 
-    const existing = await prisma.inventoryMovement.findFirst({
-      where: { id, deletedAt: null },
-    });
+    return await prisma.$transaction(
+      async (tx) => {
+        const existing = await tx.inventoryMovement.findFirst({
+          where: { id, deletedAt: null },
+        });
 
-    if (!existing) {
-      return NextResponse.json(
-        { error: 'Movement not found' },
-        { status: 404 }
-      );
-    }
+        if (!existing) {
+          return NextResponse.json(
+            { error: 'Movement not found' },
+            { status: 404 }
+          );
+        }
 
-    // Only allow editing adjustment-style movements (keeps behavior predictable).
-    const allowedDestinations = [
-      'damaged_hold',
-      'scrap',
-      'supplier_short',
-    ] as const;
-    if (
-      existing.fromBucket !== 'sellable' ||
-      !allowedDestinations.includes(
-        existing.toBucket as (typeof allowedDestinations)[number]
-      )
-    ) {
-      return NextResponse.json(
-        {
-          error:
-            'Only sellable -> damaged_hold/scrap/supplier_short movements can be edited',
-        },
-        { status: 400 }
-      );
-    }
+        // Only allow editing adjustment-style movements (keeps behavior predictable).
+        if (existing.movementSource === 'supplier_nonfulfillment') {
+          return NextResponse.json(
+            {
+              error:
+                'This shortage backs a posted supplier credit and cannot be edited independently.',
+            },
+            { status: 409 }
+          );
+        }
+        const allowedDestinations = [
+          'damaged_hold',
+          'scrap',
+          'supplier_short',
+        ] as const;
+        if (
+          existing.fromBucket !== 'sellable' ||
+          !allowedDestinations.includes(
+            existing.toBucket as (typeof allowedDestinations)[number]
+          )
+        ) {
+          return NextResponse.json(
+            {
+              error:
+                'Only sellable -> damaged_hold/scrap/supplier_short movements can be edited',
+            },
+            { status: 400 }
+          );
+        }
 
-    const isSupplierShort =
-      existing.fromBucket === 'sellable' &&
-      existing.toBucket === 'supplier_short' &&
-      !(existing.notes ?? '').toLowerCase().startsWith('additionals') &&
-      !(existing.notes ?? '').toLowerCase().startsWith('transfer');
-    if (
-      !isSupplierShort &&
-      (supplierShortResolution !== undefined ||
-        supplierShortExpectedShipmentCode !== undefined ||
-        supplierCreditReference !== undefined ||
-        supplierCreditAmount !== undefined)
-    ) {
-      return NextResponse.json(
-        {
-          error:
-            'Supplier-short resolution fields require a Supplier Short movement',
-        },
-        { status: 400 }
-      );
-    }
+        const isSupplierShort =
+          existing.fromBucket === 'sellable' &&
+          existing.toBucket === 'supplier_short' &&
+          !(existing.notes ?? '').toLowerCase().startsWith('additionals') &&
+          !(existing.notes ?? '').toLowerCase().startsWith('transfer');
+        if (
+          !isSupplierShort &&
+          (supplierShortResolution !== undefined ||
+            supplierShortExpectedShipmentCode !== undefined ||
+            supplierCreditReference !== undefined ||
+            supplierCreditAmount !== undefined)
+        ) {
+          return NextResponse.json(
+            {
+              error:
+                'Supplier-short resolution fields require a Supplier Short movement',
+            },
+            { status: 400 }
+          );
+        }
 
-    const resolution =
-      supplierShortResolution ?? existing.supplierShortResolution;
-    const expectedShipmentCode =
-      supplierShortExpectedShipmentCode === undefined
-        ? existing.supplierShortExpectedShipmentCode
-        : supplierShortExpectedShipmentCode;
-    const creditAmount =
-      supplierCreditAmount === undefined
-        ? existing.supplierCreditAmount
-        : supplierCreditAmount;
-    if (
-      isSupplierShort &&
-      resolution === 'EXPECTED_LATER' &&
-      !expectedShipmentCode?.trim()
-    ) {
-      return NextResponse.json(
-        {
-          error: 'Provide the expected shipment code for goods expected later',
-        },
-        { status: 400 }
-      );
-    }
-    if (
-      isSupplierShort &&
-      (resolution === 'CREDIT_RECEIVED' || resolution === 'CREDIT_APPLIED') &&
-      !(Number(creditAmount) > 0)
-    ) {
-      return NextResponse.json(
-        { error: 'Provide the received supplier credit amount' },
-        { status: 400 }
-      );
-    }
-
-    // fromBucket is always 'sellable' for editable adjustments; toBucket is restricted
-    // to 'damaged_hold' | 'scrap', so they cannot be equal.
-
-    const updated = await prisma.inventoryMovement.update({
-      where: { id },
-      data: {
-        quantity: typeof quantity === 'number' ? quantity : undefined,
-        toBucket: typeof toBucket === 'string' ? toBucket : undefined,
-        postingDate:
-          typeof postingDate === 'string'
-            ? postingDate.trim() || null
-            : undefined,
-        notes: typeof notes === 'string' ? notes : undefined,
-        supplierShortResolution,
-        supplierShortExpectedShipmentCode:
+        const resolution =
+          supplierShortResolution ?? existing.supplierShortResolution;
+        const expectedShipmentCode =
           supplierShortExpectedShipmentCode === undefined
-            ? undefined
-            : supplierShortExpectedShipmentCode?.trim() || null,
-        supplierCreditReference:
-          supplierCreditReference === undefined
-            ? undefined
-            : supplierCreditReference?.trim() || null,
-        supplierCreditAmount,
-      },
-    });
+            ? existing.supplierShortExpectedShipmentCode
+            : supplierShortExpectedShipmentCode;
+        const creditAmount =
+          supplierCreditAmount === undefined
+            ? existing.supplierCreditAmount
+            : supplierCreditAmount;
+        if (
+          isSupplierShort &&
+          resolution === 'EXPECTED_LATER' &&
+          !expectedShipmentCode?.trim()
+        ) {
+          return NextResponse.json(
+            {
+              error:
+                'Provide the expected shipment code for goods expected later',
+            },
+            { status: 400 }
+          );
+        }
+        if (
+          isSupplierShort &&
+          (resolution === 'CREDIT_RECEIVED' ||
+            resolution === 'CREDIT_APPLIED') &&
+          !(Number(creditAmount) > 0)
+        ) {
+          return NextResponse.json(
+            { error: 'Provide the received supplier credit amount' },
+            { status: 400 }
+          );
+        }
 
-    return NextResponse.json({ data: updated });
+        // fromBucket is always 'sellable' for editable adjustments; toBucket is restricted
+        // to 'damaged_hold' | 'scrap', so they cannot be equal.
+
+        const updated = await tx.inventoryMovement.update({
+          where: { id },
+          data: {
+            quantity: typeof quantity === 'number' ? quantity : undefined,
+            toBucket: typeof toBucket === 'string' ? toBucket : undefined,
+            postingDate:
+              typeof postingDate === 'string'
+                ? postingDate.trim() || null
+                : undefined,
+            notes: typeof notes === 'string' ? notes : undefined,
+            supplierShortResolution,
+            supplierShortExpectedShipmentCode:
+              supplierShortExpectedShipmentCode === undefined
+                ? undefined
+                : supplierShortExpectedShipmentCode?.trim() || null,
+            supplierCreditReference:
+              supplierCreditReference === undefined
+                ? undefined
+                : supplierCreditReference?.trim() || null,
+            supplierCreditAmount,
+          },
+        });
+
+        return NextResponse.json({ data: updated });
+      },
+      { isolationLevel: 'Serializable' }
+    );
   } catch (error) {
+    if (
+      error &&
+      typeof error === 'object' &&
+      'code' in error &&
+      error.code === 'P2034'
+    ) {
+      return NextResponse.json(
+        { error: 'Inventory changed concurrently. Refresh before retrying.' },
+        { status: 409 }
+      );
+    }
     logger.error('Failed to update inventory movement', { error });
     return NextResponse.json(
       { error: 'Failed to update inventory movement' },
@@ -350,45 +410,70 @@ export async function DELETE(request: Request) {
       return NextResponse.json({ error: 'id is required' }, { status: 400 });
     }
 
-    const existing = await prisma.inventoryMovement.findFirst({
-      where: { id, deletedAt: null },
-    });
+    return await prisma.$transaction(
+      async (tx) => {
+        const existing = await tx.inventoryMovement.findFirst({
+          where: { id, deletedAt: null },
+        });
 
-    if (!existing) {
-      return NextResponse.json(
-        { error: 'Movement not found' },
-        { status: 404 }
-      );
-    }
+        if (!existing) {
+          return NextResponse.json(
+            { error: 'Movement not found' },
+            { status: 404 }
+          );
+        }
 
-    // Only allow deleting adjustment-style movements.
-    const allowedDestinations = [
-      'damaged_hold',
-      'scrap',
-      'supplier_short',
-    ] as const;
+        // Only allow deleting adjustment-style movements.
+        if (existing.movementSource === 'supplier_nonfulfillment') {
+          return NextResponse.json(
+            {
+              error:
+                'This shortage backs a posted supplier credit and cannot be deleted independently.',
+            },
+            { status: 409 }
+          );
+        }
+        const allowedDestinations = [
+          'damaged_hold',
+          'scrap',
+          'supplier_short',
+        ] as const;
+        if (
+          existing.fromBucket !== 'sellable' ||
+          !allowedDestinations.includes(
+            existing.toBucket as (typeof allowedDestinations)[number]
+          )
+        ) {
+          return NextResponse.json(
+            {
+              error:
+                'Only sellable -> damaged_hold/scrap/supplier_short movements can be deleted',
+            },
+            { status: 400 }
+          );
+        }
+
+        const deleted = await tx.inventoryMovement.update({
+          where: { id },
+          data: { deletedAt: new Date() },
+        });
+
+        return NextResponse.json({ data: deleted });
+      },
+      { isolationLevel: 'Serializable' }
+    );
+  } catch (error) {
     if (
-      existing.fromBucket !== 'sellable' ||
-      !allowedDestinations.includes(
-        existing.toBucket as (typeof allowedDestinations)[number]
-      )
+      error &&
+      typeof error === 'object' &&
+      'code' in error &&
+      error.code === 'P2034'
     ) {
       return NextResponse.json(
-        {
-          error:
-            'Only sellable -> damaged_hold/scrap/supplier_short movements can be deleted',
-        },
-        { status: 400 }
+        { error: 'Inventory changed concurrently. Refresh before retrying.' },
+        { status: 409 }
       );
     }
-
-    const deleted = await prisma.inventoryMovement.update({
-      where: { id },
-      data: { deletedAt: new Date() },
-    });
-
-    return NextResponse.json({ data: deleted });
-  } catch (error) {
     logger.error('Failed to delete inventory movement', { error });
     return NextResponse.json(
       { error: 'Failed to delete inventory movement' },

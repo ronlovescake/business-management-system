@@ -49,6 +49,8 @@ the owning source and focused tests before implementing or closing an item.
 
 ## Repository Maps And Deep Analysis
 
+- [Accounting integrity and correctness review](./reports/ACCOUNTING_INTEGRITY_REVIEW_2026-10-26.md) - clothing accounting findings, first-batch fixes, policy decisions, validation evidence, and reconciliation limits.
+- [Development supplier-migration recovery](./reports/DEVELOPMENT_MIGRATION_RECOVERY_2026-10-26.md) - verified backup, restored-copy rehearsal, development migration, and unresolved historical-file/checksum evidence.
 - [Clothing integrity audit and remediation](./reports/CLOTHING_INTEGRITY_AUDIT_2026-10-24.md) - confirmed fixes, verification evidence, all 40 page paths, and remaining review limits.
 
 Dated structural snapshots have been archived under `docs/reports/archive/` to keep this hub focused on living docs:

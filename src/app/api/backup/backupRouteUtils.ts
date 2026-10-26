@@ -89,6 +89,52 @@ export function buildTableQueryOptions(
   ) {
     where.product = { deletedAt: null };
   }
+  if (!includeSoftDeleted && model === 'clothingSupplierCredit') {
+    where.sourceProduct = { deletedAt: null };
+  }
+  if (!includeSoftDeleted && model === 'clothingSupplierCreditApplication') {
+    where.targetProduct = { deletedAt: null };
+    where.credit = { sourceProduct: { deletedAt: null } };
+  }
+  if (!includeSoftDeleted && model === 'clothingProductShipmentTransfer') {
+    where.product = { deletedAt: null };
+  }
+  if (
+    !includeSoftDeleted &&
+    [
+      'transactionPayment',
+      'transactionRefund',
+      'transactionStatusChange',
+      'clothingOrderCancellation',
+    ].includes(model)
+  ) {
+    where.transaction = { deletedAt: null };
+  }
+  if (!includeSoftDeleted && model === 'clothingRefundPayout') {
+    where.cancellation = { transaction: { deletedAt: null } };
+    where.refund = { deletedAt: null };
+  }
+  if (!includeSoftDeleted && model === 'clothingFinancialRequest') {
+    where.OR = [
+      {
+        payments: {
+          some: { deletedAt: null, transaction: { deletedAt: null } },
+        },
+      },
+      { cancellation: { transaction: { deletedAt: null } } },
+      {
+        payout: {
+          cancellation: { transaction: { deletedAt: null } },
+          refund: { deletedAt: null },
+        },
+      },
+      {
+        operation: {
+          in: ['ZERO_COST_CONFIRMATION', 'INVENTORY_COST_CORRECTION'],
+        },
+      },
+    ];
+  }
 
   if (strategy === 'differential' && differentialSince) {
     if (hasUpdatedAt) {

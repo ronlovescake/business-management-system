@@ -14,6 +14,10 @@
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { NextRequest } from 'next/server';
+import fs from 'fs';
+import path from 'path';
+import Handlebars from 'handlebars/dist/handlebars';
+import { DEFAULT_MESSAGE_TEMPLATES } from '@/modules/clothing/operations/message-templates/templates.data';
 import { getTestApiUrl, mockLogger } from '@/core/testing/test-helpers';
 
 // ── Prisma mock ──────────────────────────────────────────────────────────
@@ -65,6 +69,47 @@ const mockTemplateRecord = (overrides: Record<string, unknown> = {}) => ({
 
 // ── Tests ────────────────────────────────────────────────────────────────
 describe('Message Template Routes — Business Logic', () => {
+  it('uses Reservation Deposit and reviewed decisions without automatic installment forfeiture in new defaults', () => {
+    const copy = DEFAULT_MESSAGE_TEMPLATES.map((template) =>
+      [template.title, ...template.paragraphs].join(' ')
+    ).join(' ');
+    expect(copy).not.toMatch(
+      /reservation fee|will be forfeited|automatically be cancel/i
+    );
+    expect(copy).toContain(
+      'Additional installments are not automatically forfeited'
+    );
+    expect(copy).toContain(
+      'Fully paid orders awaiting checkout or pickup are not payment-overdue'
+    );
+    expect(
+      DEFAULT_MESSAGE_TEMPLATES.find(
+        (template) => template.id === 'reservation-fee-10-percent'
+      )?.title
+    ).toBe('10% Reservation Deposit');
+  });
+
+  it.each([
+    'invoice (10% dp).hbs',
+    'invoice (20% dp).hbs',
+    'invoice (reservation fee).hbs',
+  ])('renders the approved dated deposit deadline in %s', (file) => {
+    const source = fs.readFileSync(
+      path.join(process.cwd(), 'templates', file),
+      'utf8'
+    );
+    const html = Handlebars.compile(source)(
+      { dueDate: 'October 29, 2026' },
+      { helpers: { currency: (value: number) => String(value ?? 0) } }
+    );
+    expect(html).toContain('DUE DATE: October 29, 2026 (11:59 PM Manila)');
+    expect(html).toContain('Reservation Deposit');
+    expect(html).toContain('Cancellation is not automatic');
+    expect(html).not.toMatch(
+      /reservation fee|24 hours|automatically be cancelled/i
+    );
+  });
+
   beforeEach(() => {
     vi.clearAllMocks();
   });

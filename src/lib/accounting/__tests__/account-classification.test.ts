@@ -32,6 +32,10 @@ describe('account classification', () => {
     expect(detectAccountType('Landed Cost Clearing')).toBe('Asset');
   });
 
+  it('classifies supplier credits as non-cash assets', () => {
+    expect(detectAccountType('Supplier Credits')).toBe('Asset');
+  });
+
   it('classifies owner contribution as equity', () => {
     expect(detectAccountType('Owner Contribution')).toBe('Equity');
   });

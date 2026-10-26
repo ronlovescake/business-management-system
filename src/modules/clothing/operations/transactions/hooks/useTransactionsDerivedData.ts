@@ -10,6 +10,7 @@ import { DueDateService } from '../../due-dates/services/DueDateService';
 import { formatDateOnlyPreservingInput } from '@/utils/dateFormatters';
 import {
   ORDER_STATUS_OPTIONS,
+  EDITABLE_ORDER_STATUS_OPTIONS,
   STATUS_FILTER_OPTIONS,
 } from '../types/transaction.types';
 import type {
@@ -41,6 +42,7 @@ interface UseTransactionsDerivedDataParams {
   productCodes: string[];
   productToShipmentMap: Record<string, string>;
   transactionUpdateMap: Map<number, number>;
+  preserveLegacyStatusChoices?: boolean;
 }
 
 interface UseTransactionsDerivedDataResult {
@@ -90,6 +92,7 @@ export function useTransactionsDerivedData({
   productCodes,
   productToShipmentMap,
   transactionUpdateMap,
+  preserveLegacyStatusChoices = false,
 }: UseTransactionsDerivedDataParams): UseTransactionsDerivedDataResult {
   const statusFilterOptions = useMemo(
     () => Array.from(STATUS_FILTER_OPTIONS),
@@ -97,8 +100,13 @@ export function useTransactionsDerivedData({
   );
 
   const orderStatusDropdownOptions = useMemo(
-    () => Array.from(ORDER_STATUS_OPTIONS),
-    []
+    () =>
+      Array.from(
+        preserveLegacyStatusChoices
+          ? ORDER_STATUS_OPTIONS
+          : EDITABLE_ORDER_STATUS_OPTIONS
+      ),
+    [preserveLegacyStatusChoices]
   );
 
   const columns = useMemo(

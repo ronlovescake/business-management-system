@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Prisma } from '@prisma/client';
-import type { ProductDTO } from '../dto';
+import { mapFromDTO, type ProductDTO } from '../dto';
 
 process.env.ACCOUNTING_CUTOVER_DATE = '2026-01-17';
 
@@ -27,6 +27,7 @@ const mockPrisma = vi.hoisted(() => ({
     findMany: vi.fn(),
     upsert: vi.fn(),
   },
+  clothingSupplierCreditApplication: { findUnique: vi.fn() },
   $executeRaw: vi.fn(),
   $transaction: vi.fn(),
 }));
@@ -92,6 +93,36 @@ function buildDto(overrides: Partial<ProductDTO> = {}): ProductDTO {
 }
 
 describe('productService accounting automation', () => {
+  it('blocks direct/import cost changes after inventory events but permits unchanged costs', async () => {
+    const { assertProductAccountingIdentityChange } = await import(
+      '../service'
+    );
+    mockPrisma.inventoryMovement.findFirst.mockResolvedValue({ id: 10 });
+    const existing = {
+      id: 123,
+      productCode: 'TP-001',
+      shipmentCode: 'KPC-001',
+      landedUnitCost: 100,
+      quantity: 10,
+      cogs: 1000,
+    };
+    await expect(
+      assertProductAccountingIdentityChange(mockTransactionClient, existing, {
+        productCode: 'TP-001',
+        shipmentCode: 'KPC-001',
+        landedUnitCost: 120,
+        cogs: 1200,
+      })
+    ).rejects.toThrow('dated cost correction');
+    await expect(
+      assertProductAccountingIdentityChange(mockTransactionClient, existing, {
+        productCode: 'TP-001',
+        shipmentCode: 'KPC-001',
+        landedUnitCost: 100,
+        cogs: 1000,
+      })
+    ).resolves.toBeUndefined();
+  });
   it('blocks identity changes and deletion when only supplier settlement lines remain', async () => {
     const {
       assertProductAccountingIdentityChange,
@@ -216,6 +247,66 @@ describe('productService accounting automation', () => {
     ).not.toHaveBeenCalled();
   });
 
+  it('replays the identical credit-funded creation without creating a second product', async () => {
+    const { productService } = await import('../service');
+    const payload = buildDto({
+      'Supplier Reference': 'Supplier A',
+      'Supplier Credit Id': 'credit-42',
+      'Supplier Credit Amount': 100,
+      'Supplier Credit Request Id': 'same-request',
+    });
+    const targetProduct = {
+      ...mapFromDTO(payload),
+      id: 456,
+      paymentCardId: null,
+    };
+    mockPrisma.clothingSupplierCreditApplication.findUnique.mockResolvedValue({
+      creditId: 'credit-42',
+      amount: 100,
+      targetProduct,
+    });
+    mockPrisma.inventoryMovement.findFirst.mockResolvedValue({
+      id: 'existing',
+    });
+    const result = await productService.createSingle(payload);
+    expect(result.id).toBe(456);
+    expect(mockPrisma.product.create).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    { Quantity: 2 },
+    { 'Shipment Code': 'KPC-OTHER' },
+    { 'Supplier Reference': 'Supplier B' },
+    { 'Payment Method': 'BANK' },
+    { 'Payment Card Id': 'different-card' },
+  ])(
+    'rejects a changed purchase behind the same credit request ID: %j',
+    async (changes) => {
+      const { productService } = await import('../service');
+      const payload = buildDto({
+        'Supplier Reference': 'Supplier A',
+        'Supplier Credit Id': 'credit-42',
+        'Supplier Credit Amount': 100,
+        'Supplier Credit Request Id': 'same-request',
+      });
+      mockPrisma.clothingSupplierCreditApplication.findUnique.mockResolvedValue(
+        {
+          creditId: 'credit-42',
+          amount: 100,
+          targetProduct: {
+            ...mapFromDTO(payload),
+            id: 456,
+            paymentCardId: null,
+          },
+        }
+      );
+      await expect(
+        productService.createSingle({ ...payload, ...changes })
+      ).rejects.toMatchObject({ status: 409 });
+      expect(mockPrisma.product.create).not.toHaveBeenCalled();
+    }
+  );
+
   it('posts a supplier settlement when payment changes Unpaid → Paid', async () => {
     const { productService } = await import('../service');
 
@@ -228,6 +319,8 @@ describe('productService accounting automation', () => {
         deletedAt: null,
         unitPrice: 0,
         quantity: 1,
+        landedUnitCost: 0,
+        cogs: 155.5,
         alibabaShippingCost: 0,
         exchangeRates: 1,
       },
@@ -295,6 +388,9 @@ describe('productService accounting automation', () => {
         '../service'
       );
       mockPrisma.product.findUnique.mockResolvedValue({
+        landedUnitCost: 0,
+        cogs: 999,
+        quantity: 1,
         id: 789,
         productCode: 'TP-003',
         shipmentCode: 'KPC-001',
@@ -324,6 +420,9 @@ describe('productService accounting automation', () => {
   it('reconciles a Paid retry without changing existing journal dates or amounts', async () => {
     const { productService } = await import('../service');
     mockPrisma.product.findUnique.mockResolvedValue({
+      landedUnitCost: 0,
+      cogs: 999,
+      quantity: 1,
       id: 789,
       productCode: 'TP-003',
       shipmentCode: 'KPC-001',
@@ -352,6 +451,9 @@ describe('productService accounting automation', () => {
     const { productService } = await import('../service');
     auth.getCurrentUser.mockResolvedValue({ id: 'test-user', role: 'USER' });
     mockPrisma.product.findUnique.mockResolvedValue({
+      landedUnitCost: 0,
+      cogs: 999,
+      quantity: 1,
       id: 789,
       productCode: 'TP-003',
       shipmentCode: 'KPC-001',
@@ -379,6 +481,9 @@ describe('productService accounting automation', () => {
     const { productService } = await import('../service');
     auth.getCurrentUser.mockResolvedValue({ id: 'test-user', role: 'USER' });
     mockPrisma.product.findUnique.mockResolvedValue({
+      landedUnitCost: 0,
+      cogs: 999,
+      quantity: 1,
       id: 789,
       productCode: 'TP-003',
       shipmentCode: 'KPC-001',
@@ -413,6 +518,9 @@ describe('productService accounting automation', () => {
   it('updates a renamed product by ID without creating another product', async () => {
     const { productService } = await import('../service');
     mockPrisma.product.findUnique.mockResolvedValue({
+      landedUnitCost: 0,
+      cogs: 999,
+      quantity: 1,
       id: 789,
       productCode: 'S-101826',
       shipmentCode: 'SHIP-OLD',

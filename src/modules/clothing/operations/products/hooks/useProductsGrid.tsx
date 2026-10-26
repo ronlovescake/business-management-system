@@ -80,6 +80,7 @@ interface UseProductsGridResult {
     coords: { row: number; col: number }
   ) => void;
   handleSubmitProduct: () => Promise<void>;
+  handleSupplierResolved: () => Promise<void>;
   filteredProducts: ProductData[];
   products: ProductData[];
   statistics: {
@@ -1097,6 +1098,11 @@ export function useProductsGrid({
     handleAfterChange,
     handleCellClick,
     handleSubmitProduct,
+    handleSupplierResolved: async () => {
+      await refreshProducts();
+      productForm.resetForm();
+      setAddProductOpen(false);
+    },
     filteredProducts,
     products,
     statistics,

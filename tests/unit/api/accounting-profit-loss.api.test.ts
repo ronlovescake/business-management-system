@@ -10,6 +10,7 @@ const { mockFetchers, mockInventoryCogs } = vi.hoisted(() => {
     mockFetchers: {
       fetchPaidTransactions: vi.fn(),
       fetchTransactionPayments: vi.fn(),
+      fetchManualJournalLines: vi.fn(),
       fetchApprovedExpenses: vi.fn(),
       fetchTransactionRefunds: vi.fn(),
       getPaidAtDate: vi.fn(),
@@ -19,6 +20,8 @@ const { mockFetchers, mockInventoryCogs } = vi.hoisted(() => {
     mockInventoryCogs: {
       computeCogsTotal: vi.fn(),
       computeInventorySeedAndShrinkageTotals: vi.fn(),
+      buildCogsAndInventoryEntries: vi.fn(),
+      buildInventorySeedAndShrinkageEntries: vi.fn(),
     },
   };
 });
@@ -30,6 +33,7 @@ vi.mock('@/lib/accounting/data-fetchers', async (importOriginal) => {
     ...actual,
     fetchPaidTransactions: mockFetchers.fetchPaidTransactions,
     fetchTransactionPayments: mockFetchers.fetchTransactionPayments,
+    fetchManualJournalLines: mockFetchers.fetchManualJournalLines,
     fetchApprovedExpenses: mockFetchers.fetchApprovedExpenses,
     fetchTransactionRefunds: mockFetchers.fetchTransactionRefunds,
     getPaidAtDate: mockFetchers.getPaidAtDate,
@@ -65,10 +69,15 @@ vi.mock('@/lib/accounting/inventory-cogs', async (importOriginal) => {
     computeCogsTotal: mockInventoryCogs.computeCogsTotal,
     computeInventorySeedAndShrinkageTotals:
       mockInventoryCogs.computeInventorySeedAndShrinkageTotals,
+    buildCogsAndInventoryEntries:
+      mockInventoryCogs.buildCogsAndInventoryEntries,
+    buildInventorySeedAndShrinkageEntries:
+      mockInventoryCogs.buildInventorySeedAndShrinkageEntries,
   };
 });
 
 import { GET } from '@/app/api/accounting/profit-loss/route';
+import { GET as GETDetails } from '@/app/api/accounting/profit-loss/details/route';
 
 type NextRequestInit = ConstructorParameters<typeof NextRequest>[1];
 
@@ -76,10 +85,68 @@ const buildRequest = (path: string, init?: NextRequestInit) =>
   new NextRequest(getTestApiUrl(path), init);
 
 describe('Accounting Profit & Loss API - GET /api/accounting/profit-loss', () => {
+  it('reconciles cancellation, dated cost and actual card-fee journals in summary and details without treating assets as profit', async () => {
+    mockFetchers.fetchTransactionPayments.mockResolvedValue([]);
+    mockFetchers.fetchApprovedExpenses.mockResolvedValue([]);
+    mockInventoryCogs.buildCogsAndInventoryEntries.mockResolvedValue({
+      entries: [],
+      totalCogs: 0,
+      valuationIssues: [],
+    });
+    mockInventoryCogs.computeInventorySeedAndShrinkageTotals.mockResolvedValue({
+      seedTotal: 0,
+      shrinkageTotal: 0,
+    });
+    mockFetchers.fetchManualJournalLines.mockResolvedValue(
+      [
+        { account: 'Sales Returns', debit: 300, credit: 0 },
+        { account: 'Forfeited Deposits', debit: 0, credit: 100 },
+        { account: 'COGS', debit: 25, credit: 0 },
+        { account: 'Card Processing Fees', debit: 30, credit: 0 },
+        { account: 'Cash', debit: 0, credit: 30 },
+        { account: 'Refunds Payable', debit: 0, credit: 300 },
+        { account: 'Customer Deposits', debit: 400, credit: 0 },
+        { account: 'Stock on Hand', debit: 0, credit: 25 },
+      ].map((line, index) => ({
+        ...line,
+        id: String(index),
+        date: new Date('2026-10-26'),
+        ref: 'AUDIT',
+        sourceType: 'SYSTEM',
+        sourceId: null,
+        description: 'Audited adjustment',
+      }))
+    );
+    const summary = await (
+      await GET(buildRequest('/api/accounting/profit-loss'))
+    ).json();
+    const details = await (
+      await GETDetails(buildRequest('/api/accounting/profit-loss/details'))
+    ).json();
+    expect(summary.data.stats).toMatchObject({
+      revenueTotal: -200,
+      cogsTotal: 25,
+      grossProfit: -225,
+      expenseTotal: 55,
+      netProfit: -255,
+    });
+    expect(
+      details.data.rows
+        .filter((row: { type: string }) => row.type === 'Revenue')
+        .reduce((sum: number, row: { amount: number }) => sum + row.amount, 0)
+    ).toBe(-200);
+    expect(
+      details.data.rows
+        .filter((row: { type: string }) => row.type === 'Expense')
+        .reduce((sum: number, row: { amount: number }) => sum + row.amount, 0)
+    ).toBe(55);
+  });
+
   beforeEach(() => {
     vi.clearAllMocks();
 
     mockFetchers.fetchPaidTransactions.mockResolvedValue([]);
+    mockFetchers.fetchManualJournalLines.mockResolvedValue([]);
     mockFetchers.fetchTransactionPayments.mockResolvedValue([
       {
         id: 1,
@@ -121,11 +188,71 @@ describe('Accounting Profit & Loss API - GET /api/accounting/profit-loss', () =>
     mockPrisma.transaction.findMany.mockResolvedValue([]);
 
     mockInventoryCogs.computeCogsTotal.mockResolvedValue(100);
+    mockInventoryCogs.buildCogsAndInventoryEntries.mockResolvedValue({
+      entries: [],
+      totalCogs: 100,
+      valuationIssues: [],
+    });
+    mockInventoryCogs.buildInventorySeedAndShrinkageEntries.mockResolvedValue({
+      entries: [],
+      seedTotal: 0,
+      shrinkageTotal: 0,
+    });
     mockInventoryCogs.computeInventorySeedAndShrinkageTotals.mockResolvedValue({
       seedTotal: 0,
       shrinkageTotal: 25,
     });
   });
+
+  it.each([0, -1, Number.NaN, 50])(
+    'keeps summary and detail revenue consistent for payment amount %s',
+    async (amount) => {
+      mockFetchers.fetchPaidTransactions.mockResolvedValue([
+        {
+          id: 123,
+          quantity: 1,
+          unitPrice: 100,
+          adjustment: 100,
+          orderDate: '2026-01-20',
+        },
+      ]);
+      mockFetchers.getPaidAtDate.mockReturnValue(new Date('2026-01-20'));
+      mockFetchers.fetchTransactionPayments.mockResolvedValue([
+        {
+          id: 1,
+          transactionId: 123,
+          paymentDate: '2026-01-20',
+          amount,
+          transaction: {},
+        },
+      ]);
+      const response = await GET(
+        buildRequest(
+          '/api/accounting/profit-loss?from=2026-01-01&to=2026-01-31'
+        )
+      );
+      expect(response.status).toBe(200);
+      const payload = await response.json();
+      const expectedRevenue = amount > 0 ? amount : 100;
+      expect(payload.data.stats.revenueTotal).toBe(expectedRevenue);
+      const detailsResponse = await GETDetails(
+        buildRequest(
+          '/api/accounting/profit-loss/details?from=2026-01-01&to=2026-01-31'
+        )
+      );
+      expect(detailsResponse.status).toBe(200);
+      const details = await detailsResponse.json();
+      const revenueRows = details.data.rows as Array<{
+        type: string;
+        amount: number;
+      }>;
+      expect(
+        revenueRows
+          .filter((row) => row.type === 'Revenue')
+          .reduce((total, row) => total + row.amount, 0)
+      ).toBe(expectedRevenue);
+    }
+  );
 
   it('includes inventory shrinkage as its own expense line and in net profit', async () => {
     const res = await GET(
@@ -159,6 +286,37 @@ describe('Accounting Profit & Loss API - GET /api/accounting/profit-loss', () =>
     expect(stats.cogsTotal).toBe(100);
     expect(stats.expenseTotal).toBe(50 + 100 + 25);
     expect(stats.netProfit).toBe(200 - (50 + 100 + 25));
+  });
+
+  it('marks profit incomplete and exposes the same missing-cost quantities in summary and details', async () => {
+    const issues = [
+      {
+        movementId: 42,
+        productCode: 'UNKNOWN',
+        date: '2026-01-20',
+        quantity: 3,
+        direction: 'SALE',
+        reason: 'MISSING_COST',
+      },
+    ];
+    mockInventoryCogs.buildCogsAndInventoryEntries.mockResolvedValue({
+      entries: [],
+      totalCogs: 100,
+      valuationIssues: issues,
+    });
+    const summary = await (
+      await GET(buildRequest('/api/accounting/profit-loss'))
+    ).json();
+    const details = await (
+      await GETDetails(buildRequest('/api/accounting/profit-loss/details'))
+    ).json();
+    expect(summary.data.stats.valuation).toEqual({
+      complete: false,
+      affectedQuantity: 3,
+      issues,
+    });
+    expect(details.data.valuation).toEqual(summary.data.stats.valuation);
+    expect(summary.data.stats.cogsTotal).toBe(100);
   });
 
   it('excludes reservation payments from Sales Revenue until recognized', async () => {
@@ -328,5 +486,6 @@ describe('Accounting Profit & Loss API - GET /api/accounting/profit-loss', () =>
 
     expect(sales).toBe(0);
     expect(forfeited).toBe(200);
+    expect(payload.data.stats.forfeitedDepositsTotal).toBe(200);
   });
 });

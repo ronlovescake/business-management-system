@@ -1,7 +1,7 @@
 import React from 'react';
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { render } from '@testing-library/react';
-import { fireEvent, screen } from '@testing-library/dom';
+import { fireEvent, screen, within } from '@testing-library/dom';
 import { MantineProvider } from '@mantine/core';
 import { InventoryPage } from '../InventoryPage';
 import type {
@@ -59,10 +59,6 @@ vi.mock('../InventoryTableControls', () => ({
 
 vi.mock('../InventorySummary', () => ({
   InventorySummary: () => <div>inventory-summary</div>,
-}));
-
-vi.mock('../InventoryTable', () => ({
-  InventoryTable: () => <div>inventory-table</div>,
 }));
 
 vi.mock('@/components/tables/StandardDataTable', () => ({
@@ -213,7 +209,14 @@ describe('InventoryPage adjustments tab', () => {
       isImporting: false,
       isLoading: false,
       isSubmittingMovement: false,
-      headers: ['PRODUCT CODE', 'ACTUAL QUANTITY', 'SELLABLE', 'RESERVED'],
+      headers: [
+        'PRODUCT CODE',
+        'ACTUAL QUANTITY',
+        'ON-HAND SELLABLE',
+        'ON-HAND RESERVED',
+        'IN-TRANSIT RESERVED',
+        'IN-TRANSIT UNRESERVED',
+      ],
       totalItemCount: 1,
       filteredData: [item],
       totals,
@@ -239,11 +242,27 @@ describe('InventoryPage adjustments tab', () => {
     expect(screen.getByText('Unresolved')).toBeInTheDocument();
   });
 
+  it('shows separate on-hand and in-transit reservation/availability columns', () => {
+    renderInventoryPage();
+    for (const name of [
+      'ON-HAND SELLABLE',
+      'ON-HAND RESERVED',
+      'IN-TRANSIT RESERVED',
+      'IN-TRANSIT UNRESERVED',
+    ]) {
+      expect(screen.getByRole('columnheader', { name })).toBeInTheDocument();
+    }
+  });
+
   it('opens ADJUSTMENTS modal on double-clicking product code', () => {
     renderInventoryPage();
 
     fireEvent.click(screen.getByRole('tab', { name: /adjustments/i }));
-    fireEvent.doubleClick(screen.getByText(productCode));
+    fireEvent.doubleClick(
+      within(screen.getByRole('tabpanel', { name: 'Adjustments' })).getByText(
+        productCode
+      )
+    );
 
     expect(
       screen.getByRole('dialog', { name: 'ADJUSTMENTS' })
@@ -255,7 +274,11 @@ describe('InventoryPage adjustments tab', () => {
     renderInventoryPage();
 
     fireEvent.click(screen.getByRole('tab', { name: /adjustments/i }));
-    fireEvent.doubleClick(screen.getByText(productCode));
+    fireEvent.doubleClick(
+      within(screen.getByRole('tabpanel', { name: 'Adjustments' })).getByText(
+        productCode
+      )
+    );
 
     const notesField = screen.getByLabelText('Notes');
     fireEvent.change(notesField, { target: { value: 'TEST note' } });

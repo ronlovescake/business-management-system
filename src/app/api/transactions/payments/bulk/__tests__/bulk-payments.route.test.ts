@@ -1,8 +1,18 @@
 import { describe, expect, it, beforeEach, vi } from 'vitest';
 import { POST } from '@/app/api/transactions/payments/bulk/route';
-import { mockNextRequest, getTestApiUrl } from '@/core/testing/test-helpers';
+import { requireAuth } from '@/lib/auth/session';
+import {
+  mockNextRequest as baseMockNextRequest,
+  getTestApiUrl,
+} from '@/core/testing/test-helpers';
 
 const mockPrisma = vi.hoisted(() => ({
+  clothingFinancialRequest: {
+    findUnique: vi.fn(),
+    create: vi.fn(),
+    update: vi.fn(),
+    delete: vi.fn(),
+  },
   transaction: {
     findMany: vi.fn(),
     update: vi.fn(),
@@ -21,11 +31,60 @@ const mockPrisma = vi.hoisted(() => ({
 vi.mock('@/lib/db', () => ({
   prisma: mockPrisma,
 }));
+vi.mock('@/lib/auth/session', () => ({
+  requireAuth: vi
+    .fn()
+    .mockResolvedValue({ id: 'collector', name: 'Collector', role: 'USER' }),
+}));
+
+const mockNextRequest = (options: Parameters<typeof baseMockNextRequest>[0]) =>
+  baseMockNextRequest({
+    ...options,
+    headers: {
+      'Idempotency-Key': '123e4567-e89b-42d3-a456-426614174000',
+      ...options?.headers,
+    },
+  });
 
 describe('POST /api/transactions/payments/bulk', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockPrisma.clothingFinancialRequest.findUnique.mockResolvedValue(null);
   });
+
+  it('rejects unauthenticated collections before reading or writing business records', async () => {
+    vi.mocked(requireAuth).mockRejectedValueOnce(new Error('Unauthorized'));
+    const response = await POST(mockNextRequest({ method: 'POST', body: {} }));
+    expect(response.status).toBe(401);
+    expect(mockPrisma.transaction.findMany).not.toHaveBeenCalled();
+    expect(mockPrisma.$transaction).not.toHaveBeenCalled();
+  });
+
+  it.each([0, -1, 0.001, 0.004])(
+    'rejects an entire batch containing amount %s before writing',
+    async (amount) => {
+      const request = mockNextRequest({
+        method: 'POST',
+        url: getTestApiUrl('/api/transactions/payments/bulk'),
+        body: {
+          payments: [
+            { transactionId: 10, paymentDate: '2026-02-03', amount: 25 },
+            { transactionId: 11, paymentDate: '2026-02-03', amount },
+          ],
+        },
+      });
+
+      const response = await POST(request);
+      const body = await response.json();
+
+      expect(response.status).toBe(400);
+      expect(body.success).toBe(false);
+      expect(mockPrisma.transaction.findMany).not.toHaveBeenCalled();
+      expect(mockPrisma.$transaction).not.toHaveBeenCalled();
+      expect(mockPrisma.transactionPayment.createMany).not.toHaveBeenCalled();
+      expect(mockPrisma.transaction.update).not.toHaveBeenCalled();
+    }
+  );
 
   it('creates payments and updates transaction adjustments', async () => {
     mockPrisma.transaction.findMany.mockResolvedValue([
@@ -36,6 +95,7 @@ describe('POST /api/transactions/payments/bulk', () => {
     mockPrisma.$transaction.mockImplementation(
       async (callback: (tx: unknown) => unknown) => {
         const tx = {
+          clothingFinancialRequest: mockPrisma.clothingFinancialRequest,
           transaction: mockPrisma.transaction,
           transactionPayment: mockPrisma.transactionPayment,
         };
@@ -147,63 +207,77 @@ describe('POST /api/transactions/payments/bulk', () => {
     expect(body.error).toBe('Invalid transaction IDs');
   });
 
-  it('persists isReservation when supported by schema', async () => {
-    mockPrisma.$queryRaw.mockResolvedValue([{ exists: 1 }]);
+  it.each([10, 20] as const)(
+    'persists the original %s percent agreement with its receipt',
+    async (originalDepositRate) => {
+      mockPrisma.$queryRaw.mockResolvedValue([{ exists: 1 }]);
 
-    mockPrisma.transaction.findMany.mockResolvedValue([
-      { id: 10, quantity: 2, unitPrice: 100 },
-    ]);
+      mockPrisma.transaction.findMany.mockResolvedValue([
+        { id: 10, quantity: 2, unitPrice: 100 },
+      ]);
 
-    mockPrisma.$transaction.mockImplementation(
-      async (callback: (tx: unknown) => unknown) => {
-        const tx = {
-          transaction: mockPrisma.transaction,
-          transactionPayment: mockPrisma.transactionPayment,
-        };
-        return callback(tx);
-      }
-    );
+      mockPrisma.$transaction.mockImplementation(
+        async (callback: (tx: unknown) => unknown) => {
+          const tx = {
+            clothingFinancialRequest: mockPrisma.clothingFinancialRequest,
+            transaction: mockPrisma.transaction,
+            transactionPayment: mockPrisma.transactionPayment,
+          };
+          return callback(tx);
+        }
+      );
 
-    mockPrisma.transactionPayment.createMany.mockResolvedValue({ count: 1 });
-    mockPrisma.transactionPayment.groupBy.mockResolvedValue([
-      { transactionId: 10, _sum: { amount: 0 } },
-    ]);
+      mockPrisma.transactionPayment.createMany.mockResolvedValue({ count: 1 });
+      mockPrisma.transactionPayment.groupBy.mockResolvedValue([
+        { transactionId: 10, _sum: { amount: 0 } },
+      ]);
 
-    mockPrisma.transaction.update.mockResolvedValue({
-      id: 10,
-      adjustment: 25,
-      lineTotal: 2 * 100 - 25,
-    });
+      mockPrisma.transaction.update.mockResolvedValue({
+        id: 10,
+        adjustment: originalDepositRate * 2,
+        lineTotal: 2 * 100 - originalDepositRate * 2,
+      });
 
-    const request = mockNextRequest({
-      method: 'POST',
-      url: getTestApiUrl('/api/transactions/payments/bulk'),
-      body: {
-        payments: [
-          {
-            transactionId: 10,
-            paymentDate: '2026-01-17',
-            amount: 25,
-            method: 'Cash',
-            notes: 'Reservation fee',
-            isReservation: true,
-          },
-        ],
-      },
-    });
+      const request = mockNextRequest({
+        method: 'POST',
+        url: getTestApiUrl('/api/transactions/payments/bulk'),
+        body: {
+          payments: [
+            {
+              transactionId: 10,
+              paymentDate: '2026-01-17',
+              amount: originalDepositRate * 2,
+              method: 'Cash',
+              notes: 'Reservation Deposit',
+              isReservation: true,
+              originalDepositRate,
+            },
+          ],
+        },
+      });
 
-    const response = await POST(request);
-    expect(response.status).toBe(200);
+      const response = await POST(request);
+      expect(response.status).toBe(200);
 
-    const createManyArgs = mockPrisma.transactionPayment.createMany.mock
-      .calls[0]?.[0] as { data?: Array<Record<string, unknown>> } | undefined;
+      const createManyArgs = mockPrisma.transactionPayment.createMany.mock
+        .calls[0]?.[0] as { data?: Array<Record<string, unknown>> } | undefined;
 
-    expect(createManyArgs?.data?.[0]).toMatchObject({
-      transactionId: 10,
-      amount: 25,
-      isReservation: true,
-    });
-  });
+      expect(createManyArgs?.data?.[0]).toMatchObject({
+        transactionId: 10,
+        amount: originalDepositRate * 2,
+        isReservation: true,
+      });
+      const update = mockPrisma.transaction.update.mock.calls[0]?.[0];
+      expect(update.data.initialDepositAmount.toNumber()).toBe(
+        originalDepositRate * 2
+      );
+      expect(update.data.initialDepositRate.toNumber()).toBe(
+        originalDepositRate
+      );
+      expect(update.data.depositConfirmedBy).toBe('Collector');
+      expect(update.data.depositConfirmedAt).toBeInstanceOf(Date);
+    }
+  );
 
   it('rejects a payment that exceeds the outstanding balance without writing', async () => {
     mockPrisma.transaction.findMany.mockResolvedValue([
@@ -213,6 +287,7 @@ describe('POST /api/transactions/payments/bulk', () => {
     mockPrisma.$transaction.mockImplementation(
       async (callback: (tx: unknown) => unknown) => {
         const tx = {
+          clothingFinancialRequest: mockPrisma.clothingFinancialRequest,
           transaction: mockPrisma.transaction,
           transactionPayment: mockPrisma.transactionPayment,
         };
@@ -258,6 +333,7 @@ describe('POST /api/transactions/payments/bulk', () => {
     mockPrisma.$transaction.mockImplementation(
       async (callback: (tx: unknown) => unknown) => {
         const tx = {
+          clothingFinancialRequest: mockPrisma.clothingFinancialRequest,
           transaction: mockPrisma.transaction,
           transactionPayment: mockPrisma.transactionPayment,
         };
@@ -317,6 +393,7 @@ describe('POST /api/transactions/payments/bulk', () => {
     mockPrisma.$transaction.mockImplementation(
       async (callback: (tx: unknown) => unknown) => {
         const tx = {
+          clothingFinancialRequest: mockPrisma.clothingFinancialRequest,
           transaction: mockPrisma.transaction,
           transactionPayment: mockPrisma.transactionPayment,
           transactionStatusChange: mockPrisma.transactionStatusChange,

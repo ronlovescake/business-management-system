@@ -1,11 +1,21 @@
 import React from 'react';
 import { describe, expect, it, vi } from 'vitest';
-import { render, renderHook, waitFor } from '@testing-library/react';
+import { act, render, renderHook, waitFor } from '@testing-library/react';
 import { MantineProvider } from '@mantine/core';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { TransactionPaymentsModal } from '@/modules/clothing/operations/transactions/components/TransactionPaymentsModal';
 import { useTransactionPaymentsState } from '@/modules/clothing/operations/transactions/components/useTransactionPaymentsState';
 import type { TransactionData } from '@/modules/clothing/operations/transactions/types/transaction.types';
+import { api } from '@/lib/api/client';
+
+vi.mock('@/lib/alerts', () => ({
+  getSwal: async () => ({ fire: async () => ({ isConfirmed: true }) }),
+}));
+
+vi.mock('@mantine/notifications', () => ({
+  showNotification: vi.fn(),
+  notifications: { show: vi.fn() },
+}));
 
 interface MockUniversalModalProps {
   opened: boolean;
@@ -54,6 +64,131 @@ function createTransaction(
 }
 
 describe('TransactionPaymentsModal default prefill sync', () => {
+  it('sends an agreed 20 percent original deposit but no deposit terms on a later installment', async () => {
+    const post = vi.spyOn(api, 'post').mockResolvedValue({});
+    const queryClient = new QueryClient();
+    const { result } = renderHook(
+      () =>
+        useTransactionPaymentsState({
+          opened: true,
+          onClose: vi.fn(),
+          transactions: [
+            createTransaction({
+              Customers: 'Customer',
+              'Unit Price': 1000,
+              'Line Total': 1000,
+            }),
+          ],
+          customerNames: ['Customer'],
+          defaultCustomerName: 'Customer',
+          selectedStatuses: new Set(['Prepared']),
+          onStatusFilter: vi.fn(),
+        }),
+      {
+        wrapper: ({ children }) => (
+          <QueryClientProvider client={queryClient}>
+            {children}
+          </QueryClientProvider>
+        ),
+      }
+    );
+    try {
+      await waitFor(() =>
+        expect(result.current.selectedCustomer).toBe('Customer')
+      );
+      act(() => {
+        result.current.setOriginalDepositRate(20);
+        result.current.handleReservationChange(true);
+        result.current.handleAmountChange(1, 200);
+      });
+      await act(async () => {
+        await result.current.handleConfirmAndSubmit('continue');
+      });
+      expect(post.mock.calls[0]?.[1]).toMatchObject({
+        payments: [
+          expect.objectContaining({
+            amount: 200,
+            isReservation: true,
+            originalDepositRate: 20,
+          }),
+        ],
+      });
+      act(() => {
+        result.current.handleReservationChange(false);
+        result.current.handleAmountChange(1, 300);
+      });
+      await act(async () => {
+        await result.current.handleConfirmAndSubmit('continue');
+      });
+      const installments = post.mock.calls[1]?.[1] as {
+        payments: Array<Record<string, unknown>>;
+      };
+      expect(installments.payments[0]).toMatchObject({
+        amount: 300,
+        isReservation: false,
+      });
+      expect(installments.payments[0]).not.toHaveProperty(
+        'originalDepositRate'
+      );
+    } finally {
+      post.mockRestore();
+    }
+  });
+
+  it('reuses the same save key after an uncertain payment response', async () => {
+    const post = vi
+      .spyOn(api, 'post')
+      .mockRejectedValueOnce(new Error('Response lost'))
+      .mockResolvedValueOnce({});
+    const queryClient = new QueryClient();
+    const { result } = renderHook(
+      () =>
+        useTransactionPaymentsState({
+          opened: true,
+          onClose: vi.fn(),
+          transactions: [createTransaction({ Customers: 'Customer' })],
+          customerNames: ['Customer'],
+          defaultCustomerName: 'Customer',
+          selectedStatuses: new Set(['Prepared']),
+          onStatusFilter: vi.fn(),
+        }),
+      {
+        wrapper: ({ children }) => (
+          <QueryClientProvider client={queryClient}>
+            {children}
+          </QueryClientProvider>
+        ),
+      }
+    );
+
+    try {
+      await waitFor(() =>
+        expect(result.current.selectedCustomer).toBe('Customer')
+      );
+      act(() => {
+        result.current.handleAmountChange(1, 20);
+        result.current.setPaymentDate(new Date('2026-10-25T16:00:00Z'));
+      });
+      await act(async () => {
+        await result.current.handleConfirmAndSubmit('continue');
+      });
+      await act(async () => {
+        await result.current.handleConfirmAndSubmit('continue');
+      });
+
+      expect(post).toHaveBeenCalledTimes(2);
+      expect(post.mock.calls[0]?.[2]).toEqual(post.mock.calls[1]?.[2]);
+      expect(post.mock.calls[0]?.[2]).toMatchObject({
+        headers: { 'Idempotency-Key': expect.any(String) },
+      });
+      expect(post.mock.calls[0]?.[1]).toMatchObject({
+        payments: [expect.objectContaining({ paymentDate: '2026-10-26' })],
+      });
+    } finally {
+      post.mockRestore();
+    }
+  });
+
   it('lists only unique customers with open orders, regardless of the selected status pills', () => {
     const transactions = [
       ...[

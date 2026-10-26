@@ -3,9 +3,23 @@ import { NextRequest } from 'next/server';
 vi.mock('@/lib/auth/session', () => ({
   getCurrentUser: vi.fn(async () => ({ id: 'test-admin', role: 'ADMIN' })),
 }));
+vi.mock('@/lib/accounting/cutover', () => ({
+  getRuntimeAccountingCutoverDate: vi.fn(
+    async () => new Date('2026-01-01T00:00:00Z')
+  ),
+}));
 import { getTestApiUrl } from '@/core/testing/test-helpers';
 import { Prisma } from '@prisma/client';
 import { investorPostingLines } from '@/lib/investors/accounting';
+import { filterAndSortLedgerEntries } from '@/app/clothing/accounting/ledger/hooks/ledgerDerivedData';
+import { buildLedgerPeriod } from '@/lib/accounting/ledger-balances';
+import { exportLedgerCsv } from '@/app/clothing/accounting/ledger/hooks/ledgerCsvHandlers';
+import { downloadCsvFile } from '@/lib/accounting/csv';
+
+vi.mock('@/lib/accounting/csv', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/accounting/csv')>()),
+  downloadCsvFile: vi.fn(),
+}));
 
 const { mockFetchers, mockPrisma, mockInventoryCogs } = vi.hoisted(() => {
   return {
@@ -91,6 +105,152 @@ const buildRequest = (path: string, init?: NextRequestInit) =>
   new NextRequest(getTestApiUrl(path), init);
 
 describe('Accounting Ledger API - GET /api/accounting/ledger', () => {
+  it('exports the displayed search-stable balance rather than filtered net movement', () => {
+    const entries = filterAndSortLedgerEntries(
+      [
+        {
+          id: 'receipt',
+          date: '2026-02-02',
+          ref: 'RECEIPT',
+          account: 'Cash',
+          debit: 10,
+          credit: 0,
+          description: 'Receipt',
+          balance: 90,
+        },
+      ],
+      'RECEIPT',
+      'Cash'
+    );
+    exportLedgerCsv({ entries });
+    const csv = vi.mocked(downloadCsvFile).mock.calls[0]?.[1];
+    expect(csv).toContain('Credit,Balance,Description');
+    expect(csv).toContain(',90.00,');
+  });
+
+  it('returns period activity with its earlier balance through the real route', async () => {
+    mockInventoryCogs.buildInventorySeedAndShrinkageEntries.mockResolvedValue({
+      entries: [],
+      seedTotal: 0,
+      shrinkageTotal: 0,
+    });
+    mockFetchers.fetchManualJournalLines.mockResolvedValue([
+      {
+        id: 'opening',
+        date: new Date('2026-01-18'),
+        ref: 'OLD',
+        account: 'Cash',
+        debit: 40,
+        credit: 0,
+        description: 'Earlier collection',
+      },
+      {
+        id: 'receipt',
+        date: new Date('2026-02-05'),
+        ref: 'NEW',
+        account: 'Cash',
+        debit: 60,
+        credit: 0,
+        description: 'Current collection',
+      },
+    ]);
+    const response = await GET(
+      buildRequest('/api/accounting/ledger?from=2026-02-01&to=2026-02-28')
+    );
+    expect(response.status).toBe(200);
+    const payload = await response.json();
+    expect(payload.data.entries).toHaveLength(1);
+    expect(payload.data.entries[0]).toMatchObject({ balance: 100, debit: 60 });
+    expect(payload.data.openingBalances.Cash).toBe(40);
+    expect(payload.data.closingBalances.Cash).toBe(100);
+    expect(payload.data.stats.totalDebits).toBe(60);
+  });
+
+  it('brings forward earlier money without inflating selected-period movements', () => {
+    const result = buildLedgerPeriod(
+      [
+        { date: '2026-01-18', account: 'Cash', debit: 40, credit: 0 },
+        { date: '2026-01-18', account: 'Opening Equity', debit: 0, credit: 40 },
+        { date: '2026-02-05', account: 'Cash', debit: 60, credit: 0 },
+        { date: '2026-02-05', account: 'Sales Revenue', debit: 0, credit: 60 },
+        { date: '2026-03-05', account: 'Cash', debit: 900, credit: 0 },
+      ],
+      new Date('2026-02-01'),
+      new Date('2026-02-28T23:59:59Z')
+    );
+    expect(result.openingBalances).toEqual({ Cash: 40, 'Opening Equity': -40 });
+    expect(result.closingBalances.Cash).toBe(100);
+    expect(
+      result.entries.find((entry) => entry.account === 'Cash')?.balance
+    ).toBe(100);
+    expect(result.entries).toHaveLength(2);
+    expect(result.totalDebits).toBe(60);
+    expect(result.totalCredits).toBe(60);
+  });
+
+  it('does not introduce floating-point cents in account balances', () => {
+    const result = buildLedgerPeriod(
+      [
+        { date: '2026-01-18', account: 'Cash', debit: 0.1, credit: 0 },
+        { date: '2026-01-19', account: 'Cash', debit: 0.2, credit: 0 },
+      ],
+      new Date('2026-01-01'),
+      null
+    );
+    expect(result.entries[1]?.balance).toBe(0.3);
+    expect(result.totalDebits).toBe(0.3);
+  });
+
+  it('keeps account balances unchanged when text search hides earlier activity', () => {
+    const rows = [
+      {
+        date: '2026-01-01',
+        ref: 'OPEN',
+        account: 'Cash',
+        debit: 100,
+        credit: 0,
+        description: 'Opening',
+      },
+      {
+        date: '2026-02-01',
+        ref: 'EXPENSE',
+        account: 'Cash',
+        debit: 0,
+        credit: 20,
+        description: 'Expense',
+      },
+      {
+        date: '2026-02-02',
+        ref: 'RECEIPT',
+        account: 'Cash',
+        debit: 10,
+        credit: 0,
+        description: 'Receipt',
+      },
+    ];
+    expect(
+      filterAndSortLedgerEntries(rows, 'RECEIPT', 'Cash')[0]?.balance
+    ).toBe(90);
+    expect(filterAndSortLedgerEntries(rows, '', 'Cash')[0]?.balance).toBe(90);
+  });
+
+  it('preserves a server balance that already includes earlier periods', () => {
+    const rows = [
+      {
+        date: '2026-02-02',
+        ref: 'RECEIPT',
+        account: 'Cash',
+        debit: 10,
+        credit: 0,
+        description: 'Receipt',
+        balance: 90,
+      },
+    ];
+    expect(
+      filterAndSortLedgerEntries(rows, 'RECEIPT', 'Cash')[0]?.balance
+    ).toBe(90);
+  });
+
   beforeEach(() => {
     vi.clearAllMocks();
 
@@ -171,6 +331,52 @@ describe('Accounting Ledger API - GET /api/accounting/ledger', () => {
       shrinkageTotal: 20,
     });
   });
+
+  it.each([0, -1, Number.NaN, 50])(
+    'uses only posting payments of %s to replace a legacy paid sale',
+    async (amount) => {
+      mockFetchers.fetchPaidTransactions.mockResolvedValue([
+        {
+          id: 1,
+          quantity: 1,
+          unitPrice: 100,
+          adjustment: 100,
+          orderDate: '2026-01-20',
+        },
+      ]);
+      mockFetchers.getPaidAtDate.mockReturnValue(new Date('2026-01-20'));
+      mockFetchers.fetchTransactionPayments.mockResolvedValue([
+        {
+          id: 10,
+          transactionId: 1,
+          paymentDate: '2026-01-20',
+          amount,
+          transaction: {},
+        },
+      ]);
+      const response = await GET(
+        buildRequest('/api/accounting/ledger?from=2026-01-01&to=2026-01-31')
+      );
+      expect(response.status).toBe(200);
+      const payload = await response.json();
+      const entries = payload.data.entries as Array<{
+        account: string;
+        debit: number;
+        credit: number;
+      }>;
+      const expectedRevenue = amount > 0 ? amount : 100;
+      expect(
+        entries
+          .filter((entry) => entry.account === 'Cash')
+          .reduce((total, entry) => total + entry.debit - entry.credit, 0)
+      ).toBe(expectedRevenue);
+      expect(
+        entries
+          .filter((entry) => entry.account === 'Sales Revenue')
+          .reduce((total, entry) => total + entry.credit - entry.debit, 0)
+      ).toBe(expectedRevenue);
+    }
+  );
 
   it('tracks investor cash, return expense and cleared principal balances', async () => {
     mockInventoryCogs.buildInventorySeedAndShrinkageEntries.mockResolvedValue({

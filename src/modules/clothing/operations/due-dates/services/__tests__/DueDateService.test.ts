@@ -11,7 +11,7 @@
  * @group due-dates
  */
 
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { DueDateService } from '../DueDateService';
 import type { DueDateItem } from '../../types/dueDate.types';
 
@@ -28,6 +28,40 @@ interface Transaction {
 }
 
 describe('DueDateService', () => {
+  describe('approved Manila calendar-day deadline', () => {
+    it.each([
+      ['2026-10-26', '2026-10-29T15:59:59.999Z'],
+      ['2026-10-26T20:00:00Z', '2026-10-30T15:59:59.999Z'],
+      ['2026-10-26T10:00:00+08:00', '2026-10-29T15:59:59.999Z'],
+      ['2024-02-27', '2024-03-01T15:59:59.999Z'],
+      ['2026-12-30', '2027-01-02T15:59:59.999Z'],
+      ['November 7, 2025', '2025-11-10T15:59:59.999Z'],
+    ])('uses the end of the third Manila day for %s', (invoice, expected) => {
+      expect(DueDateService.calculateDueDate(invoice)).toBe(expected);
+    });
+
+    it.each(['', '   ', 'not-a-date', '2026-02-30'])(
+      'does not invent a deadline for invalid invoice %s',
+      (invoice) => {
+        expect(DueDateService.calculateDueDate(invoice)).toBe('');
+        expect(DueDateService.calculateTotalHoursToDue(invoice)).toBe(0);
+      }
+    );
+
+    it('does not mark an order overdue before the approved cutoff', () => {
+      vi.useFakeTimers();
+      try {
+        const deadline = DueDateService.calculateDueDate('2026-10-26');
+        vi.setSystemTime(new Date('2026-10-29T15:59:59.000Z'));
+        expect(DueDateService.calculateHoursUntilDue(deadline)).toBe(1);
+        vi.setSystemTime(new Date('2026-10-29T16:00:00.000Z'));
+        expect(DueDateService.calculateHoursUntilDue(deadline)).toBe(-1);
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+  });
+
   // ==========================================================================
   // PROCESSING TESTS
   // ==========================================================================
@@ -165,6 +199,72 @@ describe('DueDateService', () => {
 
       expect(result).toHaveLength(1);
       expect(result[0].customer).toBe('Customer A');
+    });
+
+    it('does not make fully paid orders awaiting pickup or checkout payment-overdue', () => {
+      const transactions: Transaction[] = [
+        {
+          'Invoice Date': '2025-01-01',
+          'Line Total': 0,
+          'Order Status': 'Prepared',
+          Customers: 'Awaiting pickup',
+        },
+        {
+          'Invoice Date': '2025-01-01',
+          'Line Total': 0,
+          'Order Status': 'On Hold',
+          Customers: 'Awaiting checkout',
+        },
+        {
+          'Invoice Date': '2025-01-01',
+          'Line Total': 0,
+          'Order Status': 'In Transit',
+          Customers: 'Prepaid in transit',
+        },
+      ];
+
+      const items = DueDateService.processDueDateItems(transactions);
+
+      expect(items).toEqual([]);
+      expect(DueDateService.calculateStats(items)).toEqual({
+        overdue: 0,
+        dueSoon: 0,
+        onTrack: 0,
+        total: 0,
+      });
+      for (const transaction of transactions) {
+        expect(
+          DueDateService.getCustomerOrders(transactions, transaction.Customers)
+        ).toEqual([]);
+      }
+    });
+
+    it('does not let a paid order change the unpaid order deadline for the same customer', () => {
+      const paidOrder: Transaction = {
+        'Invoice Date': '2025-01-01',
+        'Line Total': 0,
+        'Order Status': 'Prepared',
+        Customers: 'Customer A',
+      };
+      const unpaidOrder: Transaction = {
+        'Invoice Date': '2025-02-01',
+        'Line Total': 75,
+        'Order Status': 'Prepared',
+        Customers: 'Customer A',
+      };
+      const transactions = [paidOrder, unpaidOrder];
+
+      const items = DueDateService.processDueDateItems(transactions);
+
+      expect(items).toHaveLength(1);
+      expect(items[0]).toMatchObject({
+        customer: 'Customer A',
+        lineTotal: 75,
+        invoiceDate: '2025-02-01',
+      });
+      expect(
+        DueDateService.getCustomerOrders(transactions, 'Customer A')
+      ).toEqual([unpaidOrder]);
     });
 
     it('should filter out transactions not in Prepared status', () => {

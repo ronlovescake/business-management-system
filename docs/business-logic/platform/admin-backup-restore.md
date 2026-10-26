@@ -25,6 +25,26 @@
 
 ## B — Backup Artifact Contract
 
+### Clothing Money And Valuation Evidence
+
+The selective registry includes Clothing financial requests before linked
+receipts, cancellation approvals and actual payouts. Restore mapping/dependency
+metadata includes each lifecycle model; this does not revive the retired JSON
+restore endpoint. With soft-deleted rows excluded, dependent Clothing payment,
+refund, status, approval and payout captures follow included parent orders and
+refunds. Immutable zero-cost-confirmation and cost-correction request results
+remain inspection evidence. Inventory movements are still dump-only, so a JSON
+export is not complete valuation recovery. Immutable bulk request results are
+not edited to erase historical references to an excluded parent.
+
+Full PostgreSQL dumps are the supported complete recovery artifact. A
+task-created PostgreSQL 16 dump/restore rehearsal compared canonical rows across
+11 relevant models exactly, including original cost snapshots, corrections,
+confirmation reasons, request fingerprints, receipts, approvals, partial payouts
+and journals; all five lifecycle CHECK constraints survived. Only disposable
+task databases were used. This does not certify production backups or recover
+missing authentic historical migration SQL.
+
 | #   | Logic                                                                     | Explanation                                                                                                                                                                                                                         |
 | --- | ------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | 4   | Full PostgreSQL dump is the supported disaster-recovery artifact          | The current DR contract is dump-first: the restore flow is built around a PostgreSQL `.dump` artifact.                                                                                                                              |

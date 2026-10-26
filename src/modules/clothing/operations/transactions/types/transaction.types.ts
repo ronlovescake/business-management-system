@@ -174,6 +174,10 @@ export const ORDER_STATUS_OPTIONS = [
 
 export type OrderStatus = (typeof ORDER_STATUS_OPTIONS)[number];
 
+export const EDITABLE_ORDER_STATUS_OPTIONS = ORDER_STATUS_OPTIONS.filter(
+  (status) => status !== 'Forfeited'
+);
+
 /**
  * Status Filter Options
  * Available status filters including "All Status" aggregator.

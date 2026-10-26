@@ -16,6 +16,7 @@ function routesFor(
 ) {
   return createTransitBuildRoutes({
     enforceExclusiveSource: true,
+    includeSupplierState: true,
     hasActiveReclass: async (shipmentCode) =>
       (await client.clothingInventoryReclassEntry.count({
         where: { shipmentCode, deletedAt: null },

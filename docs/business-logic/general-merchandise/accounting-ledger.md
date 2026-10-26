@@ -65,3 +65,14 @@
 | --- | ----------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------ |
 | 23  | The visible ledger UI is shared, but recurring-payment behavior is materially GM-specific because it uses GM data models and GM journal posting | Shared UI does not remove GM-specific accounting automation rules. |
 | 24  | Changes to GM recurring-payment validation, generation, approval, or skip behavior must be documented here explicitly                           | These are core GM accounting workflow rules.                       |
+
+## F - Actual Balances And Search/Export Stability
+
+Both ledger APIs use the shared Decimal period aggregator. It reads accounting
+history from the domain's cutover, reports selected-period activity separately,
+and returns opening/closing account balances. Search and CSV preserve each row's
+actual balance rather than restarting it from zero. The shared UI shows Brought
+Forward, Period Movement and Closing Balance, including accounts with earlier
+activity but no current-period row. GM source models, stock treatment and
+recurring-payment rules remain separate; this change does not introduce the
+Clothing cancellation/deposit lifecycle into GM.

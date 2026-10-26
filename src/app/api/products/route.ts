@@ -7,6 +7,7 @@ export const revalidate = 0;
 const { GET, POST, PUT, DELETE } = createProductRoutes({
   service: productService,
   loggerScope: 'Products',
+  supportsSupplierCredits: true,
 });
 
 export { GET, POST, PUT, DELETE };

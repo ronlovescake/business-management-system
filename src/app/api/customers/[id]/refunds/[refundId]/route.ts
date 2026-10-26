@@ -1,16 +1,13 @@
 import type { NextRequest } from 'next/server';
 import { ApiResponse } from '@/core/api';
-import { withErrorHandler } from '@/core/api/middleware';
+import {
+  getAuthorizationErrorResponse,
+  withErrorHandler,
+} from '@/core/api/middleware';
 import { prisma } from '@/lib/db';
-import { logger } from '@/lib/logger';
+import { requireAuth } from '@/lib/auth/session';
 
 type RouteContext = { params: { id: string; refundId: string } };
-
-type RefundRow = { id: number };
-
-function buildAutoReturnMovementNote(refundId: number): string {
-  return `auto-return refund ${refundId}`;
-}
 
 function parseIds(
   context?: RouteContext
@@ -42,9 +39,9 @@ function parseIds(
   return { customerId, refundId };
 }
 
-// DELETE a refund record (soft delete) scoped to the customer
 export const DELETE = withErrorHandler<RouteContext>(
   async (_request: NextRequest, context) => {
+    await requireAuth();
     const parsed = parseIds(context);
     if ('error' in parsed) {
       return parsed.error;
@@ -59,50 +56,23 @@ export const DELETE = withErrorHandler<RouteContext>(
       return ApiResponse.notFound('Customer');
     }
 
-    const result = await prisma.$transaction(async (txClient) => {
-      const transactionRefund = txClient.transactionRefund;
-      const existing = (await transactionRefund.findFirst({
-        where: {
-          id: parsed.refundId,
-          deletedAt: null,
-          transaction: {
-            deletedAt: null,
-            customerId: parsed.customerId,
-          },
-        },
-        select: { id: true },
-      })) as RefundRow | null;
-
-      if (!existing) {
-        return false;
-      }
-
-      const deletedAt = new Date();
-      await transactionRefund.update({
-        where: { id: parsed.refundId },
-        data: { deletedAt },
-      });
-
-      await txClient.inventoryMovement.updateMany({
-        where: {
-          deletedAt: null,
-          notes: buildAutoReturnMovementNote(parsed.refundId),
-        },
-        data: { deletedAt },
-      });
-
-      return true;
+    const existing = await prisma.transactionRefund.findFirst({
+      where: {
+        id: parsed.refundId,
+        deletedAt: null,
+        transaction: { customerId: parsed.customerId },
+      },
+      select: { id: true },
     });
 
-    if (!result) {
+    if (!existing) {
       return ApiResponse.notFound('Refund');
     }
 
-    logger.info('Transaction refund deleted (soft)', {
-      customerId: parsed.customerId,
-      refundId: parsed.refundId,
-    });
-
-    return ApiResponse.success({ id: parsed.refundId }, 'Refund deleted');
-  }
+    return ApiResponse.error(
+      'Recorded refunds stay in history and cannot be deleted.',
+      409
+    );
+  },
+  { onError: (error) => getAuthorizationErrorResponse(error) ?? undefined }
 );

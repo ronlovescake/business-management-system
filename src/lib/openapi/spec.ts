@@ -1133,6 +1133,8 @@ export const openApiSpec: Record<string, unknown> = {
                     enum: [
                       'Onhand',
                       'In Transit',
+                      'Reservation Deposit',
+                      'Reservation Deposit 20',
                       'Reservation Fee',
                       'Reservation Fee 20',
                     ],

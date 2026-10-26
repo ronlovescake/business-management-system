@@ -25,6 +25,24 @@ reclassifications use stable product IDs and actual inserted counts, retaining
 historical code-only compatibility. Competing serializable writes return a
 retryable HTTP 409 rather than committing incompatible postings.
 
+### Delayed Products And Supplier Credits
+
+The [product supplier-resolution contract](operations-products.md#supplier-nonfulfillment-and-future-purchase-credit)
+owns the approved whole-product workflow. Use the dedicated Edit Product transfer
+for delayed, unreceived goods with product-origin funding; do not delete the old
+source to exclude it from arrival processing. The audited transfer moves source
+rows and product linkage together without changing payment, amount, date or keys.
+Legacy shipment-origin funding and already received/reclassed/fulfilled goods are
+rejected rather than silently rewritten.
+
+The reclass selector identifies product name/code and groups all funding
+components of each product. Unchecking excludes a product; **Delete Source**
+instead removes its original asset/funding source and is not an exclusion tool.
+Credit-issued nonfulfilled products are not eligible for stock reclass, and a
+replacement's supplier-credit and remaining-payment components must be selected
+together. This does not introduce a general quantity-level receipt-confirmation
+engine. The Shipping Fee Calculator is unchanged and is not used by resolution.
+
 > **Source files:**
 >
 > - `src/modules/clothing/operations/shipments/components/ShipmentsPage.tsx`

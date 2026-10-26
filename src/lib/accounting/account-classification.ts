@@ -21,6 +21,8 @@ const ACCOUNT_MAP: Record<AccountType, Set<string>> = {
     'deposit',
     'deposits',
     'landed cost clearing',
+    'supplier credits',
+    'card collections clearing',
   ]),
   Liability: new Set([
     'accounts payable',
@@ -41,6 +43,7 @@ const ACCOUNT_MAP: Record<AccountType, Set<string>> = {
     'liability',
     'customer deposit',
     'customer deposits',
+    'refunds payable',
   ]),
   Equity: new Set([
     'opening equity',
@@ -99,6 +102,9 @@ export function detectAccountType(account: string): AccountType | null {
   const rawName = account.trim();
   const name = rawName.toLowerCase();
   if (!name) {
+    return null;
+  }
+  if (name === 'forfeited deposits') {
     return null;
   }
 

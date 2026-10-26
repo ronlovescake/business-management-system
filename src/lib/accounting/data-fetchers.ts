@@ -9,6 +9,7 @@ import {
 } from '@/lib/accounting/constants';
 import { parseDate } from '@/lib/accounting/date-utils';
 import { isCancelledOrderStatus } from '@/lib/transactions/order-status';
+import { getFinancialSourceTransaction } from './transaction-recognition';
 import {
   fetchOptionalModelRows,
   fetchWithStatusChangesFallback,
@@ -20,6 +21,8 @@ type TransactionWithStatusChanges = Awaited<
   ReturnType<typeof prisma.transaction.findMany>
 >[number] & {
   statusChanges?: { newStatus: string | null; changedAt: Date }[];
+  cancellation?: { previousStatus: string | null } | null;
+  _count?: { payments: number };
 };
 
 const RECOGNIZED_TRANSACTION_STATUSES = [
@@ -35,6 +38,7 @@ type TransactionRefundWithTransaction = {
   reason: string | null;
   notes: string | null;
   createdAt: Date;
+  approvedPayout?: { id: string; cancellationId: string } | null;
   transaction: {
     id: number;
     customers: string | null;
@@ -83,14 +87,18 @@ export async function fetchPaidTransactions(): Promise<
 > {
   const baseWhere = {
     deletedAt: null,
-    orderStatus: { in: [...PAID_STATUSES] },
+    OR: [
+      { orderStatus: { in: [...PAID_STATUSES] } },
+      { cancellation: { is: { previousStatus: { in: [...PAID_STATUSES] } } } },
+    ],
   };
 
-  return await fetchWithStatusChangesFallback({
+  const rows = await fetchWithStatusChangesFallback({
     fetchWithChanges: () =>
       prisma.transaction.findMany({
         where: baseWhere,
         include: {
+          cancellation: { select: { previousStatus: true } },
           statusChanges: {
             where: {
               newStatus: { in: [...RECOGNIZED_TRANSACTION_STATUSES] },
@@ -100,9 +108,13 @@ export async function fetchPaidTransactions(): Promise<
         },
       }),
     fetchWithoutChanges: () =>
-      prisma.transaction.findMany({ where: baseWhere }),
+      prisma.transaction.findMany({
+        where: baseWhere,
+        include: { cancellation: { select: { previousStatus: true } } },
+      }),
     logMessage: 'Falling back to transactions without statusChanges',
   });
+  return rows.map(getFinancialSourceTransaction);
 }
 
 export async function fetchRecognizedTransactions(): Promise<
@@ -110,9 +122,6 @@ export async function fetchRecognizedTransactions(): Promise<
 > {
   const baseWhere = {
     deletedAt: null,
-    NOT: {
-      orderStatus: { equals: 'Cancelled' },
-    },
     OR: [
       { orderStatus: { in: [...RECOGNIZED_TRANSACTION_STATUSES] } },
       // Cash-basis support: include any transaction that has recorded payment
@@ -136,6 +145,12 @@ export async function fetchRecognizedTransactions(): Promise<
       prisma.transaction.findMany({
         where: baseWhere,
         include: {
+          cancellation: { select: { previousStatus: true } },
+          _count: {
+            select: {
+              payments: { where: { deletedAt: null, amount: { gt: 0 } } },
+            },
+          },
           statusChanges: {
             where: {
               newStatus: { in: [...RECOGNIZED_TRANSACTION_STATUSES] },
@@ -145,11 +160,28 @@ export async function fetchRecognizedTransactions(): Promise<
         },
       }),
     fetchWithoutChanges: () =>
-      prisma.transaction.findMany({ where: baseWhere }),
+      prisma.transaction.findMany({
+        where: baseWhere,
+        include: {
+          cancellation: { select: { previousStatus: true } },
+          _count: {
+            select: {
+              payments: { where: { deletedAt: null, amount: { gt: 0 } } },
+            },
+          },
+        },
+      }),
     logMessage: 'Falling back to transactions without statusChanges',
   });
 
-  return rows.filter((tx) => !isCancelledOrderStatus(tx.orderStatus));
+  return rows
+    .filter(
+      (transaction) =>
+        !isCancelledOrderStatus(transaction.orderStatus) ||
+        transaction.cancellation ||
+        (transaction._count?.payments ?? 0) > 0
+    )
+    .map(getFinancialSourceTransaction);
 }
 
 export async function fetchAccountsReceivableTransactions(): Promise<
@@ -212,12 +244,14 @@ export async function fetchTransactionRefunds(): Promise<
       transaction: { deletedAt: null },
     },
     include: {
+      approvedPayout: { select: { id: true, cancellationId: true } },
       transaction: {
         select: {
           id: true,
           customers: true,
           productCode: true,
           orderStatus: true,
+          cancellation: { select: { previousStatus: true } },
           payments: {
             where: { deletedAt: null, isReservation: true },
             select: { amount: true },
@@ -228,7 +262,10 @@ export async function fetchTransactionRefunds(): Promise<
     orderBy: [{ refundDate: 'asc' }, { createdAt: 'asc' }],
   })) as TransactionRefundWithTransaction[];
 
-  return rows;
+  return rows.map((refund) => ({
+    ...refund,
+    transaction: getFinancialSourceTransaction(refund.transaction),
+  }));
 }
 
 export async function fetchTransactionPayments(): Promise<
@@ -240,7 +277,7 @@ export async function fetchTransactionPayments(): Promise<
       }
     | undefined;
 
-  return fetchOptionalModelRows<TransactionPaymentWithTransaction>({
+  const rows = await fetchOptionalModelRows<TransactionPaymentWithTransaction>({
     model: transactionPayment,
     unavailableLogMessage:
       'TransactionPayment model is unavailable on Prisma Client; returning no payment events',
@@ -260,6 +297,7 @@ export async function fetchTransactionPayments(): Promise<
               productCode: true,
               orderDate: true,
               orderStatus: true,
+              cancellation: { select: { previousStatus: true } },
               shippedAt: true,
               statusChanges: {
                 where: {
@@ -276,6 +314,10 @@ export async function fetchTransactionPayments(): Promise<
         orderBy: [{ paymentDate: 'asc' }, { createdAt: 'asc' }],
       })) as TransactionPaymentWithTransaction[],
   });
+  return rows.map((payment) => ({
+    ...payment,
+    transaction: getFinancialSourceTransaction(payment.transaction),
+  }));
 }
 
 export async function fetchManualJournalLines(params: {

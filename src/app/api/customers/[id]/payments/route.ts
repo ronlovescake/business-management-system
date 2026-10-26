@@ -1,9 +1,23 @@
 import type { NextRequest } from 'next/server';
 import { ApiResponse } from '@/core/api';
-import { withErrorHandler } from '@/core/api/middleware';
+import {
+  getAuthorizationErrorResponse,
+  withErrorHandler,
+} from '@/core/api/middleware';
+import { requireAuth } from '@/lib/auth/session';
+import type { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
 import { sanitizers } from '@/lib/security/sanitize';
+import {
+  FinancialOperationError,
+  financialRequestId,
+  runFinancialRequest,
+} from '@/lib/accounting/financial-transactions';
+import {
+  computeCollectionBalance,
+  computeOriginalDepositAgreement,
+} from '@/modules/transactions/api/service-calculations';
 import {
   transactionPaymentCreateSchema,
   type TransactionPaymentCreateInput,
@@ -12,7 +26,16 @@ import {
 
 type RouteContext = { params: { id: string } };
 
-type TransactionMetaRow = { id: number; quantity: number; unitPrice: number };
+type TransactionMetaRow = {
+  id: number;
+  quantity: number;
+  unitPrice: number;
+  adjustment: number | null;
+  orderStatus: string | null;
+  customerId: number | null;
+  deletedAt: Date | null;
+  initialDepositAmount?: Prisma.Decimal | null;
+};
 
 type PaymentRow = {
   id: number;
@@ -65,6 +88,7 @@ function sanitizeCreateInput(input: TransactionPaymentCreateInput):
       method: string | null;
       notes: string | null;
       isReservation: boolean;
+      originalDepositRate?: 10 | 20;
     }
   | { error: ReturnType<typeof ApiResponse.badRequest> } {
   const paymentDate = sanitizers.date(input.paymentDate);
@@ -76,7 +100,14 @@ function sanitizeCreateInput(input: TransactionPaymentCreateInput):
     };
   }
 
-  const amount = sanitizers.number(input.amount, { min: 0, decimals: 2 }) ?? 0;
+  const amount = sanitizers.number(input.amount, { min: 0, decimals: 2 });
+  if (amount === null || amount <= 0) {
+    return {
+      error: ApiResponse.badRequest('Invalid amount', {
+        amount: 'Provide a positive amount (greater than 0 after rounding).',
+      }),
+    };
+  }
 
   const method =
     input.method === undefined || input.method === null
@@ -95,6 +126,7 @@ function sanitizeCreateInput(input: TransactionPaymentCreateInput):
     method,
     notes,
     isReservation: Boolean(input.isReservation),
+    originalDepositRate: input.originalDepositRate,
   };
 }
 
@@ -167,6 +199,7 @@ export const GET = withErrorHandler<RouteContext>(
 // POST create a payment record for a transaction belonging to the customer
 export const POST = withErrorHandler<RouteContext>(
   async (request: NextRequest, context) => {
+    const actor = await requireAuth();
     const idResult = parseCustomerId(context);
     if ('error' in idResult) {
       return idResult.error;
@@ -200,6 +233,7 @@ export const POST = withErrorHandler<RouteContext>(
       return sanitized.error;
     }
 
+    const requestId = financialRequestId(request.headers);
     const tx = await prisma.transaction.findFirst({
       where: {
         id: sanitized.transactionId,
@@ -217,88 +251,171 @@ export const POST = withErrorHandler<RouteContext>(
 
     const hasReservationFlag = await supportsReservationFlag();
 
-    const created = (await prisma.$transaction(async (txp) => {
-      const createdRow = (await txp.transactionPayment.create({
-        data: {
-          transactionId: sanitized.transactionId,
-          paymentDate: sanitized.paymentDate,
-          amount: sanitized.amount,
-          method: sanitized.method,
-          notes: sanitized.notes,
-          ...(hasReservationFlag
-            ? { isReservation: sanitized.isReservation }
-            : {}),
-        },
-        select: {
-          id: true,
-          transactionId: true,
-          paymentDate: true,
-          amount: true,
-          method: true,
-          notes: true,
-          ...(hasReservationFlag ? { isReservation: true } : {}),
-          createdAt: true,
-          updatedAt: true,
-        },
-      })) as PaymentRow;
-
-      const meta = (await txp.transaction.findUnique({
-        where: { id: sanitized.transactionId },
-        select: { id: true, quantity: true, unitPrice: true },
-      })) as TransactionMetaRow | null;
-
-      const paymentDelegate = txp.transactionPayment;
-
-      let paid = 0;
-      if (paymentDelegate.aggregate) {
-        const paymentAggregate = await paymentDelegate.aggregate({
-          where: {
-            transactionId: sanitized.transactionId,
-            deletedAt: null,
+    const result = await runFinancialRequest(
+      requestId,
+      'CUSTOMER_COLLECTION',
+      {
+        customerId: idResult.id,
+        payment: sanitized,
+      },
+      async (txp) => {
+        const meta = (await txp.transaction.findUnique({
+          where: { id: sanitized.transactionId },
+          select: {
+            id: true,
+            quantity: true,
+            unitPrice: true,
+            adjustment: true,
+            orderStatus: true,
+            customerId: true,
+            deletedAt: true,
+            initialDepositAmount: true,
           },
-          _sum: {
-            amount: true,
-          },
-        });
-        paid = paymentAggregate._sum.amount ?? 0;
-      } else {
-        const groupBy = Reflect.get(paymentDelegate, 'groupBy');
+        })) as TransactionMetaRow | null;
 
-        if (typeof groupBy !== 'function') {
-          throw new Error('TransactionPayment groupBy is unavailable');
+        if (!meta || meta.deletedAt || meta.customerId !== idResult.id) {
+          return {
+            validationError:
+              'Transaction is no longer available for this customer.',
+          };
         }
 
-        const groupByAny = groupBy as (
-          this: unknown,
-          args: Record<string, unknown>
-        ) => Promise<unknown>;
+        const paymentDelegate = txp.transactionPayment;
 
-        const grouped = (await groupByAny.call(paymentDelegate, {
-          by: ['transactionId'],
-          where: {
+        let paid = 0;
+        if (paymentDelegate.aggregate) {
+          const paymentAggregate = await paymentDelegate.aggregate({
+            where: {
+              transactionId: sanitized.transactionId,
+              deletedAt: null,
+            },
+            _sum: {
+              amount: true,
+            },
+          });
+          paid = paymentAggregate._sum.amount ?? 0;
+        } else {
+          const groupBy = Reflect.get(paymentDelegate, 'groupBy');
+
+          if (typeof groupBy !== 'function') {
+            throw new Error('TransactionPayment groupBy is unavailable');
+          }
+
+          const groupByAny = groupBy as (
+            this: unknown,
+            args: Record<string, unknown>
+          ) => Promise<unknown>;
+
+          const grouped = (await groupByAny.call(paymentDelegate, {
+            by: ['transactionId'],
+            where: {
+              transactionId: sanitized.transactionId,
+              deletedAt: null,
+            },
+            _sum: {
+              amount: true,
+            },
+          })) as Array<{ _sum?: { amount?: number | null } }>;
+          paid = grouped[0]?._sum?.amount ?? 0;
+        }
+
+        const balance = computeCollectionBalance({
+          transactionId: sanitized.transactionId,
+          quantity: meta.quantity,
+          unitPrice: meta.unitPrice,
+          adjustment: meta.adjustment,
+          orderStatus: meta.orderStatus,
+          recordedPayments: paid,
+          incomingAmount: sanitized.amount,
+          isReservation: sanitized.isReservation,
+        });
+        if ('validationError' in balance) {
+          return balance;
+        }
+
+        const deposit = computeOriginalDepositAgreement({
+          quantity: meta.quantity,
+          unitPrice: meta.unitPrice,
+          incomingAmount: sanitized.amount,
+          recordedPayments: paid,
+          isReservation: sanitized.isReservation,
+          originalDepositRate: sanitized.originalDepositRate,
+          initialDepositAmount: meta.initialDepositAmount,
+        });
+        if ('validationError' in deposit) {
+          return deposit;
+        }
+        if (sanitized.isReservation && !hasReservationFlag) {
+          return {
+            validationError:
+              'Reservation Deposit storage is unavailable. Update the development schema before collecting a deposit.',
+          };
+        }
+        const depositUpdate: Prisma.TransactionUpdateInput = { ...deposit };
+        if (deposit.initialDepositAmount) {
+          depositUpdate.depositConfirmedAt = new Date();
+          depositUpdate.depositConfirmedBy =
+            actor.name ?? actor.email ?? actor.id;
+        }
+
+        const createdRow = (await txp.transactionPayment.create({
+          data: {
             transactionId: sanitized.transactionId,
-            deletedAt: null,
+            financialRequestId: requestId,
+            paymentDate: sanitized.paymentDate,
+            amount: sanitized.amount,
+            method: sanitized.method,
+            notes: sanitized.notes,
+            ...(hasReservationFlag
+              ? { isReservation: sanitized.isReservation }
+              : {}),
           },
-          _sum: {
+          select: {
+            id: true,
+            transactionId: true,
+            paymentDate: true,
             amount: true,
+            method: true,
+            notes: true,
+            ...(hasReservationFlag ? { isReservation: true } : {}),
+            createdAt: true,
+            updatedAt: true,
           },
-        })) as Array<{ _sum?: { amount?: number | null } }>;
-        paid = grouped[0]?._sum?.amount ?? 0;
+        })) as PaymentRow;
+
+        await txp.transaction.update({
+          where: { id: sanitized.transactionId },
+          data: {
+            adjustment: balance.adjustment,
+            lineTotal: balance.lineTotal,
+            ...depositUpdate,
+            ...(balance.orderStatus !== meta.orderStatus
+              ? { orderStatus: balance.orderStatus }
+              : {}),
+          },
+        });
+
+        if (balance.orderStatus !== meta.orderStatus) {
+          await txp.transactionStatusChange.create({
+            data: {
+              transactionId: sanitized.transactionId,
+              previousStatus: meta.orderStatus,
+              newStatus: balance.orderStatus,
+            },
+          });
+        }
+
+        return { payment: createdRow };
       }
+    );
 
-      const gross = (meta?.quantity ?? 0) * (meta?.unitPrice ?? 0);
-      const balance = gross - paid;
-
-      await txp.transaction.update({
-        where: { id: sanitized.transactionId },
-        data: {
-          adjustment: paid,
-          lineTotal: balance,
-        },
+    if ('validationError' in result) {
+      return ApiResponse.badRequest('Payment validation failed', {
+        payments:
+          result.validationError ?? 'Unable to validate this collection.',
       });
-
-      return createdRow;
-    })) as PaymentRow;
+    }
+    const created = result.payment;
 
     logger.info('Transaction payment created', {
       customerId: idResult.id,
@@ -307,5 +424,11 @@ export const POST = withErrorHandler<RouteContext>(
     });
 
     return ApiResponse.success(created, 'Payment recorded', 201);
+  },
+  {
+    onError: (error) =>
+      error instanceof FinancialOperationError
+        ? ApiResponse.error(error.message, error.status)
+        : (getAuthorizationErrorResponse(error) ?? undefined),
   }
 );

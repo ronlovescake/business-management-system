@@ -27,6 +27,10 @@ We base these estimates on our previous shipping and delivery data because the a
 
 These estimates help us set selling prices and begin accepting pre-orders immediately. They are not a substitute for recording the shipment's actual logistics costs in the accounting workflow.
 
+**User clarification, 2026-10-26:** the in-app Shipping Fee Calculator is only a
+pricing-estimate tool and is rarely used. Supplier-credit and delayed-shipment
+resolution must not use it. Its behavior is unchanged by these updates.
+
 Product cost fields can also be used by the system to calculate landed unit cost and COGS. Changing a pricing estimate does not automatically reconcile accounting entries that have already been posted. When actual costs become available, record them through the Logistics Costs tab (Step 5) and follow the approved process before changing product cost values.
 
 ## **Step 3: Accept and Record Reseller Pre-Orders**
@@ -35,7 +39,104 @@ Product cost fields can also be used by the system to calculate landed unit cost
 
 Once the price tiers have been added, we can begin accepting pre-orders from our resellers and recording them on the Transactions page.
 
-Our resellers pay a reservation fee to reserve the products they order.
+Our resellers pay a **Reservation Deposit** to reserve the products they order.
+This is an advance toward the order price, not a separate charge.
+
+### **3.1 Reservation Deposit Terminology And Allocation**
+
+**User-confirmed workflow clarification, 2026-10-26:** the following records the
+intended business workflow. It does not certify that every current screen,
+deadline calculation, or report already implements these rules.
+
+| Term                | Meaning in the clothing workflow                                                                                                             |
+| ------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
+| Reservation Deposit | Customer money collected in advance for a specific transaction/product code and applied toward that transaction's total price.               |
+| Customer Deposits   | Accounting account name for those same reservation deposits while held as a liability. It is not another payment or an additional deduction. |
+| Reservation Fee     | Not used. The business does not collect a separate reservation charge or fee.                                                                |
+| Remaining Balance   | The transaction total less its collected Reservation Deposit and subsequent payments, each counted once.                                     |
+| Forfeited Deposit   | An existing deposit retained under the approved cancellation policy; not another cash receipt.                                               |
+
+The required deposit can be 10% or sometimes 20% of the relevant transaction's
+total. These are workflow examples, not a newly mandated universal rate or a new
+rate-selection rule.
+
+For example, if a customer orders Baby Socks (`BS-101725`) and Prenatal Tops
+(`PT-012426`), a 10% deposit requirement applies separately to each order's total.
+Track the amount collected and the remaining balance per transaction/product
+code. Do not treat one unallocated customer-level amount as satisfying both
+orders or subtract it twice under the two deposit names. A product code identifies
+the ordered product; it does not imply all transactions sharing that code are
+one payment obligation.
+
+### **3.2 Completion Deadline, Forfeiture, And Refund Exceptions**
+
+**User-confirmed workflow clarification, 2026-10-26:**
+
+- Once the invoice has been sent and the order is **Prepared**, the goods have
+  been packed and are ready for dispatch from our warehouse.
+- The customer has three days from the invoice date to complete payment for the
+  transaction. If payment is not completed after that period, the Reservation
+  Deposit is forfeited, subject to approved exceptions.
+- Forfeiture changes the treatment of money already collected; it must not
+  create another receipt or increase Cash a second time.
+- If the supplier cannot provide the reserved goods, for example because they
+  were sold to another customer, mark the affected transaction **Voided** and
+  refund the deposit. This is not the reseller's fault and must not count against
+  them. No delivery or physical return of those goods should be invented.
+- A medical emergency can receive consideration through a **normal cancellation**
+  and an approved deposit refund. This is not automatically **Voided**, and it
+  is not an automatic refund entitlement for every cancellation.
+- Refund means money actually paid back; approval of an exception alone is not
+  proof that a payout has occurred.
+
+### **3.3 Fully Paid Orders And Additional Installments**
+
+**Further user-confirmed workflow clarification, 2026-10-26:** resellers may
+make additional installments after the initial Reservation Deposit, including
+paying in full while goods are still in transit. Track all collected amounts
+against the same transaction, not just the initial deposit.
+
+| Transaction situation                                                       | Intended handling                                                                                                                                                                            |
+| --------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Fully paid, awaiting checkout or pickup                                     | Not subject to the three-day payment deadline and must not be canceled for payment overdue. Delayed checkout or pickup alone does not make payment overdue.                                  |
+| Fully paid, approved medical or other financial-emergency consideration     | May be canceled with an approved refund. This is a discretionary exception, not an automatic refund entitlement or supplier-failure void.                                                    |
+| Partially paid, overdue, with additional installments                       | May approve refunding the additional installments while retaining the entire initial required Reservation Deposit, whether 10% or 20%. Do not automatically forfeit every collected payment. |
+| Partially paid, approved medical or other financial-emergency consideration | May approve a full refund of collected funds, including the initial deposit and additional installments.                                                                                     |
+
+For example, on an order totaling 1,000 with an initial 100 deposit and 300 in
+additional installments, an approved split can retain 100 and refund 300. An
+approved full-refund exception can instead refund all 400. Neither outcome
+records a new receipt, and refund approval is not itself a cash payout.
+
+One cancellation can therefore have both a forfeited portion and a refundable
+portion. Any future cancellation dialog must support explicit amounts for both,
+show actual payments and prior refunds, and prevent the same money from being
+both retained and refunded. Pending refunds decrease only when payouts are
+recorded; execution remains on the Customers page as requested by the user.
+These are intended requirements, not claims that a pending-refund workflow
+already exists.
+
+**User-confirmed retention rule, 2026-10-26:** the entire initial required
+Reservation Deposit is forfeitable, whether the required rate was 10% or 20%.
+A 20% initial required deposit is not capped at 10% when forfeited. Additional
+installments are separate from that initial required deposit and are not
+automatically forfeited. Preserve the transaction's agreed initial deposit basis;
+do not infer the forfeitable amount from total collections or a later rate change.
+The additional-installment refund and approved emergency full-refund exception
+remain discretionary decisions, not new automatic defaults.
+
+**Details still requiring confirmation before automation:** whether three days
+means calendar-day cutoff or exactly 72 hours; the timezone/time-of-day cutoff;
+handling of late-sent or revised invoices; who approves exceptions; and whether
+forfeiture is manual or automatic.
+The rule is anchored to the invoice date, not a newly assumed three-day period
+starting when Prepared was selected. If sent/prepared timing conflicts with the
+invoice date, resolve that case before applying a deadline automatically.
+
+The normal-cancellation medical exception is distinct from the existing voided
+deposit-refund path. Its report classification, refund limits, and historical
+receipt preservation still need implementation verification. A cancellation
+label alone must not establish that a deposit was forfeited or refunded.
 
 Since we accept pre-orders as soon as our orders are confirmed with the supplier, the goods may still be in China or in transit to the Philippines when the pre-orders are recorded.
 
@@ -118,14 +219,36 @@ For example, instead of shipping all four products, the supplier may send only:
 
 1. H\&M Pants (HMP-101926)
 2. H\&M Shorts (HMS-101926)
+3. Premium Brand Footed Pants (PBFP-101626)
 
-We may initially link the products expected in a shipment while its contents are still being confirmed. Once we know what KPC actually received, keep linked only the products included in that shipment. In this example, unlink Premium Brand Footed Pants and Dreamgrow Tiny Tots Pants. Link them to a later shipment only when they are actually included in it.
+We may initially link the products expected in a shipment while its contents are still being confirmed. Once we know what KPC actually received, keep linked only the products included in that shipment. In this example, Dreamgrow Tiny Tots Pants is missing. Link it to a later shipment only when the supplier confirms its destination.
 
-If a product already has an active Transit Build-Up or Reclass entry, resolve that accounting entry before changing its Shipment Code. The system prevents changing the code while active entries still reference it.
+For an entirely delayed, unreceived product, an administrator can use **Edit
+Product > Supplier resolution > Transfer delayed product** to transfer it to the next
+existing shipment, for example `KPC 23930A-240`. This preserves original
+product-origin funding and records the reason/audit trail. Ordinary shipment-code
+edits remain locked while accounting sources exist. Already reclassified,
+fulfilled or partially received goods require separate correction.
 
 After the received product list is final, use our separate actual-cost calculator, based on each product's actual received quantity and weight, to allocate the actual KPC and Lalamove fees only across the products received. Enter the resulting per-product amounts in the Products page's cost fields, replacing the estimates rather than adding the actual fees on top of them. The in-app Shipping Fee Calculator remains for estimates and is not our actual-cost accounting tool.
 
-The missing products may be shipped together with our next order. However, there are also cases where the supplier accidentally sells the goods intended for us to another customer. When this happens, the supplier may issue us a credit that we can use toward our next purchase. Record any supplier credit through the approved supplier-credit/accounting process; linking products or adjusting inventory does not record that credit.
+The missing products may be shipped together with our next order. If the supplier
+instead confirms future-purchase credit, an administrator records it through
+**Edit Product > Supplier resolution > Record supplier credit**.
+For the entire missing Dreamgrow product, the user-approved credit is its saved
+Grand Total of PHP 19,511.37. The system records Dr Supplier Credits / Cr Inventory
+in Transit while preserving the original payment; it is not a cash/card refund.
+An already-Paid purchase without a source can have its original acquisition
+materialized once to preserve that funding history. An unsettled unpaid purchase
+requires payable cancellation/resolution, not an invented funded credit.
+
+Use **Add Product** to apply some/all of an available credit to another purchase
+from the same supplier. Record the full new purchase cost; only the uncovered
+portion uses cash/card/bank or Supplier Payable. Unused credit remains available.
+This process does not read/update the estimate calculator, add logistics fees to
+credit, or automatically void/refund reseller transactions. Follow the
+[product contract](operations-products.md#supplier-nonfulfillment-and-future-purchase-credit)
+for restrictions and the required migration.
 
 ## **Step 7: Check and Adjust Inventory**
 
@@ -147,7 +270,7 @@ Any additional pieces sent by the supplier beyond our original order quantity ar
 
 Sometimes, our supplier accidentally sells products intended for us to another customer. When this happens, the supplier may issue us a credit toward our next purchase instead of sending the missing goods.
 
-If the affected products have already been reserved by our resellers and the supplier can no longer provide them, we explain the situation to the affected resellers, void their transactions, and issue refunds for the reservation fees they have paid. The refund and the voided transaction should both be recorded; do not treat the goods as delivered or returned to the reseller.
+If the affected products have already been reserved by our resellers and the supplier can no longer provide them, we explain the situation to the affected resellers, void their transactions, and issue refunds for the Reservation Deposits they have paid. The refund and the voided transaction should both be recorded; do not treat the goods as delivered or returned to the reseller. This supplier-failure outcome is not attributed to reseller fault.
 
 ### **8.1 Distinguish Voided Orders from Sales Returns**
 

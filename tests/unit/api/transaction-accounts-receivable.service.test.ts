@@ -117,6 +117,58 @@ describe('transactionService Accounts Receivable transition', () => {
     vi.useRealTimers();
   });
 
+  it.each([
+    { mode: 'single', lineTotal: 0 },
+    { mode: 'bulk', lineTotal: 0 },
+    { mode: 'single', lineTotal: null },
+    { mode: 'bulk', lineTotal: null },
+  ])(
+    'preserves closed balances and stock history on a note edit: %j',
+    async ({ mode, lineTotal }) => {
+      const closed = {
+        ...existingTransaction,
+        orderStatus: 'Cancelled',
+        lineTotal,
+      };
+      mockPrisma.transaction.findUnique.mockResolvedValue(closed);
+      mockPrisma.transaction.update.mockImplementation(async ({ data }) => ({
+        ...closed,
+        ...data,
+      }));
+      const payload = { id: 51, Notes: 'Customer followed up' };
+      if (mode === 'bulk') {
+        await transactionService.bulkUpdateTransactions([payload]);
+      } else {
+        await transactionService.updateTransaction(payload);
+      }
+      expect(mockPrisma.transaction.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: { notes: 'Customer followed up' },
+        })
+      );
+      expect(mockSyncInventoryMovementsForTransaction).not.toHaveBeenCalled();
+    }
+  );
+
+  it.each(['single', 'bulk'])(
+    'rejects a financial rewrite through the %s edit path',
+    async (mode) => {
+      mockPrisma.transaction.findUnique.mockResolvedValue({
+        ...existingTransaction,
+        orderStatus: 'Cancelled',
+        lineTotal: 0,
+      });
+      const payload = { id: 51, Quantity: 2 };
+      await expect(
+        mode === 'bulk'
+          ? transactionService.bulkUpdateTransactions([payload])
+          : transactionService.updateTransaction(payload)
+      ).rejects.toThrow('financial history');
+      expect(mockPrisma.transaction.update).not.toHaveBeenCalled();
+      expect(mockSyncInventoryMovementsForTransaction).not.toHaveBeenCalled();
+    }
+  );
+
   it('keeps single-row status and movement writes inside the transaction and rejects movement failures', async () => {
     const tx = { transaction: mockPrisma.transaction };
     mockPrisma.$transaction.mockImplementation(async (callback) =>

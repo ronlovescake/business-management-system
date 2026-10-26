@@ -4,6 +4,7 @@
 
 import type { PeriodOption } from './constants';
 import type { DateRange } from './types';
+import { dayjs } from '@/utils/date';
 
 export function parseDate(value?: string | Date | null): Date | null {
   if (!value) {
@@ -70,15 +71,11 @@ export function parseDate(value?: string | Date | null): Date | null {
 }
 
 export function startOfDay(date: Date): Date {
-  const copy = new Date(date);
-  copy.setHours(0, 0, 0, 0);
-  return copy;
+  return dayjs(date).tz('Asia/Manila').startOf('day').toDate();
 }
 
 export function endOfDay(date: Date): Date {
-  const copy = new Date(date);
-  copy.setHours(23, 59, 59, 999);
-  return copy;
+  return dayjs(date).tz('Asia/Manila').endOf('day').toDate();
 }
 
 export function toISOString(date: Date): string {
@@ -113,33 +110,38 @@ export function buildPeriodLabel(from: Date | null, to: Date | null): string {
   return 'All Time';
 }
 
-export function getPeriodRange(period: PeriodOption): DateRange {
-  const now = new Date();
+export function getPeriodRange(
+  period: PeriodOption,
+  now: Date = new Date()
+): DateRange {
+  const current = dayjs(now).tz('Asia/Manila');
+  const to = current.endOf('day').toISOString();
 
   switch (period) {
     case 'This Month': {
-      const from = startOfDay(new Date(now.getFullYear(), now.getMonth(), 1));
-      const to = endOfDay(new Date(now.getFullYear(), now.getMonth() + 1, 0));
-      return { from: toISOString(from), to: toISOString(to) };
+      return { from: current.startOf('month').toISOString(), to };
     }
     case 'Last Month': {
-      const from = startOfDay(
-        new Date(now.getFullYear(), now.getMonth() - 1, 1)
-      );
-      const to = endOfDay(new Date(now.getFullYear(), now.getMonth(), 0));
-      return { from: toISOString(from), to: toISOString(to) };
+      const previous = current.subtract(1, 'month');
+      return {
+        from: previous.startOf('month').toISOString(),
+        to: previous.endOf('month').toISOString(),
+      };
     }
     case 'Last 30 Days': {
-      const to = endOfDay(now);
-      const from = startOfDay(
-        new Date(now.getTime() - 29 * 24 * 60 * 60 * 1000)
-      );
-      return { from: toISOString(from), to: toISOString(to) };
+      return {
+        from: current.subtract(29, 'day').startOf('day').toISOString(),
+        to,
+      };
     }
     case 'This Year': {
-      const from = startOfDay(new Date(now.getFullYear(), 0, 1));
-      const to = endOfDay(new Date(now.getFullYear(), 11, 31));
-      return { from: toISOString(from), to: toISOString(to) };
+      return { from: current.startOf('year').toISOString(), to };
+    }
+    case 'Full Calendar Year': {
+      return {
+        from: current.startOf('year').toISOString(),
+        to: current.endOf('year').toISOString(),
+      };
     }
     default:
       return {};

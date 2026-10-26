@@ -52,6 +52,7 @@ export const ProductsGrid = memo(function ProductsGrid({
     handleAfterChange,
     handleCellClick,
     handleSubmitProduct,
+    handleSupplierResolved,
     filteredProducts,
     products,
     statistics,
@@ -235,6 +236,11 @@ export const ProductsGrid = memo(function ProductsGrid({
           calculations={productForm.calculations}
           onSubmit={handleSubmitProduct}
           isEditMode={productForm.isEditMode}
+          product={products.find(
+            (product) => product.id === productForm.editingProductId
+          )}
+          supplierResolutionEnabled={!apiBasePath || apiBasePath === '/api'}
+          onSupplierResolved={handleSupplierResolved}
         />
 
         <TransitReclassModal

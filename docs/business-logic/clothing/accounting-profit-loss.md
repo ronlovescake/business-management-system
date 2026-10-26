@@ -33,6 +33,58 @@
 
 ## C - P&L Data Models
 
+### Event And Journal Parity
+
+Both APIs include the same dated journal-backed revenue/contra-revenue and
+expense adjustments through
+[profit-loss-journal](../../../src/lib/accounting/profit-loss-journal.ts).
+Revenue uses credit minus debit and expenses debit minus credit. Cash, assets,
+liabilities and other balance-sheet accounts are excluded from profit. COGS
+adjustments change COGS/gross profit once; settlement fees affect expenses once.
+The [Journal contract](accounting-journal.md#dated-customer-money-and-card-events)
+owns deposit, A/R, noncash cancellation and actual-payout recognition.
+
+`forfeitedDepositsTotal` separately sums recognized Forfeited Deposits rows,
+including preserved legacy events and new retained-deposit approval journals.
+BI reads this accounting result; it does not infer forfeiture from total
+collections or treat all installments as retained money.
+
+### Valuation Completeness And Dated Corrections
+
+[inventory-valuation](../../../src/lib/accounting/inventory-valuation.ts) owns
+administrator confirmation/correction, with the protected
+[valuation API](../../../src/app/api/accounting/inventory-valuation/route.ts).
+Missing, invalid and unsnapshotted current-product fallback costs produce a
+visible Profit Incomplete notice listing affected movements and quantities in
+P&L, the accounting dashboard and BI. A numeric zero alone does not prove goods
+were genuinely free. An administrator records the reason and immutable zero-cost
+confirmation; no movement snapshot is rewritten and positive snapshots cannot
+be overridden. Historical cutoffs before confirmation remain incomplete.
+
+A dated correction requires a current single-lot basis, actual date/reason and
+an already-posted Stock on Hand capitalization for the exact product/shipment.
+It checks remaining signed capitalization and atomically allocates the confirmed
+delta between sold and unsold quantities, conserving cents. Only the sold share
+posts COGS/Stock on Hand; logistics and Cash are not posted again. Current product
+cost changes for future movements, while stored original receipt/sale basis and
+dated correction evidence preserve earlier reports. A linked later physical
+return restores the corrected carrying cost without rewriting either snapshot.
+Generic product edit/import cannot change costs beneath inventory history.
+
+Ambiguous/multi-lot/transformed histories, conflicting bases, stale costs,
+unsupported later movements and unlinked/unposted capitalization are rejected
+for administrator review, not guessed or silently backfilled. Corrections use
+the same UUID/Serializable/retry boundary as other financial events. Real
+database regressions prove concurrent correction exclusion, dated sale/return
+costs, confirmation cutoff and unchanged original snapshots. This is not an
+automatic historical revaluation or physical stock reconciliation.
+
+Both summary and details use finite, positive payment events to decide whether
+to replace legacy paid-transaction revenue. A zero, negative, or non-finite
+payment row alone does not suppress that revenue. Positive payments outside the
+selected period still replace the legacy fallback, preventing duplicate revenue
+across reporting windows. This rule matches Journal and Ledger recognition.
+
 | #   | Logic                                                                                                                                       | Explanation                                                |
 | --- | ------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------- |
 | 8   | Summary row: `id`, `category`, `type` (`'Revenue'` or `'Expense'`), `amount`                                                                | Aggregated by category and type.                           |
@@ -81,10 +133,10 @@
 
 ## G - CSV Export
 
-| #   | Logic                                                                                                                          | Explanation                          |
-| --- | ------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------ |
-| 27  | Summary export headers: Category, Type, Amount                                                                                 | Filename: `profit-loss.csv`.         |
-| 28  | Details export headers: Date, Type, Category, Description, Amount, Customer, Product Code, Method, Ref, Source Type, Source ID | Filename: `profit-loss_details.csv`. |
+| #   | Logic                                                                                                                          | Explanation                                                                         |
+| --- | ------------------------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------- |
+| 27  | Summary export includes Category, Type, Amount, Valuation Status and Affected Quantity                                         | Filename: `profit-loss.csv`; unknown valuation is not exported as certified profit. |
+| 28  | Details export headers: Date, Type, Category, Description, Amount, Customer, Product Code, Method, Ref, Source Type, Source ID | Filename: `profit-loss_details.csv`.                                                |
 
 ---
 

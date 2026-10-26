@@ -331,10 +331,10 @@
       <table class="summary">
       <tr>
         <td width="60%">
-          <div class="due">DUE DATE: IN 24 HOURS</div>
+          <div class="due">DUE DATE: {{dueDate}} (11:59 PM Manila)</div>
           <div class="note-title">IMPORTANT NOTES:</div>
-          <div class="note">Please settle the reservation fee within 24 hours!!!</div>
-          <div class="note">Unpaid reservations after 24 hours will automatically be cancelled!!!</div>
+          <div class="note">Please settle the agreed Reservation Deposit by the due date.</div>
+          <div class="note">Unpaid orders require review. Cancellation is not automatic.</div>
         </td>
         <td width="40%">
           <table class="totals-table">
@@ -343,7 +343,7 @@
               <td class="value">{{currency subTotal}}</td>
             </tr>
             <tr>
-              <td class="label">Reservation Fee (20%):</td>
+              <td class="label">Reservation Deposit (20%):</td>
               <td class="value">{{currency reservationFee}}</td>
             </tr>
             <tr><td colspan="2"><hr></td></tr>

@@ -47,6 +47,10 @@ import {
 } from '@/lib/accounting/formatters';
 import { AccountingLoadErrorAlert } from '@/app/accounting/_shared/AccountingLoadErrorAlert';
 import { useAccountingDashboard } from '@/app/accounting/_shared/dashboard/useAccountingDashboard';
+import { RefundPending } from '@/components/refunds/RefundPending';
+import { InventoryValuationNotice } from '@/components/accounting/InventoryValuationNotice';
+import { getCurrentDateISO, toISODate } from '@/utils/date';
+import { getPeriodRange } from '@/lib/accounting/date-utils';
 
 type AccountingDashboardRoutePageProps = {
   businessPathPrefix: '/clothing' | '/general-merchandise';
@@ -165,6 +169,7 @@ export function AccountingDashboardRoutePage({
     asOf,
     hasComparison,
     snapshot,
+    valuation,
     deltas,
     monthlyTrend,
     expenseSlices,
@@ -176,6 +181,8 @@ export function AccountingDashboardRoutePage({
 
   const basePath = `${businessPathPrefix}/accounting`;
   const asOfLabel = formatLongDateUS(asOf);
+  const refundPeriod = getPeriodRange(period);
+  const refundAsOf = asOf > getCurrentDateISO() ? getCurrentDateISO() : asOf;
   const quickLinks: QuickLink[] = [
     ...(showExpensesLink
       ? [
@@ -268,6 +275,14 @@ export function AccountingDashboardRoutePage({
         </Group>
 
         <AccountingLoadErrorAlert message={loadError} />
+        <InventoryValuationNotice valuation={valuation} />
+        {businessPathPrefix === '/clothing' && (
+          <RefundPending
+            asOf={refundAsOf}
+            from={refundPeriod.from ? toISODate(refundPeriod.from) : undefined}
+            showPaid
+          />
+        )}
 
         <SimpleGrid cols={{ base: 1, xs: 2, md: 3, xl: 6 }} spacing="md">
           {isLoading.profitLoss ? (

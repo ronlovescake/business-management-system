@@ -1,7 +1,10 @@
 import type { Prisma } from '@prisma/client';
 
 export async function hasSupplierSettlementForTransitKeys(
-  client: Pick<Prisma.TransactionClient, 'clothingAccountingJournalLine'>,
+  client: Pick<Prisma.TransactionClient, 'clothingAccountingJournalLine'> &
+    Partial<
+      Pick<Prisma.TransactionClient, 'clothingSupplierCreditApplication'>
+    >,
   keys: string[]
 ): Promise<boolean> {
   const productIds = keys.flatMap((key) => {
@@ -17,8 +20,14 @@ export async function hasSupplierSettlementForTransitKeys(
         deletedAt: null,
         sourceType: 'PRODUCT',
         sourceId: { in: productIds },
-        sourceLineKey: { startsWith: 'SUPPLIER_SETTLEMENT:' },
+        OR: [
+          { sourceLineKey: { startsWith: 'SUPPLIER_SETTLEMENT:' } },
+          { sourceLineKey: { startsWith: 'SUPPLIER_CREDIT:' } },
+        ],
       },
-    })) > 0
+    })) > 0 ||
+    ((await client.clothingSupplierCreditApplication?.count({
+      where: { targetProductId: { in: productIds.map(Number) } },
+    })) ?? 0) > 0
   );
 }

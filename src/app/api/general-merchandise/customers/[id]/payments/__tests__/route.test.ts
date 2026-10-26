@@ -37,67 +37,119 @@ describe('POST /api/general-merchandise/customers/[id]/payments', () => {
     vi.clearAllMocks();
   });
 
-  it('creates a GM payment and resyncs adjustment/lineTotal from payment rows', async () => {
-    mockPrisma.generalMerchandiseCustomer.findUnique.mockResolvedValue({
-      customerName: 'Test Customer',
-    });
+  it.each([0, -1, 0.001, 0.004])(
+    'rejects amount %s without creating a payment or changing balances',
+    async (amount) => {
+      mockPrisma.generalMerchandiseCustomer.findUnique.mockResolvedValue({
+        customerName: 'Test Customer',
+      });
+      mockPrisma.generalMerchandiseTransaction.findFirst.mockResolvedValue({
+        id: 777,
+      });
 
-    mockPrisma.generalMerchandiseTransaction.findFirst.mockResolvedValue({
-      id: 777,
-    });
+      const request = mockNextRequest({
+        method: 'POST',
+        url: getTestApiUrl('/api/general-merchandise/customers/1/payments'),
+        body: {
+          transactionId: 777,
+          paymentDate: '2026-02-03',
+          amount,
+        },
+      });
 
-    mockPrisma.$queryRaw.mockResolvedValue([{ exists: 1 }]);
+      const response = await POST(request, { params: { id: '1' } });
+      const body = await response.json();
 
-    mockPrisma.generalMerchandiseTransactionPayment.create.mockResolvedValue({
-      id: 999,
-      transactionId: 777,
-    });
+      expect(response.status).toBe(400);
+      expect(body.success).toBe(false);
+      expect(
+        mockPrisma.generalMerchandiseTransaction.findFirst
+      ).not.toHaveBeenCalled();
+      expect(
+        mockPrisma.generalMerchandiseTransactionPayment.create
+      ).not.toHaveBeenCalled();
+      expect(
+        mockPrisma.generalMerchandiseTransaction.update
+      ).not.toHaveBeenCalled();
+    }
+  );
 
-    mockPrisma.generalMerchandiseTransaction.findUnique.mockResolvedValue({
-      id: 777,
-      quantity: 2,
-      unitPrice: 100,
-    });
+  it.each([
+    { amount: 25, roundedAmount: 25 },
+    { amount: 0.01, roundedAmount: 0.01 },
+    { amount: 0.005, roundedAmount: 0.01 },
+  ])(
+    'records GM amount $amount and resyncs balances from payment rows',
+    async ({ amount, roundedAmount }) => {
+      mockPrisma.generalMerchandiseCustomer.findUnique.mockResolvedValue({
+        customerName: 'Test Customer',
+      });
 
-    mockPrisma.generalMerchandiseTransactionPayment.groupBy.mockResolvedValue([
-      { transactionId: 777, _sum: { amount: 25 } },
-    ]);
+      mockPrisma.generalMerchandiseTransaction.findFirst.mockResolvedValue({
+        id: 777,
+      });
 
-    mockPrisma.generalMerchandiseTransaction.update.mockResolvedValue({
-      id: 777,
-    });
+      mockPrisma.$queryRaw.mockResolvedValue([{ exists: 1 }]);
 
-    const request = mockNextRequest({
-      method: 'POST',
-      url: getTestApiUrl('/api/general-merchandise/customers/1/payments'),
-      body: {
+      mockPrisma.generalMerchandiseTransactionPayment.create.mockResolvedValue({
+        id: 999,
         transactionId: 777,
-        paymentDate: '2026-02-03',
-        amount: 25,
-        method: 'Cash',
-        notes: 'Deposit',
-        isReservation: true,
-      },
-    });
+      });
 
-    const response = await POST(request, { params: { id: '1' } });
-    expect(response.status).toBe(200);
+      mockPrisma.generalMerchandiseTransaction.findUnique.mockResolvedValue({
+        id: 777,
+        quantity: 2,
+        unitPrice: 100,
+      });
 
-    expect(
-      mockPrisma.generalMerchandiseTransaction.findFirst
-    ).toHaveBeenCalledWith({
-      where: { id: 777, deletedAt: null, customerId: 1 },
-      select: { id: true },
-    });
+      mockPrisma.generalMerchandiseTransactionPayment.groupBy.mockResolvedValue(
+        [{ transactionId: 777, _sum: { amount: 25 } }]
+      );
 
-    expect(
-      mockPrisma.generalMerchandiseTransaction.update
-    ).toHaveBeenCalledWith({
-      where: { id: 777 },
-      data: {
-        adjustment: 25,
-        lineTotal: 2 * 100 - 25,
-      },
-    });
-  });
+      mockPrisma.generalMerchandiseTransaction.update.mockResolvedValue({
+        id: 777,
+      });
+
+      const request = mockNextRequest({
+        method: 'POST',
+        url: getTestApiUrl('/api/general-merchandise/customers/1/payments'),
+        body: {
+          transactionId: 777,
+          paymentDate: '2026-02-03',
+          amount,
+          method: 'Cash',
+          notes: 'Deposit',
+          isReservation: true,
+        },
+      });
+
+      const response = await POST(request, { params: { id: '1' } });
+      expect(response.status).toBe(200);
+
+      expect(
+        mockPrisma.generalMerchandiseTransactionPayment.create
+      ).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ amount: roundedAmount }),
+        })
+      );
+
+      expect(
+        mockPrisma.generalMerchandiseTransaction.findFirst
+      ).toHaveBeenCalledWith({
+        where: { id: 777, deletedAt: null, customerId: 1 },
+        select: { id: true },
+      });
+
+      expect(
+        mockPrisma.generalMerchandiseTransaction.update
+      ).toHaveBeenCalledWith({
+        where: { id: 777 },
+        data: {
+          adjustment: 25,
+          lineTotal: 2 * 100 - 25,
+        },
+      });
+    }
+  );
 });

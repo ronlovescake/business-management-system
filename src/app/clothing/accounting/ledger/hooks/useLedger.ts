@@ -69,6 +69,10 @@ export function useLedger(options: { apiBasePath?: string } = {}) {
   const [openingBalancePeriod, setOpeningBalancePeriod] =
     useState<OpeningBalancePeriodOption>('This Month');
   const [entries, setEntries] = useState<LedgerEntry[]>([]);
+  const [accountBalances, setAccountBalances] = useState<{
+    opening: Record<string, number>;
+    closing: Record<string, number>;
+  } | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [stats, setStats] = useState<LedgerStats>({
     totalDebits: 0,
@@ -99,11 +103,17 @@ export function useLedger(options: { apiBasePath?: string } = {}) {
     const payload = (await res.json()) as ApiResponse<{
       entries: LedgerEntry[];
       stats: LedgerStats;
+      openingBalances?: Record<string, number>;
+      closingBalances?: Record<string, number>;
     }>;
     const data = getApiDataOrThrow(payload, 'Failed to load ledger');
     return {
       entries: data.entries ?? [],
       stats: data.stats ?? defaultStats(),
+      accountBalances:
+        data.openingBalances && data.closingBalances
+          ? { opening: data.openingBalances, closing: data.closingBalances }
+          : null,
     };
   }, [apiPath, period, defaultStats]);
 
@@ -112,6 +122,7 @@ export function useLedger(options: { apiBasePath?: string } = {}) {
       const data = await fetchLedgerData();
       setEntries(data.entries ?? []);
       setStats(data.stats ?? defaultStats());
+      setAccountBalances(data.accountBalances);
       setLoadError(null);
     } catch (error) {
       logger.warn('Ledger fetch failed, showing empty results', { error });
@@ -122,6 +133,7 @@ export function useLedger(options: { apiBasePath?: string } = {}) {
         )
       );
       setEntries([]);
+      setAccountBalances(null);
       setStats(defaultStats());
     }
   }, [fetchLedgerData, defaultStats]);
@@ -190,8 +202,13 @@ export function useLedger(options: { apiBasePath?: string } = {}) {
   }, [filteredEntries, stats.period]);
 
   const accounts = useMemo(() => {
-    return buildLedgerAccounts(entries);
-  }, [entries]);
+    return buildLedgerAccounts([
+      ...entries,
+      ...Object.keys(accountBalances?.opening ?? {}).map((account) => ({
+        account,
+      })),
+    ]);
+  }, [entries, accountBalances]);
 
   const formatCurrency = formatCurrencyPHP;
 
@@ -222,6 +239,17 @@ export function useLedger(options: { apiBasePath?: string } = {}) {
 
   return {
     entries,
+    accountBalance:
+      filterAccount && accountBalances
+        ? {
+            account: filterAccount,
+            opening: accountBalances.opening[filterAccount] ?? 0,
+            closing: accountBalances.closing[filterAccount] ?? 0,
+            movement:
+              (accountBalances.closing[filterAccount] ?? 0) -
+              (accountBalances.opening[filterAccount] ?? 0),
+          }
+        : null,
     filteredEntries,
     loadError,
     stats: filteredStats,

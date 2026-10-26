@@ -7,10 +7,14 @@ type LedgerEntryRecord = {
   debit: number;
   credit: number;
   description: string;
+  balance?: number;
 };
 
 const COMMON_LEDGER_ACCOUNTS = [
   'Cash',
+  'Card Collections Clearing',
+  'Card Processing Fees',
+  'Refunds Payable',
   'Accounts Receivable',
   'Stock on Hand',
   'Inventory in Transit',
@@ -43,7 +47,9 @@ export const computeRunningBalances = <TEntry extends LedgerEntryRecord>(
 
   return byDate.map((entry) => {
     const current = balances.get(entry.account) ?? 0;
-    const next = current + entry.debit - entry.credit;
+    const next = Number.isFinite(entry.balance)
+      ? (entry.balance as number)
+      : current + entry.debit - entry.credit;
     balances.set(entry.account, next);
     return { ...entry, balance: next };
   });
@@ -55,7 +61,7 @@ export const filterAndSortLedgerEntries = <TEntry extends LedgerEntryRecord>(
   filterAccount: string | null
 ) => {
   const search = searchQuery.trim().toLowerCase();
-  const filtered = entries.filter((entry) => {
+  const filtered = computeRunningBalances(entries).filter((entry) => {
     const matchesSearch =
       search === '' ||
       entry.account.toLowerCase().includes(search) ||
@@ -67,9 +73,7 @@ export const filterAndSortLedgerEntries = <TEntry extends LedgerEntryRecord>(
     return matchesSearch && matchesAccount;
   });
 
-  const withBalances = computeRunningBalances(filtered);
-
-  return withBalances.sort(
+  return filtered.sort(
     (a, b) => getEntryTimestamp(b.date) - getEntryTimestamp(a.date)
   );
 };

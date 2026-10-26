@@ -30,10 +30,15 @@ import {
   isPaidStatus,
 } from './service-calculations';
 import { calculateAccountsReceivableDueDate } from '@/lib/transactions/accounts-receivable';
-import { isClothingAccountsReceivableStatus } from '@/lib/transactions/order-status';
+import {
+  isCancelledOrderStatus,
+  isClothingAccountsReceivableStatus,
+} from '@/lib/transactions/order-status';
 import { transactionDataSchema, transactionUpdateSchema } from './schemas';
 import {
   buildUpdatePayload,
+  assertGenericOrderStatusChange,
+  assertClosedOrderFinancialEdit,
   describeChange,
   mapFieldName,
   shouldRecalculateLineTotal,
@@ -436,17 +441,27 @@ export const transactionService: TransactionService = {
           }
 
           const dbData = buildUpdatePayload(update.values);
+          assertGenericOrderStatusChange(
+            update.values['Order Status'],
+            existing.orderStatus
+          );
+          assertClosedOrderFinancialEdit(update.values, existing);
+          const preserveClosedHistory = isCancelledOrderStatus(
+            existing.orderStatus
+          );
           // ==================================================================
           // ⚠️ AUTO LINE TOTAL UPDATE
           // ==================================================================
           // Keep line total consistent with operational inputs when Quantity,
           // Unit Price, or Adjustment changes during bulk updates.
           // ==================================================================
-          const recalcLineTotal = shouldRecalculateLineTotal(update.values);
+          const recalcLineTotal =
+            !preserveClosedHistory && shouldRecalculateLineTotal(update.values);
           const computedLineTotal =
-            recalcLineTotal ||
-            existing.lineTotal === null ||
-            existing.lineTotal === undefined
+            !preserveClosedHistory &&
+            (recalcLineTotal ||
+              existing.lineTotal === null ||
+              existing.lineTotal === undefined)
               ? computeLineTotalForUpdate({
                   existing,
                   updateValues: update.values,
@@ -454,22 +469,25 @@ export const transactionService: TransactionService = {
               : existing.lineTotal;
 
           if (
-            recalcLineTotal ||
-            existing.lineTotal === null ||
-            existing.lineTotal === undefined
+            !preserveClosedHistory &&
+            (recalcLineTotal ||
+              existing.lineTotal === null ||
+              existing.lineTotal === undefined)
           ) {
             dbData.lineTotal = computedLineTotal;
           }
 
           const effectiveUpdateValues = {
             ...update.values,
-            'Line Total': computedLineTotal,
+            'Line Total': computedLineTotal ?? undefined,
           };
-          const resolvedOrderStatus = resolveOrderStatusForLineTotal({
-            requestedStatus: update.values['Order Status'],
-            existingStatus: existing.orderStatus,
-            lineTotal: computedLineTotal,
-          });
+          const resolvedOrderStatus = preserveClosedHistory
+            ? undefined
+            : resolveOrderStatusForLineTotal({
+                requestedStatus: update.values['Order Status'],
+                existingStatus: existing.orderStatus,
+                lineTotal: computedLineTotal,
+              });
 
           if (resolvedOrderStatus !== undefined) {
             assertCanSetPaidStatus({
@@ -639,7 +657,9 @@ export const transactionService: TransactionService = {
             existing.orderStatus,
             updated.orderStatus
           );
-          await syncInventoryMovementsForTransaction(tx, updated);
+          if (!preserveClosedHistory) {
+            await syncInventoryMovementsForTransaction(tx, updated);
+          }
 
           if (changes.length > 0) {
             changeLogEntries.push({
@@ -730,17 +750,27 @@ export const transactionService: TransactionService = {
         );
 
         const dbData = buildUpdatePayload(update.values);
+        assertGenericOrderStatusChange(
+          update.values['Order Status'],
+          existing.orderStatus
+        );
+        assertClosedOrderFinancialEdit(update.values, existing);
+        const preserveClosedHistory = isCancelledOrderStatus(
+          existing.orderStatus
+        );
         // ========================================================================
         // ⚠️ AUTO LINE TOTAL UPDATE
         // ========================================================================
         // Keep line total consistent with operational inputs when Quantity,
         // Unit Price, or Adjustment changes during single-record updates.
         // ========================================================================
-        const recalcLineTotal = shouldRecalculateLineTotal(update.values);
+        const recalcLineTotal =
+          !preserveClosedHistory && shouldRecalculateLineTotal(update.values);
         const computedLineTotal =
-          recalcLineTotal ||
-          existing.lineTotal === null ||
-          existing.lineTotal === undefined
+          !preserveClosedHistory &&
+          (recalcLineTotal ||
+            existing.lineTotal === null ||
+            existing.lineTotal === undefined)
             ? computeLineTotalForUpdate({
                 existing,
                 updateValues: update.values,
@@ -748,22 +778,25 @@ export const transactionService: TransactionService = {
             : existing.lineTotal;
 
         if (
-          recalcLineTotal ||
-          existing.lineTotal === null ||
-          existing.lineTotal === undefined
+          !preserveClosedHistory &&
+          (recalcLineTotal ||
+            existing.lineTotal === null ||
+            existing.lineTotal === undefined)
         ) {
           dbData.lineTotal = computedLineTotal;
         }
 
         const effectiveUpdateValues = {
           ...update.values,
-          'Line Total': computedLineTotal,
+          'Line Total': computedLineTotal ?? undefined,
         };
-        const resolvedOrderStatus = resolveOrderStatusForLineTotal({
-          requestedStatus: update.values['Order Status'],
-          existingStatus: existing.orderStatus,
-          lineTotal: computedLineTotal,
-        });
+        const resolvedOrderStatus = preserveClosedHistory
+          ? undefined
+          : resolveOrderStatusForLineTotal({
+              requestedStatus: update.values['Order Status'],
+              existingStatus: existing.orderStatus,
+              lineTotal: computedLineTotal,
+            });
 
         if (resolvedOrderStatus !== undefined) {
           assertCanSetPaidStatus({
@@ -818,7 +851,9 @@ export const transactionService: TransactionService = {
           updatedTransaction.orderStatus
         );
 
-        await syncInventoryMovementsForTransaction(tx, updatedTransaction);
+        if (!preserveClosedHistory) {
+          await syncInventoryMovementsForTransaction(tx, updatedTransaction);
+        }
         return {
           existing,
           updatedTransaction,

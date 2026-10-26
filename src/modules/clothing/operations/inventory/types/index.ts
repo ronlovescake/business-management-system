@@ -6,6 +6,7 @@ export interface ProductFromAPI {
   'Actual Price': number;
   'Shipment Code': string | null;
   'Shipment Status': string | null;
+  'Supplier Fulfillment Status'?: string;
 }
 
 export interface TransactionFromAPI {
@@ -87,6 +88,7 @@ export interface InventoryMovementFromAPI {
   toBucket: InventoryBucket;
   movementSource?: string | null;
   movementType?: string | null;
+  sourceTransactionId?: number | null;
   supplierShortResolution?: SupplierShortResolution | null;
   supplierShortExpectedShipmentCode?: string | null;
   supplierCreditReference?: string | null;

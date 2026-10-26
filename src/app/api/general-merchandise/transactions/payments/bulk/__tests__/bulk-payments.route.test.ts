@@ -24,6 +24,40 @@ describe('POST /api/general-merchandise/transactions/payments/bulk', () => {
     vi.clearAllMocks();
   });
 
+  it.each([0, -1, 0.001, 0.004])(
+    'rejects an entire GM batch containing amount %s before writing',
+    async (amount) => {
+      const request = mockNextRequest({
+        method: 'POST',
+        url: getTestApiUrl(
+          '/api/general-merchandise/transactions/payments/bulk'
+        ),
+        body: {
+          payments: [
+            { transactionId: 10, paymentDate: '2026-02-03', amount: 25 },
+            { transactionId: 11, paymentDate: '2026-02-03', amount },
+          ],
+        },
+      });
+
+      const response = await POST(request);
+      const body = await response.json();
+
+      expect(response.status).toBe(400);
+      expect(body.success).toBe(false);
+      expect(
+        mockPrisma.generalMerchandiseTransaction.findMany
+      ).not.toHaveBeenCalled();
+      expect(mockPrisma.$transaction).not.toHaveBeenCalled();
+      expect(
+        mockPrisma.generalMerchandiseTransactionPayment.createMany
+      ).not.toHaveBeenCalled();
+      expect(
+        mockPrisma.generalMerchandiseTransaction.update
+      ).not.toHaveBeenCalled();
+    }
+  );
+
   it('creates GM payments (including isReservation) and updates adjustment/lineTotal', async () => {
     mockPrisma.$queryRaw.mockResolvedValue([{ exists: 1 }]);
 

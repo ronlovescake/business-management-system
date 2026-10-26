@@ -6,6 +6,8 @@ export type ClothingEntryScenarioId =
   | 'loan-interest'
   | 'owner-contribution'
   | 'owner-withdrawal'
+  | 'card-settlement'
+  | 'card-processing-fee'
   | 'supplier-inventory'
   | 'shipment-logistics';
 
@@ -29,6 +31,40 @@ export type ClothingEntryScenario = {
 };
 
 export const CLOTHING_ENTRY_SCENARIOS: ClothingEntryScenario[] = [
+  {
+    id: 'card-settlement',
+    title: 'Receive a card settlement',
+    when: 'The card processor has deposited money into the business account.',
+    steps: [
+      'Enter the amount actually received in Cash.',
+      'Use the processor settlement reference and actual deposit date.',
+    ],
+    example: 'PHP970 received: Debit Cash, Credit Card Collections Clearing.',
+    referenceHint: 'e.g., CARD-SETTLEMENT-2026-10-26',
+    debitAccount: 'Cash',
+    creditAccount: 'Card Collections Clearing',
+    review: 'Cash increases and the unsettled card collection decreases.',
+    warning:
+      'Record actual processing fees separately using the same settlement reference. Do not record another customer collection.',
+  },
+  {
+    id: 'card-processing-fee',
+    title: 'Record card processing fees',
+    when: 'The processor has withheld a confirmed fee from a settlement.',
+    steps: [
+      'Use the actual fee on the processor statement.',
+      'Use the same reference and date as its related settlement.',
+    ],
+    example:
+      'PHP30 fee: Debit Card Processing Fees, Credit Card Collections Clearing.',
+    referenceHint: 'e.g., CARD-SETTLEMENT-2026-10-26',
+    debitAccount: 'Card Processing Fees',
+    creditAccount: 'Card Collections Clearing',
+    review:
+      'Processing expense increases and the unsettled card collection decreases.',
+    warning:
+      'Do not enter the settlement amount as a fee or use Credit Card Payable for incoming card collections.',
+  },
   {
     id: 'loan-received',
     title: 'Receive a loan',
@@ -151,6 +187,8 @@ export const CLOTHING_ENTRY_SCENARIOS: ClothingEntryScenario[] = [
 
 export const CLOTHING_MANUAL_ACCOUNT_DEFAULTS = [
   'Cash',
+  'Card Collections Clearing',
+  'Card Processing Fees',
   'Accounts Receivable',
   'Accounts Payable',
   'Credit Card Payable',

@@ -30,6 +30,53 @@
 
 ## C - Journal Entry Data Model
 
+### Dated Customer Money And CARD Events
+
+The requesting business/project owner approved these rules for new Clothing
+events. The owning services are
+[customer-money](../../../src/lib/accounting/customer-money.ts),
+[keyed financial requests](../../../src/lib/accounting/financial-transactions.ts)
+and [dated recognition](../../../src/lib/accounting/transaction-recognition.ts).
+They apply to direct/bulk collections, cancellation approval and actual payouts;
+generic order edits, imports and deletion cannot replace those event boundaries.
+
+- Real receipts remain on their payment dates after cancellation. Before the
+  invoice/shipment recognition date, a Reservation Deposit credits Customer
+  Deposits and ordinary installments retain their original revenue treatment.
+  A/R recognition applies the deposit once and subtracts already-recognized
+  installment revenue; later A/R collections are not additional sales.
+- An administrator records paid cancellation or supplier-failure approval as a
+  noncash event. The immutable snapshot separately records unpaid A/R credit,
+  retained original deposit and approved Refunds Payable. Supplier-failure
+  Voided retains zero. Unknown original terms must be confirmed before retention.
+- An actual partial payout debits Refunds Payable and credits its money account
+  on the actual payment date. It creates an immutable payout/refund link and
+  conditionally reduces pending once. Approval, payout and physical goods return
+  are separate events; approval never posts Cash or automatically restores stock.
+- Incoming CARD debits Card Collections Clearing, an unsettled asset, not Cash
+  or outgoing Credit Card Payable. Record actual settlement and fees separately;
+  outgoing credit-card supplier/expense behavior is unchanged.
+- UUID request keys, payload fingerprints, Serializable execution and bounded
+  conflict retry protect new financial operations. An identical replay returns
+  the saved result; changed details conflict. An injected failure rolls back
+  request, events, journal and pending together. Existing overpayments and legacy
+  forfeitures are not erased or guessed into the new workflow.
+
+The actual disposable-DB scenario in
+[lifecycle integration tests](../../../tests/integration/clothing-customer-money.integration.test.ts)
+reconciles journal, ledger, P&L summary/details and balance sheet at historical
+cutoffs. For a 1,000 order with 100 deposit and 300 installment, A/R is 600;
+retaining 100 and approving 300 removes the A/R without changing Cash. An actual
+100 payout alone reduces Cash and pending by 100. Ordinary goods refunds retain
+their separate existing policy; no customer-returned-refund workflow is added.
+
+Payment events replace the legacy paid-transaction cash/revenue fallback only
+when at least one payment has a finite, positive amount. Zero, negative, and
+non-finite payment amounts produce no payment posting and do not suppress that
+fallback. Positive payments outside the selected date range still suppress the
+fallback, so changing the period does not count the same receipt twice. The same
+rule applies to the Ledger and P&L summary/details APIs.
+
 | #   | Logic                                                                                                                                                  | Explanation                                                        |
 | --- | ------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------ |
 | 7   | Each journal entry has: `id`, `date`, `ref`, `account`, `debit`, `credit`, `description`, `sourceType`, `sourceId`, `sourceLineKey`, `systemGenerated` | `sourceType` indicates the origin: MANUAL, PAYROLL, SHIPMENT, etc. |
@@ -141,8 +188,8 @@
 
 > **Source file:** `src/app/api/accounting/journal-lines-by-ref/route.ts`
 
-| #   | Logic                                                                                           | Explanation                                                                                                                                                  |
-| --- | ----------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| 46  | `GET /accounting/journal-lines-by-ref?ref={ref}` returns journal lines matching a ref string    | Used by the Logistics Costs tab to fetch posting history for a shipment code. Returns `{ data: JournalLine[] }`.                                             |
-| 47  | The `ref` query parameter is required                                                           | Returns an error if the `ref` parameter is missing or empty.                                                                                                 |
+| #   | Logic                                                                                                                       | Explanation                                                                                                                              |
+| --- | --------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| 46  | `GET /accounting/journal-lines-by-ref?ref={ref}` returns journal lines matching a ref string                                | Used by the Logistics Costs tab to fetch posting history for a shipment code. Returns `{ data: JournalLine[] }`.                         |
+| 47  | The `ref` query parameter is required                                                                                       | Returns an error if the `ref` parameter is missing or empty.                                                                             |
 | 48  | Each returned line includes `id`, `date`, `ref`, `account`, `debit`, `credit`, `description`, `sourceType`, `sourceLineKey` | The Logistics Costs tab uses `description` keywords and account names to detect which posting steps have been completed for each vendor. |

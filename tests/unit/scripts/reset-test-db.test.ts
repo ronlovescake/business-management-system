@@ -88,6 +88,7 @@ describe('test database bootstrap', () => {
     for (const [offset, definition] of [
       [4, 'CREATE FUNCTION public.resolve_clothing_product_identity()'],
       [5, 'CREATE FUNCTION general_merchandise.resolve_product_identity()'],
+      [6, 'ADD CONSTRAINT transactions_initial_deposit_nonnegative'],
     ] as const) {
       expect(commands[offset]).toContain('db execute --stdin');
       const triggerOptions = result.execute.mock.calls[offset][1] as {
@@ -97,7 +98,20 @@ describe('test database bootstrap', () => {
       expect(triggerOptions.input).not.toContain('CREATE TABLE');
       expect(triggerOptions.input).toMatch(/^BEGIN;[\s\S]*COMMIT;\s*$/);
     }
-    expect(commands[6]).toContain('db seed');
+    const lifecycleRules = (
+      result.execute.mock.calls[6][1] as { input: string }
+    ).input;
+    for (const constraint of [
+      'transactions_initial_deposit_nonnegative',
+      'transactions_initial_deposit_rate_valid',
+      'clothing_order_cancellations_kind_check',
+      'clothing_cancellation_amounts_valid',
+      'clothing_refund_payouts_amount_check',
+    ]) {
+      expect(lifecycleRules).toContain(`ADD CONSTRAINT ${constraint}`);
+    }
+    expect(lifecycleRules).not.toContain('ADD COLUMN');
+    expect(commands[7]).toContain('db seed');
     const options = result.execute.mock.calls[0][1] as {
       input: string;
       env: { DATABASE_URL: string };
@@ -117,7 +131,7 @@ describe('test database bootstrap', () => {
       'postgresql://test:test@localhost:5433/business_ci_test'
     );
     expect(result.failure).toBeUndefined();
-    expect(result.execute).toHaveBeenCalledTimes(6);
+    expect(result.execute).toHaveBeenCalledTimes(7);
     expect(
       result.execute.mock.calls.some(([command]) => command.includes('db seed'))
     ).toBe(false);

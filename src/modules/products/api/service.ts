@@ -1,9 +1,15 @@
 import { randomUUID } from 'crypto';
+import {
+  applySupplierCreditInTransaction,
+  assertSupplierFundingWrite,
+  supplierOperationsUser,
+} from './supplier-resolution';
 import { hasSupplierSettlementForTransitKeys } from '@/lib/accounting/supplier-settlement-dependencies';
 import type { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
 import { getAccountingCutoverDate } from '@/lib/accounting/cutover';
+import { pickUnitCostFromProductRow } from '@/lib/accounting/inventoryCogsShared';
 import { parseDate } from '@/lib/accounting/date-utils';
 import {
   getPaymentAccountForMethod,
@@ -336,9 +342,10 @@ function isPaid(payment?: string | null): boolean {
 }
 
 export class ProductShipmentAccountingConflictError extends Error {
-  constructor(shipmentCode: string) {
+  constructor(shipmentCode: string, message?: string) {
     super(
-      `Cannot change Product Code or Shipment Code, or delete this product, while active transit-build, reclass, or supplier settlement entries exist for ${shipmentCode || 'this product'}. Reverse or resolve those entries first.`
+      message ??
+        `Cannot change Product Code or Shipment Code, or delete this product, while active transit-build, reclass, or supplier settlement entries exist for ${shipmentCode || 'this product'}. Reverse or resolve those entries first.`
     );
     this.name = 'ProductShipmentAccountingConflictError';
   }
@@ -359,14 +366,57 @@ export async function assertProductAccountingIdentityChange(
     | 'clothingInventoryTransitBuildEntry'
     | 'clothingInventoryReclassEntry'
     | 'clothingAccountingJournalLine'
+    | 'inventoryMovement'
   >,
   existing: {
     id: number;
     productCode: string | null;
     shipmentCode: string | null;
+    supplierFulfillmentStatus?: string;
+    supplierCreditAppliedAmount?: Prisma.Decimal;
+    landedUnitCost?: number;
+    cogs?: number;
+    quantity?: number;
   },
-  next: { productCode?: string | null; shipmentCode?: string | null } | null
+  next: {
+    productCode?: string | null;
+    shipmentCode?: string | null;
+    landedUnitCost?: number;
+    cogs?: number;
+    quantity?: number;
+  } | null
 ): Promise<void> {
+  if (!next) {
+    assertSupplierFundingWrite(existing, null);
+  }
+  if (next && (next.landedUnitCost !== undefined || next.cogs !== undefined)) {
+    const oldCost = pickUnitCostFromProductRow(existing);
+    const newCost = pickUnitCostFromProductRow({
+      landedUnitCost: next.landedUnitCost ?? existing.landedUnitCost,
+      cogs: next.cogs ?? existing.cogs,
+      quantity: next.quantity ?? existing.quantity,
+    });
+    if (
+      oldCost !== newCost &&
+      (await client.inventoryMovement.findFirst({
+        where: {
+          deletedAt: null,
+          OR: [
+            { productId: existing.id },
+            ...(existing.productCode
+              ? [{ productCode: existing.productCode }]
+              : []),
+          ],
+        },
+        select: { id: true },
+      }))
+    ) {
+      throw new ProductShipmentAccountingConflictError(
+        existing.shipmentCode ?? '',
+        'Use an administrator-approved dated cost correction for products with inventory history. Original movement costs cannot be rewritten by an edit or import.'
+      );
+    }
+  }
   if (
     next &&
     (existing.productCode ?? '').trim() === (next.productCode ?? '').trim() &&
@@ -652,7 +702,95 @@ export const productService: ProductService = {
   },
 
   async createSingle(payload) {
-    const created = await prisma.product.create({ data: mapFromDTO(payload) });
+    let created;
+    const supplierCreditId = payload['Supplier Credit Id'];
+    if (supplierCreditId) {
+      const user = await supplierOperationsUser();
+      const requestId = payload['Supplier Credit Request Id'];
+      if (!requestId) {
+        throw new ProductSupplierSettlementError(
+          'A stable request ID is required for supplier-credit funding.'
+        );
+      }
+      created = await prisma
+        .$transaction(
+          async (tx) => {
+            const replay =
+              await tx.clothingSupplierCreditApplication.findUnique({
+                where: { requestId },
+                include: { targetProduct: true },
+              });
+            if (replay) {
+              const desired = mapFromDTO(payload);
+              const purchaseChanged = (
+                [
+                  'supplierReference',
+                  'shipmentCode',
+                  'productCode',
+                  'product',
+                  'quantity',
+                  'unitPrice',
+                  'exchangeRates',
+                  'alibabaShippingCost',
+                  'transactionFee',
+                  'grandTotal',
+                  'payment',
+                  'paymentMethod',
+                  'postingDate',
+                  'orderDate',
+                ] as const
+              ).some(
+                (field) =>
+                  String(desired[field] ?? '') !==
+                  String(replay.targetProduct[field] ?? '')
+              );
+              if (
+                replay.creditId !== payload['Supplier Credit Id'] ||
+                Number(replay.amount) !== payload['Supplier Credit Amount'] ||
+                purchaseChanged ||
+                (replay.targetProduct.paymentCardId ?? null) !==
+                  (payload['Payment Card Id'] ?? null)
+              ) {
+                throw new ProductSupplierSettlementError(
+                  'This request ID already belongs to a different funded purchase.',
+                  409
+                );
+              }
+              return replay.targetProduct;
+            }
+            const product = await tx.product.create({
+              data: mapFromDTO(payload),
+            });
+            await applySupplierCreditInTransaction(tx, {
+              productId: product.id,
+              creditId: supplierCreditId,
+              amount: payload['Supplier Credit Amount'] ?? 0,
+              supplierReference: payload['Supplier Reference'] ?? '',
+              postingDate: product.postingDate || product.orderDate || '',
+              requestId,
+              userId: user.id,
+            });
+            return tx.product.findUniqueOrThrow({ where: { id: product.id } });
+          },
+          { isolationLevel: 'Serializable' }
+        )
+        .catch((error: unknown) => {
+          if (
+            error &&
+            typeof error === 'object' &&
+            'code' in error &&
+            ['P2002', 'P2034'].includes(String(error.code))
+          ) {
+            throw new ProductSupplierSettlementError(
+              'The funded purchase conflicted with another request. Refresh and retry using the same request ID.',
+              409
+            );
+          }
+          throw error;
+        });
+    } else {
+      created = await prisma.product.create({ data: mapFromDTO(payload) });
+    }
     await ensureReceiptMovementForProduct({
       productId: created.id,
       productCode: created.productCode,
@@ -664,6 +802,11 @@ export const productService: ProductService = {
   },
 
   async bulkImport(payload) {
+    if (payload.some((row) => row['Supplier Credit Id'])) {
+      throw new ProductSupplierSettlementError(
+        'Apply supplier credit to one product through the product form, not a bulk import.'
+      );
+    }
     const postings: Array<{ productId: number; dto: ProductDTO }> = [];
 
     const result = await prisma.$transaction(
@@ -682,6 +825,7 @@ export const productService: ProductService = {
           const existing = await findProductForWrite(tx, dto);
 
           if (existing) {
+            assertSupplierFundingWrite(existing, data);
             const prevPayment = (existing as { payment?: string | null })
               .payment;
             const wasDeleted = existing.deletedAt !== null;
@@ -751,6 +895,11 @@ export const productService: ProductService = {
   },
 
   async bulkUpdate(payload) {
+    if (payload.some((row) => row['Supplier Credit Id'])) {
+      throw new ProductSupplierSettlementError(
+        'Use the dedicated supplier-credit action for existing products.'
+      );
+    }
     const postings: Array<{ productId: number; dto: ProductDTO }> = [];
 
     const result = await prisma.$transaction(
@@ -779,6 +928,7 @@ export const productService: ProductService = {
               .payment;
             const changes: string[] = [];
 
+            assertSupplierFundingWrite(existing, data);
             await assertProductAccountingIdentityChange(tx, existing, data);
 
             const compare = <T>(label: string, prevValue: T, nextValue: T) => {
@@ -969,6 +1119,8 @@ export const productService: ProductService = {
             grandTotal: true,
             forwardersFee: true,
             lalamove: true,
+            supplierFulfillmentStatus: true,
+            supplierCreditAppliedAmount: true,
           },
           orderBy: { id: 'asc' },
         });
@@ -1045,7 +1197,11 @@ export const productService: ProductService = {
         let skippedProducts = 0;
 
         for (const product of products) {
-          if (alreadyPostedProductIds.has(product.id)) {
+          if (
+            alreadyPostedProductIds.has(product.id) ||
+            product.supplierFulfillmentStatus === 'CREDIT_ISSUED' ||
+            Number(product.supplierCreditAppliedAmount ?? 0) > 0
+          ) {
             skippedProducts += 1;
             continue;
           }

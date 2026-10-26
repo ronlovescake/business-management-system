@@ -26,6 +26,18 @@ export async function PUT(
     });
 
     const productData = await request.json();
+    if (
+      productData['Supplier Credit Id'] ||
+      productData['Supplier Reference']
+    ) {
+      return NextResponse.json(
+        {
+          error:
+            'Supplier-credit operations are currently supported only for clothing products.',
+        },
+        { status: 400 }
+      );
+    }
     const calculatedProduct = recalculateProductFinancials(
       sanitizeProductRecord(productData)
     );

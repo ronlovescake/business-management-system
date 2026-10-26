@@ -60,6 +60,15 @@ export class ProductService {
    */
   static validateProduct(form: ProductFormData): ProductValidationResult {
     const errors: string[] = [];
+    if (
+      form.supplierCreditId &&
+      (!form.supplierReference?.trim() ||
+        !(Number(form.supplierCreditAmount) > 0))
+    ) {
+      errors.push(
+        'Provide a supplier reference and positive supplier-credit amount'
+      );
+    }
 
     if (!form.product.trim()) {
       errors.push('Product name is required');
@@ -170,6 +179,16 @@ export class ProductService {
 
     return {
       id: existingProduct?.id,
+      ...(form.supplierReference !== undefined
+        ? { 'Supplier Reference': form.supplierReference.trim() }
+        : {}),
+      ...(!_isEditMode && form.supplierCreditId
+        ? {
+            'Supplier Credit Id': form.supplierCreditId,
+            'Supplier Credit Amount': form.supplierCreditAmount ?? 0,
+            'Supplier Credit Request Id': form.supplierCreditRequestId,
+          }
+        : {}),
       'Shipment Code': normalizedShipmentCode,
       'CV Number': hasShipmentCode ? existingProduct?.['CV Number'] || '' : '',
       'No. Of Sacks': hasShipmentCode
@@ -220,6 +239,10 @@ export class ProductService {
    */
   static createEmptyForm(): ProductFormData {
     return {
+      supplierReference: '',
+      supplierCreditId: '',
+      supplierCreditAmount: 0,
+      supplierCreditRequestId: '',
       shipmentCode: '',
       postingDate: getCurrentDateISO(),
       orderDate: getCurrentDateISO(),
@@ -274,6 +297,10 @@ export class ProductService {
 
     return {
       shipmentCode: this.toSafeString(product['Shipment Code']),
+      supplierReference: this.toSafeString(product['Supplier Reference']),
+      supplierCreditId: '',
+      supplierCreditAmount: 0,
+      supplierCreditRequestId: '',
       postingDate: this.toSafeString(product['Posting Date']),
       orderDate: this.toSafeString(product['Order Date']),
       payment: this.toSafeString(product.Payment),

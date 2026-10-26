@@ -19,6 +19,7 @@ type TransactionPaymentsTableProps = {
   onAmountChange: (transactionId: number, value: number | string) => void;
   onApplyReservationFee: (transactionId: number, amount: number) => void;
   onApplyFullPayment: (transactionId: number, amount: number) => void;
+  reservationRate?: 10 | 20;
 };
 
 type TableRow = {
@@ -35,6 +36,7 @@ export function TransactionPaymentsTable({
   onAmountChange,
   onApplyReservationFee,
   onApplyFullPayment,
+  reservationRate = 10,
 }: TransactionPaymentsTableProps) {
   const reservedVisibleRows = 13;
   const rowHeight = 42;
@@ -98,7 +100,7 @@ export function TransactionPaymentsTable({
               ['Adjustments', 80],
               ['Balance Due', 80],
               ['Order Status', 140],
-              ['Reservation Fee', 80],
+              ['Reservation Deposit', 100],
               ['Full Payment', 80],
               ['Add payment', 80],
             ].map(([label, width]) => (
@@ -160,8 +162,9 @@ export function TransactionPaymentsTable({
               0
             );
             const balanceDue = Math.max(maxPayable - current, 0);
-            const isOverLimit = current > maxPayable + 0.01;
-            const reservationFee = Math.round(grossTotal * 0.1 * 100) / 100;
+            const isOverLimit = current > maxPayable;
+            const reservationFee =
+              Math.round(grossTotal * reservationRate) / 100;
             const reservationFeePayable = Math.min(
               Math.max(reservationFee, 0),
               maxPayable
@@ -170,9 +173,9 @@ export function TransactionPaymentsTable({
             const isReservationFeeDisabled =
               reservationFeePayable <= 0 || hasExistingReservationPayment;
             const reservationFeeTooltipLabel = hasExistingReservationPayment
-              ? 'Reservation fee already recorded'
+              ? 'Original deposit already recorded'
               : reservationFeePayable <= 0
-                ? 'No reservation fee available'
+                ? 'No reservation deposit available'
                 : '';
             const isFullPaymentDisabled = maxPayable <= 0;
             const fullPaymentTooltipLabel = isFullPaymentDisabled

@@ -111,7 +111,12 @@ async function main() {
   const [products, movements] = await Promise.all([
     prisma.product.findMany({
       where: { deletedAt: null },
-      select: { id: true, productCode: true, quantity: true },
+      select: {
+        id: true,
+        productCode: true,
+        quantity: true,
+        supplierFulfillmentStatus: true,
+      },
     }),
     prisma.inventoryMovement.findMany({
       where: { deletedAt: null },
@@ -136,7 +141,10 @@ async function main() {
 
     const hasMovements = sellableDeltas.has(normalized);
     const ledgerSellable = sellableDeltas.get(normalized) ?? 0;
-    const productQty = Number(product.quantity ?? 0);
+    const productQty =
+      product.supplierFulfillmentStatus === 'CREDIT_ISSUED'
+        ? 0
+        : Number(product.quantity ?? 0);
 
     if (!Number.isFinite(productQty) || !Number.isFinite(ledgerSellable)) {
       continue;

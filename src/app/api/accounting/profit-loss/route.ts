@@ -17,22 +17,27 @@ import {
   fetchInvestorReturnExpenses,
   fetchTransactionRefunds,
   fetchTransactionPayments,
+  fetchManualJournalLines,
   getPaidAtDate,
   getCancelledAtDate,
   isWithinDateRange,
 } from '@/lib/accounting/data-fetchers';
 import {
-  computeCogsTotal,
+  buildCogsAndInventoryEntries,
   computeInventorySeedAndShrinkageTotals,
 } from '@/lib/accounting/inventory-cogs';
 import { normalizeTransactionAmountsForAccounting } from '@/lib/accounting/transaction-normalization';
 import {
   getAccountsReceivableRecognitionDate,
+  buildAccountsReceivableShipmentEntries,
   hasAccountsReceivableShipment,
+  getTransactionPaymentCreditAccount,
   getTransactionRefundDebitAccount,
 } from '@/lib/accounting/transaction-recognition';
 import { getRuntimeAccountingCutoverDate } from '@/lib/accounting/cutover';
 import { prisma } from '@/lib/db';
+import { summarizeInventoryValuation } from '@/lib/accounting/inventoryCogsShared';
+import { projectProfitLossJournalLine } from '@/lib/accounting/profit-loss-journal';
 
 export const dynamic = 'force-dynamic';
 
@@ -62,7 +67,14 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
   const refunds = await fetchTransactionRefunds();
   const payments = await fetchTransactionPayments();
 
-  const paymentTransactionIds = new Set(payments.map((p) => p.transactionId));
+  const paymentTransactionIds = new Set(
+    payments
+      .filter((payment) => {
+        const amount = Number(payment.amount ?? 0);
+        return Number.isFinite(amount) && amount > 0;
+      })
+      .map((payment) => payment.transactionId)
+  );
   const accountsReceivableTransactionIds = new Set(
     accountsReceivableTransactions.map((transaction) => transaction.id)
   );
@@ -118,11 +130,7 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
     const isReservation =
       Reflect.get(payment as object, 'isReservation') === true;
 
-    if (isCancelledOrderStatus(payment.transaction?.orderStatus)) {
-      return sum;
-    }
-
-    if (hasAccountsReceivableShipment(payment.transaction)) {
+    if (getTransactionPaymentCreditAccount(payment) !== 'Sales Revenue') {
       return sum;
     }
 
@@ -147,6 +155,14 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
   const recognizedDepositRevenueTotal = Array.from(
     new Set(reservationPayments.map((p) => p.transactionId))
   ).reduce((sum, txId) => {
+    if (
+      hasAccountsReceivableShipment(
+        reservationPayments.find((payment) => payment.transactionId === txId)
+          ?.transaction ?? {}
+      )
+    ) {
+      return sum;
+    }
     const paidAt = paidAtByTxId.get(txId) ?? null;
     if (!isWithinDateRange(paidAt, effectiveFrom, effectiveTo)) {
       return sum;
@@ -229,7 +245,10 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
       }
 
       return (
-        sum + normalizeTransactionAmountsForAccounting(transaction).grossSale
+        sum +
+        (buildAccountsReceivableShipmentEntries(transaction, payments).find(
+          (line) => line.account === 'Sales Revenue'
+        )?.credit ?? 0)
       );
     },
     0
@@ -247,6 +266,7 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
       getTransactionRefundDebitAccount({
         orderStatus: refund.transaction?.orderStatus,
         isReservationRefund: (refund.transaction?.payments?.length ?? 0) > 0,
+        isApprovedCancellationPayout: Boolean(refund.approvedPayout),
       }) !== 'Sales Returns'
     ) {
       return sum;
@@ -340,22 +360,42 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
     0
   );
 
-  const cogsTotal = await computeCogsTotal({
-    from: effectiveFrom,
-    to: effectiveTo,
-  });
+  const { totalCogs: movementCogsTotal, valuationIssues } =
+    await buildCogsAndInventoryEntries({
+      from: effectiveFrom,
+      to: effectiveTo,
+    });
 
   const { shrinkageTotal } = await computeInventorySeedAndShrinkageTotals({
     from: effectiveFrom,
     to: effectiveTo,
   });
 
-  if (cogsTotal !== 0) {
+  const journalLines = await fetchManualJournalLines({
+    from: effectiveFrom,
+    to: effectiveTo,
+  });
+  const adjustments = journalLines.flatMap((line) => {
+    const projected = projectProfitLossJournalLine(line);
+    return projected ? [{ id: `journal-${line.id}`, ...projected }] : [];
+  });
+  rows.push(...adjustments);
+  const journalRevenue = adjustments
+    .filter((row) => row.type === 'Revenue')
+    .reduce((sum, row) => sum + row.amount, 0);
+  const journalExpenses = adjustments
+    .filter((row) => row.type === 'Expense')
+    .reduce((sum, row) => sum + row.amount, 0);
+  const journalCogs = adjustments
+    .filter((row) => row.type === 'Expense' && row.category === 'COGS')
+    .reduce((sum, row) => sum + row.amount, 0);
+  const cogsTotal = movementCogsTotal + journalCogs;
+  if (movementCogsTotal !== 0) {
     rows.push({
       id: 'expense-cogs',
       category: 'COGS',
       type: 'Expense',
-      amount: cogsTotal,
+      amount: movementCogsTotal,
     });
   }
 
@@ -368,15 +408,23 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
     });
   }
 
-  const totalExpenses = expenseTotal + cogsTotal + shrinkageTotal;
-  const grossProfit = netRevenueTotal - cogsTotal;
+  const totalExpenses =
+    expenseTotal + movementCogsTotal + shrinkageTotal + journalExpenses;
+  const adjustedRevenue = netRevenueTotal + journalRevenue;
+  const grossProfit = adjustedRevenue - cogsTotal;
 
   const stats = {
-    revenueTotal: netRevenueTotal,
+    valuation: summarizeInventoryValuation(valuationIssues),
+    revenueTotal: adjustedRevenue,
+    forfeitedDepositsTotal: rows
+      .filter(
+        (row) => row.type === 'Revenue' && row.category === 'Forfeited Deposits'
+      )
+      .reduce((sum, row) => sum + row.amount, 0),
     cogsTotal,
     grossProfit,
     expenseTotal: totalExpenses,
-    netProfit: netRevenueTotal - totalExpenses,
+    netProfit: adjustedRevenue - totalExpenses,
     period: buildPeriodLabel(from, to),
   };
 

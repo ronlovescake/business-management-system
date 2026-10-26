@@ -17,7 +17,10 @@ import {
   type ManualEntryField,
 } from './ledgerManualEntryForm';
 import type { LedgerEntry } from './ledgerTypes';
-import type { ClothingManualEntryPresetId } from '../ledgerEntryGuidance';
+import {
+  getClothingEntryScenario,
+  type ClothingManualEntryPresetId,
+} from '../ledgerEntryGuidance';
 
 interface UseLedgerManualEntriesParams {
   apiPath: (path: string) => string;
@@ -43,22 +46,14 @@ export function useLedgerManualEntries({
 
   const openManualEntryModal = useCallback(
     (presetId?: ClothingManualEntryPresetId) => {
-      const preset = presetId
-        ? {
-            'loan-received': ['Cash', 'Loan Payable'],
-            'loan-principal': ['Loan Payable', 'Cash'],
-            'loan-interest': ['Interest Expense', 'Cash'],
-            'owner-contribution': ['Cash', 'Owner Contribution'],
-            'owner-withdrawal': ['Owner Draw', 'Cash'],
-          }[presetId]
-        : null;
+      const preset = getClothingEntryScenario(presetId ?? null);
 
       setEditingManualSourceId(null);
       setManualEntryPreset(presetId ?? null);
       setManualEntryForm({
         ...createManualEntryFormState(),
-        debitAccount: preset?.[0] ?? '',
-        creditAccount: preset?.[1] ?? '',
+        debitAccount: preset?.debitAccount ?? '',
+        creditAccount: preset?.creditAccount ?? '',
       });
       setIsManualEntryModalOpen(true);
     },

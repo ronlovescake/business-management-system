@@ -17,6 +17,7 @@ import {
   fetchInvestorReturnExpenses,
   fetchPaidTransactions,
   fetchTransactionPayments,
+  fetchManualJournalLines,
   fetchTransactionRefunds,
   getPaidAtDate,
   getCancelledAtDate,
@@ -29,10 +30,14 @@ import {
 import { normalizeTransactionAmountsForAccounting } from '@/lib/accounting/transaction-normalization';
 import {
   getAccountsReceivableRecognitionDate,
+  buildAccountsReceivableShipmentEntries,
   hasAccountsReceivableShipment,
+  getTransactionPaymentCreditAccount,
   getTransactionRefundDebitAccount,
 } from '@/lib/accounting/transaction-recognition';
 import { prisma } from '@/lib/db';
+import { summarizeInventoryValuation } from '@/lib/accounting/inventoryCogsShared';
+import { projectProfitLossJournalLine } from '@/lib/accounting/profit-loss-journal';
 
 export const dynamic = 'force-dynamic';
 
@@ -148,7 +153,14 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
   // Only explicit "Cancelled" order status is excluded from revenue details.
   // ==========================================================================
   // Revenue: payment events
-  const paymentTransactionIds = new Set(payments.map((p) => p.transactionId));
+  const paymentTransactionIds = new Set(
+    payments
+      .filter((payment) => {
+        const amount = Number(payment.amount ?? 0);
+        return Number.isFinite(amount) && amount > 0;
+      })
+      .map((payment) => payment.transactionId)
+  );
   const accountsReceivableTransactionIds = new Set(
     accountsReceivableTransactions.map((transaction) => transaction.id)
   );
@@ -157,11 +169,7 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
     const isReservation =
       Reflect.get(payment as object, 'isReservation') === true;
 
-    if (isCancelledOrderStatus(payment.transaction?.orderStatus)) {
-      continue;
-    }
-
-    if (hasAccountsReceivableShipment(payment.transaction)) {
+    if (getTransactionPaymentCreditAccount(payment) !== 'Sales Revenue') {
       continue;
     }
 
@@ -176,7 +184,7 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
     }
 
     const amt = Number(payment.amount ?? 0);
-    if (!Number.isFinite(amt) || amt === 0) {
+    if (!Number.isFinite(amt) || amt <= 0) {
       continue;
     }
 
@@ -210,6 +218,12 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
     const refPayment = reservationPayments.find(
       (p) => p.transactionId === txId
     );
+    if (
+      !cancelledAt &&
+      hasAccountsReceivableShipment(refPayment?.transaction ?? {})
+    ) {
+      continue;
+    }
     const customer = refPayment?.transaction?.customers ?? null;
     const productCode = refPayment?.transaction?.productCode ?? null;
 
@@ -243,8 +257,8 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
       sourceId: String(txId),
       ref: `TX-${txId}`,
       description: isForfeit
-        ? 'Reservation fee forfeited'
-        : 'Reservation fee recognized (Completed)',
+        ? 'Reservation deposit forfeited'
+        : 'Reservation deposit recognized (Completed)',
       amount: depositTotal,
       customer,
       productCode,
@@ -304,7 +318,9 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
     }
 
     const grossSale =
-      normalizeTransactionAmountsForAccounting(transaction).grossSale;
+      buildAccountsReceivableShipmentEntries(transaction, payments).find(
+        (line) => line.account === 'Sales Revenue'
+      )?.credit ?? 0;
     if (!Number.isFinite(grossSale) || grossSale === 0) {
       continue;
     }
@@ -331,6 +347,7 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
       getTransactionRefundDebitAccount({
         orderStatus: refund.transaction?.orderStatus,
         isReservationRefund: (refund.transaction?.payments?.length ?? 0) > 0,
+        isApprovedCancellationPayout: Boolean(refund.approvedPayout),
       }) !== 'Sales Returns'
     ) {
       continue;
@@ -391,11 +408,12 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
   }
 
   // Expenses: COGS (from inventory movements)
-  const { entries: cogsEntries } = await buildCogsAndInventoryEntries({
-    from: effectiveFrom,
-    to: effectiveTo,
-    cogsDescriptionStyle: 'short',
-  });
+  const { entries: cogsEntries, valuationIssues } =
+    await buildCogsAndInventoryEntries({
+      from: effectiveFrom,
+      to: effectiveTo,
+      cogsDescriptionStyle: 'short',
+    });
 
   for (const entry of cogsEntries) {
     if (entry.account !== 'COGS') {
@@ -455,6 +473,29 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
     });
   }
 
+  const journalLines = await fetchManualJournalLines({
+    from: effectiveFrom,
+    to: effectiveTo,
+  });
+  for (const line of journalLines) {
+    const projected = projectProfitLossJournalLine(line);
+    if (!projected) {
+      continue;
+    }
+    rows.push({
+      id: `journal-${line.id}`,
+      ...projected,
+      date: line.date.toISOString(),
+      sourceType: line.sourceType,
+      sourceId: line.sourceId,
+      ref: line.ref,
+      description: line.description ?? line.account,
+      customer: null,
+      productCode: null,
+      method: null,
+    });
+  }
+
   rows.sort((a, b) => {
     // Newest-first (ISO timestamps compare correctly lexicographically).
     const byDate = b.date.localeCompare(a.date);
@@ -473,6 +514,7 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
   });
 
   return ApiResponse.success({
+    valuation: summarizeInventoryValuation(valuationIssues),
     rows,
     period: buildPeriodLabel(from, to),
   });

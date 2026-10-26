@@ -10,6 +10,8 @@ import { ProfitLossDetailsTable } from '@/app/clothing/accounting/profit-loss/co
 import { ProfitLossBreakdownsPanel } from '@/app/clothing/accounting/profit-loss/components/ProfitLossBreakdownsPanel';
 import { useProfitLoss } from '@/app/clothing/accounting/profit-loss/hooks/useProfitLoss';
 import { AccountingLoadErrorAlert } from '@/app/accounting/_shared/AccountingLoadErrorAlert';
+import { InventoryValuationNotice } from '@/components/accounting/InventoryValuationNotice';
+import { InventoryCostCorrections } from '@/components/accounting/InventoryCostCorrections';
 
 type ProfitLossRoutePageProps = {
   apiBasePath?: string;
@@ -20,6 +22,7 @@ export function ProfitLossRoutePage(props: ProfitLossRoutePageProps) {
   const { apiBasePath, showBreakdownsTab = true } = props;
   const {
     rows,
+    refresh,
     filteredRows,
     detailRows,
     filteredDetailRows,
@@ -41,6 +44,14 @@ export function ProfitLossRoutePage(props: ProfitLossRoutePageProps) {
     <PageLayout fluid withPadding>
       <Stack gap="lg">
         <AccountingLoadErrorAlert message={loadError} />
+        {apiBasePath !== '/api/general-merchandise' && (
+          <InventoryCostCorrections onSaved={refresh} />
+        )}
+        <InventoryValuationNotice
+          valuation={stats.valuation}
+          canConfirm={apiBasePath !== '/api/general-merchandise'}
+          onConfirmed={refresh}
+        />
 
         <ProfitLossStatsCards
           revenueTotal={stats.revenueTotal}

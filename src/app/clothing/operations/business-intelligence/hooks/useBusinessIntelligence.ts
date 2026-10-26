@@ -5,6 +5,7 @@ import { api } from '@/lib/api/client';
 import { buildApiPath } from '@/lib/api/paths';
 import { queryKeys } from '@/lib/queryKeys';
 import { logger } from '@/lib/logger';
+import { dayjs } from '@/utils/date';
 import {
   canonicalizeOrderStatus,
   isCancelledOrderStatus,
@@ -13,6 +14,8 @@ import {
   DATE_FILTER_OPTIONS,
   getComparisonRange,
   getDateRangeFilter,
+  getFilterStart,
+  parseAnalyticsDate,
   percentChange,
 } from '@/lib/analytics/periodComparison';
 import type {
@@ -77,7 +80,7 @@ const customerKey = (name: string | null | undefined) =>
   (name ?? '').trim().toLowerCase();
 
 const monthKeyOf = (date: Date) =>
-  `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+  dayjs(date).tz('Asia/Manila').format('YYYY-MM');
 
 /** Expects transactions that already exclude cancelled/forfeited/voided rows. */
 export function computeDeltas(
@@ -95,7 +98,7 @@ export function computeDeltas(
       if (!t['Order Date']) {
         continue;
       }
-      const orderDate = new Date(t['Order Date']);
+      const orderDate = parseAnalyticsDate(t['Order Date']);
       if (orderDate >= start && orderDate < end) {
         revenue += t['Line Total'] || 0;
         quantity += t.Quantity || 0;
@@ -219,10 +222,10 @@ export function computeExtendedMetrics(
     }
 
     if (t['Order Date']) {
-      const date = new Date(t['Order Date']);
+      const date = parseAnalyticsDate(t['Order Date']);
       if (!Number.isNaN(date.getTime())) {
         // getDay() is Sunday-first; shift so Monday is index 0.
-        const bucket = weekday[(date.getDay() + 6) % 7];
+        const bucket = weekday[(dayjs(date).tz('Asia/Manila').day() + 6) % 7];
         bucket.revenue += lineTotal;
         bucket.orders += 1;
       }
@@ -236,7 +239,7 @@ export function computeExtendedMetrics(
     if (!key || !t['Order Date']) {
       continue;
     }
-    const date = new Date(t['Order Date']);
+    const date = parseAnalyticsDate(t['Order Date']);
     if (Number.isNaN(date.getTime())) {
       continue;
     }
@@ -246,7 +249,7 @@ export function computeExtendedMetrics(
       firstOrderMonth.set(key, month);
     }
     const days = orderDays.get(key) ?? new Set<string>();
-    days.add(date.toDateString());
+    days.add(dayjs(date).tz('Asia/Manila').format('YYYY-MM-DD'));
     orderDays.set(key, days);
   }
 
@@ -256,7 +259,7 @@ export function computeExtendedMetrics(
     if (!key || !t['Order Date']) {
       continue;
     }
-    const date = new Date(t['Order Date']);
+    const date = parseAnalyticsDate(t['Order Date']);
     if (Number.isNaN(date.getTime())) {
       continue;
     }
@@ -267,11 +270,7 @@ export function computeExtendedMetrics(
   }
 
   const customerMix = monthKeys.map((monthKey) => {
-    const [year, month] = monthKey.split('-');
-    const label = new Date(Number(year), Number(month) - 1).toLocaleString(
-      'en-US',
-      { month: 'short' }
-    );
+    const label = dayjs.tz(`${monthKey}-01`, 'Asia/Manila').format('MMM');
     let newCustomers = 0;
     let returningCustomers = 0;
     customersByMonth.get(monthKey)?.forEach((key) => {
@@ -386,17 +385,21 @@ export function useBusinessIntelligence(apiBasePath?: string) {
   // ============================================================================
 
   const metrics = useMemo(() => {
-    const dateFilterFn = getDateRangeFilter(dateFilter);
+    const now = new Date();
+    const dateFilterFn = getDateRangeFilter(dateFilter, now);
+    const historyFilter = getDateRangeFilter('all', now);
 
     const activeTransactions = transactions.filter(
-      (t) => !isCancelledOrderStatus(t['Order Status'])
+      (t) =>
+        !isCancelledOrderStatus(t['Order Status']) &&
+        historyFilter(parseAnalyticsDate(t['Order Date']))
     );
 
     const periodTransactions = transactions.filter((t) => {
       if (!t['Order Date']) {
         return false;
       }
-      const orderDate = new Date(t['Order Date']);
+      const orderDate = parseAnalyticsDate(t['Order Date']);
       return dateFilterFn(orderDate);
     });
 
@@ -415,10 +418,8 @@ export function useBusinessIntelligence(apiBasePath?: string) {
       if (!t['Order Date']) {
         return sum;
       }
-      const orderDate = new Date(t['Order Date']);
-      const now = new Date();
-      const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-      if (orderDate >= startOfMonth) {
+      const orderDate = parseAnalyticsDate(t['Order Date']);
+      if (getDateRangeFilter('mtd', now)(orderDate)) {
         return sum + (t['Line Total'] || 0);
       }
       return sum;
@@ -513,8 +514,8 @@ export function useBusinessIntelligence(apiBasePath?: string) {
       if (!t['Order Date']) {
         return;
       }
-      const date = new Date(t['Order Date']);
-      const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+      const date = parseAnalyticsDate(t['Order Date']);
+      const monthKey = monthKeyOf(date);
 
       if (!monthlyDataMap.has(monthKey)) {
         monthlyDataMap.set(monthKey, {
@@ -561,7 +562,7 @@ export function useBusinessIntelligence(apiBasePath?: string) {
         return;
       }
 
-      const date = new Date(dateStr);
+      const date = parseAnalyticsDate(dateStr);
       if (isNaN(date.getTime())) {
         return; // Invalid date
       }
@@ -571,7 +572,7 @@ export function useBusinessIntelligence(apiBasePath?: string) {
         return;
       }
 
-      const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+      const monthKey = monthKeyOf(date);
 
       if (!monthlyDataMap.has(monthKey)) {
         monthlyDataMap.set(monthKey, {
@@ -596,12 +597,18 @@ export function useBusinessIntelligence(apiBasePath?: string) {
       monthData.sacks += s['No. Of Sacks'] || 0;
     });
 
-    // Generate all 12 months for the current year (January to December)
-    const currentYear = new Date().getFullYear();
-    const allMonths = Array.from({ length: 12 }, (_, i) => {
-      const month = i + 1;
-      return `${currentYear}-${String(month).padStart(2, '0')}`;
-    });
+    const currentMonth = dayjs(now).tz('Asia/Manila').startOf('month');
+    const firstDataMonth = Array.from(monthlyDataMap.keys()).sort()[0];
+    const windowStart = getFilterStart(dateFilter, now);
+    const firstMonth = windowStart
+      ? dayjs(windowStart).tz('Asia/Manila').startOf('month')
+      : firstDataMonth
+        ? dayjs.tz(`${firstDataMonth}-01`, 'Asia/Manila')
+        : currentMonth.startOf('year');
+    const allMonths = Array.from(
+      { length: currentMonth.diff(firstMonth, 'month') + 1 },
+      (_, index) => firstMonth.add(index, 'month').format('YYYY-MM')
+    );
 
     // Convert to array and format for charts - ensure all 12 months are included
     const monthlyTrends: MonthlyData[] = allMonths.map((monthKey) => {
@@ -609,11 +616,9 @@ export function useBusinessIntelligence(apiBasePath?: string) {
 
       if (!data) {
         // No data for this month - show empty values
-        const [year, month] = monthKey.split('-');
-        const date = new Date(parseInt(year), parseInt(month) - 1);
-        const monthName = date.toLocaleString('en-US', {
-          month: 'short',
-        });
+        const monthName = dayjs
+          .tz(`${monthKey}-01`, 'Asia/Manila')
+          .format('MMM');
 
         return {
           month: monthName,
@@ -640,11 +645,7 @@ export function useBusinessIntelligence(apiBasePath?: string) {
       )[0] || ['N/A', 0];
 
       // Format month for display (e.g., "Jan")
-      const [year, month] = monthKey.split('-');
-      const date = new Date(parseInt(year), parseInt(month) - 1);
-      const monthName = date.toLocaleString('en-US', {
-        month: 'short',
-      });
+      const monthName = dayjs.tz(`${monthKey}-01`, 'Asia/Manila').format('MMM');
 
       return {
         month: monthName,
@@ -664,10 +665,11 @@ export function useBusinessIntelligence(apiBasePath?: string) {
       periodTransactions,
       activeTransactions,
       allMonths.filter((monthKey) => {
-        const [year, month] = monthKey.split('-').map(Number);
+        const month = dayjs.tz(`${monthKey}-01`, 'Asia/Manila');
         return (
-          dateFilterFn(new Date(year, month - 1, 1)) ||
-          dateFilterFn(new Date(year, month, 0, 23, 59, 59))
+          dateFilterFn(month.toDate()) ||
+          dateFilterFn(month.endOf('month').toDate()) ||
+          month.isSame(currentMonth, 'month')
         );
       })
     );
@@ -683,13 +685,18 @@ export function useBusinessIntelligence(apiBasePath?: string) {
       transactionCount: filteredTransactions.length,
       monthlyTrends,
       extended,
-      deltas: computeDeltas(activeTransactions, dateFilter, {
-        revenue: ytdTotal,
-        mtd: mtdTotal,
-        count: filteredTransactions.length,
-        customers: extended.uniqueCustomers,
-        quantity: extended.quantitySold,
-      }),
+      deltas: computeDeltas(
+        activeTransactions,
+        dateFilter,
+        {
+          revenue: ytdTotal,
+          mtd: mtdTotal,
+          count: filteredTransactions.length,
+          customers: extended.uniqueCustomers,
+          quantity: extended.quantitySold,
+        },
+        now
+      ),
     };
   }, [transactions, products, shipments, dateFilter]);
 
@@ -703,9 +710,9 @@ export function useBusinessIntelligence(apiBasePath?: string) {
     queryFn: async (): Promise<ProfitSnapshot> => {
       const range = getComparisonRange(dateFilter);
       const params = new URLSearchParams();
+      params.set('to', new Date().toISOString());
       if (range) {
         params.set('from', range.currentStart.toISOString());
-        params.set('to', new Date().toISOString());
       }
       const endpoint = buildApiPath(apiBasePath, '/accounting/profit-loss');
       const query = params.toString();

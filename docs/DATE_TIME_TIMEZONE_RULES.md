@@ -27,6 +27,21 @@ The server runs in UTC (Docker default). Between **00:00–07:59 Manila time**, 
 
 ---
 
+### Accounting And BI Report Windows
+
+- Accounting This Year is January 1 through today's Manila end-of-day; This
+  Month is month to date. Dashboard prior-year/month comparisons use the same
+  elapsed calendar span and clamp leap days/short months.
+- Full Calendar Year is an explicit January-December accounting selection, not
+  the default YTD view. Its prior comparison is a full year. Actual balance-sheet
+  and refund snapshots still use today rather than a projected future position.
+- BI filters, including All Time, exclude invalid/future instants through now.
+  Date-only order strings are Manila calendar midnights; timestamps keep their
+  real instant. Month keys, weekdays, repeat-order days and chart axes use Manila.
+  All Time removes the lower boundary, not the upper boundary, including P&L calls.
+- Invoice payment deadlines use invoice date plus three calendar days at Manila
+  end-of-day. Fully paid orders are excluded; no automatic cancellation occurs.
+
 ## 2. Standard Display Format
 
 ```

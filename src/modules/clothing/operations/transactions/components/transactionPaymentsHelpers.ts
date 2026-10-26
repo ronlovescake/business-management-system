@@ -1,4 +1,5 @@
 import type { TransactionData } from '../types/transaction.types';
+import { toISODate } from '@/utils/date';
 
 export type PaymentDraft = {
   transactionId: number;
@@ -13,6 +14,7 @@ export type BulkPaymentsRequest = {
     method?: string | null;
     notes?: string | null;
     isReservation?: boolean;
+    originalDepositRate?: 10 | 20;
   }>;
 };
 
@@ -22,6 +24,7 @@ type BuildBulkPaymentsPayloadParams = {
   method: string | null;
   notes: string;
   isReservation: boolean;
+  originalDepositRate?: 10 | 20;
 };
 
 export const toPaymentDrafts = (
@@ -65,6 +68,7 @@ export const buildBulkPaymentsPayload = ({
   method,
   notes,
   isReservation,
+  originalDepositRate,
 }: BuildBulkPaymentsPayloadParams): BulkPaymentsRequest => {
   const trimmedNotes = notes.trim();
 
@@ -72,10 +76,13 @@ export const buildBulkPaymentsPayload = ({
     payments: payloadDrafts.map((draft) => ({
       transactionId: draft.transactionId,
       amount: draft.amount,
-      paymentDate: paymentDate.toISOString().slice(0, 10),
+      paymentDate: toISODate(paymentDate),
       method,
       notes: trimmedNotes ? trimmedNotes : null,
       isReservation,
+      ...(isReservation && originalDepositRate !== undefined
+        ? { originalDepositRate }
+        : {}),
     })),
   };
 };

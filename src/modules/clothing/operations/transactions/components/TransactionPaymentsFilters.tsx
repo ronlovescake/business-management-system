@@ -3,6 +3,7 @@ import {
   Checkbox,
   Group,
   Pill,
+  SegmentedControl,
   Select,
   Stack,
   Text,
@@ -20,6 +21,8 @@ type TransactionPaymentsFiltersProps = {
   method: string | null;
   notes: string;
   isReservation: boolean;
+  originalDepositRate?: 10 | 20;
+  onOriginalDepositRateChange?: (value: 10 | 20) => void;
   selectedStatuses: Set<StatusFilterOption>;
   statusOptions: StatusFilterOption[];
   paymentMethodOptions: Array<{ value: string; label: string }>;
@@ -41,6 +44,8 @@ export function TransactionPaymentsFilters({
   method,
   notes,
   isReservation,
+  originalDepositRate,
+  onOriginalDepositRateChange,
   selectedStatuses,
   statusOptions,
   paymentMethodOptions,
@@ -137,30 +142,38 @@ export function TransactionPaymentsFilters({
 
       <TextInput
         label="Notes (optional)"
-        placeholder="e.g., Reservation fee"
+        placeholder="e.g., Reservation Deposit"
         value={notes}
         onChange={(event) => onNotesChange(event.target.value)}
       />
 
       <Stack gap={6}>
         <Checkbox
-          label="Reservation fee (customer deposit)"
+          label={
+            originalDepositRate === undefined
+              ? 'Reservation Deposit'
+              : 'Original Reservation Deposit'
+          }
           checked={isReservation}
           onChange={(event) => onReservationChange(event.currentTarget.checked)}
         />
-        {isReservation ? (
-          <Text size="sm" c="dimmed">
-            Reservation deposits increase Cash but will not hit Sales Revenue
-            until completion.
-          </Text>
+        {isReservation &&
+        originalDepositRate !== undefined &&
+        onOriginalDepositRateChange ? (
+          <SegmentedControl
+            aria-label="Agreed original deposit percentage"
+            value={String(originalDepositRate)}
+            onChange={(value) =>
+              onOriginalDepositRateChange(value === '20' ? 20 : 10)
+            }
+            data={[
+              { label: '10%', value: '10' },
+              { label: '20%', value: '20' },
+            ]}
+            w={180}
+          />
         ) : null}
       </Stack>
-
-      {isReservation ? (
-        <Text size="sm" c="dimmed">
-          Tip: use the per-row “Reservation Fee” button to auto-fill 10%.
-        </Text>
-      ) : null}
     </>
   );
 }

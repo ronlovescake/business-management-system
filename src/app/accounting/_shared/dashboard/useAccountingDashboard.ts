@@ -176,6 +176,7 @@ export function useAccountingDashboard(apiBasePath?: string) {
     asOf,
     hasComparison: comparisonRange !== null,
     snapshot,
+    valuation: currentQuery.data?.stats.valuation,
     deltas,
     monthlyTrend,
     expenseSlices,

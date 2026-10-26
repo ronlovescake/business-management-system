@@ -139,6 +139,12 @@ model Product {
   splitComponents        SplitBatchComponent[]
   reclassEntries         ClothingInventoryReclassEntry[]
   codeAliases            ProductCodeAlias[]
+  supplierReference      String?      @db.VarChar(200)
+  supplierFulfillmentStatus String    @default("ACTIVE") @db.VarChar(30)
+  supplierCreditAppliedAmount Decimal @default(0) @db.Decimal(18, 2)
+  issuedSupplierCredit   ClothingSupplierCredit? @relation("SupplierCreditSource")
+  supplierCreditApplication ClothingSupplierCreditApplication? @relation("SupplierCreditTarget")
+  shipmentTransfers      ClothingProductShipmentTransfer[]
 
   @@index([productCode])
   @@index([shipmentCode])
@@ -161,6 +167,61 @@ model ProductCodeAlias {
   @@unique([productId, code])
   @@index([code])
   @@map("product_code_aliases")
+  @@schema("public")
+}
+
+model ClothingSupplierCredit {
+  id                String   @id @default(cuid())
+  sourceProductId   Int      @unique
+  sourceProduct     Product  @relation("SupplierCreditSource", fields: [sourceProductId], references: [id], onDelete: Restrict)
+  supplierReference String   @db.VarChar(200)
+  reference         String   @db.VarChar(150)
+  currency          String   @default("PHP") @db.VarChar(3)
+  amount            Decimal  @db.Decimal(18, 2)
+  availableAmount   Decimal  @db.Decimal(18, 2)
+  quantity          Float
+  sourceShipmentCode String? @db.VarChar(100)
+  postingDate       DateTime @db.Timestamptz(6)
+  requestId         String   @unique @db.VarChar(100)
+  createdBy         String   @db.VarChar(100)
+  createdAt         DateTime @default(now()) @db.Timestamptz(6)
+  applications      ClothingSupplierCreditApplication[]
+
+  @@index([supplierReference, currency], map: "clothing_supplier_credits_supplier_currency_idx")
+  @@map("clothing_supplier_credits")
+  @@schema("public")
+}
+
+model ClothingSupplierCreditApplication {
+  id                String   @id @default(cuid())
+  creditId          String
+  credit            ClothingSupplierCredit @relation(fields: [creditId], references: [id], onDelete: Restrict)
+  targetProductId   Int      @unique
+  targetProduct     Product  @relation("SupplierCreditTarget", fields: [targetProductId], references: [id], onDelete: Restrict)
+  amount            Decimal  @db.Decimal(18, 2)
+  postingDate       DateTime @db.Timestamptz(6)
+  requestId         String   @unique @db.VarChar(100)
+  createdBy         String   @db.VarChar(100)
+  createdAt         DateTime @default(now()) @db.Timestamptz(6)
+
+  @@index([creditId], map: "clothing_supplier_credit_applications_credit_idx")
+  @@map("clothing_supplier_credit_applications")
+  @@schema("public")
+}
+
+model ClothingProductShipmentTransfer {
+  id               String   @id @default(cuid())
+  productId        Int
+  product          Product  @relation(fields: [productId], references: [id], onDelete: Restrict)
+  fromShipmentCode String   @db.VarChar(100)
+  toShipmentCode   String   @db.VarChar(100)
+  reason           String   @db.VarChar(1000)
+  requestId        String   @unique @db.VarChar(100)
+  createdBy        String   @db.VarChar(100)
+  createdAt        DateTime @default(now()) @db.Timestamptz(6)
+
+  @@index([productId], map: "clothing_product_shipment_transfers_product_idx")
+  @@map("clothing_product_shipment_transfers")
   @@schema("public")
 }
 
@@ -457,6 +518,11 @@ model Transaction {
   statusChanges TransactionStatusChange[]
   refunds       TransactionRefund[]
   payments      TransactionPayment[]
+  initialDepositAmount Decimal? @db.Decimal(18, 2)
+  initialDepositRate Decimal? @db.Decimal(7, 4)
+  depositConfirmedAt DateTime?
+  depositConfirmedBy String? @db.VarChar(255)
+  cancellation ClothingOrderCancellation?
 
   @@index([orderDate])
   @@index([customers])
@@ -489,6 +555,8 @@ model TransactionPayment {
   isReservation Boolean     @default(false)
   deletedAt     DateTime?
   transaction   Transaction @relation(fields: [transactionId], references: [id], onDelete: Cascade)
+  financialRequestId String? @db.Uuid
+  financialRequest ClothingFinancialRequest? @relation(fields: [financialRequestId], references: [id], onDelete: Restrict)
 
   @@index([transactionId])
   @@index([paymentDate])
@@ -510,11 +578,71 @@ model TransactionRefund {
   notes            String?
   deletedAt        DateTime?
   transaction      Transaction     @relation(fields: [transactionId], references: [id], onDelete: Cascade)
+  approvedPayout ClothingRefundPayout?
 
   @@index([transactionId])
   @@index([refundDate])
   @@index([deletedAt])
   @@map("transaction_refunds")
+  @@schema("public")
+}
+
+model ClothingFinancialRequest {
+  id String @id @db.Uuid
+  operation String @db.VarChar(50)
+  payloadHash String @db.VarChar(64)
+  result Json?
+  createdAt DateTime @default(now())
+  payments TransactionPayment[]
+  cancellation ClothingOrderCancellation?
+  payout ClothingRefundPayout?
+
+  @@map("clothing_financial_requests")
+  @@schema("public")
+}
+
+model ClothingOrderCancellation {
+  id String @id @db.Uuid
+  request ClothingFinancialRequest @relation(fields: [id], references: [id], onDelete: Restrict)
+  transactionId Int @unique
+  transaction Transaction @relation(fields: [transactionId], references: [id], onDelete: Restrict)
+  kind String @db.VarChar(30)
+  decisionDate String @db.VarChar(10)
+  reason String
+  previousStatus String? @db.VarChar(100)
+  grossAmount Decimal @db.Decimal(18, 2)
+  collectedAmount Decimal @db.Decimal(18, 2)
+  priorRefundAmount Decimal @db.Decimal(18, 2)
+  retainedAmount Decimal @db.Decimal(18, 2)
+  approvedRefundAmount Decimal @db.Decimal(18, 2)
+  pendingAmount Decimal @db.Decimal(18, 2)
+  receivableCreditAmount Decimal @db.Decimal(18, 2)
+  initialDepositAmount Decimal? @db.Decimal(18, 2)
+  createdBy String @db.VarChar(255)
+  createdAt DateTime @default(now())
+  payouts ClothingRefundPayout[]
+
+  @@index([decisionDate])
+  @@index([pendingAmount, createdAt])
+  @@map("clothing_order_cancellations")
+  @@schema("public")
+}
+
+model ClothingRefundPayout {
+  id String @id @db.Uuid
+  request ClothingFinancialRequest @relation(fields: [id], references: [id], onDelete: Restrict)
+  cancellationId String @db.Uuid
+  cancellation ClothingOrderCancellation @relation(fields: [cancellationId], references: [id], onDelete: Restrict)
+  refundId Int @unique
+  refund TransactionRefund @relation(fields: [refundId], references: [id], onDelete: Restrict)
+  amount Decimal @db.Decimal(18, 2)
+  paymentDate String @db.VarChar(10)
+  method String @db.VarChar(100)
+  createdBy String @db.VarChar(255)
+  createdAt DateTime @default(now())
+
+  @@index([cancellationId, paymentDate])
+  @@map("clothing_refund_payouts")
   @@schema("public")
 }
 

@@ -25,20 +25,21 @@ import { prisma } from '@/lib/db';
 import { getRuntimeAccountingCutoverDate } from '@/lib/accounting/cutover';
 import { normalizeAccountForReporting } from '@/lib/accounting/account-normalization';
 import { getExpenseCreditAccount } from '@/lib/accounting/payment-accounts';
-import { getTransactionRefundDebitAccount } from '@/lib/accounting/transaction-recognition';
+import {
+  getTransactionPaymentDebitAccount,
+  getTransactionRefundDebitAccount,
+} from '@/lib/accounting/transaction-recognition';
 import {
   calculateAccountsReceivableBalances,
   getAccountsReceivableRecognitionDate,
   hasAccountsReceivableShipment,
+  getFinancialSourceTransaction,
 } from '@/lib/accounting/transaction-recognition';
 import {
   detectAccountType,
   type AccountType,
 } from '@/lib/accounting/account-classification';
-import {
-  isCancelledOrderStatus,
-  isDepositForfeitureOrderStatus,
-} from '@/lib/transactions/order-status';
+import { isDepositForfeitureOrderStatus } from '@/lib/transactions/order-status';
 
 export const dynamic = 'force-dynamic';
 
@@ -181,6 +182,8 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
 
   // Reservation payments are tracked separately as Customer Deposits.
   const reservationTotalsByTxId = new Map<number, number>();
+  const cardTotalsByTxId = new Map<number, number>();
+  const cardReservationTotalsByTxId = new Map<number, number>();
 
   // Track any payment activity so we can prefer payment events over legacy adjustment fields.
   const paymentEventTxIds = new Set<number>();
@@ -199,13 +202,19 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
     }
 
     paymentEventTxIds.add(payment.transactionId);
-
-    // Mirror ledger behavior: for cancelled orders, only reservation/deposit payments count.
     if (
-      isCancelledOrderStatus(payment.transaction?.orderStatus) &&
-      !isReservation
+      getTransactionPaymentDebitAccount(payment) === 'Card Collections Clearing'
     ) {
-      continue;
+      cardTotalsByTxId.set(
+        payment.transactionId,
+        (cardTotalsByTxId.get(payment.transactionId) ?? 0) + amt
+      );
+      if (isReservation) {
+        cardReservationTotalsByTxId.set(
+          payment.transactionId,
+          (cardReservationTotalsByTxId.get(payment.transactionId) ?? 0) + amt
+        );
+      }
     }
 
     paymentTotalsAllByTxId.set(
@@ -534,6 +543,16 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
       const normalized = normalizeTransactionAmountsForAccounting(tx);
       const grossSale = Number(normalized.grossSale ?? 0);
       const hasAccountsReceivableLifecycle = hasAccountsReceivableShipment(tx);
+      const receivableAt = hasAccountsReceivableLifecycle
+        ? getAccountsReceivableRecognitionDate(tx)
+        : null;
+      const recognizesReceivable = Boolean(
+        receivableAt && isWithinDateRange(receivableAt, cutover, asOf)
+      );
+      const paidAt = isPaidStatus(tx.orderStatus) ? getPaidAtDate(tx) : null;
+      const recognizesPaidStatus = Boolean(
+        paidAt && isWithinDateRange(paidAt, cutover, asOf)
+      );
 
       // If we have explicit payment events, prefer them for cash received for
       // non-paid statuses to avoid missing cash on the balance sheet.
@@ -548,7 +567,9 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
         ? Math.max(paymentTotalsAllByTxId.get(tx.id) ?? 0, 0)
         : paymentReceived;
 
-      const resolvedPaymentReceived = isPaidStatus(tx.orderStatus)
+      const includeRecognizedDeposits =
+        recognizesPaidStatus || recognizesReceivable;
+      const resolvedPaymentReceived = includeRecognizedDeposits
         ? paymentReceivedAll
         : paymentReceived;
 
@@ -561,11 +582,11 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
         : Number(normalized.balanceDue ?? 0);
 
       const paymentAnchor =
-        (isPaidStatus(tx.orderStatus)
+        (includeRecognizedDeposits
           ? earliestIncludedPaymentAtByTxId.get(tx.id)
           : earliestPaymentAtByTxId.get(tx.id)) ?? null;
-      const recognizedAt = hasAccountsReceivableLifecycle
-        ? getAccountsReceivableRecognitionDate(tx)
+      const recognizedAt = recognizesReceivable
+        ? receivableAt
         : usePaymentEvents && paymentAnchor
           ? paymentAnchor
           : getRecognizedAt(tx);
@@ -573,9 +594,17 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
         return null;
       }
 
-      const cash = Math.max(Number(resolvedPaymentReceived) || 0, 0);
+      const receipts = Math.max(Number(resolvedPaymentReceived) || 0, 0);
+      const cardCollections = Math.max(
+        (cardTotalsByTxId.get(tx.id) ?? 0) -
+          (includeRecognizedDeposits
+            ? 0
+            : (cardReservationTotalsByTxId.get(tx.id) ?? 0)),
+        0
+      );
+      const cash = Math.max(receipts - cardCollections, 0);
 
-      const receivableBalances = hasAccountsReceivableLifecycle
+      const receivableBalances = recognizesReceivable
         ? calculateAccountsReceivableBalances(
             Number(grossSale),
             resolvedPaymentReceived
@@ -583,12 +612,12 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
         : null;
       const ar = receivableBalances
         ? receivableBalances.receivable
-        : isReceivableStatus(tx.orderStatus)
+        : !hasAccountsReceivableLifecycle && isReceivableStatus(tx.orderStatus)
           ? Math.max(Number(balanceDue) || 0, 0)
           : 0;
       const saleAmount = receivableBalances
         ? receivableBalances.recognizedSale
-        : cash + ar;
+        : receipts + ar;
 
       if (!Number.isFinite(saleAmount) || saleAmount <= 0) {
         return null;
@@ -600,6 +629,9 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
 
       return [
         ...(cash > 0 ? [{ account: CASH_ACCOUNT, amount: cash }] : []),
+        ...(cardCollections > 0
+          ? [{ account: 'Card Collections Clearing', amount: cardCollections }]
+          : []),
         ...(ar > 0 ? [{ account: 'Accounts Receivable', amount: ar }] : []),
         // Revenue flows into Equity on the balance sheet.
         { account: 'Retained Earnings', amount: -saleAmount },
@@ -623,10 +655,22 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
       select: {
         id: true,
         orderStatus: true,
+        cancellation: { select: { previousStatus: true } },
+        shippedAt: true,
+        packedDate: true,
+        orderDate: true,
         updatedAt: true,
         statusChanges: {
           where: {
-            newStatus: { in: [...PAID_STATUSES, 'Cancelled', 'Forfeited'] },
+            newStatus: {
+              in: [
+                ...PAID_STATUSES,
+                'Cancelled',
+                'Forfeited',
+                'Accounts Receivable',
+                'Pending Payment',
+              ],
+            },
           },
           orderBy: { changedAt: 'asc' },
           select: { newStatus: true, changedAt: true },
@@ -634,7 +678,12 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
       },
     });
 
-    const txById = new Map(txRows.map((t) => [t.id, t] as const));
+    const txById = new Map(
+      txRows.map(
+        (transaction) =>
+          [transaction.id, getFinancialSourceTransaction(transaction)] as const
+      )
+    );
 
     for (const txId of reservationTxIds) {
       const depositTotal = reservationTotalsByTxId.get(txId) ?? 0;
@@ -649,9 +698,25 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
 
       // If the order is already completed/paid, the cash is already reflected
       // via the sale recognition entry and no deposit liability remains.
-      if (isPaidStatus(tx.orderStatus)) {
+      const paidSource = transactions.find(
+        (transaction) => transaction.id === txId
+      );
+      const paidAt =
+        isPaidStatus(tx.orderStatus) && paidSource
+          ? getPaidAtDate(paidSource)
+          : null;
+      if (paidAt && isWithinDateRange(paidAt, cutover, asOf)) {
         continue;
       }
+      const receivableAt = getAccountsReceivableRecognitionDate(tx);
+      if (
+        hasAccountsReceivableShipment(tx) &&
+        receivableAt &&
+        isWithinDateRange(receivableAt, cutover, asOf)
+      ) {
+        continue;
+      }
+      const cardDeposit = cardReservationTotalsByTxId.get(txId) ?? 0;
 
       const cancelledAt = isDepositForfeitureOrderStatus(tx.orderStatus)
         ? getCancelledAtDate(tx)
@@ -661,19 +726,25 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
         addCashDetail(
           'Reservation Deposits (forfeited)',
           CASH_ACCOUNT,
-          depositTotal
+          depositTotal - cardDeposit
         );
         reservationEntries.push(
-          { account: CASH_ACCOUNT, amount: depositTotal },
+          { account: CASH_ACCOUNT, amount: depositTotal - cardDeposit },
+          { account: 'Card Collections Clearing', amount: cardDeposit },
           { account: 'Retained Earnings', amount: -depositTotal }
         );
         continue;
       }
 
-      addCashDetail('Reservation Deposits (open)', CASH_ACCOUNT, depositTotal);
+      addCashDetail(
+        'Reservation Deposits (open)',
+        CASH_ACCOUNT,
+        depositTotal - cardDeposit
+      );
 
       reservationEntries.push(
-        { account: CASH_ACCOUNT, amount: depositTotal },
+        { account: CASH_ACCOUNT, amount: depositTotal - cardDeposit },
+        { account: 'Card Collections Clearing', amount: cardDeposit },
         { account: 'Customer Deposits', amount: -depositTotal }
       );
     }
@@ -708,14 +779,14 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
   // This makes old stock depletion visible on the balance sheet even in cash-basis mode.
   const cogsTotal = await computeCogsTotal({ from: cutover, to: asOf });
   const cogsEntries: BalanceRow[] =
-    Number.isFinite(cogsTotal) && cogsTotal > 0
+    Number.isFinite(cogsTotal) && cogsTotal !== 0
       ? [
           { account: 'Retained Earnings', amount: cogsTotal },
           { account: 'Stock on Hand', amount: -cogsTotal },
         ]
       : [];
 
-  if (Number.isFinite(cogsTotal) && cogsTotal > 0) {
+  if (Number.isFinite(cogsTotal) && cogsTotal !== 0) {
     addStockDetail(
       'COGS (inventory movements)',
       STOCK_ON_HAND_ACCOUNT,
@@ -766,6 +837,7 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
       const refundDebitAccount = getTransactionRefundDebitAccount({
         orderStatus: refund.transaction?.orderStatus,
         isReservationRefund: (refund.transaction?.payments?.length ?? 0) > 0,
+        isApprovedCancellationPayout: Boolean(refund.approvedPayout),
       });
       const isVoidedReservationRefund =
         refundDebitAccount === 'Customer Deposits';
@@ -775,6 +847,13 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
         CASH_ACCOUNT,
         -value
       );
+
+      if (refundDebitAccount === 'Refunds Payable') {
+        return [
+          { account: 'Refunds Payable', amount: value },
+          { account: CASH_ACCOUNT, amount: -value },
+        ];
+      }
 
       if (isVoidedReservationRefund) {
         return [

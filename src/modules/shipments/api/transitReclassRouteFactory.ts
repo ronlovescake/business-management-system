@@ -28,6 +28,7 @@ type TransitReclassRequestBody = {
 /* eslint-disable @typescript-eslint/no-explicit-any */
 export interface TransitReclassDelegates {
   useProductIdentity?: boolean;
+  validateProductSelection?: (keys: string[]) => Promise<string | null>;
   shipmentModel: {
     findUnique: (args: any) => Promise<{
       id: number;
@@ -231,6 +232,12 @@ export function createTransitReclassRoutes(delegates: TransitReclassDelegates) {
       let expectedTotalAmount = 0;
 
       if (sourceFlow === 'product') {
+        const selectionError = await delegates.validateProductSelection?.(
+          transitBuildEntries.map((entry) => entry.idempotencyKey)
+        );
+        if (selectionError) {
+          return ApiResponse.conflict(selectionError);
+        }
         const productCodeById = new Map<number, string>();
         products.forEach((product) => {
           const productId = Number(product.id ?? 0);

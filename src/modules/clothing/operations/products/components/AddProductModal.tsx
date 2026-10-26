@@ -20,6 +20,7 @@ import {
   Loader,
 } from '@mantine/core';
 import { DateInput } from '@mantine/dates';
+import { useMediaQuery } from '@mantine/hooks';
 import { UniversalModal } from '@/components/modals/UniversalModal';
 import type {
   ProductFormData,
@@ -38,6 +39,8 @@ import {
 } from '@/lib/dateInputConfig';
 import { queryKeys } from '@/lib/queryKeys';
 import { paymentCardService } from '@/modules/settings/global/services/paymentCards.service';
+import { SupplierProductControls } from './SupplierProductControls';
+import type { ProductData } from '../types/product.types';
 
 interface AddProductModalProps {
   opened: boolean;
@@ -48,6 +51,9 @@ interface AddProductModalProps {
   onSubmit: () => void;
   isEditMode: boolean;
   isSubmitting?: boolean;
+  product?: ProductData;
+  supplierResolutionEnabled?: boolean;
+  onSupplierResolved?: () => Promise<void>;
 }
 
 export const AddProductModal = memo(function AddProductModal({
@@ -59,7 +65,11 @@ export const AddProductModal = memo(function AddProductModal({
   onSubmit,
   isEditMode,
   isSubmitting = false,
+  product,
+  supplierResolutionEnabled = false,
+  onSupplierResolved,
 }: AddProductModalProps) {
+  const isCompactViewport = useMediaQuery('(max-width: 48em)');
   const handleSubmitClick = async () => {
     if (isSubmitting) {
       return;
@@ -133,6 +143,7 @@ export const AddProductModal = memo(function AddProductModal({
       opened={opened}
       onClose={onClose}
       size="50%"
+      fullScreen={supplierResolutionEnabled && isCompactViewport}
       title={isEditMode ? 'Edit Product' : 'Add New Product'}
     >
       <Stack gap={32}>
@@ -257,6 +268,15 @@ export const AddProductModal = memo(function AddProductModal({
         </div>
 
         {/* Date & Payment Information Section */}
+        {supplierResolutionEnabled && (
+          <SupplierProductControls
+            product={product}
+            form={form}
+            grandTotal={calculations.grandTotal}
+            updateField={updateField}
+            onResolved={onSupplierResolved}
+          />
+        )}
         <div>
           <SimpleGrid cols={{ base: 1, sm: 3 }} spacing="lg">
             <DateInput

@@ -111,6 +111,10 @@ for (const [migration, definition] of [
     '20261020130000_general_merchandise_product_identity',
     'CREATE FUNCTION general_merchandise.resolve_product_identity()',
   ],
+  [
+    '20261026153000_clothing_customer_money_lifecycle',
+    'ALTER TABLE public.transactions\n  ADD CONSTRAINT transactions_initial_deposit_nonnegative',
+  ],
 ]) {
   const sql = readFileSync(
     path.join(
@@ -129,14 +133,12 @@ for (const [migration, definition] of [
     start !== sql.lastIndexOf(definition) ||
     !sql.trimEnd().endsWith('COMMIT;')
   ) {
-    console.error(
-      `Cannot locate the test trigger definitions in ${migration}.`
-    );
+    console.error(`Cannot locate the test database rules in ${migration}.`);
     process.exit(1);
   }
   run(
     `${prismaArgs.join(' ')} db execute --stdin --schema prisma/schema.prisma`,
-    `install test product-identity rules from ${migration}`,
+    `install test database rules from ${migration}`,
     `BEGIN;\n${sql.slice(start)}`
   );
 }

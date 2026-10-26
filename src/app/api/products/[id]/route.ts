@@ -6,6 +6,11 @@ import { logger } from '@/lib/logger';
 import { sanitizers } from '@/lib/security/sanitize';
 import { recalculateProductFinancials } from '@/modules/products/api/financials';
 import { mapToDTO } from '@/modules/products/api/dto';
+import { mapFromDTO } from '@/modules/products/api/dto';
+import {
+  assertSupplierFundingWrite,
+  SupplierResolutionError,
+} from '@/modules/products/api/supplier-resolution';
 import { sanitizeProductRecord } from '@/modules/products/api/sanitizers';
 import {
   assertProductAccountingIdentityChange,
@@ -53,6 +58,10 @@ export async function PUT(
         if (!current) {
           throw new Error('Product no longer exists');
         }
+        assertSupplierFundingWrite(current, {
+          ...mapFromDTO(calculatedProduct),
+          paymentCardId: calculatedProduct['Payment Card Id'] ?? null,
+        });
         await assertProductAccountingIdentityChange(tx, current, {
           productCode: splitChild ? existingProductCode : sanitizedProductCode,
           shipmentCode:
@@ -63,6 +72,11 @@ export async function PUT(
         const updated = await tx.product.update({
           where: { id },
           data: {
+            supplierReference:
+              calculatedProduct['Supplier Reference']
+                ?.trim()
+                .replace(/\s+/g, ' ')
+                .toLowerCase() || current.supplierReference,
             // Sanitize code fields
             shipmentCode:
               sanitizers.productCode(productData['Shipment Code']) || null,
@@ -202,6 +216,12 @@ export async function PUT(
       product: updatedProduct,
     });
   } catch (error) {
+    if (error instanceof SupplierResolutionError) {
+      return NextResponse.json(
+        { error: error.message },
+        { status: error.status }
+      );
+    }
     if (error instanceof ProductSupplierSettlementError) {
       return NextResponse.json(
         { error: error.message },

@@ -14,10 +14,12 @@ import {
 import { recalculateProductFinancials } from './financials';
 import { sanitizeProductRecord } from './sanitizers';
 import { productDataSchema } from './schemas';
+import { SupplierResolutionError } from './supplier-resolution';
 
 interface ProductRouteConfig {
   service: ProductService;
   loggerScope?: string;
+  supportsSupplierCredits?: boolean;
 }
 
 function dbNotConfigured(): string | null {
@@ -115,6 +117,17 @@ export function createProductRoutes(config: ProductRouteConfig) {
 
       const { valid, invalid } = validateRecords(payload);
 
+      if (
+        !config.supportsSupplierCredits &&
+        valid.some(
+          (row) => row['Supplier Credit Id'] || row['Supplier Reference']
+        )
+      ) {
+        return ApiResponse.badRequest(
+          'Supplier-credit operations are currently supported only for clothing products.'
+        );
+      }
+
       if (valid.length === 0) {
         return ApiResponse.badRequest('Validation failed', {
           products:
@@ -150,6 +163,9 @@ export function createProductRoutes(config: ProductRouteConfig) {
         'Products imported'
       );
     } catch (error) {
+      if (error instanceof SupplierResolutionError) {
+        return ApiResponse.error(error.message, error.status);
+      }
       if (error instanceof ProductShipmentAccountingConflictError) {
         return ApiResponse.conflict(error.message);
       }
@@ -191,6 +207,17 @@ export function createProductRoutes(config: ProductRouteConfig) {
         });
       }
 
+      if (
+        !config.supportsSupplierCredits &&
+        valid.some(
+          (row) => row['Supplier Credit Id'] || row['Supplier Reference']
+        )
+      ) {
+        return ApiResponse.badRequest(
+          'Supplier-credit operations are currently supported only for clothing products.'
+        );
+      }
+
       const summary = await service.bulkUpdate(valid);
       logger.info(`[${loggerScope}] Updated products`, summary);
 
@@ -204,6 +231,9 @@ export function createProductRoutes(config: ProductRouteConfig) {
         'Products updated'
       );
     } catch (error) {
+      if (error instanceof SupplierResolutionError) {
+        return ApiResponse.error(error.message, error.status);
+      }
       if (error instanceof ProductShipmentAccountingConflictError) {
         return ApiResponse.conflict(error.message);
       }
@@ -237,6 +267,9 @@ export function createProductRoutes(config: ProductRouteConfig) {
         'Products soft deleted'
       );
     } catch (error) {
+      if (error instanceof SupplierResolutionError) {
+        return ApiResponse.error(error.message, error.status);
+      }
       if (error instanceof ProductShipmentAccountingConflictError) {
         return ApiResponse.conflict(error.message);
       }

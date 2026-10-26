@@ -122,6 +122,45 @@ describe('Accounting Journal API - GET /api/accounting/journal', () => {
     });
   });
 
+  it.each([0, -1, Number.NaN])(
+    'does not suppress a paid legacy sale for a non-posting payment of %s',
+    async (amount) => {
+      mockFetchers.fetchPaidTransactions.mockResolvedValue([
+        {
+          id: 1,
+          productCode: 'P-100',
+          customers: 'Alice',
+          quantity: 1,
+          unitPrice: 100,
+          adjustment: 100,
+          orderDate: '2026-01-20',
+        },
+      ]);
+      mockFetchers.fetchTransactionPayments.mockResolvedValue([
+        {
+          id: 10,
+          transactionId: 1,
+          paymentDate: '2026-01-20',
+          amount,
+          transaction: {},
+        },
+      ]);
+
+      const response = await GET(
+        buildRequest('/api/accounting/journal?from=2026-01-01&to=2026-01-31')
+      );
+      expect(response.status).toBe(200);
+      const payload = await response.json();
+      expect(payload.data.entries).toContainEqual(
+        expect.objectContaining({ id: 'TX-1-cash', debit: 100, credit: 0 })
+      );
+      expect(payload.data.entries).toContainEqual(
+        expect.objectContaining({ id: 'TX-1-sales', debit: 0, credit: 100 })
+      );
+      expect(payload.data.entries).toHaveLength(2);
+    }
+  );
+
   it('includes balanced investor movements with their source references', async () => {
     mockFetchers.fetchPaidTransactions.mockResolvedValue([]);
     mockFetchers.fetchTransactionPayments.mockResolvedValue([]);

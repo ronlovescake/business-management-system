@@ -13,7 +13,9 @@ vi.mock('@/lib/accounting/cutover', () => ({
 
 vi.mock('@/lib/accounting/inventory-cogs', () => ({
   computeCogsTotal: vi.fn().mockResolvedValue(0),
-  buildCogsAndInventoryEntries: vi.fn().mockResolvedValue({ entries: [] }),
+  buildCogsAndInventoryEntries: vi
+    .fn()
+    .mockResolvedValue({ entries: [], totalCogs: 0, valuationIssues: [] }),
   buildInventorySeedAndShrinkageEntries: vi
     .fn()
     .mockResolvedValue({ entries: [], seedTotal: 0, shrinkageTotal: 0 }),
@@ -29,6 +31,7 @@ const mockFetchers = vi.hoisted(() => ({
   fetchInvestorReturnExpenses: vi.fn(),
   fetchTransactionRefunds: vi.fn(),
   fetchTransactionPayments: vi.fn(),
+  fetchManualJournalLines: vi.fn(),
   getPaidAtDate: vi.fn(),
   getCancelledAtDate: vi.fn(),
   isWithinDateRange: vi.fn(),
@@ -69,6 +72,7 @@ describe('GET /api/accounting/profit-loss', () => {
     mockFetchers.fetchInvestorReturnExpenses.mockResolvedValue([]);
     mockFetchers.fetchTransactionRefunds.mockResolvedValue([]);
     mockFetchers.fetchTransactionPayments.mockResolvedValue([]);
+    mockFetchers.fetchManualJournalLines.mockResolvedValue([]);
     mockPrisma.transaction.findMany.mockResolvedValue([]);
   });
 

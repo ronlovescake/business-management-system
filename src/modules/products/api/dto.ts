@@ -2,6 +2,12 @@ import type { Product, Prisma } from '@prisma/client';
 
 export type ProductDTO = {
   id?: number;
+  'Supplier Reference'?: string | null;
+  'Supplier Fulfillment Status'?: string;
+  'Supplier Credit Applied'?: number;
+  'Supplier Credit Id'?: string | null;
+  'Supplier Credit Amount'?: number;
+  'Supplier Credit Request Id'?: string | null;
   'Shipment Code': string | null;
   'CV Number': string | null;
   'No. Of Sacks': number;
@@ -43,9 +49,28 @@ export type ProductDTO = {
   createdAt?: string;
 };
 
-export function mapToDTO(product: Product): ProductDTO {
+type ProductForDTO = Omit<
+  Product,
+  | 'supplierReference'
+  | 'supplierFulfillmentStatus'
+  | 'supplierCreditAppliedAmount'
+> &
+  Partial<
+    Pick<
+      Product,
+      | 'supplierReference'
+      | 'supplierFulfillmentStatus'
+      | 'supplierCreditAppliedAmount'
+    >
+  >;
+
+export function mapToDTO(product: ProductForDTO): ProductDTO {
   return {
     id: product.id,
+    'Supplier Reference': product.supplierReference,
+    'Supplier Fulfillment Status':
+      product.supplierFulfillmentStatus ?? 'ACTIVE',
+    'Supplier Credit Applied': Number(product.supplierCreditAppliedAmount ?? 0),
     'Shipment Code': product.shipmentCode,
     'CV Number': product.cvNumber,
     'No. Of Sacks': product.noOfSacks ?? 0,
@@ -92,6 +117,15 @@ export function mapToDTO(product: Product): ProductDTO {
 
 export function mapFromDTO(payload: ProductDTO): Prisma.ProductCreateInput {
   return {
+    ...(payload['Supplier Reference'] !== undefined
+      ? {
+          supplierReference:
+            payload['Supplier Reference']
+              ?.trim()
+              .replace(/\s+/g, ' ')
+              .toLowerCase() || null,
+        }
+      : {}),
     shipmentCode: payload['Shipment Code'],
     cvNumber: payload['CV Number'],
     noOfSacks: payload['No. Of Sacks'],

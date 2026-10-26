@@ -3,7 +3,7 @@
 // ==============================================================================
 //
 // This API generates invoice PDFs for transactions with "Warehouse" status.
-// It also supports reservation-fee invoices for "In Transit" orders using
+// It also supports Reservation Deposit invoices for "In Transit" orders using
 // dedicated templates that charge either 10% or 20% of the subtotal.
 //
 // ✅ BUSINESS LOGIC - DO NOT MODIFY:
@@ -15,8 +15,8 @@
 //    - DO NOT overwrite existing Invoice Date timestamps
 //    - DO NOT touch PACKED DATE or SHIPMENT CODE columns
 //    - Reservation invoices: include only "In Transit" orders WHERE Adjustment = 0.00
-//      (unpaid reservation fees), no status updates, and charge 10% or 20% of
-//      the subtotal as the reservation fee
+//      (unpaid Reservation Deposits), no status updates, and request 10% or 20% of
+//      the subtotal as the agreed Reservation Deposit
 //
 // 📋 CALCULATIONS:
 //    - Sub Total: Sum of all Line Totals
@@ -91,6 +91,8 @@ interface InvoiceSettings {
 type InvoiceType =
   | 'In Transit'
   | 'Onhand'
+  | 'Reservation Deposit'
+  | 'Reservation Deposit 20'
   | 'Reservation Fee'
   | 'Reservation Fee 20';
 
@@ -158,9 +160,11 @@ export async function POST(request: NextRequest) {
     const normalizedInvoiceType: InvoiceType =
       invoiceType === 'In Transit'
         ? 'In Transit'
-        : invoiceType === 'Reservation Fee 20'
+        : invoiceType === 'Reservation Fee 20' ||
+            invoiceType === 'Reservation Deposit 20'
           ? 'Reservation Fee 20'
-          : invoiceType === 'Reservation Fee'
+          : invoiceType === 'Reservation Fee' ||
+              invoiceType === 'Reservation Deposit'
             ? 'Reservation Fee'
             : 'Onhand';
 
@@ -169,13 +173,13 @@ export async function POST(request: NextRequest) {
         ? {
             template: 'invoice (10% dp).hbs',
             rate: 0.1,
-            zipBase: 'reservation-fee-invoices',
+            zipBase: 'reservation-deposit-invoices',
           }
         : normalizedInvoiceType === 'Reservation Fee 20'
           ? {
               template: 'invoice (20% dp).hbs',
               rate: 0.2,
-              zipBase: 'reservation-fee-20-invoices',
+              zipBase: 'reservation-deposit-20-invoices',
             }
           : null;
 
@@ -191,7 +195,7 @@ export async function POST(request: NextRequest) {
 
     if (reservationInvoiceConfig) {
       // For reservation invoices (10% or 20% DP):
-      // Only include transactions with Adjustment = 0.00 (unpaid reservation fees)
+      // Only include transactions with Adjustment = 0.00 (unpaid Reservation Deposits)
       eligibleTransactions = transactions.filter(
         (t) => Number(t.Adjustment) === 0 || !t.Adjustment
       );
@@ -206,7 +210,7 @@ export async function POST(request: NextRequest) {
         {
           error: 'No eligible transactions',
           message: reservationInvoiceConfig
-            ? 'All transactions have already paid their reservation fees (Adjustment ≠ 0.00)'
+            ? 'All transactions have already paid their Reservation Deposits (Adjustment ≠ 0.00)'
             : 'No transactions provided for invoice generation',
         },
         { status: 400 }

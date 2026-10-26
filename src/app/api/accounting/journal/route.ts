@@ -35,10 +35,7 @@ import {
 import { prisma } from '@/lib/db';
 import { getRuntimeAccountingCutoverDate } from '@/lib/accounting/cutover';
 import { normalizeAccountForReporting } from '@/lib/accounting/account-normalization';
-import {
-  isCancelledOrderStatus,
-  isDepositForfeitureOrderStatus,
-} from '@/lib/transactions/order-status';
+import { isDepositForfeitureOrderStatus } from '@/lib/transactions/order-status';
 import {
   getObjectField,
   isReservationPayment,
@@ -82,7 +79,14 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
     orderBy: { postingDate: 'asc' },
   });
 
-  const paymentTransactionIds = new Set(payments.map((p) => p.transactionId));
+  const paymentTransactionIds = new Set(
+    payments
+      .filter((payment) => {
+        const amount = Number(payment.amount ?? 0);
+        return Number.isFinite(amount) && amount > 0;
+      })
+      .map((payment) => payment.transactionId)
+  );
   const accountsReceivableTransactionIds = new Set(
     accountsReceivableTransactions.map((transaction) => transaction.id)
   );
@@ -131,14 +135,6 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
   const paymentEntries = payments
     .map((payment) => {
       const isReservation = isReservationPayment(payment);
-
-      // For cancelled orders, only reservation/deposit payments are included.
-      if (
-        isCancelledOrderStatus(payment.transaction?.orderStatus) &&
-        !isReservation
-      ) {
-        return null;
-      }
 
       const paymentAt = parseDate(payment.paymentDate);
       if (!isWithinDateRange(paymentAt, effectiveFrom, effectiveTo)) {
@@ -270,25 +266,28 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
     .map((txId) => {
       const paidAt = paidAtByTxId.get(txId) ?? null;
       const cancelledAt = cancelledAtByTxId.get(txId) ?? null;
-      const orderStatus = reservationPayments.find(
+      const refPayment = reservationPayments.find(
         (payment) => payment.transactionId === txId
-      )?.transaction?.orderStatus;
+      );
+      const sourceTransaction = refPayment?.transaction;
+      const orderStatus = sourceTransaction?.orderStatus;
       const targetCredit = getReservationDepositRecognitionCreditAccount({
         orderStatus,
         isForfeited: Boolean(cancelledAt),
+        transaction: sourceTransaction,
       });
       if (!targetCredit) {
         return null;
       }
 
-      const recognizeAt = cancelledAt ?? paidAt;
+      const recognizeAt =
+        cancelledAt ??
+        getAccountsReceivableRecognitionDate(sourceTransaction ?? {}) ??
+        paidAt;
       if (!isWithinDateRange(recognizeAt, effectiveFrom, effectiveTo)) {
         return null;
       }
 
-      const refPayment = reservationPayments.find(
-        (p) => p.transactionId === txId
-      );
       const customer = (refPayment?.transaction?.customers ?? '').trim();
       const productRef = (refPayment?.transaction?.productCode ?? '').trim();
       const ref = productRef || `TX-${txId}`;
@@ -314,8 +313,8 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
 
       const isForfeited = targetCredit === 'Forfeited Deposits';
       const description = isForfeited
-        ? `${customer || 'Unknown customer'} • Reservation fee forfeited`
-        : `${customer || 'Unknown customer'} • Reservation fee recognized`;
+        ? `${customer || 'Unknown customer'} • Reservation deposit forfeited`
+        : `${customer || 'Unknown customer'} • Reservation deposit applied`;
 
       const idBase = isForfeited
         ? `DEP-FORFEIT-TX-${txId}`
@@ -357,7 +356,7 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
     accountsReceivableTransactions.flatMap((transaction) => {
       const recognitionAt = getAccountsReceivableRecognitionDate(transaction);
       return isWithinDateRange(recognitionAt, effectiveFrom, effectiveTo)
-        ? buildAccountsReceivableShipmentEntries(transaction)
+        ? buildAccountsReceivableShipmentEntries(transaction, payments)
         : [];
     });
 
@@ -431,6 +430,7 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
       const refundDebitAccount = getTransactionRefundDebitAccount({
         orderStatus: refund.transaction?.orderStatus,
         isReservationRefund: (refund.transaction?.payments?.length ?? 0) > 0,
+        isApprovedCancellationPayout: Boolean(refund.approvedPayout),
       });
       const isVoidedReservationRefund =
         refundDebitAccount === 'Customer Deposits';
@@ -440,6 +440,7 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
       const description = getTransactionRefundDescription({
         orderStatus: refund.transaction?.orderStatus,
         isReservationRefund: (refund.transaction?.payments?.length ?? 0) > 0,
+        isApprovedCancellationPayout: Boolean(refund.approvedPayout),
         transactionId: refund.transactionId,
         customerName: refund.transaction?.customers,
         reason: refund.reason,

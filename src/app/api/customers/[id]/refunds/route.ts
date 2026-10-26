@@ -194,6 +194,7 @@ export const POST = withErrorHandler<RouteContext>(
             unitPrice: true,
             discount: true,
             orderStatus: true,
+            cancellation: { select: { id: true } },
           },
         });
 
@@ -201,6 +202,15 @@ export const POST = withErrorHandler<RouteContext>(
           return {
             error: ApiResponse.badRequest('Invalid transaction', {
               transactionId: 'Transaction not found for this customer.',
+            }),
+          };
+        }
+
+        if (transaction.cancellation) {
+          return {
+            error: ApiResponse.badRequest('Use the approved refund payout', {
+              transactionId:
+                'This order has an approved cancellation. Pay only the remaining approved obligation from Customers.',
             }),
           };
         }
@@ -323,6 +333,9 @@ export const POST = withErrorHandler<RouteContext>(
                 productCode,
                 quantity: returnedQty,
                 unitCost: originalSaleMovement?.unitCost ?? null,
+                sourceTransactionId: transaction.id,
+                movementSource: 'customer_refund',
+                movementType: 'return',
                 fromBucket: 'sold',
                 toBucket: refund.restockBucket as
                   | 'sellable'

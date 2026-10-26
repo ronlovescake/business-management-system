@@ -72,6 +72,23 @@ The implementation lives in
 
 ## C — Order Status Rules
 
+New Forfeited selections are removed and rejected server-side; existing
+historical values remain readable. Cancelled and supplier-failure Voided use
+the dedicated cancellation endpoint, not generic single/bulk/import status
+updates. The actual UI hook closes an unpaid order without a financial popup;
+collected money opens the explicit administrator decision. Fully paid orders
+awaiting fulfillment are not payment-overdue. Closed orders cannot be reopened
+or have money/fulfillment identity rewritten through generic edits; harmless
+notes preserve the snapshot without recalculating stock or financial history.
+
+Reservation invoices now request Reservation Deposit (10% or 20%), show the
+three-Manila-calendar-day end-of-day deadline, and do not promise automatic
+cancellation. The shared invoice API accepts legacy `Reservation Fee` request
+aliases for compatibility; new UI requests and visible output use Deposit.
+Template filenames/placeholders and persisted template IDs are compatibility
+identifiers, not separate fees or newly collected money. The shared GM PDF route
+inherits this copy/alias change, not the Clothing cancellation lifecycle.
+
 | #   | Logic                                                                                                          | Explanation                                                             |
 | --- | -------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------- |
 | 8   | Status cannot regress back to `In Transit` once linked shipment state has advanced to warehouse-stage statuses | `For Pickup`, `Sorting`, and `Delivered` still block backward movement. |

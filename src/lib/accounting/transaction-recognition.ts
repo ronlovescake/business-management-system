@@ -1,9 +1,10 @@
+import { Prisma } from '@prisma/client';
 import {
   isClothingAccountsReceivableStatus,
   isVoidedOrderStatus,
 } from '@/lib/transactions/order-status';
 import { parseDate } from './date-utils';
-import { getPaymentAccountForMethod } from './payment-accounts';
+import { getIncomingCollectionAccount } from './payment-accounts';
 import { normalizeTransactionAmountsForAccounting } from './transaction-normalization';
 
 export type AccountsReceivableTransactionSource = {
@@ -34,21 +35,41 @@ export type AccountsReceivableJournalEntry = {
   description: string;
 };
 
+export function getFinancialSourceTransaction<
+  Transaction extends {
+    orderStatus: string | null;
+    cancellation?: { previousStatus: string | null } | null;
+  },
+>(transaction: Transaction): Transaction {
+  return transaction.cancellation
+    ? { ...transaction, orderStatus: transaction.cancellation.previousStatus }
+    : transaction;
+}
+
 export function getReservationDepositRecognitionCreditAccount(params: {
   orderStatus?: string | null;
   isForfeited: boolean;
-}): 'Forfeited Deposits' | 'Sales Revenue' | null {
+  transaction?: AccountsReceivableTransactionSource | null;
+}): 'Forfeited Deposits' | 'Sales Revenue' | 'Accounts Receivable' | null {
   if (isVoidedOrderStatus(params.orderStatus)) {
     return null;
   }
 
-  return params.isForfeited ? 'Forfeited Deposits' : 'Sales Revenue';
+  return params.isForfeited
+    ? 'Forfeited Deposits'
+    : hasAccountsReceivableShipment(params.transaction ?? {})
+      ? 'Accounts Receivable'
+      : 'Sales Revenue';
 }
 
 export function getTransactionRefundDebitAccount(params: {
   orderStatus?: string | null;
   isReservationRefund: boolean;
-}): 'Customer Deposits' | 'Sales Returns' {
+  isApprovedCancellationPayout?: boolean;
+}): 'Customer Deposits' | 'Sales Returns' | 'Refunds Payable' {
+  if (params.isApprovedCancellationPayout) {
+    return 'Refunds Payable';
+  }
   return isVoidedOrderStatus(params.orderStatus) && params.isReservationRefund
     ? 'Customer Deposits'
     : 'Sales Returns';
@@ -57,6 +78,7 @@ export function getTransactionRefundDebitAccount(params: {
 export function getTransactionRefundDescription(params: {
   orderStatus?: string | null;
   isReservationRefund: boolean;
+  isApprovedCancellationPayout?: boolean;
   transactionId: number;
   customerName?: string | null;
   reason?: string | null;
@@ -133,16 +155,39 @@ export function getAccountsReceivableRecognitionDate(
 }
 
 export function buildAccountsReceivableShipmentEntries(
-  transaction: AccountsReceivableTransactionSource
+  transaction: AccountsReceivableTransactionSource,
+  payments: Array<{
+    transactionId: number;
+    paymentDate: string;
+    amount: number;
+    isReservation?: boolean | null;
+  }> = []
 ): AccountsReceivableJournalEntry[] {
   if (transaction.id === undefined) {
     return [];
   }
 
   const date = getAccountsReceivableRecognitionDate(transaction);
-  const amount =
-    normalizeTransactionAmountsForAccounting(transaction).grossSale;
-  if (!date || !Number.isFinite(amount) || amount <= 0) {
+  const gross = normalizeTransactionAmountsForAccounting(transaction).grossSale;
+  if (!date || !Number.isFinite(gross) || gross <= 0) {
+    return [];
+  }
+  const earlierRevenue = payments.reduce((total, payment) => {
+    const paidAt = parseDate(payment.paymentDate);
+    return payment.transactionId === transaction.id &&
+      !payment.isReservation &&
+      paidAt &&
+      paidAt < date &&
+      Number.isFinite(payment.amount) &&
+      payment.amount > 0
+      ? total.plus(payment.amount)
+      : total;
+  }, new Prisma.Decimal(0));
+  const amount = Prisma.Decimal.max(
+    new Prisma.Decimal(gross).minus(earlierRevenue),
+    0
+  ).toNumber();
+  if (amount === 0) {
     return [];
   }
 
@@ -174,13 +219,19 @@ export function buildAccountsReceivableShipmentEntries(
 
 export function getTransactionPaymentCreditAccount(payment: {
   isReservation?: boolean | null;
+  paymentDate?: string | null;
   transaction?: AccountsReceivableTransactionSource | null;
 }): string {
   if (payment.isReservation) {
     return 'Customer Deposits';
   }
 
-  return hasAccountsReceivableShipment(payment.transaction ?? {})
+  const recognitionAt = getAccountsReceivableRecognitionDate(
+    payment.transaction ?? {}
+  );
+  const paidAt = parseDate(payment.paymentDate);
+  return hasAccountsReceivableShipment(payment.transaction ?? {}) &&
+    (!recognitionAt || !paidAt || paidAt >= recognitionAt)
     ? 'Accounts Receivable'
     : 'Sales Revenue';
 }
@@ -189,9 +240,13 @@ export function getTransactionPaymentDebitAccount(payment: {
   method?: string | null;
   transaction?: AccountsReceivableTransactionSource | null;
 }): string {
+  const account = getIncomingCollectionAccount(payment.method);
+  if (account === 'Card Collections Clearing') {
+    return account;
+  }
   if (!hasAccountsReceivableShipment(payment.transaction ?? {})) {
     return 'Cash';
   }
 
-  return getPaymentAccountForMethod(payment.method) ?? 'Cash';
+  return account;
 }

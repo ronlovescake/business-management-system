@@ -7,6 +7,16 @@ import {
   getPeriodRange,
   parseDateRangeFromParams,
 } from '@/lib/accounting/date-utils';
+import { dayjs } from '@/utils/date';
+import {
+  getComparisonRange as getAnalyticsComparisonRange,
+  getDateRangeFilter,
+  parseAnalyticsDate,
+} from '@/lib/analytics/periodComparison';
+import {
+  getComparisonRange,
+  getBalanceSheetAsOf,
+} from '@/app/accounting/_shared/dashboard/accountingDashboardMetrics';
 
 describe('parseDate', () => {
   it('returns null for null input', () => {
@@ -68,7 +78,7 @@ describe('startOfDay', () => {
   it('sets time to 00:00:00.000', () => {
     const d = new Date('2026-03-15T14:30:00Z');
     const result = startOfDay(d);
-    expect(result.getHours()).toBe(0);
+    expect(dayjs(result).tz('Asia/Manila').hour()).toBe(0);
     expect(result.getMinutes()).toBe(0);
     expect(result.getSeconds()).toBe(0);
     expect(result.getMilliseconds()).toBe(0);
@@ -86,7 +96,7 @@ describe('endOfDay', () => {
   it('sets time to 23:59:59.999', () => {
     const d = new Date('2026-03-15T08:00:00');
     const result = endOfDay(d);
-    expect(result.getHours()).toBe(23);
+    expect(dayjs(result).tz('Asia/Manila').hour()).toBe(23);
     expect(result.getMinutes()).toBe(59);
     expect(result.getSeconds()).toBe(59);
     expect(result.getMilliseconds()).toBe(999);
@@ -126,14 +136,69 @@ describe('buildPeriodLabel', () => {
 });
 
 describe('getPeriodRange', () => {
+  it('includes a Manila date-only order just after midnight without shifting timestamped events', () => {
+    const now = new Date('2026-01-01T01:00:00+08:00');
+    expect(parseAnalyticsDate('2026-01-01').toISOString()).toBe(
+      '2025-12-31T16:00:00.000Z'
+    );
+    expect(
+      getDateRangeFilter('mtd', now)(parseAnalyticsDate('2026-01-01'))
+    ).toBe(true);
+    expect(parseAnalyticsDate('2025-12-31T16:30:00Z').toISOString()).toBe(
+      '2025-12-31T16:30:00.000Z'
+    );
+  });
+
+  it('offers an explicit full calendar year without changing YTD or projecting the balance-sheet date', () => {
+    const now = new Date('2026-10-26T08:00:00Z');
+    expect(getPeriodRange('Full Calendar Year', now)).toEqual({
+      from: '2025-12-31T16:00:00.000Z',
+      to: '2026-12-31T15:59:59.999Z',
+    });
+    expect(getComparisonRange('Full Calendar Year', now)).toEqual({
+      from: '2024-12-31T16:00:00.000Z',
+      to: '2025-12-31T15:59:59.999Z',
+    });
+    expect(getBalanceSheetAsOf('Full Calendar Year', now)).toBe('2026-10-26');
+    expect(getPeriodRange('This Year', now).to).toBe(
+      '2026-10-26T15:59:59.999Z'
+    );
+  });
+
+  it('matches BI year boundaries to Manila and excludes future All Time records', () => {
+    const now = new Date('2025-12-31T16:01:00Z');
+    expect(
+      getDateRangeFilter('ytd', now)(new Date('2025-12-31T16:00:00Z'))
+    ).toBe(true);
+    expect(
+      getDateRangeFilter('ytd', now)(new Date('2025-12-31T15:59:59Z'))
+    ).toBe(false);
+    expect(
+      getDateRangeFilter('all', now)(new Date('2026-01-02T00:00:00+08:00'))
+    ).toBe(false);
+  });
+
+  it('clamps a leap-day YTD comparison to the previous February end', () => {
+    const comparison = getAnalyticsComparisonRange(
+      'ytd',
+      new Date('2024-02-29T08:00:00Z')
+    );
+    expect(comparison?.previousStart.toISOString()).toBe(
+      '2022-12-31T16:00:00.000Z'
+    );
+    expect(comparison?.previousEnd.toISOString()).toBe(
+      '2023-02-28T08:00:00.000Z'
+    );
+  });
+
   it('returns from and to ISO strings for "This Month"', () => {
     const range = getPeriodRange('This Month');
     expect(range.from).toBeDefined();
     expect(range.to).toBeDefined();
     const from = new Date(range.from as string);
     const to = new Date(range.to as string);
-    expect(from.getDate()).toBe(1);
-    expect(to.getHours()).toBe(23);
+    expect(dayjs(from).tz('Asia/Manila').date()).toBe(1);
+    expect(dayjs(to).tz('Asia/Manila').hour()).toBe(23);
   });
 
   it('returns from and to ISO strings for "Last Month"', () => {
@@ -142,7 +207,7 @@ describe('getPeriodRange', () => {
     expect(range.to).toBeDefined();
     const from = new Date(range.from as string);
     const to = new Date(range.to as string);
-    expect(from.getDate()).toBe(1);
+    expect(dayjs(from).tz('Asia/Manila').date()).toBe(1);
     expect(to >= from).toBe(true);
   });
 
@@ -156,15 +221,22 @@ describe('getPeriodRange', () => {
     expect(diffDays).toBeLessThan(30.1);
   });
 
-  it('returns full year for "This Year"', () => {
-    const range = getPeriodRange('This Year');
-    const from = new Date(range.from as string);
-    const to = new Date(range.to as string);
-    const now = new Date();
-    expect(from.getFullYear()).toBe(now.getFullYear());
-    expect(to.getFullYear()).toBe(now.getFullYear());
-    expect(from.getMonth()).toBe(0); // January
-    expect(to.getMonth()).toBe(11); // December
+  it('returns Manila year-to-date rather than including future December entries', () => {
+    expect(
+      getPeriodRange('This Year', new Date('2026-10-26T08:00:00Z'))
+    ).toEqual({
+      from: '2025-12-31T16:00:00.000Z',
+      to: '2026-10-26T15:59:59.999Z',
+    });
+  });
+
+  it('uses the Manila year when UTC is still in the previous year', () => {
+    expect(
+      getPeriodRange('This Year', new Date('2025-12-31T16:01:00Z'))
+    ).toEqual({
+      from: '2025-12-31T16:00:00.000Z',
+      to: '2026-01-01T15:59:59.999Z',
+    });
   });
 
   it('returns empty object for unknown period', () => {
@@ -180,8 +252,8 @@ describe('parseDateRangeFromParams', () => {
     const { from, to } = parseDateRangeFromParams(params);
     expect(from).toBeInstanceOf(Date);
     expect(to).toBeInstanceOf(Date);
-    expect((from as Date).getHours()).toBe(0);
-    expect((to as Date).getHours()).toBe(23);
+    expect(dayjs(from).tz('Asia/Manila').hour()).toBe(0);
+    expect(dayjs(to).tz('Asia/Manila').hour()).toBe(23);
   });
 
   it('returns null for missing from and to', () => {

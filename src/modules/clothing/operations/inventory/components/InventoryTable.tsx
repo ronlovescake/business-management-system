@@ -1,4 +1,4 @@
-import { memo } from 'react';
+import React, { memo } from 'react';
 import { Table, Text } from '@mantine/core';
 import { StandardDataTable } from '@/components/tables/StandardDataTable';
 import type { InventoryItem } from '../types';
@@ -149,6 +149,16 @@ export const InventoryTable = memo(
             <Table.Td style={centeredCellStyle}>
               <Text size="sm" c="#495057">
                 {numberFormatter.format(item.sellableOnHand)}
+              </Text>
+            </Table.Td>
+            <Table.Td style={centeredCellStyle}>
+              <Text size="sm" c="#495057">
+                {numberFormatter.format(item.inTransitReserved)}
+              </Text>
+            </Table.Td>
+            <Table.Td style={centeredCellStyle}>
+              <Text size="sm" c="#495057">
+                {numberFormatter.format(item.inTransitUnreserved)}
               </Text>
             </Table.Td>
             <Table.Td style={centeredCellStyle}>

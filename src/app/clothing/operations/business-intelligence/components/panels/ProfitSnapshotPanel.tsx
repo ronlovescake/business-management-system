@@ -92,6 +92,12 @@ export const ProfitSnapshotPanel = memo(function ProfitSnapshotPanel({
         <>
           <SimpleGrid cols={2} spacing="md" verticalSpacing="sm" mb="md">
             <Figure label="Revenue" value={formatCurrency(data.revenueTotal)} />
+            {data.forfeitedDepositsTotal !== undefined && (
+              <Figure
+                label="Forfeited Deposits"
+                value={formatCurrency(data.forfeitedDepositsTotal)}
+              />
+            )}
             <Figure
               label="Gross profit"
               value={formatCurrency(data.grossProfit)}

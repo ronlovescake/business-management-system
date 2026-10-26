@@ -30,7 +30,7 @@ interface UseInvoiceGenerationReturn {
 }
 
 interface ReservationInvoiceWorkflowConfig {
-  invoiceType: 'Reservation Fee' | 'Reservation Fee 20';
+  invoiceType: 'Reservation Deposit' | 'Reservation Deposit 20';
   feePercentage: number;
   downloadBaseName: string;
 }
@@ -267,7 +267,7 @@ export function useInvoiceGeneration(
       const Swal = await getSwal();
       const percentLabel = `${Math.round(config.feePercentage * 100)}%`;
       logger.debug(
-        `💳 Preparing reservation-fee invoice generation (${percentLabel})...`
+        `💳 Preparing Reservation Deposit invoice generation (${percentLabel})...`
       );
 
       const reservationTransactions = visibleTransactions.filter(
@@ -280,7 +280,7 @@ export function useInvoiceGeneration(
         showNotification({
           title: '⚠️ No Unpaid Reservations',
           message:
-            'All visible "In Transit" orders have already paid their reservation fees (Adjustment ≠ 0.00).',
+            'All visible "In Transit" orders have already paid their Reservation Deposits (Adjustment ≠ 0.00).',
           color: 'yellow',
           autoClose: 5000,
         });
@@ -302,10 +302,10 @@ export function useInvoiceGeneration(
       );
 
       const result = await Swal.fire({
-        title: `Reservation Fee Invoice Confirmation (${percentLabel})`,
+        title: `Reservation Deposit Invoice Confirmation (${percentLabel})`,
         html: `
           <div style="text-align: left;">
-            <p style="margin-bottom: 12px; font-weight: 500;">You are about to send reservation invoices (${percentLabel} fee) for:</p>
+            <p style="margin-bottom: 12px; font-weight: 500;">You are about to send Reservation Deposit invoices (${percentLabel}) for:</p>
             <div style="margin-bottom: 16px;">
               <p style="margin: 6px 0; font-size: 14px;">
                 <strong>${customersWithReservations.size}</strong> customer${customersWithReservations.size === 1 ? '' : 's'}
@@ -317,7 +317,7 @@ export function useInvoiceGeneration(
                 Total order value: <strong>₱${totalValue.toLocaleString()}</strong>
               </p>
               <p style="margin: 6px 0; font-size: 14px;">
-                Reservation fee (${percentLabel}): <strong>₱${reservationFeeValue.toLocaleString()}</strong>
+                Reservation Deposit (${percentLabel}): <strong>₱${reservationFeeValue.toLocaleString()}</strong>
               </p>
             </div>
 
@@ -325,7 +325,7 @@ export function useInvoiceGeneration(
 
             <p style="margin-bottom: 12px; font-weight: 500;">Important Details:</p>
             <ul style="margin: 0; padding-left: 20px; font-size: 14px; color: #495057;">
-              <li>Invoices use the reservation template (24-hour payment reminder)</li>
+              <li>Payment is due three Manila calendar days after the invoice date, at 11:59 PM</li>
               <li>Amount due per invoice is exactly ${percentLabel} of its subtotal</li>
               <li>No status or invoice date changes will be applied to these orders</li>
             </ul>
@@ -333,7 +333,7 @@ export function useInvoiceGeneration(
             <hr style="border: none; border-top: 1px solid #dee2e6; margin: 16px 0;">
 
             <p style="text-align: center; color: #868e96; font-size: 14px; margin: 0;">
-              Do you want to proceed with Reservation Fee invoices?
+              Do you want to proceed with Reservation Deposit invoices?
             </p>
           </div>
         `,
@@ -446,8 +446,8 @@ export function useInvoiceGeneration(
             : 'PDF invoice';
 
         showNotification({
-          title: '✅ Reservation Fee Invoices Generated',
-          message: `${fileType} for ${reservationTransactions.length} In Transit order${reservationTransactions.length === 1 ? '' : 's'} across ${customersWithReservations.size} customer${customersWithReservations.size === 1 ? '' : 's'} downloaded. Total ${percentLabel} reservation fees: ₱${reservationFeeValue.toLocaleString()}.`,
+          title: '✅ Reservation Deposit Invoices Generated',
+          message: `${fileType} for ${reservationTransactions.length} In Transit order${reservationTransactions.length === 1 ? '' : 's'} across ${customersWithReservations.size} customer${customersWithReservations.size === 1 ? '' : 's'} downloaded. Total ${percentLabel} Reservation Deposits: ₱${reservationFeeValue.toLocaleString()}.`,
           color: 'green',
           autoClose: 8000,
         });
@@ -455,7 +455,7 @@ export function useInvoiceGeneration(
         await logDocumentGenerationNotification({
           apiBasePath,
           documentType: 'invoice',
-          message: `${fileType} generated for ${reservationTransactions.length} reservation fee order${reservationTransactions.length === 1 ? '' : 's'} across ${customersWithReservations.size} customer${customersWithReservations.size === 1 ? '' : 's'}. Total ${percentLabel} reservation fees: ₱${reservationFeeValue.toLocaleString()}.`,
+          message: `${fileType} generated for ${reservationTransactions.length} Reservation Deposit order${reservationTransactions.length === 1 ? '' : 's'} across ${customersWithReservations.size} customer${customersWithReservations.size === 1 ? '' : 's'}. Total ${percentLabel} Reservation Deposits: ₱${reservationFeeValue.toLocaleString()}.`,
           count: reservationTransactions.length,
           filename,
         });
@@ -480,9 +480,9 @@ export function useInvoiceGeneration(
   const handleReservationInvoiceGeneration = useCallback(
     async (visibleTransactions: TransactionData[]) => {
       await runReservationInvoiceWorkflow(visibleTransactions, {
-        invoiceType: 'Reservation Fee',
+        invoiceType: 'Reservation Deposit',
         feePercentage: 0.1,
-        downloadBaseName: 'reservation-fee-invoices',
+        downloadBaseName: 'reservation-deposit-invoices',
       });
     },
     [runReservationInvoiceWorkflow]
@@ -491,9 +491,9 @@ export function useInvoiceGeneration(
   const handleTwentyPercentReservationInvoiceGeneration = useCallback(
     async (visibleTransactions: TransactionData[]) => {
       await runReservationInvoiceWorkflow(visibleTransactions, {
-        invoiceType: 'Reservation Fee 20',
+        invoiceType: 'Reservation Deposit 20',
         feePercentage: 0.2,
-        downloadBaseName: 'reservation-fee-20-invoices',
+        downloadBaseName: 'reservation-deposit-20-invoices',
       });
     },
     [runReservationInvoiceWorkflow]

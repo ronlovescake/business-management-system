@@ -1,6 +1,10 @@
 import { z } from 'zod';
 
 export const productDataSchema = z.object({
+  'Supplier Reference': z.string().max(200).nullable().optional(),
+  'Supplier Credit Id': z.string().max(100).nullable().optional(),
+  'Supplier Credit Amount': z.number().positive().optional(),
+  'Supplier Credit Request Id': z.string().max(100).nullable().optional(),
   'Shipment Code': z.string().max(100).nullable(),
   'CV Number': z.string().max(191).nullable(),
   'No. Of Sacks': z.number().min(0),

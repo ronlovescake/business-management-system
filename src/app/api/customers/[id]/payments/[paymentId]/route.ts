@@ -1,14 +1,34 @@
 import type { NextRequest } from 'next/server';
 import { ApiResponse } from '@/core/api';
-import { withErrorHandler } from '@/core/api/middleware';
+import {
+  getAuthorizationErrorResponse,
+  withErrorHandler,
+} from '@/core/api/middleware';
+import { requireAuth } from '@/lib/auth/session';
+import {
+  FinancialOperationError,
+  runFinancialTransaction,
+} from '@/lib/accounting/financial-transactions';
+import { isCancelledOrderStatus } from '@/lib/transactions/order-status';
 import { prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
 
 type RouteContext = { params: { id: string; paymentId: string } };
 
-type TransactionMetaRow = { id: number; quantity: number; unitPrice: number };
+type TransactionMetaRow = {
+  id: number;
+  quantity: number;
+  unitPrice: number;
+  orderStatus?: string | null;
+  initialDepositAmount?: unknown;
+  cancellation?: { id: string } | null;
+};
 
-type PaymentRow = { id: number; transactionId: number };
+type PaymentRow = {
+  id: number;
+  transactionId: number;
+  financialRequestId?: string | null;
+};
 
 function parseIds(
   context?: RouteContext
@@ -43,6 +63,7 @@ function parseIds(
 // DELETE a payment record (soft delete) scoped to the customer
 export const DELETE = withErrorHandler<RouteContext>(
   async (_request: NextRequest, context) => {
+    await requireAuth();
     const parsed = parseIds(context);
     if ('error' in parsed) {
       return parsed.error;
@@ -68,23 +89,41 @@ export const DELETE = withErrorHandler<RouteContext>(
           customerId: parsed.customerId,
         },
       },
-      select: { id: true, transactionId: true },
+      select: { id: true, transactionId: true, financialRequestId: true },
     })) as PaymentRow | null;
 
     if (!existing) {
       return ApiResponse.notFound('Payment');
     }
 
-    await prisma.$transaction(async (txp) => {
+    await runFinancialTransaction(async (txp) => {
+      const meta = (await txp.transaction.findUnique({
+        where: { id: existing.transactionId },
+        select: {
+          id: true,
+          quantity: true,
+          unitPrice: true,
+          orderStatus: true,
+          initialDepositAmount: true,
+          cancellation: { select: { id: true } },
+        },
+      })) as TransactionMetaRow | null;
+      if (
+        !meta ||
+        existing.financialRequestId ||
+        meta.cancellation ||
+        isCancelledOrderStatus(meta.orderStatus) ||
+        (meta.initialDepositAmount !== null &&
+          meta.initialDepositAmount !== undefined)
+      ) {
+        throw new FinancialOperationError(
+          'This collection is part of preserved financial history and cannot be deleted.'
+        );
+      }
       await txp.transactionPayment.update({
         where: { id: parsed.paymentId },
         data: { deletedAt: new Date() },
       });
-
-      const meta = (await txp.transaction.findUnique({
-        where: { id: existing.transactionId },
-        select: { id: true, quantity: true, unitPrice: true },
-      })) as TransactionMetaRow | null;
 
       const paymentDelegate = txp.transactionPayment;
 
@@ -143,5 +182,11 @@ export const DELETE = withErrorHandler<RouteContext>(
     });
 
     return ApiResponse.success({ id: parsed.paymentId }, 'Payment deleted');
+  },
+  {
+    onError: (error) =>
+      error instanceof FinancialOperationError
+        ? ApiResponse.error(error.message, error.status)
+        : (getAuthorizationErrorResponse(error) ?? undefined),
   }
 );

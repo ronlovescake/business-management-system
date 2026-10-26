@@ -3,6 +3,8 @@ import { NextRequest } from 'next/server';
 import { getTestApiUrl } from '@/core/testing/test-helpers';
 
 const mockPrisma = vi.hoisted(() => ({
+  $transaction: vi.fn(),
+  product: { findFirst: vi.fn() },
   inventoryMovement: {
     create: vi.fn(),
     findFirst: vi.fn(),
@@ -38,6 +40,10 @@ const supplierShortPayload = (overrides: Record<string, unknown> = {}) => ({
 describe('inventory movement supplier-short resolution', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockPrisma.$transaction.mockImplementation(async (operation) =>
+      operation(mockPrisma)
+    );
+    mockPrisma.product.findFirst.mockResolvedValue(null);
     mockPrisma.inventoryMovement.create.mockImplementation(
       async ({ data }) => ({ id: 1, ...data })
     );
@@ -98,5 +104,44 @@ describe('inventory movement supplier-short resolution', () => {
 
     expect(response.status).toBe(400);
     expect(mockPrisma.inventoryMovement.update).not.toHaveBeenCalled();
+  });
+
+  it('protects a posted supplier-credit shortage from editing and deletion', async () => {
+    mockPrisma.inventoryMovement.findFirst.mockResolvedValue({
+      id: 1,
+      fromBucket: 'sellable',
+      toBucket: 'supplier_short',
+      movementSource: 'supplier_nonfulfillment',
+    });
+    const { PATCH, DELETE } = await import('../route');
+    expect((await PATCH(patchMovement({ id: 1, quantity: 1 }))).status).toBe(
+      409
+    );
+    expect(
+      (
+        await DELETE(
+          new Request(getTestApiUrl('/api/inventory/movements?id=1'))
+        )
+      ).status
+    ).toBe(409);
+    expect(mockPrisma.inventoryMovement.update).not.toHaveBeenCalled();
+  });
+
+  it('rejects a separate reversal that would resurrect nonfulfilled stock', async () => {
+    mockPrisma.product.findFirst.mockResolvedValue({ id: 42 });
+    const { POST } = await import('../route');
+    const response = await POST(
+      postMovement(
+        supplierShortPayload({
+          fromBucket: 'supplier_short',
+          toBucket: 'sellable',
+        })
+      )
+    );
+    expect(response.status).toBe(409);
+    expect(mockPrisma.inventoryMovement.create).not.toHaveBeenCalled();
+    expect(mockPrisma.$transaction).toHaveBeenCalledWith(expect.any(Function), {
+      isolationLevel: 'Serializable',
+    });
   });
 });

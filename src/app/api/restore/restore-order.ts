@@ -11,9 +11,12 @@ export const DEFAULT_RESTORE_TABLE_ORDER = [
 
   // Transactions + dependent tables
   'transactions',
+  'clothing_financial_requests',
   'transaction_status_changes',
   'transaction_payments',
   'transaction_refunds',
+  'clothing_order_cancellations',
+  'clothing_refund_payouts',
 
   // Employees + payroll-related
   'employees',

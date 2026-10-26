@@ -1,4 +1,5 @@
 import { prisma } from '@/lib/db';
+import { z } from 'zod';
 import { parseDate } from '@/lib/accounting/date-utils';
 import { isInTransitShipmentStatus } from '@/lib/inventory/shipment-status';
 import {
@@ -11,7 +12,9 @@ import {
   pickMovementDate,
   pickUnitCostFromProductRow,
   resolveAutoSaleTransactionId,
+  projectDatedMovementCosts,
   toDateKey,
+  type InventoryValuationIssue,
 } from '@/lib/accounting/inventoryCogsShared';
 
 export type DerivedJournalEntry = {
@@ -30,6 +33,29 @@ const INVENTORY_IN_TRANSIT_ACCOUNT = 'Inventory in Transit';
 const OPENING_EQUITY_ACCOUNT = 'Opening Equity';
 const CURRENT_PERIOD_EARNINGS_ACCOUNT = 'Current Period Earnings';
 const INVENTORY_SHRINKAGE_ACCOUNT = 'Inventory Shrinkage';
+
+async function loadDatedInventoryCostCorrections() {
+  const requests = await prisma.clothingFinancialRequest.findMany({
+    where: { operation: 'INVENTORY_COST_CORRECTION' },
+    select: { result: true },
+  });
+  const schema = z.object({
+    productCode: z.string(),
+    date: z.string(),
+    newUnitCost: z.number().finite().nonnegative(),
+    resolvedMovementIds: z.array(z.number()),
+    movementCosts: z.array(
+      z.object({
+        movementId: z.number(),
+        unitCost: z.number().finite().nonnegative(),
+      })
+    ),
+  });
+  return requests.flatMap((request) => {
+    const result = schema.safeParse(request.result);
+    return result.success ? [result.data] : [];
+  });
+}
 
 async function getUnitCostByProductCode(productCodes: string[]) {
   const codes = Array.from(
@@ -103,15 +129,17 @@ async function computeInventorySeedAndShrinkageByDate(params: {
     orderBy: { createdAt: 'asc' },
   });
 
-  const filtered = movements
-    .map((m) => {
+  const filtered = projectDatedMovementCosts(
+    movements.map((m) => {
       const when = pickMovementDate({
         postingDate: m.postingDate ?? null,
         createdAt: m.createdAt,
       });
       return { ...m, when };
-    })
-    .filter((m) => isWithin(m.when, from, to));
+    }),
+    await loadDatedInventoryCostCorrections(),
+    to ?? new Date()
+  ).filter((movement) => isWithin(movement.when, from, to));
 
   if (filtered.length === 0) {
     return {
@@ -207,7 +235,8 @@ async function computeInventorySeedAndShrinkageByDate(params: {
     const code = (m.productCode ?? '').trim();
     const snapshotUnitCost = Number(m.unitCost ?? 0);
     const unitCost =
-      Number.isFinite(snapshotUnitCost) && snapshotUnitCost > 0
+      m.costBasisProjected ||
+      (Number.isFinite(snapshotUnitCost) && snapshotUnitCost > 0)
         ? snapshotUnitCost
         : (unitCostByProductCode.get(code) ?? 0);
     const value = qty * unitCost;
@@ -267,7 +296,11 @@ export async function buildCogsAndInventoryEntries(params: {
   from: Date;
   to: Date | null;
   cogsDescriptionStyle?: 'verbose' | 'short';
-}): Promise<{ entries: DerivedJournalEntry[]; totalCogs: number }> {
+}): Promise<{
+  entries: DerivedJournalEntry[];
+  totalCogs: number;
+  valuationIssues: InventoryValuationIssue[];
+}> {
   const { from, to } = params;
   const cogsDescriptionStyle = params.cogsDescriptionStyle ?? 'verbose';
 
@@ -291,6 +324,9 @@ export async function buildCogsAndInventoryEntries(params: {
       fromBucket: true,
       toBucket: true,
       notes: true,
+      sourceTransactionId: true,
+      movementSource: true,
+      movementType: true,
     },
     orderBy: { createdAt: 'asc' },
   });
@@ -321,37 +357,62 @@ export async function buildCogsAndInventoryEntries(params: {
     }
   }
 
-  const filtered = movements
-    .map((m) => {
-      const txnId = resolveAutoSaleTransactionId(m);
-      const when = txnId
-        ? (completionAtByTransactionId.get(txnId) ?? m.createdAt)
-        : pickMovementDate({
-            postingDate: m.postingDate ?? null,
-            createdAt: m.createdAt,
-          });
-      return { ...m, when };
-    })
-    .filter((m) => isWithin(m.when, from, to));
+  const datedMovements = movements.map((m) => {
+    const txnId = resolveAutoSaleTransactionId(m);
+    const when = txnId
+      ? (completionAtByTransactionId.get(txnId) ?? m.createdAt)
+      : pickMovementDate({
+          postingDate: m.postingDate ?? null,
+          createdAt: m.createdAt,
+        });
+    return { ...m, when };
+  });
+  const filtered = datedMovements.filter((movement) =>
+    isWithin(movement.when, from, to)
+  );
 
   if (filtered.length === 0) {
-    return { entries: [], totalCogs: 0 };
+    return { entries: [], totalCogs: 0, valuationIssues: [] };
   }
 
   const unitCostByProductCode = await getUnitCostByProductCode(
     filtered.map((m) => m.productCode)
   );
 
-  const { entries, totalCogs } = buildCogsEntriesFromMovements({
-    movements: filtered,
-    unitCostByProductCode,
-    customerNameByTransactionId,
-    cogsAccount: COGS_ACCOUNT,
-    inventoryAccount: INVENTORY_ACCOUNT,
-    cogsDescriptionStyle,
+  const confirmations = await prisma.clothingFinancialRequest.findMany({
+    where: {
+      operation: 'ZERO_COST_CONFIRMATION',
+      createdAt: { lte: to ?? new Date() },
+    },
+    select: { result: true },
   });
+  const confirmedZeroCostMovementIds = new Set(
+    confirmations.flatMap(({ result }) => {
+      if (!result || Array.isArray(result) || typeof result !== 'object') {
+        return [];
+      }
+      return typeof result.movementId === 'number' ? [result.movementId] : [];
+    })
+  );
+  const corrections = await loadDatedInventoryCostCorrections();
+  const costedMovements = projectDatedMovementCosts(
+    datedMovements,
+    corrections,
+    to ?? new Date()
+  ).filter((movement) => isWithin(movement.when, from, to));
+  const { entries, totalCogs, valuationIssues } = buildCogsEntriesFromMovements(
+    {
+      movements: costedMovements,
+      unitCostByProductCode,
+      customerNameByTransactionId,
+      cogsAccount: COGS_ACCOUNT,
+      inventoryAccount: INVENTORY_ACCOUNT,
+      cogsDescriptionStyle,
+      confirmedZeroCostMovementIds,
+    }
+  );
 
-  return { entries, totalCogs };
+  return { entries, totalCogs, valuationIssues };
 }
 
 export async function computeInventorySeedAndShrinkageTotals(params: {

@@ -1,4 +1,4 @@
-import { memo, useMemo, useState } from 'react';
+import React, { memo, useMemo, useState } from 'react';
 import {
   Card,
   Tabs,
@@ -35,6 +35,7 @@ import type {
 } from '../types';
 import { formatCurrency, formatDate } from '../utils';
 import { UniversalModal } from '@/components/modals/UniversalModal';
+import { useRefundObligations } from '@/components/refunds/RefundPending';
 
 // ============================================================================
 // ORDERS AND TRANSACTIONS TABS
@@ -56,6 +57,8 @@ export const OrdersAndTransactions = memo(function OrdersAndTransactions({
   apiBasePath,
 }: OrdersAndTransactionsProps) {
   const queryClient = useQueryClient();
+  const isClothing = !apiBasePath || apiBasePath === '/api';
+  const obligations = useRefundObligations(undefined, undefined, isClothing);
   const [refundModalOpen, setRefundModalOpen] = useState(false);
 
   const [refundTransactionId, setRefundTransactionId] = useState<string | null>(
@@ -224,15 +227,22 @@ export const OrdersAndTransactions = memo(function OrdersAndTransactions({
   });
 
   const transactionOptions = useMemo(() => {
-    return transactions.map((t) => {
-      const date = t.orderDate ? formatDate(t.orderDate) : 'No date';
-      const code = t.productCode || 'No product code';
-      return {
-        value: String(t.id),
-        label: `#${t.id} • ${code} • ${date}`,
-      };
-    });
-  }, [transactions]);
+    const approvedOrders = new Set(
+      isClothing
+        ? obligations.data?.history.map((decision) => decision.transactionId)
+        : []
+    );
+    return transactions
+      .filter((transaction) => !approvedOrders.has(transaction.id))
+      .map((t) => {
+        const date = t.orderDate ? formatDate(t.orderDate) : 'No date';
+        const code = t.productCode || 'No product code';
+        return {
+          value: String(t.id),
+          label: `#${t.id} • ${code} • ${date}`,
+        };
+      });
+  }, [transactions, isClothing, obligations.data]);
 
   const handleDeleteRefund = async (refund: TransactionRefund) => {
     const confirmed = await showConfirm({
@@ -423,15 +433,30 @@ export const OrdersAndTransactions = memo(function OrdersAndTransactions({
               <Button
                 leftSection={<IconPlus size={16} />}
                 onClick={() => setRefundModalOpen(true)}
+                disabled={isClothing && !obligations.isSuccess}
               >
                 Record Refund
               </Button>
-              <Button variant="light" onClick={() => void refetchRefunds()}>
+              <Button
+                variant="light"
+                onClick={() => {
+                  void refetchRefunds();
+                  if (isClothing) {
+                    void obligations.refetch();
+                  }
+                }}
+              >
                 Refresh
               </Button>
             </Group>
           </Group>
 
+          {isClothing && obligations.isError && (
+            <Text c="red" role="alert">
+              Cancellation approvals could not be loaded. Refund entry is
+              unavailable.
+            </Text>
+          )}
           {refundsLoading ? (
             <Text ta="center" c="dimmed" py="xl">
               Loading refunds...
@@ -459,7 +484,7 @@ export const OrdersAndTransactions = memo(function OrdersAndTransactions({
                     <Table.Th>Restock</Table.Th>
                     <Table.Th>Reason</Table.Th>
                     <Table.Th>Notes</Table.Th>
-                    <Table.Th style={{ width: 60 }} />
+                    {!isClothing && <Table.Th style={{ width: 60 }} />}
                   </Table.Tr>
                 </Table.Thead>
                 <Table.Tbody>
@@ -500,16 +525,19 @@ export const OrdersAndTransactions = memo(function OrdersAndTransactions({
                             {refund.notes ?? '-'}
                           </Text>
                         </Table.Td>
-                        <Table.Td>
-                          <ActionIcon
-                            variant="light"
-                            color="red"
-                            disabled={deleteRefundMutation.isPending}
-                            onClick={() => void handleDeleteRefund(refund)}
-                          >
-                            <IconTrash size={16} />
-                          </ActionIcon>
-                        </Table.Td>
+                        {!isClothing && (
+                          <Table.Td>
+                            <ActionIcon
+                              aria-label="Delete refund"
+                              variant="light"
+                              color="red"
+                              disabled={deleteRefundMutation.isPending}
+                              onClick={() => void handleDeleteRefund(refund)}
+                            >
+                              <IconTrash size={16} />
+                            </ActionIcon>
+                          </Table.Td>
+                        )}
                       </Table.Tr>
                     );
                   })}
@@ -522,6 +550,7 @@ export const OrdersAndTransactions = memo(function OrdersAndTransactions({
             opened={refundModalOpen}
             onClose={() => setRefundModalOpen(false)}
             title="Record Refund"
+            closeButtonProps={{ 'aria-label': 'Close refund form' }}
             centered
             size="lg"
           >

@@ -14,6 +14,7 @@ import {
 } from '@/lib/inventory/movements';
 import { isFulfilledStatus, isReservedStatus } from '@/lib/inventory/statuses';
 import { isCancelledOrderStatus } from '@/lib/transactions/order-status';
+import { resolveAutoSaleTransactionId } from '@/lib/accounting/inventoryCogsShared';
 import {
   buildSplitBatchMaps,
   summarizeSplitChildAllocations,
@@ -57,6 +58,24 @@ export function buildInventoryItems(
   const damagedDeltaByProduct = buildBucketDeltaMap(movements, 'damaged_hold');
   const supplierShortDeltaByProduct = new Map<string, number>();
   const soldQtyByProduct = new Map<string, number>();
+  const postedSaleTransactionIds = new Set<number>();
+  movements.forEach((movement) => {
+    const transactionId = resolveAutoSaleTransactionId(movement);
+    if (
+      movement.toBucket !== 'sold' ||
+      !transactionId ||
+      !Number.isFinite(movement.quantity) ||
+      movement.quantity <= 0
+    ) {
+      return;
+    }
+    const code = normalizeProductCode(movement.productCode);
+    postedSaleTransactionIds.add(transactionId);
+    soldQtyByProduct.set(
+      code,
+      (soldQtyByProduct.get(code) ?? 0) + movement.quantity
+    );
+  });
   const mixReservedQtyByProduct = new Map<string, number>();
   const mixSoldQtyByProduct = new Map<string, number>();
   const scrapQtyByProduct = new Map<string, number>();
@@ -114,7 +133,10 @@ export function buildInventoryItems(
       );
     }
 
-    if (soldOrderStatuses.has(normalizedOrderStatus)) {
+    if (
+      soldOrderStatuses.has(normalizedOrderStatus) &&
+      !postedSaleTransactionIds.has(Number(transaction.id))
+    ) {
       const currentSoldQty = soldQtyByProduct.get(normalizedProductCode) || 0;
       soldQtyByProduct.set(normalizedProductCode, currentSoldQty + quantity);
     }
@@ -134,12 +156,16 @@ export function buildInventoryItems(
 
   const splitAllocations = summarizeSplitChildAllocations({
     splitBatches,
-    transactions: transactions.map((transaction) => ({
-      productCode: transaction['Product Code'],
-      quantity: transaction.Quantity,
-      orderStatus: transaction['Order Status'],
-      unitPrice: transaction['Unit Price'],
-    })),
+    transactions: transactions
+      .filter(
+        (transaction) => !postedSaleTransactionIds.has(Number(transaction.id))
+      )
+      .map((transaction) => ({
+        productCode: transaction['Product Code'],
+        quantity: transaction.Quantity,
+        orderStatus: transaction['Order Status'],
+        unitPrice: transaction['Unit Price'],
+      })),
     isSoldStatus: (status) =>
       soldOrderStatuses.has((status ?? '').trim().toLowerCase()),
     isReservedStatus: (status) => {
@@ -290,7 +316,7 @@ export function buildInventoryItems(
     scrapQtyByProduct.set(code, Math.max(quantity, 0));
   });
 
-  const actualQuantityByProduct = new Map<string, number>();
+  const supplyQuantityByProduct = new Map<string, number>();
   const remainingSellableQtyByProduct = new Map<string, number>();
 
   products.forEach((product) => {
@@ -317,21 +343,27 @@ export function buildInventoryItems(
     const returnedStockQty =
       returnedStockQtyByProduct.get(normalizedProductCode) || 0;
 
-    const actualQuantityReceived = Math.max(
-      quantity + additionalsQty - manualSupplierShortQty - damagedOnHand,
-      0
-    );
-    const directSellableQty = Math.max(
-      actualQuantityReceived -
-        committedQty -
-        soldQty -
-        scrapQty +
-        returnedStockQty +
-        transferSellableDelta,
-      0
-    );
+    const nonfulfilled =
+      product['Supplier Fulfillment Status'] === 'CREDIT_ISSUED';
+    const actualQuantityReceived = nonfulfilled
+      ? 0
+      : Math.max(
+          quantity + additionalsQty - manualSupplierShortQty - damagedOnHand,
+          0
+        );
+    const directSellableQty = nonfulfilled
+      ? 0
+      : Math.max(
+          actualQuantityReceived -
+            committedQty -
+            soldQty -
+            scrapQty +
+            returnedStockQty +
+            transferSellableDelta,
+          0
+        );
 
-    actualQuantityByProduct.set(normalizedProductCode, actualQuantityReceived);
+    supplyQuantityByProduct.set(normalizedProductCode, actualQuantityReceived);
     remainingSellableQtyByProduct.set(normalizedProductCode, directSellableQty);
   });
 
@@ -423,6 +455,8 @@ export function buildInventoryItems(
 
   return products.map((product) => {
     const productCode = product['Product Code'] || '';
+    const nonfulfilled =
+      product['Supplier Fulfillment Status'] === 'CREDIT_ISSUED';
     const normalizedProductCode = normalizeProductCode(productCode);
     const quantity = product.Quantity || 0;
     const committedQty =
@@ -443,34 +477,42 @@ export function buildInventoryItems(
     );
     const transferSellableDelta =
       transferSellableDeltaByProduct.get(normalizedProductCode) || 0;
-    const actualQuantityReceived =
-      actualQuantityByProduct.get(normalizedProductCode) ??
+    const supplyQuantity =
+      supplyQuantityByProduct.get(normalizedProductCode) ??
       Math.max(
         quantity + additionalsQty - manualSupplierShortQty - damagedOnHand,
         0
       );
-    const sellableOnHand = Math.max(
-      actualQuantityReceived -
-        committedQty -
-        soldQty -
-        scrapQty +
-        returnedStockQty +
-        transferSellableDelta,
-      0
-    );
-    const reservedOnHand = Math.max(committedQty, 0);
+    const shipmentStatus = product['Shipment Status'] || '';
+    const isInTransit = shipmentStatus.trim().toLowerCase() === 'in transit';
+    const remainingSupply = nonfulfilled
+      ? 0
+      : Math.max(
+          supplyQuantity -
+            soldQty -
+            scrapQty +
+            returnedStockQty +
+            transferSellableDelta,
+          0
+        );
+    const reservedQty = Math.min(Math.max(committedQty, 0), remainingSupply);
+    const unreservedQty = Math.max(remainingSupply - committedQty, 0);
+    const actualQuantityReceived = isInTransit ? 0 : supplyQuantity;
+    const sellableOnHand = isInTransit ? 0 : unreservedQty;
+    const reservedOnHand = isInTransit ? 0 : reservedQty;
     const totalSales = totalSalesByProduct.get(normalizedProductCode) || 0;
     const cogs = product.COGS || 0;
     const actualPrice = product['Actual Price'] || 0;
-    const shipmentStatus = product['Shipment Status'] || '';
     const onHandSellable = sellableOnHand;
     const onHandReserved = reservedOnHand;
-    const inTransitReserved = 0;
-    const inTransitUnreserved = 0;
+    const inTransitReserved = isInTransit ? reservedQty : 0;
+    const inTransitUnreserved = isInTransit ? unreservedQty : 0;
 
     const onhand = actualQuantityReceived;
     const availableStock = sellableOnHand;
-    const supplierShortQty = manualSupplierShortQty;
+    const supplierShortQty = nonfulfilled
+      ? Math.max(quantity, manualSupplierShortQty)
+      : manualSupplierShortQty;
     const netProfit = totalSales - cogs;
     const percentage = cogs !== 0 ? netProfit / cogs : 0;
     const endingInventoryValue = availableStock * actualPrice;

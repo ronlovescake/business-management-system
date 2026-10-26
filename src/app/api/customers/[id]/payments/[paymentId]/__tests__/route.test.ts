@@ -21,6 +21,9 @@ const mockPrisma = vi.hoisted(() => ({
 vi.mock('@/lib/db', () => ({
   prisma: mockPrisma,
 }));
+vi.mock('@/lib/auth/session', () => ({
+  requireAuth: vi.fn().mockResolvedValue({ id: 'admin', role: 'ADMIN' }),
+}));
 
 vi.mock('@/lib/logger', () => ({
   logger: {
@@ -35,6 +38,42 @@ describe('DELETE /api/customers/[id]/payments/[paymentId]', () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
+
+  it.each([
+    { orderStatus: 'Cancelled' },
+    { orderStatus: 'Voided' },
+    { orderStatus: 'Forfeited' },
+    { cancellation: { id: 'approval' } },
+    { initialDepositAmount: 100 },
+    { financialRequestId: 'request' },
+  ])(
+    'preserves collections used by a financial decision or agreement: %j',
+    async (protectedHistory) => {
+      mockPrisma.customer.findUnique.mockResolvedValue({
+        customerName: 'Test Customer',
+      });
+      mockPrisma.transactionPayment.findFirst.mockResolvedValue({
+        id: 132,
+        transactionId: 2033,
+        ...protectedHistory,
+      });
+      mockPrisma.transaction.findUnique.mockResolvedValue({
+        id: 2033,
+        quantity: 100,
+        unitPrice: 65,
+        ...protectedHistory,
+      });
+      mockPrisma.$transaction.mockImplementation(async (callback) =>
+        callback(mockPrisma)
+      );
+      const response = await DELETE(mockNextRequest({ method: 'DELETE' }), {
+        params: { id: '1', paymentId: '132' },
+      });
+      expect(response.status).toBe(409);
+      expect(mockPrisma.transactionPayment.update).not.toHaveBeenCalled();
+      expect(mockPrisma.transaction.update).not.toHaveBeenCalled();
+    }
+  );
 
   it('soft-deletes a payment and resyncs Transaction.adjustment/lineTotal from payment rows', async () => {
     mockPrisma.customer.findUnique.mockResolvedValue({

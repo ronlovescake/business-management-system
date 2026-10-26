@@ -10,6 +10,7 @@ import {
   summarizeBalanceSheet,
 } from '../accountingDashboardMetrics';
 import type { ProfitLossDetailRow } from '@/app/clothing/accounting/profit-loss/hooks/useProfitLoss';
+import { dayjs } from '@/utils/date';
 
 const NOW = new Date(2026, 9, 21, 12, 0, 0);
 
@@ -18,7 +19,10 @@ function comparison(period: Parameters<typeof getComparisonRange>[0]) {
   if (!range) {
     throw new Error(`Expected a comparison range for ${period}`);
   }
-  return { from: new Date(range.from), to: new Date(range.to) };
+  return {
+    from: dayjs(range.from).tz('Asia/Manila'),
+    to: dayjs(range.to).tz('Asia/Manila'),
+  };
 }
 
 const detail = (
@@ -44,26 +48,26 @@ const detail = (
 describe('accountingDashboardMetrics', () => {
   it('builds comparison ranges for each period', () => {
     const thisMonth = comparison('This Month');
-    expect(thisMonth.from.getMonth()).toBe(8);
-    expect(thisMonth.to.getDate()).toBe(30);
+    expect(thisMonth.from.month()).toBe(8);
+    expect(thisMonth.to.date()).toBe(21);
 
     const lastMonth = comparison('Last Month');
-    expect(lastMonth.from.getMonth()).toBe(7);
-    expect(lastMonth.to.getMonth()).toBe(7);
+    expect(lastMonth.from.month()).toBe(7);
+    expect(lastMonth.to.month()).toBe(7);
 
     const ytd = comparison('This Year');
-    expect(ytd.from.getFullYear()).toBe(2025);
-    expect(ytd.to.getMonth()).toBe(9);
-    expect(ytd.to.getDate()).toBe(21);
+    expect(ytd.from.year()).toBe(2025);
+    expect(ytd.to.month()).toBe(9);
+    expect(ytd.to.date()).toBe(21);
 
     expect(getComparisonRange('All Time', NOW)).toBeNull();
   });
 
   it('covers the last 12 calendar months for the trend range', () => {
     const { from, to } = getTrendRange(NOW);
-    expect(new Date(from)).toEqual(new Date(2025, 10, 1, 0, 0, 0, 0));
-    expect(new Date(to).getMonth()).toBe(9);
-    expect(new Date(to).getDate()).toBe(31);
+    expect(from).toBe('2025-10-31T16:00:00.000Z');
+    expect(dayjs(to).tz('Asia/Manila').month()).toBe(9);
+    expect(dayjs(to).tz('Asia/Manila').date()).toBe(21);
   });
 
   it('uses month end for Last Month balance sheet', () => {
@@ -86,6 +90,7 @@ describe('accountingDashboardMetrics', () => {
         detail(new Date(2026, 9, 7), 'Expense', 'Rent', 100),
         detail(new Date(2026, 9, 8), 'Revenue', 'Sales Returns', -50),
         detail(new Date(2024, 0, 1), 'Revenue', 'Sales Revenue', 999),
+        detail(new Date(2026, 9, 30), 'Revenue', 'Sales Revenue', 999),
       ],
       NOW
     );

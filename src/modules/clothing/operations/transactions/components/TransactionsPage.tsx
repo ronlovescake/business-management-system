@@ -20,6 +20,7 @@
 
 'use client';
 import { useTransactionCustomerTabs } from '../hooks/useTransactionCustomerTabs';
+import { useOrderCancellation } from '../hooks/useOrderCancellation';
 
 import React, {
   Profiler,
@@ -34,6 +35,7 @@ import { IconRefresh, IconTrash } from '@tabler/icons-react';
 import { showNotification } from '@mantine/notifications';
 import { PageLayout } from '@/components/layout/PageLayout';
 import { TableSkeleton } from '@/components/ui/TableSkeleton';
+import { RefundPending } from '@/components/refunds/RefundPending';
 import type {
   CellClickEvent,
   CellEditEvent,
@@ -73,6 +75,7 @@ interface TransactionsPageProps {
 }
 
 export function TransactionsPage({ apiBasePath }: TransactionsPageProps) {
+  const { requestCancellation, cancellationModal } = useOrderCancellation();
   const actionInProgress = useRef(false);
   const pendingVoidedCustomer = useRef<string | null>(null);
   // ============================================================================
@@ -457,6 +460,10 @@ export function TransactionsPage({ apiBasePath }: TransactionsPageProps) {
     onVoidedStatusSaved: (customer) => {
       pendingVoidedCustomer.current = customer;
     },
+    onCancellationRequested:
+      apiBasePath === '/api/general-merchandise'
+        ? undefined
+        : requestCancellation,
     onCustomerWarning: (data) => {
       setCustomerWarningData({
         ...data,
@@ -481,6 +488,7 @@ export function TransactionsPage({ apiBasePath }: TransactionsPageProps) {
         actionInProgress.current ||
         showPaymentsModal ||
         isCustomerDetailsOpen ||
+        cancellationModal ||
         showDistributionModal
       ) {
         return false;
@@ -504,6 +512,7 @@ export function TransactionsPage({ apiBasePath }: TransactionsPageProps) {
       saveQueue,
       showPaymentsModal,
       isCustomerDetailsOpen,
+      cancellationModal,
       showDistributionModal,
     ]
   );
@@ -575,6 +584,7 @@ export function TransactionsPage({ apiBasePath }: TransactionsPageProps) {
     productCodes,
     productToShipmentMap,
     transactionUpdateMap,
+    preserveLegacyStatusChoices: apiBasePath === '/api/general-merchandise',
   });
 
   const { dueDateFilters, filteredDueDatesData, handleDueDateFilter } =
@@ -856,6 +866,8 @@ export function TransactionsPage({ apiBasePath }: TransactionsPageProps) {
               : 'All changes saved'}
           </Text>
         )}
+        {apiBasePath !== '/api/general-merchandise' && <RefundPending />}
+        {cancellationModal}
         <TransactionPaymentsModal
           opened={showPaymentsModal}
           onClose={handlePaymentsModalClose}

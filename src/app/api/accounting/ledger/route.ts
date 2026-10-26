@@ -38,6 +38,7 @@ import {
 } from '@/lib/accounting/inventory-cogs';
 import { getRuntimeAccountingCutoverDate } from '@/lib/accounting/cutover';
 import { normalizeAccountForReporting } from '@/lib/accounting/account-normalization';
+import { buildLedgerPeriod } from '@/lib/accounting/ledger-balances';
 import { prisma } from '@/lib/db';
 import {
   getObjectField,
@@ -56,7 +57,8 @@ function clampFrom(from: Date | null, cutover: Date): Date {
 export const GET = withErrorHandler(async (req: NextRequest) => {
   const cutover = await getRuntimeAccountingCutoverDate();
   const { from, to } = parseDateRangeFromParams(req.nextUrl.searchParams);
-  const effectiveFrom = clampFrom(from, cutover);
+  const reportFrom = clampFrom(from, cutover);
+  const effectiveFrom = cutover;
   const effectiveTo = to ?? null;
 
   const [transactions, accountsReceivableTransactions] = await Promise.all([
@@ -71,7 +73,14 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
     to: effectiveTo,
   });
 
-  const paymentTransactionIds = new Set(payments.map((p) => p.transactionId));
+  const paymentTransactionIds = new Set(
+    payments
+      .filter((payment) => {
+        const amount = Number(payment.amount ?? 0);
+        return Number.isFinite(amount) && amount > 0;
+      })
+      .map((payment) => payment.transactionId)
+  );
   const accountsReceivableTransactionIds = new Set(
     accountsReceivableTransactions.map((transaction) => transaction.id)
   );
@@ -122,25 +131,28 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
     .map((txId) => {
       const paidAt = paidAtByTxId.get(txId) ?? null;
       const cancelledAt = cancelledAtByTxId.get(txId) ?? null;
-      const orderStatus = reservationPayments.find(
+      const refPayment = reservationPayments.find(
         (payment) => payment.transactionId === txId
-      )?.transaction?.orderStatus;
+      );
+      const sourceTransaction = refPayment?.transaction;
+      const orderStatus = sourceTransaction?.orderStatus;
       const targetCredit = getReservationDepositRecognitionCreditAccount({
         orderStatus,
         isForfeited: Boolean(cancelledAt),
+        transaction: sourceTransaction,
       });
       if (!targetCredit) {
         return null;
       }
 
-      const recognizeAt = cancelledAt ?? paidAt;
+      const recognizeAt =
+        cancelledAt ??
+        getAccountsReceivableRecognitionDate(sourceTransaction ?? {}) ??
+        paidAt;
       if (!isWithinDateRange(recognizeAt, effectiveFrom, effectiveTo)) {
         return null;
       }
 
-      const refPayment = reservationPayments.find(
-        (p) => p.transactionId === txId
-      );
       const customer = (refPayment?.transaction?.customers ?? '').trim();
       const productRef = (refPayment?.transaction?.productCode ?? '').trim();
       const ref = productRef || `TX-${txId}`;
@@ -162,8 +174,8 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
 
       const isForfeited = targetCredit === 'Forfeited Deposits';
       const description = isForfeited
-        ? `${customer || 'Unknown customer'} • Reservation fee forfeited`
-        : `${customer || 'Unknown customer'} • Reservation fee recognized`;
+        ? `${customer || 'Unknown customer'} • Reservation deposit forfeited`
+        : `${customer || 'Unknown customer'} • Reservation deposit applied`;
 
       const idBase = isForfeited
         ? `DEP-FORFEIT-TX-${txId}`
@@ -553,13 +565,6 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
     .map((payment) => {
       const isReservation = isReservationPayment(payment);
 
-      if (isCancelledOrderStatus(payment.transaction?.orderStatus)) {
-        // For cancelled orders, only reservation/deposit payments are included.
-        if (!isReservation) {
-          return null;
-        }
-      }
-
       const paymentAt = parseDate(payment.paymentDate);
       if (!isWithinDateRange(paymentAt, effectiveFrom, effectiveTo)) {
         return null;
@@ -696,7 +701,7 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
     accountsReceivableTransactions.flatMap((transaction) => {
       const recognitionAt = getAccountsReceivableRecognitionDate(transaction);
       return isWithinDateRange(recognitionAt, effectiveFrom, effectiveTo)
-        ? buildAccountsReceivableShipmentEntries(transaction)
+        ? buildAccountsReceivableShipmentEntries(transaction, payments)
         : [];
     });
 
@@ -770,6 +775,7 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
       const refundDebitAccount = getTransactionRefundDebitAccount({
         orderStatus: refund.transaction?.orderStatus,
         isReservationRefund: (refund.transaction?.payments?.length ?? 0) > 0,
+        isApprovedCancellationPayout: Boolean(refund.approvedPayout),
       });
       const isVoidedReservationRefund =
         refundDebitAccount === 'Customer Deposits';
@@ -779,6 +785,7 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
       const description = getTransactionRefundDescription({
         orderStatus: refund.transaction?.orderStatus,
         isReservationRefund: (refund.transaction?.payments?.length ?? 0) > 0,
+        isApprovedCancellationPayout: Boolean(refund.approvedPayout),
         transactionId: refund.transactionId,
         customerName: refund.transaction?.customers,
         reason: refund.reason,
@@ -865,29 +872,22 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
       : normalizeAccountForReporting(entry.account),
   }));
 
-  const sortedByDate = normalizedEntries.sort(
-    (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()
-  );
-
-  const balances = new Map<string, number>();
-  const entriesWithBalances = sortedByDate.map((entry) => {
-    const current = balances.get(entry.account) ?? 0;
-    const next = current + entry.debit - entry.credit;
-    balances.set(entry.account, next);
-    return { ...entry, balance: next };
-  });
-
-  const totalDebits = normalizedEntries.reduce((sum, e) => sum + e.debit, 0);
-  const totalCredits = normalizedEntries.reduce((sum, e) => sum + e.credit, 0);
-  const accounts = new Set(normalizedEntries.map((e) => e.account)).size;
+  const {
+    entries: periodEntries,
+    openingBalances,
+    closingBalances,
+    ...periodStats
+  } = buildLedgerPeriod(normalizedEntries, reportFrom, effectiveTo);
 
   const stats = {
-    totalDebits,
-    totalCredits,
-    netChange: totalDebits - totalCredits,
-    accounts,
+    ...periodStats,
     period: buildPeriodLabel(from, to),
   };
 
-  return ApiResponse.success({ entries: entriesWithBalances, stats });
+  return ApiResponse.success({
+    entries: periodEntries,
+    openingBalances,
+    closingBalances,
+    stats,
+  });
 });

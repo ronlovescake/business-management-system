@@ -16,6 +16,11 @@ export type BackupCoverageClass = 'selective-json' | 'log-only' | 'dump-only';
 export const SELECTIVE_BACKUP_TABLES = [
   { name: 'transactions', model: 'transaction', modelName: 'Transaction' },
   {
+    name: 'clothing_financial_requests',
+    model: 'clothingFinancialRequest',
+    modelName: 'ClothingFinancialRequest',
+  },
+  {
     name: 'transaction_payments',
     model: 'transactionPayment',
     modelName: 'TransactionPayment',
@@ -26,12 +31,37 @@ export const SELECTIVE_BACKUP_TABLES = [
     modelName: 'TransactionRefund',
   },
   {
+    name: 'clothing_order_cancellations',
+    model: 'clothingOrderCancellation',
+    modelName: 'ClothingOrderCancellation',
+  },
+  {
+    name: 'clothing_refund_payouts',
+    model: 'clothingRefundPayout',
+    modelName: 'ClothingRefundPayout',
+  },
+  {
     name: 'transaction_status_changes',
     model: 'transactionStatusChange',
     modelName: 'TransactionStatusChange',
   },
   { name: 'customers', model: 'customer', modelName: 'Customer' },
   { name: 'products', model: 'product', modelName: 'Product' },
+  {
+    name: 'clothing_supplier_credits',
+    model: 'clothingSupplierCredit',
+    modelName: 'ClothingSupplierCredit',
+  },
+  {
+    name: 'clothing_supplier_credit_applications',
+    model: 'clothingSupplierCreditApplication',
+    modelName: 'ClothingSupplierCreditApplication',
+  },
+  {
+    name: 'clothing_product_shipment_transfers',
+    model: 'clothingProductShipmentTransfer',
+    modelName: 'ClothingProductShipmentTransfer',
+  },
   {
     name: 'product_code_aliases',
     model: 'productCodeAlias',

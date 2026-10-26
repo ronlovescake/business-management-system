@@ -1,5 +1,82 @@
-import type { Prisma } from '@prisma/client';
+import type { Prisma, Transaction } from '@prisma/client';
 import type { TransactionUpdateRecord } from './sanitizers';
+import {
+  isCancelledOrderStatus,
+  isForfeitedOrderStatus,
+  normalizeOrderStatus,
+} from '@/lib/transactions/order-status';
+import { TransactionValidationError } from './referenceValidation';
+
+export function assertGenericOrderStatusChange(
+  nextStatus: string | null | undefined,
+  previousStatus: string | null | undefined
+) {
+  if (
+    nextStatus === undefined ||
+    normalizeOrderStatus(nextStatus) === normalizeOrderStatus(previousStatus)
+  ) {
+    return;
+  }
+  if (isForfeitedOrderStatus(nextStatus)) {
+    throw new TransactionValidationError(
+      'Forfeited is historical only. Use Cancelled and the money-decision workflow.'
+    );
+  }
+  if (isCancelledOrderStatus(previousStatus)) {
+    throw new TransactionValidationError(
+      'A closed order cannot be reopened by a generic edit. Preserve its money history.'
+    );
+  }
+  if (isCancelledOrderStatus(nextStatus)) {
+    throw new TransactionValidationError(
+      'Use the cancellation decision workflow to close this order safely.'
+    );
+  }
+}
+
+export function assertClosedOrderFinancialEdit(
+  values: TransactionUpdateRecord['values'],
+  existing: Pick<
+    Transaction,
+    | 'orderStatus'
+    | 'orderDate'
+    | 'customers'
+    | 'productCode'
+    | 'quantity'
+    | 'unitPrice'
+    | 'discount'
+    | 'adjustment'
+    | 'lineTotal'
+    | 'invoiceDate'
+    | 'shipmentCode'
+  >
+): void {
+  if (!isCancelledOrderStatus(existing.orderStatus)) {
+    return;
+  }
+  const protectedFields = [
+    ['Order Date', existing.orderDate],
+    ['Customers', existing.customers],
+    ['Product Code', existing.productCode],
+    ['Quantity', existing.quantity],
+    ['Unit Price', existing.unitPrice],
+    ['Discount', existing.discount],
+    ['Adjustment', existing.adjustment],
+    ['Line Total', existing.lineTotal],
+    ['Invoice Date', existing.invoiceDate],
+    ['Shipment Code', existing.shipmentCode],
+  ] as const;
+  for (const [field, previous] of protectedFields) {
+    if (
+      values[field] !== undefined &&
+      String(values[field] ?? '') !== String(previous ?? '')
+    ) {
+      throw new TransactionValidationError(
+        'A closed order cannot have its financial history rewritten. Use a dated correction workflow.'
+      );
+    }
+  }
+}
 
 export function buildUpdatePayload(
   values: TransactionUpdateRecord['values']

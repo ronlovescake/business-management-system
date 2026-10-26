@@ -27,6 +27,22 @@ export function sanitizeProductRecord(entry: unknown): ProductDTO {
 
   return {
     id: typeof record.id === 'number' ? record.id : undefined,
+    ...(record['Supplier Reference'] !== undefined
+      ? { 'Supplier Reference': getStringField(record, 'Supplier Reference') }
+      : {}),
+    ...(record['Supplier Credit Id']
+      ? {
+          'Supplier Credit Id': getStringField(record, 'Supplier Credit Id'),
+          'Supplier Credit Amount': getNumberField(
+            record,
+            'Supplier Credit Amount'
+          ),
+          'Supplier Credit Request Id': getStringField(
+            record,
+            'Supplier Credit Request Id'
+          ),
+        }
+      : {}),
     'Shipment Code': sanitizers.productCode(record['Shipment Code']) || null,
     'CV Number': getStringField(record, 'CV Number'),
     'No. Of Sacks': getNumberField(record, 'No. Of Sacks'),

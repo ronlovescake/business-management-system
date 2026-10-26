@@ -64,6 +64,7 @@ export const ROUTE_PERMISSIONS: Record<string, RouteRole[]> = {
   '/api/employee-automation-settings': ['ADMIN', 'SUPER_ADMIN'],
   '/api/expenses': ['ADMIN', 'SUPER_ADMIN'],
   '/api/products/transit-build': ['ADMIN', 'SUPER_ADMIN'],
+  '/api/products/supplier-credits': ['ADMIN', 'SUPER_ADMIN'],
   '/api/clothing/investors': ['ADMIN', 'SUPER_ADMIN'],
   '/clothing/ledger': ['ADMIN', 'SUPER_ADMIN'],
 
@@ -103,6 +104,19 @@ export const ROUTE_PERMISSIONS: Record<string, RouteRole[]> = {
  * ROUTE_PERMISSIONS table, or null if no entry matches.
  */
 export function getRequiredRolesForPath(pathname: string): RouteRole[] | null {
+  if (pathname === '/api/accounting/inventory-valuation') {
+    return ['ADMIN', 'SUPER_ADMIN'];
+  }
+  if (
+    /^\/api\/transactions\/[^/]+\/cancellation(?:\/|$)/.test(pathname) ||
+    /^\/api\/customers\/[^/]+\/refunds\/payout(?:\/|$)/.test(pathname) ||
+    pathname === '/api/customers/refund-pending'
+  ) {
+    return ['USER', 'ADMIN', 'SUPER_ADMIN'];
+  }
+  if (/^\/api\/products\/[^/]+\/supplier-resolution(?:\/|$)/.test(pathname)) {
+    return ['ADMIN', 'SUPER_ADMIN'];
+  }
   if (
     /^\/api\/shipments\/[^/]+\/transit-(build|reclass)(?:\/|$)/.test(pathname)
   ) {

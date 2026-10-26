@@ -88,6 +88,11 @@ the existing clothing and general-merchandise product-identity trigger SQL.
 This test-only bootstrap is not a production migration procedure; it does not
 certify deployment migrations or replace invariant tests.
 
+The same bootstrap installs the five money-lifecycle CHECK constraints from the
+new forward migration's canonical rules-only tail after `db push`. Prisma schema
+alignment alone cannot install those PostgreSQL checks. Disposable fresh-database
+tests verify both enforcement and the separation from column/table creation.
+
 Repository code alone cannot prohibit direct pushes. After this workflow is
 published and its checks exist, a repository admin must configure an active
 GitHub rule targeting `main`:

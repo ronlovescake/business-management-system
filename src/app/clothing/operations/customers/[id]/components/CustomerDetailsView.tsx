@@ -30,6 +30,7 @@ import { OrdersAndTransactions } from './OrdersAndTransactions';
 import { EditCustomerModal } from './EditCustomerModal';
 import { getIconButtonLabel } from '@/lib/accessibility';
 import { useBreadcrumbStore } from '@/lib/useBreadcrumbStore';
+import { CustomerRefundPayouts } from '@/components/refunds/CustomerRefundPayouts';
 
 // ============================================================================
 // CUSTOMER DETAILS VIEW
@@ -179,6 +180,9 @@ export const CustomerDetailsView = memo(function CustomerDetailsView({
 
       {/* Customer Analytics */}
       <CustomerAnalytics stats={stats} />
+      {apiBasePath !== '/api/general-merchandise' && (
+        <CustomerRefundPayouts customerId={customerId} />
+      )}
 
       {/* Customer Details and Orders/Transactions */}
       <SimpleGrid cols={{ base: 1, lg: 3 }} spacing="lg">

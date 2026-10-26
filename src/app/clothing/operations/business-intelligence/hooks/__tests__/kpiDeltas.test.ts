@@ -43,21 +43,21 @@ describe('getComparisonRange', () => {
 
   it('compares YTD with the same span last year', () => {
     const range = getComparisonRange('ytd', now);
-    expect(range?.currentStart).toEqual(new Date(2024, 0, 1));
-    expect(range?.previousStart).toEqual(new Date(2023, 0, 1));
+    expect(range?.currentStart).toEqual(new Date('2024-01-01T00:00:00+08:00'));
+    expect(range?.previousStart).toEqual(new Date('2023-01-01T00:00:00+08:00'));
     expect(range?.previousEnd).toEqual(new Date(2023, 5, 15, 12, 0, 0));
   });
 
   it('compares MTD with the same days last month', () => {
     const range = getComparisonRange('mtd', now);
-    expect(range?.currentStart).toEqual(new Date(2024, 5, 1));
-    expect(range?.previousStart).toEqual(new Date(2024, 4, 1));
+    expect(range?.currentStart).toEqual(new Date('2024-06-01T00:00:00+08:00'));
+    expect(range?.previousStart).toEqual(new Date('2024-05-01T00:00:00+08:00'));
     expect(range?.previousEnd).toEqual(new Date(2024, 4, 15, 12, 0, 0));
   });
 
   it('clamps MTD on the 31st to the end of a shorter previous month', () => {
     const range = getComparisonRange('mtd', new Date(2024, 2, 31, 9));
-    expect(range?.previousStart).toEqual(new Date(2024, 1, 1));
+    expect(range?.previousStart).toEqual(new Date('2024-02-01T00:00:00+08:00'));
     expect(range?.previousEnd).toEqual(new Date(2024, 1, 29, 9));
   });
 
@@ -68,7 +68,7 @@ describe('getComparisonRange', () => {
 
   it('handles MTD in January by comparing with December', () => {
     const range = getComparisonRange('mtd', new Date(2024, 0, 10));
-    expect(range?.previousStart).toEqual(new Date(2023, 11, 1));
+    expect(range?.previousStart).toEqual(new Date('2023-12-01T00:00:00+08:00'));
     expect(range?.previousEnd).toEqual(new Date(2023, 11, 10));
   });
 
@@ -86,13 +86,13 @@ describe('getComparisonRange', () => {
 
   it('shifts month windows back by their own length', () => {
     const three = getComparisonRange('last3months', now);
-    expect(three?.currentStart).toEqual(new Date(2024, 2, 1));
-    expect(three?.previousStart).toEqual(new Date(2023, 11, 1));
+    expect(three?.currentStart).toEqual(new Date('2024-03-01T00:00:00+08:00'));
+    expect(three?.previousStart).toEqual(new Date('2023-12-01T00:00:00+08:00'));
     expect(three?.previousEnd).toEqual(new Date(2024, 2, 15, 12, 0, 0));
 
     const six = getComparisonRange('last6months', now);
-    expect(six?.currentStart).toEqual(new Date(2023, 11, 1));
-    expect(six?.previousStart).toEqual(new Date(2023, 5, 1));
+    expect(six?.currentStart).toEqual(new Date('2023-12-01T00:00:00+08:00'));
+    expect(six?.previousStart).toEqual(new Date('2023-06-01T00:00:00+08:00'));
     expect(six?.previousEnd).toEqual(new Date(2023, 11, 15, 12, 0, 0));
   });
 

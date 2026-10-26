@@ -23,18 +23,67 @@ Investor profiles, agreements, projected returns, and bank closures are document
 
 ## Key Technical Notes
 
+### Reservation Deposit Vocabulary
+
+The [operating workflow](operations-workflow.md#31-reservation-deposit-terminology-and-allocation)
+records the user-confirmed deposit rules (2026-10-26). **Reservation Deposit** is
+the customer-facing payment; **Customer Deposits** is the accounting account
+holding those same funds before recognition, refund, or forfeiture. They are not
+two receipts. No separate **Reservation Fee** is collected. Deposits reduce the
+remaining balance per transaction/product code, rather than being an unallocated
+customer-wide deduction. Use the workflow's completion-deadline and refund-
+exception rules; runtime enforcement and unresolved deadline details require
+separate verification.
+
+### Existing Technical Behavior
+
+Confirmed whole-product supplier credit is an asset, not Cash or a refund of the
+original card payment. The
+[supplier-resolution workflow](operations-products.md#supplier-nonfulfillment-and-future-purchase-credit)
+posts Dr Supplier Credits / Cr Inventory in Transit; application funds a new
+purchase at gross cost, split between the credit and remaining actual funding or
+Supplier Payable. These system journals/product sources feed the existing journal,
+ledger and balance sheet; unused credit stays in Supplier Credits. No sale or
+expense is invented by issuance/application. This clothing-only workflow does
+not use the Shipping Fee Calculator and does not certify historical balances.
+
 - **Accounting route entry**: `/clothing/accounting` renders the Accounting overview dashboard (`AccountingDashboardRoutePage` in `src/app/accounting/_shared/`). It defaults to Year to date and shows KPI cards (revenue, gross profit, net profit and operating expenses with change vs the previous comparable period, gross/net margin, Cash balance), a 12-month P&L trend, operating expenses by category (COGS excluded), a profit snapshot, balance sheet totals with a balanced/out-of-balance badge, top asset accounts, a monthly summary table and quick links. It is read-only and reuses the existing `/api/accounting/profit-loss`, `/profit-loss/details` (last 12 months only) and `/balance-sheet` endpoints, so figures match the P&L and Balance Sheet pages. "Operating expenses" = P&L `expenseTotal - cogsTotal` (includes inventory shrinkage). "Cash" is the `Cash` account only, not payment-method accounts.
 - **Legacy ledger route**: `/clothing/ledger` now redirects to `/clothing/accounting`; route-level navigation changes should be reflected in the accounting docs when this behaviour changes.
 - **Double-entry accounting**: All journal and ledger entries are balanced debit/credit pairs. Manual entries always create two lines.
 - **Account tagging**: Five accounts support sub-tags: Accounts Payable, Forwarder Payable, Courier Payable, Credit Card Payable, Loan Payable. Tagged accounts post as `"{Account} – {Tag}"` in the ledger.
 - **Opening balance cutover date**: All opening entries are posted on a server-configured cutover date; users cannot change the date.
 - **Balance sheet sign convention**: Liabilities and Equity are stored as negative values internally; the UI negates them for display so they appear as positive numbers.
-- **Ledger running balance**: Computed client-side by sorting entries ascending by date and maintaining a cumulative per-account sum.
+- **Ledger running balance**: The API computes actual per-account balances from accounting inception, returning selected-period rows plus opening/closing balances. Period activity totals exclude prior history; search/account filtering and CSV retain the authoritative row balance. The UI distinguishes Brought Forward, Period Movement and Closing Balance.
 - **Transit build-up entries**: Created by the inventory/shipment workflow; editable/deletable via SweetAlert2 dialogs in the Ledger page.
 - **Recurring payments**: Templates define recurring expense or loan payment schedules; drafts are generated and individually approved (posting to ledger) or skipped.
 - **P&L formulas**: `Gross Profit = Revenue - COGS`; `Net Profit = Revenue - All Expenses (including COGS)`.
 - **Expense source filtering**: Expenses with `sourceType === 'PRODUCT'` or `'SHIPMENT'` are excluded from operational expense views (shown only in source-specific contexts).
-- **Period options (all modules)**: All Time, This Month, Last Month, This Year, Last Year, Last 30 Days, Last 90 Days.
+- **Shared accounting period options**: All Time, This Month (month to date), Last Month (complete), Last 30 Days, This Year (year to date) and explicit Full Calendar Year. The dashboard labels This Year as Year to date and compares it with the same Manila dates last year. Full Calendar Year deliberately spans January through December with a full prior-year comparison; balance-sheet/refund snapshots still stop at today, not a projected future year-end. BI's separate filters are documented in its own contract.
+
+### Approved Customer Money And CARD Recognition
+
+Clothing cancellation approval creates a noncash Refunds Payable obligation,
+releasing Customer Deposits/receivables and separately recognizing any approved
+retained original deposit. Actual partial/full payouts debit that liability and
+credit Cash. Immutable pre-cancellation status snapshots preserve original
+receipt/invoice sources. Reports use event dates, not merely current status;
+before-invoice non-reservation receipts already recognized as revenue are not
+recognized a second time by the invoice. Reservation deposits apply to A/R on
+recognition without leaving a duplicate deposit liability.
+
+Incoming CARD debits Card Collections Clearing (an Asset), not Cash or outgoing
+Credit Card Payable. The manual ledger has actual card-settlement and processing-
+fee presets; settlement transfers the amount to Cash and actual fees are separate
+dated expenses. These presets do not create another customer receipt or an
+automatic processor integration. Historical CARD receipts retain their asset
+classification through cancellation/forfeiture.
+
+Both refund reminders, Customers, accounting dashboard and BI share dated
+approval/payout totals. Pending liability and paid refunds remain distinct from
+Cash. BI's approved-retention total is explicitly labelled and is not a claim
+that all legacy forfeitures are reconciled. See the current
+[implementation evidence](../../../plan.md#current-lifecycle-and-reporting-implementation-evidence)
+for actual tests, rollout prerequisites and remaining cross-report proof.
 
 ---
 

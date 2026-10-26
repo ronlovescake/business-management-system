@@ -24,6 +24,7 @@ import { normalizeTransactionAmountsForAccounting } from '@/lib/accounting/trans
 import { buildCogsAndInventoryEntries } from '@/lib/accounting/general-merchandise/inventory-cogs';
 import { getRuntimeAccountingCutoverDate } from '@/lib/accounting/cutover';
 import { normalizeAccountForReporting } from '@/lib/accounting/account-normalization';
+import { buildLedgerPeriod } from '@/lib/accounting/ledger-balances';
 import { prisma } from '@/lib/db';
 import {
   getObjectField,
@@ -44,7 +45,8 @@ async function clampFrom(from: Date | null): Promise<Date> {
 
 export const GET = withErrorHandler(async (req: NextRequest) => {
   const { from, to } = parseDateRangeFromParams(req.nextUrl.searchParams);
-  const effectiveFrom = await clampFrom(from);
+  const reportFrom = await clampFrom(from);
+  const effectiveFrom = await clampFrom(null);
   const effectiveTo = to ?? null;
 
   const transactions = await fetchGeneralMerchandisePaidTransactions();
@@ -871,10 +873,20 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
     }))
     .sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0));
 
+  const {
+    entries: periodEntries,
+    openingBalances,
+    closingBalances,
+    ...periodStats
+  } = buildLedgerPeriod(allEntries, reportFrom, effectiveTo);
+  const period = buildPeriodLabel(reportFrom, effectiveTo);
   return ApiResponse.success({
-    entries: allEntries,
-    period: buildPeriodLabel(effectiveFrom, effectiveTo),
-    from: effectiveFrom.toISOString(),
+    entries: periodEntries,
+    openingBalances,
+    closingBalances,
+    stats: { ...periodStats, period },
+    period,
+    from: reportFrom.toISOString(),
     to: effectiveTo ? effectiveTo.toISOString() : null,
   });
 });

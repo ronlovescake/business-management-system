@@ -48,7 +48,7 @@ export const LedgerListTable = memo(function LedgerListTable({
         <Table
           highlightOnHover
           withTableBorder
-          style={{ tableLayout: 'fixed' }}
+          style={{ tableLayout: 'fixed', minWidth: 1100 }}
         >
           <Table.Thead style={ACCOUNTING_TABLE_HEAD_STICKY_STYLE}>
             <Table.Tr>

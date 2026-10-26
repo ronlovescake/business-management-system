@@ -115,6 +115,8 @@ export interface ExtendedMetrics {
 }
 
 export interface ProfitSnapshot {
+  forfeitedDepositsTotal?: number;
+  valuation?: import('@/lib/accounting/inventoryCogsShared').InventoryValuationSummary;
   revenueTotal: number;
   cogsTotal: number;
   grossProfit: number;

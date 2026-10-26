@@ -6,6 +6,7 @@
  */
 
 import { FormatterService } from '@/services/FormatterService';
+import { dayjs } from '@/utils/date';
 import type {
   DueDateItem,
   DueDateStats,
@@ -23,26 +24,37 @@ export class DueDateService {
    */
   static formatDate = FormatterService.formatDateShort;
 
-  /**
-   * Calculate due date (Invoice Date + 3 days)
-   * Returns the exact timestamp 72 hours after invoice
-   *
-   * Handles both old format ("November 7, 2025") and new ISO timestamps
-   */
-  static calculateDueDate(invoiceDate: string): string {
-    if (!invoiceDate || invoiceDate.trim() === '') {
-      return '';
+  private static parseInvoiceDate(invoiceDate: string) {
+    const value = invoiceDate?.trim();
+    if (!value) {
+      return null;
     }
 
     try {
-      const invoiceTime = new Date(invoiceDate);
-
-      // Add exactly 72 hours (3 days × 24 hours)
-      const dueTime = new Date(invoiceTime.getTime() + 72 * 60 * 60 * 1000);
-      return dueTime.toISOString();
-    } catch (error) {
-      return '';
+      const parsed = /(?:Z|[+-]\d{2}:?\d{2})$/i.test(value)
+        ? dayjs(value).tz('Asia/Manila')
+        : dayjs.tz(
+            dayjs(value).format('YYYY-MM-DDTHH:mm:ss.SSS'),
+            'Asia/Manila'
+          );
+      if (!parsed.isValid()) {
+        return null;
+      }
+      if (
+        /^\d{4}-\d{2}-\d{2}$/.test(value) &&
+        parsed.format('YYYY-MM-DD') !== value
+      ) {
+        return null;
+      }
+      return parsed;
+    } catch {
+      return null;
     }
+  }
+
+  static calculateDueDate(invoiceDate: string): string {
+    const invoice = this.parseInvoiceDate(invoiceDate);
+    return invoice ? invoice.add(3, 'day').endOf('day').toISOString() : '';
   }
 
   /**
@@ -58,27 +70,23 @@ export class DueDateService {
       const now = new Date();
 
       const diffTime = due.getTime() - now.getTime();
-      const diffHours = Math.round(diffTime / (1000 * 60 * 60));
-      return diffHours;
+      const diffHours = diffTime / (1000 * 60 * 60);
+      if (!Number.isFinite(diffHours)) {
+        return 0;
+      }
+      return diffHours < 0 ? Math.floor(diffHours) : Math.ceil(diffHours);
     } catch (error) {
       return 0;
     }
   }
 
-  /**
-   * Calculate total hours from invoice date to due date (always 72 hours for 3 days)
-   */
   static calculateTotalHoursToDue(invoiceDate: string): number {
-    if (!invoiceDate || invoiceDate.trim() === '') {
-      return 0;
-    }
-
-    try {
-      // Since due date is always Invoice Date + 3 days, this is always 72 hours
-      return 72;
-    } catch (error) {
-      return 0;
-    }
+    const invoice = this.parseInvoiceDate(invoiceDate);
+    return invoice
+      ? Math.ceil(
+          invoice.add(3, 'day').endOf('day').diff(invoice, 'hour', true)
+        )
+      : 0;
   }
 
   /**

@@ -1,5 +1,6 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { randomUUID } from 'crypto';
+import { PrismaClient } from '@prisma/client';
 import { prisma } from '@/lib/db';
 import { NextRequest } from 'next/server';
 import { POST as replaceInvoices } from '@/app/api/invoices/route';
@@ -12,6 +13,55 @@ import { getServerSession } from 'next-auth/next';
 import { getServerSession as getMessageSession } from 'next-auth';
 import type * as NextAuth from 'next-auth';
 import { createClothingAccountingFixture } from './clothing-accounting-fixture';
+
+const returnFixtures: Array<{
+  productId: number;
+  shipmentId: number;
+  productCode: string;
+  customerId?: number;
+  transactionId?: number;
+}> = [];
+
+afterEach(async () => {
+  if (!returnFixtures.length) {
+    return;
+  }
+  const cleanup = new PrismaClient();
+  try {
+    for (const fixture of returnFixtures) {
+      await cleanup.inventoryMovement.deleteMany({
+        where: { productCode: fixture.productCode },
+      });
+      if (fixture.transactionId !== undefined) {
+        await cleanup.transactionRefund.deleteMany({
+          where: { transactionId: fixture.transactionId },
+        });
+        await cleanup.transactionStatusChange.deleteMany({
+          where: { transactionId: fixture.transactionId },
+        });
+        await cleanup.transaction.deleteMany({
+          where: { id: fixture.transactionId },
+        });
+      }
+      await cleanup.productCodeAlias.deleteMany({
+        where: { productId: fixture.productId },
+      });
+      await cleanup.product.deleteMany({ where: { id: fixture.productId } });
+      await cleanup.shipment.deleteMany({ where: { id: fixture.shipmentId } });
+      if (fixture.customerId !== undefined) {
+        await cleanup.generalMerchandiseCustomer.deleteMany({
+          where: { clothingCustomerId: fixture.customerId },
+        });
+        await cleanup.customer.deleteMany({
+          where: { id: fixture.customerId },
+        });
+      }
+    }
+  } finally {
+    returnFixtures.length = 0;
+    await cleanup.$disconnect();
+  }
+});
 
 vi.mock('next-auth/next', () => ({
   getServerSession: vi.fn(),
@@ -173,9 +223,15 @@ describe('Integration • Follow-up clothing persistence', () => {
   });
 
   it.each(['sellable', 'damaged_hold', 'scrap'] as const)(
-    'creates and deletes a physical %s return without changing the original sale',
+    'preserves a completed physical %s return and the original sale when deletion is attempted',
     async (restockBucket) => {
       const fixture = await createClothingAccountingFixture();
+      const tracked: (typeof returnFixtures)[number] = {
+        productId: fixture.product.id,
+        shipmentId: fixture.shipment.id,
+        productCode: fixture.shipmentCode,
+      };
+      returnFixtures.push(tracked);
       const customer = await prisma.customer.create({
         data: {
           customerName: `Return ${randomUUID()}`,
@@ -191,6 +247,7 @@ describe('Integration • Follow-up clothing persistence', () => {
           customerStatus: 'active',
         },
       });
+      tracked.customerId = customer.id;
       const sale = await prisma.transaction.create({
         data: {
           customerId: customer.id,
@@ -199,11 +256,13 @@ describe('Integration • Follow-up clothing persistence', () => {
           orderDate: '2026-10-24',
           quantity: 4,
           unitPrice: 25,
-          lineTotal: 100,
+          adjustment: 100,
+          lineTotal: 0,
           orderStatus: 'Shipped',
           shipmentCode: fixture.shipmentCode,
         },
       });
+      tracked.transactionId = sale.id;
       const movement = await prisma.inventoryMovement.create({
         data: {
           productId: fixture.product.id,
@@ -255,11 +314,19 @@ describe('Integration • Follow-up clothing persistence', () => {
           params: { id: String(customer.id), refundId: String(refund.id) },
         }
       );
-      expect(deleted.status).toBe(200);
+      expect(deleted.status).toBe(409);
       expect(
         await prisma.transactionRefund.findFirst({ where: { id: refund.id } })
-      ).toBeNull();
-      expect(await prisma.inventoryMovement.findMany({ where })).toEqual([]);
+      ).toMatchObject({ id: refund.id, deletedAt: null, amount: 50 });
+      expect(await prisma.inventoryMovement.findMany({ where })).toEqual([
+        expect.objectContaining({
+          quantity: 2,
+          unitCost: 10,
+          fromBucket: 'sold',
+          toBucket: restockBucket,
+          deletedAt: null,
+        }),
+      ]);
       expect(
         await prisma.inventoryMovement.findFirst({ where: { id: movement.id } })
       ).toEqual(movement);

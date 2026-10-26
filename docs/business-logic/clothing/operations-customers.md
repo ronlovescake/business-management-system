@@ -15,6 +15,9 @@
 > - `src/app/clothing/operations/customers/[id]/components/EditCustomerModal.tsx`
 > - `src/app/clothing/operations/customers/[id]/components/AdditionalCustomerInfoCard.tsx`
 > - `src/app/clothing/operations/customers/[id]/components/OrdersAndTransactions.tsx`
+> - `src/app/api/customers/[id]/payments/route.ts`
+> - `src/app/api/transactions/payments/bulk/route.ts`
+> - `src/lib/validations/transaction-payment.validation.ts`
 
 ---
 
@@ -179,32 +182,32 @@ space to remain readable. Double-click a customer name to open its detail page.
 
 ## L — Record Refund
 
-| #   | Logic                                                                                                 | Explanation                                                                                                                                                       |
-| --- | ----------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 62  | "Record Refund" button opens a modal on the Return/Refund tab                                         | Clicking the button sets `refundModalOpen = true`.                                                                                                                |
-| 63  | Transaction is required (linked to a specific transaction)                                            | The "Transaction" Select field is `withAsterisk`; the mutation throws "You must select a transaction" if `refundTransactionId` is null or not a valid number.     |
-| 64  | Refund date is required                                                                               | The mutation throws "Please provide a refund date." if `refundDate` is blank. Default value is today's date in `YYYY-MM-DD` format.                               |
-| 65  | Refund amount must be > 0                                                                             | The mutation throws "Refund amount must be greater than 0." if `refundAmount` is not a positive finite number.                                                    |
-| 66  | Returned Quantity is optional and supports up to 3 decimal places                                     | `returnedQuantity` is tracked separately from the monetary `amount`; it may be left blank.                                                                        |
-| 67  | Restock Bucket is optional with six choices                                                           | Drop-down allows selecting the inventory bucket the returned item should be placed into: `sellable`, `damaged_hold`, `reserved`, `assembly_wip`, `scrap`, `sold`. |
-| 68  | Reason is optional free text                                                                          | Trimmed before saving; sent as `undefined` (omitted) if blank.                                                                                                    |
-| 69  | Notes is optional textarea                                                                            | Trimmed before saving; sent as `undefined` (omitted) if blank.                                                                                                    |
-| 70  | Successful refund shows a green toast "✅ Refund recorded"                                            | Toast confirms the save and the modal closes automatically.                                                                                                       |
-| 71  | Failed refund shows a red toast with the extracted error message                                      | `getRefundErrorMessage` extracts the human-readable message from the API error payload, falling back to a generic string.                                         |
-| 72  | After save, the refund form is completely reset                                                       | `refundTransactionId` is cleared, `refundDate` resets to today, `refundAmount` resets to 0, and reason/notes are cleared.                                         |
-| 73  | Refund list shows: Date, Amount (red), Transaction label, Returned Qty, Restock Bucket, Reason, Notes | Transaction label is formatted as `"PRODUCT_CODE • #id"` if the linked transaction is found.                                                                      |
-| 74  | Total refunded amount is shown on the "Return/Refund" tab badge                                       | `totalRefunded = Σ refunds[i].amount` displayed next to the tab label.                                                                                            |
+| #   | Logic                                                                                                 | Explanation                                                                                                                                                                                                          |
+| --- | ----------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 62  | "Record Refund" button opens a modal on the Return/Refund tab                                         | Clicking the button sets `refundModalOpen = true`.                                                                                                                                                                   |
+| 63  | Transaction is required; approved cancellations use their own payout surface                          | The ordinary goods-refund selector excludes every order with a cancellation approval, including completed payouts. It fails closed while approvals are unavailable. Delivered/damaged-item refunds remain available. |
+| 64  | Refund date is required                                                                               | The mutation throws "Please provide a refund date." if `refundDate` is blank. Default value is today's date in `YYYY-MM-DD` format.                                                                                  |
+| 65  | Refund amount must be > 0                                                                             | The mutation throws "Refund amount must be greater than 0." if `refundAmount` is not a positive finite number.                                                                                                       |
+| 66  | Returned Quantity is optional and supports up to 3 decimal places                                     | `returnedQuantity` is tracked separately from the monetary `amount`; it may be left blank.                                                                                                                           |
+| 67  | Restock Bucket is optional with six choices                                                           | Drop-down allows selecting the inventory bucket the returned item should be placed into: `sellable`, `damaged_hold`, `reserved`, `assembly_wip`, `scrap`, `sold`.                                                    |
+| 68  | Reason is optional free text                                                                          | Trimmed before saving; sent as `undefined` (omitted) if blank.                                                                                                                                                       |
+| 69  | Notes is optional textarea                                                                            | Trimmed before saving; sent as `undefined` (omitted) if blank.                                                                                                                                                       |
+| 70  | Successful refund shows a green toast "✅ Refund recorded"                                            | Toast confirms the save and the modal closes automatically.                                                                                                                                                          |
+| 71  | Failed refund shows a red toast with the extracted error message                                      | `getRefundErrorMessage` extracts the human-readable message from the API error payload, falling back to a generic string.                                                                                            |
+| 72  | After save, the refund form is completely reset                                                       | `refundTransactionId` is cleared, `refundDate` resets to today, `refundAmount` resets to 0, and reason/notes are cleared.                                                                                            |
+| 73  | Refund list shows: Date, Amount (red), Transaction label, Returned Qty, Restock Bucket, Reason, Notes | Transaction label is formatted as `"PRODUCT_CODE • #id"` if the linked transaction is found.                                                                                                                         |
+| 74  | Total refunded amount is shown on the "Return/Refund" tab badge                                       | `totalRefunded = Σ refunds[i].amount` displayed next to the tab label.                                                                                                                                               |
 
 ---
 
-## M — Delete Refund
+## M — Preserved Refund History
 
-| #   | Logic                                                            | Explanation                                                                                                                                                 |
-| --- | ---------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 75  | Deleting a refund requires SweetAlert2 confirmation              | `showConfirm({ title: 'Delete refund?', message: 'This will hide the refund record (soft delete).' })` must return `true` before the delete mutation fires. |
-| 76  | Delete is a soft delete                                          | The API hides the refund record rather than permanently removing it — the message in the confirmation dialog explicitly states "soft delete".               |
-| 77  | Successful delete shows a green toast "Refund deleted"           | Confirms the record was hidden.                                                                                                                             |
-| 78  | Failed delete shows a red toast with the extracted error message | Same `getRefundErrorMessage` helper as the create flow.                                                                                                     |
+| #   | Logic                                                               | Explanation                                                                                                 |
+| --- | ------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------- |
+| 75  | Clothing does not show refund-delete controls                       | A recorded payout remains in history; its authenticated DELETE endpoint returns 409 without mutation.       |
+| 76  | Cancellation payouts retain their approval and actual-payment links | Approval does not move money; dated partial or full payouts reduce the pending amount.                      |
+| 77  | No customer-returned-refund feature is part of this workflow        | The owner's later clarification supersedes the hypothetical recovery example in the implementation plan.    |
+| 78  | GM keeps its existing separate refund workflow                      | The shared component disables the Clothing approval query for GM and retains GM-specific deletion behavior. |
 
 ---
 
@@ -246,6 +249,54 @@ space to remain readable. Double-click a customer name to open its detail page.
 | 96  | Ctrl+F focuses the search input                              | `useCtrlFFocus` attaches a keyboard shortcut that moves focus to the element with `data-ctrlf-target="customers-search-input"`.                                |
 
 ---
+
+## Payment Amount Validation
+
+| #   | Logic                                                           | Explanation                                                                                                                                                                                                                     |
+| --- | --------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 97  | New direct and bulk collections require finite positive amounts | The shared payment-create schema rejects zero, negative and non-finite amounts. Bulk consumes the same schema rather than overriding its amount rule.                                                                           |
+| 98  | The normalized payment must remain positive                     | Direct and bulk routes use the existing two-decimal number sanitizer and reject amounts that round to zero before payment creation or balance updates. One-cent payments remain valid; rounding policy is unchanged.            |
+| 99  | Invalid bulk input does not partially record a batch            | Input validation/sanitization occurs before the payment-write transaction; a valid payment alongside an invalid amount does not get inserted. This does not establish concurrency or retry safety for otherwise valid requests. |
+
+The initial positive-amount batch applies to new requests only. Subsequent
+Clothing collection rules below enforce the owner-approved exact remaining
+balance and original-deposit agreement without rewriting historical payments.
+Implementation evidence and remaining validation are tracked in the
+[implementation register](../../../plan.md#integrity-and-recovery-workstreams).
+
+### Clothing Collection, Cancellation And Payout Contract
+
+- Direct and bulk collection authenticate before business reads, require a stable
+  UUID Idempotency-Key and use a Serializable transaction with bounded conflict
+  retry. Identical replay returns the recorded result; changed details conflict.
+- New collections cannot exceed the exact remaining balance. Terminal orders and
+  unexplained legacy paid adjustments require review. A/R collection does not
+  accept a new reservation deposit; exact full A/R payment becomes Shipped.
+- The first Reservation Deposit explicitly records 10% or 20% of the order,
+  its exact amount, confirmation date and actor. Later installments cannot
+  overwrite it. Missing historical agreements require administrator confirmation,
+  not an inference from aggregate receipts. No separate Reservation Fee exists.
+- Paid Cancelled/Voided decisions use the customer-money service, not ordinary
+  status edits. Only administrators approve paid decisions. Retain the entire
+  known original deposit or approve an emergency full refund; Voided retains zero.
+  Unpaid receivable closure is separate from cash owed back to the customer.
+- Approval is noncash. Only actual dated payouts reduce Cash and pending refunds;
+  payouts never create a stock return. Actual goods returns remain separate.
+- Closed financial snapshots and receipts backing a cancellation, recorded
+  original deposit or keyed collection cannot be rewritten/deleted through
+  generic single/bulk edits or the legacy receipt-delete endpoint. Harmless notes
+  and unchanged historical Forfeited outcomes remain readable.
+- Customers executes payouts and displays approval/payout date, actor and refund
+  links. Both reminders use the same scoped summary/cache and customer link;
+  reminders never execute payouts. Dashboard and BI distinguish pending from paid.
+
+Owning code: `src/lib/accounting/customer-money.ts`,
+`src/lib/accounting/financial-transactions.ts`,
+`src/modules/transactions/api/service-calculations.ts`, the Clothing direct/bulk
+payment endpoints and `src/components/refunds/`. This lifecycle is Clothing-only;
+GM, trucking and household policies are not silently replaced. The additive
+migration remains unapplied to existing databases. Mocked and isolated-browser
+checks are not proof of actual database races, migration replay or reconciliation.
 
 ## Permanent Order Customer Identity
 

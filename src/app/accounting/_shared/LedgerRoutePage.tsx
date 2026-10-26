@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { Stack } from '@mantine/core';
+import { Group, Stack, Text } from '@mantine/core';
 import { PageLayout } from '@/components/layout/PageLayout';
 import { LedgerStatsCards } from '@/app/clothing/accounting/ledger/components/LedgerStatsCards';
 import { LedgerControls } from '@/app/clothing/accounting/ledger/components/LedgerControls';
@@ -32,6 +32,7 @@ export function LedgerRoutePage(props: LedgerRoutePageProps) {
   const {
     entries,
     filteredEntries,
+    accountBalance,
     loadError,
     stats,
     refreshLedger,
@@ -146,16 +147,34 @@ export function LedgerRoutePage(props: LedgerRoutePageProps) {
             isSaving={isSavingOpeningEntry}
           />
         ) : (
-          <LedgerListTable
-            entries={entries}
-            filteredEntries={filteredEntries}
-            formatDate={formatDate}
-            formatCurrency={formatCurrency}
-            onEditManualEntry={openManualEntryModalForEdit}
-            onDeleteManualEntry={deleteManualEntry}
-            onEditTransitBuildEntry={editTransitBuildEntry}
-            onDeleteTransitBuildEntry={deleteTransitBuildEntry}
-          />
+          <Stack gap="sm">
+            {accountBalance && (
+              <Group gap="xl" wrap="wrap" aria-label="Account balances">
+                <Text size="sm" fw={600}>
+                  {accountBalance.account}
+                </Text>
+                <Text size="sm">
+                  Brought Forward: {formatCurrency(accountBalance.opening)}
+                </Text>
+                <Text size="sm">
+                  Period Movement: {formatCurrency(accountBalance.movement)}
+                </Text>
+                <Text size="sm" fw={600}>
+                  Closing Balance: {formatCurrency(accountBalance.closing)}
+                </Text>
+              </Group>
+            )}
+            <LedgerListTable
+              entries={entries}
+              filteredEntries={filteredEntries}
+              formatDate={formatDate}
+              formatCurrency={formatCurrency}
+              onEditManualEntry={openManualEntryModalForEdit}
+              onDeleteManualEntry={deleteManualEntry}
+              onEditTransitBuildEntry={editTransitBuildEntry}
+              onDeleteTransitBuildEntry={deleteTransitBuildEntry}
+            />
+          </Stack>
         )}
 
         <OpeningBalanceEntryModal

@@ -21,6 +21,13 @@
 
 ## B — GM-Specific Data Seeding & Persistence
 
+The shared new-default copy uses Reservation Deposit and reviewed decisions,
+not a separate fee, automatic installment forfeiture or automatic cancellation.
+Saved/custom GM templates are not overwritten and retain their IDs. The shared
+invoice-PDF route accepts old fee aliases but generates deposit wording and the
+three-day Manila deadline. This presentation change does not introduce Clothing
+approval/payout models into GM or certify GM payment/accounting behavior.
+
 | #   | Logic                                                                                 | Explanation                                                                                                               |
 | --- | ------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
 | 4   | The route loads GM message templates from `generalMerchandiseMessageTemplate` records | The page queries GM-specific template records before rendering.                                                           |

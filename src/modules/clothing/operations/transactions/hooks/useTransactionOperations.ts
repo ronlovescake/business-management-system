@@ -80,6 +80,10 @@ interface UseTransactionOperationsProps {
     onCancel: () => void;
   }) => void;
   onVoidedStatusSaved?: (customerName: string) => void | Promise<void>;
+  onCancellationRequested?: (
+    transaction: TransactionData,
+    status: 'Cancelled' | 'Voided'
+  ) => Promise<void>;
 }
 
 interface UseTransactionOperationsReturn {
@@ -127,6 +131,7 @@ export function useTransactionOperations(
     apiBasePath,
     onCustomerWarning,
     onVoidedStatusSaved,
+    onCancellationRequested,
   } = props;
 
   const queryClient = useQueryClient();
@@ -633,6 +638,7 @@ export function useTransactionOperations(
         },
         logNotification,
         onVoidedStatusSaved,
+        onCancellationRequested,
         fireAlert: (options) => Swal.fire(options),
       });
 
@@ -651,6 +657,7 @@ export function useTransactionOperations(
       getTransaction,
       onCustomerWarning,
       onVoidedStatusSaved,
+      onCancellationRequested,
       logNotification,
       ensureDraftRow,
       apiBasePath,

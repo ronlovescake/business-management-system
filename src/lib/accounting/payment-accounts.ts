@@ -24,6 +24,15 @@ export function getSupplierSettlementCreditAccount(
   return getPaymentAccountForMethod(paymentMethod);
 }
 
+export function getIncomingCollectionAccount(
+  paymentMethod: string | null | undefined
+): string {
+  if ((paymentMethod ?? '').trim().toUpperCase() === 'CARD') {
+    return 'Card Collections Clearing';
+  }
+  return getPaymentAccountForMethod(paymentMethod) ?? 'Cash';
+}
+
 export function getExpenseCreditAccount(expense: {
   status: string;
   paymentMethod?: string | null;

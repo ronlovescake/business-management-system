@@ -3,9 +3,16 @@ import {
   getExpenseCreditAccount,
   getPaymentAccountForMethod,
   getSupplierSettlementCreditAccount,
+  getIncomingCollectionAccount,
 } from '../payment-accounts';
 
 describe('accounting payment accounts', () => {
+  it('keeps incoming card collections as an unsettled asset without changing outgoing card debt', () => {
+    expect(getIncomingCollectionAccount('CARD')).toBe(
+      'Card Collections Clearing'
+    );
+    expect(getPaymentAccountForMethod('CARD')).toBe('Credit Card Payable');
+  });
   it('maps supplier methods to their actual settlement accounts', () => {
     expect(getSupplierSettlementCreditAccount('CASH')).toBe('Cash');
     expect(getSupplierSettlementCreditAccount('BANK')).toBe('Bank');

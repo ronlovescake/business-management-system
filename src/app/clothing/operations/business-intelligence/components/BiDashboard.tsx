@@ -46,6 +46,10 @@ import { CustomerMixPanel } from './panels/CustomerMixPanel';
 import { WeekdaySalesPanel } from './panels/WeekdaySalesPanel';
 import { ProfitSnapshotPanel } from './panels/ProfitSnapshotPanel';
 import { ChartCard } from '@/components/charts/ChartCard';
+import { RefundPending } from '@/components/refunds/RefundPending';
+import { InventoryValuationNotice } from '@/components/accounting/InventoryValuationNotice';
+import { getFilterStart } from '@/lib/analytics/periodComparison';
+import { getCurrentDateISO, toISODate } from '@/utils/date';
 import { ChartTooltip } from '@/components/charts/ChartTooltip';
 import { KpiCard } from '@/components/charts/KpiCard';
 import {
@@ -139,6 +143,7 @@ export const BiDashboard = memo(function BiDashboard({
   }
 
   const periodBadge = PERIOD_BADGE_LABELS[dateFilter];
+  const refundStart = getFilterStart(dateFilter);
   const comparisonCaption = COMPARISON_CAPTIONS[dateFilter];
   const formatTooltipValue = (value: number, key: string) =>
     key === 'revenue' || key === 'totalValue'
@@ -175,6 +180,17 @@ export const BiDashboard = memo(function BiDashboard({
           />
         </Group>
 
+        {apiBasePath !== '/api/general-merchandise' && (
+          <RefundPending
+            showPaid
+            showTrends
+            asOf={getCurrentDateISO()}
+            from={refundStart ? toISODate(refundStart) : undefined}
+          />
+        )}
+        {profit.enabled && (
+          <InventoryValuationNotice valuation={profit.data?.valuation} />
+        )}
         <SimpleGrid cols={{ base: 1, xs: 2, md: 3, xl: 6 }} spacing="md">
           <KpiCard
             label="Revenue"

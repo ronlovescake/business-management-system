@@ -39,12 +39,12 @@
 
 ## C — Due Date Calculation
 
-| #   | Logic                                                     | Explanation                                                                                                                                                                     |
-| --- | --------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 10  | Due date = Invoice Date + exactly 72 hours                | `DueDateService.calculateDueDate` parses the invoice date string into a `Date` object and adds `72 × 60 × 60 × 1000` milliseconds. Returns ISO string.                          |
-| 11  | Both ISO timestamps and legacy date strings are supported | `new Date(invoiceDate)` handles ISO format (`2025-11-07T00:00:00.000Z`) and the legacy human format ("November 7, 2025") because the browser's `Date` constructor accepts both. |
-| 12  | Invalid or blank invoice date returns an empty string     | `calculateDueDate` catches parsing errors and returns `''`; such items display a blank Due Date and a 0 "Due In" value.                                                         |
-| 13  | "Due In" is expressed in whole hours                      | `calculateHoursUntilDue` computes `(dueDate − now) / (1000 × 60 × 60)` and rounds to the nearest whole number. Negative values mean the due date is in the past (overdue).      |
+| #   | Logic                                                     | Explanation                                                                                                                                                                                                     |
+| --- | --------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 10  | Due date is the end of the third calendar day in Manila   | Owner-approved example: October 26 is due October 29 at 11:59 PM Asia/Manila. The stored cutoff includes the final millisecond of that day. Cancellation remains manual; paid orders are excluded.              |
+| 11  | Both ISO timestamps and legacy date strings are supported | Zoned timestamps first resolve to the Manila business date. Date-only and legacy calendar dates retain their stated calendar components regardless of the server timezone. Invalid calendar dates are rejected. |
+| 12  | Invalid or blank invoice date returns an empty string     | `calculateDueDate` catches parsing errors and returns `''`; such items display a blank Due Date and a 0 "Due In" value.                                                                                         |
+| 13  | "Due In" is expressed in whole hours                      | Remaining positive fractions round upward; overdue fractions round downward so an order is not shown as current after the cutoff has passed. Invalid deadlines return zero.                                     |
 
 ---
 

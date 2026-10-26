@@ -6,6 +6,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import { useSession, signOut } from 'next-auth/react';
 import { useQuery } from '@tanstack/react-query';
 import { queryKeys } from '@/lib/queryKeys';
+import { RefundPending } from '@/components/refunds/RefundPending';
 import { useBusinessStore } from '@/lib/store';
 import { getMessagingPath } from '@/lib/routes';
 import { messagingService } from '@/services/messaging.service';
@@ -208,6 +209,9 @@ export function HeaderQuickActions({
         messagingPath={messagingPath}
       />
       <NotificationsMenu unreadNotifications={unreadNotifications} />
+      {session?.user && selectedBusiness === 'clothing' && (
+        <RefundPending variant="icon" />
+      )}
       <SettingsButton />
       <ProfileMenu
         session={session}

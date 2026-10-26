@@ -33,6 +33,10 @@ import { UniversalModal } from '@/components/modals/UniversalModal';
 
 type TransitBuildEntry = {
   id: string;
+  productId?: number | null;
+  productCode?: string | null;
+  productName?: string | null;
+  eligibleForReclass?: boolean;
   postingDate: string;
   amount: number;
   debitAccount: string;
@@ -123,7 +127,13 @@ export function TransitReclassModal({
       setExpectedTotalAmount(Number(result.expectedTotalAmount ?? 0));
 
       // Default: select all existing entries.
-      setSelectedKeys(new Set(nextEntries.map((e) => e.idempotencyKey)));
+      setSelectedKeys(
+        new Set(
+          nextEntries
+            .filter((entry) => entry.eligibleForReclass !== false)
+            .map((entry) => entry.idempotencyKey)
+        )
+      );
     } catch {
       setEntries([]);
       setExpectedTotalAmount(0);
@@ -213,9 +223,9 @@ export function TransitReclassModal({
     }
 
     const confirmed = await showConfirm({
-      title: 'Delete Transit Build-Up Entry',
-      message: `Delete this entry (${entry.creditAccount} • ₱${formatPhpAmount(Number(entry.amount ?? 0))})? This is a soft delete and will remove it from selection for reclass.`,
-      confirmButtonText: 'Delete',
+      title: 'Delete Accounting Source',
+      message: `Delete the accounting source for ${entry.productCode || entry.creditAccount} (${entry.creditAccount} • ₱${formatPhpAmount(Number(entry.amount ?? 0))})? This removes the original asset and funding posting from reports. To exclude an item from this reclass only, cancel and uncheck its Include box instead.`,
+      confirmButtonText: 'Delete Accounting Source',
       cancelButtonText: 'Cancel',
       type: 'warning',
     });
@@ -274,13 +284,25 @@ export function TransitReclassModal({
     entries.length > 0 &&
     selectedKeys.size > 0;
 
+  const isProductBuild =
+    entries.length > 0 &&
+    entries.every((entry) =>
+      entry.idempotencyKey.startsWith('PRODUCT_TRANSIT_BUILD:')
+    );
+
   const toggleKey = (key: string, checked: boolean) => {
     setSelectedKeys((prev) => {
       const next = new Set(prev);
-      if (checked) {
-        next.add(key);
-      } else {
-        next.delete(key);
+      const selected = entries.find((entry) => entry.idempotencyKey === key);
+      const related = selected?.productId
+        ? entries.filter((entry) => entry.productId === selected.productId)
+        : entries.filter((entry) => entry.idempotencyKey === key);
+      for (const entry of related) {
+        if (checked) {
+          next.add(entry.idempotencyKey);
+        } else {
+          next.delete(entry.idempotencyKey);
+        }
       }
       return next;
     });
@@ -317,7 +339,7 @@ export function TransitReclassModal({
                   <td style="padding: 10px 12px;">${escapeHtml(selectedCount)}</td>
                 </tr>
                 <tr>
-                  <td style="padding: 10px 12px; background: #f8f9fa; font-weight: 600;">Expected Reclass Total</td>
+                  <td style="padding: 10px 12px; background: #f8f9fa; font-weight: 600;">${isProductBuild ? 'Posted Build-Up Total' : 'Expected Reclass Total'}</td>
                   <td style="padding: 10px 12px;">₱${escapeHtml(formatPhpAmount(expectedTotalAmount))}</td>
                 </tr>
                 <tr>
@@ -348,6 +370,7 @@ export function TransitReclassModal({
   };
 
   const mismatch =
+    !isProductBuild &&
     Number.isFinite(expectedTotalAmount) &&
     expectedTotalAmount > 0 &&
     Math.abs(expectedTotalAmount - selectedTotal) > 0.01;
@@ -389,7 +412,9 @@ export function TransitReclassModal({
               }}
             >
               <Text size="xs" tt="uppercase" fw={700} c="dimmed">
-                Expected Reclass Total
+                {isProductBuild
+                  ? 'Posted Build-Up Total'
+                  : 'Expected Reclass Total'}
               </Text>
               <Text size="xl" fw={700} c={mismatch ? 'red' : 'dark'}>
                 ₱{formatPhpAmount(Number(expectedTotalAmount ?? 0))}
@@ -451,6 +476,7 @@ export function TransitReclassModal({
                     <Table.Thead style={{ background: '#f8f9fa' }}>
                       <Table.Tr>
                         <Table.Th style={{ width: '10rem' }}>Include</Table.Th>
+                        <Table.Th>Product</Table.Th>
                         <Table.Th>Credit Account</Table.Th>
                         <Table.Th>Posting Date</Table.Th>
                         <Table.Th ta="right">Amount</Table.Th>
@@ -462,6 +488,7 @@ export function TransitReclassModal({
                         <Table.Tr key={entry.idempotencyKey}>
                           <Table.Td>
                             <Checkbox
+                              disabled={entry.eligibleForReclass === false}
                               checked={selectedKeys.has(entry.idempotencyKey)}
                               onChange={(e) =>
                                 toggleKey(
@@ -469,8 +496,25 @@ export function TransitReclassModal({
                                   e.currentTarget.checked
                                 )
                               }
-                              label="Use"
+                              label="Include"
+                              aria-label={`Include ${entry.productCode || entry.productName || entry.idempotencyKey}`}
                             />
+                          </Table.Td>
+                          <Table.Td>
+                            <Text fw={600}>
+                              {entry.productCode ||
+                                (entry.productId
+                                  ? `Product #${entry.productId}`
+                                  : 'Shipment-level source')}
+                            </Text>
+                            {entry.productName && (
+                              <Text size="sm" c="dimmed">
+                                {entry.productName}
+                              </Text>
+                            )}
+                            {entry.eligibleForReclass === false && (
+                              <Badge color="red">Supplier credit issued</Badge>
+                            )}
                           </Table.Td>
                           <Table.Td>
                             <Stack gap={4}>
@@ -510,7 +554,7 @@ export function TransitReclassModal({
                                 loading={deleteLoadingId === entry.id}
                                 onClick={() => void deleteEntry(entry)}
                               >
-                                Delete
+                                Delete Source
                               </Button>
                             </Group>
                           </Table.Td>

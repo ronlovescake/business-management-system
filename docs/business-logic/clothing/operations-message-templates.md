@@ -3,6 +3,14 @@
 Default initialization uses duplicate-safe inserts so concurrent first page
 loads do not fail on the same default slug. Saved templates are not overwritten.
 
+New defaults use Reservation Deposit, invoice due dates, manually reviewed
+cancellation and separately approved/actually paid refunds. They do not promise
+automatic cancellation, automatic forfeiture of installments, or payment-overdue
+status for fully paid orders awaiting pickup. Existing default IDs are retained
+for compatibility. Existing saved/custom wording is not silently rewritten;
+operators must review it before sending. This copy is shared by empty-table GM
+initialization, but GM keeps its own persistence and refund workflow.
+
 > **Source files:**
 >
 > - `src/modules/clothing/operations/settings/components/InvoiceMessageTab.tsx`

@@ -30,6 +30,7 @@ export const PERIOD_OPTIONS = [
   'Last Month',
   'Last 30 Days',
   'This Year',
+  'Full Calendar Year',
 ] as const;
 
 export type PeriodOption = (typeof PERIOD_OPTIONS)[number];
