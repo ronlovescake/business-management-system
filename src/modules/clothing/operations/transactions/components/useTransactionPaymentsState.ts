@@ -3,6 +3,7 @@ import { showNotification } from '@mantine/notifications';
 import { useQueryClient } from '@tanstack/react-query';
 import { getSwal } from '@/lib/alerts';
 import { api } from '@/lib/api/client';
+import { randomUuid } from '@/lib/utils/randomUuid';
 import { buildApiPath } from '@/lib/api/paths';
 import {
   isCancelledOrderStatus,
@@ -428,7 +429,7 @@ export function useTransactionPaymentsState({
       });
       const payload = JSON.stringify(requestPayload);
       if (pendingSave.current?.payload !== payload) {
-        pendingSave.current = { payload, id: crypto.randomUUID() };
+        pendingSave.current = { payload, id: randomUuid() };
       }
 
       setIsSaving(true);

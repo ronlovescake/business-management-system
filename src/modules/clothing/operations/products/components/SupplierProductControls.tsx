@@ -23,6 +23,7 @@ import {
   IconReceipt,
 } from '@tabler/icons-react';
 import { showConfirm } from '@/lib/alerts';
+import { randomUuid } from '@/lib/utils/randomUuid';
 import {
   COMMON_DATE_INPUT_PROPS,
   formatDateForInput,
@@ -90,9 +91,7 @@ export function SupplierProductControls({
   const [destination, setDestination] = useState('');
   const [reason, setReason] = useState('');
   const [postingDate, setPostingDate] = useState(getCurrentDateISO());
-  const [requestId, setRequestId] = useState(() =>
-    globalThis.crypto.randomUUID()
-  );
+  const [requestId, setRequestId] = useState(() => randomUuid());
   const [saving, setSaving] = useState(false);
   const [recorded, setRecorded] = useState(false);
   const [error, setError] = useState('');
@@ -285,7 +284,7 @@ export function SupplierProductControls({
               onChange={(value) => {
                 setAction(value);
                 setError('');
-                setRequestId(globalThis.crypto.randomUUID());
+                setRequestId(randomUuid());
               }}
               disabled={saving || recorded}
               data={[
@@ -344,8 +343,7 @@ export function SupplierProductControls({
                   updateField('supplierCreditId', value ?? '');
                   updateField(
                     'supplierCreditRequestId',
-                    form.supplierCreditRequestId ||
-                      globalThis.crypto.randomUUID()
+                    form.supplierCreditRequestId || randomUuid()
                   );
                   const selected = credits.find((item) => item.id === value);
                   updateField(

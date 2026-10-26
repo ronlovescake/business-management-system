@@ -1,12 +1,9 @@
 import type { ProductFromAPI } from '@/modules/clothing/operations/inventory/types';
+import { randomUuid } from '@/lib/utils/randomUuid';
 import type { ProductData } from '../types/product.types';
 
 export function createClientId(): string {
-  if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) {
-    return crypto.randomUUID();
-  }
-
-  return `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+  return randomUuid();
 }
 
 export function toInventoryProduct(product: ProductData): ProductFromAPI {

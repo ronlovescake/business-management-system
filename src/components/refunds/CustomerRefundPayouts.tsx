@@ -18,6 +18,7 @@ import { UniversalModal } from '@/components/modals/UniversalModal';
 import { IconCashBanknote, IconRefresh } from '@tabler/icons-react';
 import { useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api/client';
+import { randomUuid } from '@/lib/utils/randomUuid';
 import { getCurrentDateISO } from '@/utils/date';
 import { useRefundObligations } from './RefundPending';
 
@@ -67,7 +68,7 @@ export function CustomerRefundPayouts({ customerId }: { customerId: string }) {
     };
     const payload = JSON.stringify(details);
     if (request.current?.payload !== payload) {
-      request.current = { payload, id: crypto.randomUUID() };
+      request.current = { payload, id: randomUuid() };
     }
     setSaving(true);
     setError(null);

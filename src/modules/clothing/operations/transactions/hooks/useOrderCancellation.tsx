@@ -4,6 +4,7 @@ import React, { useRef, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { showNotification } from '@mantine/notifications';
 import { api } from '@/lib/api/client';
+import { randomUuid } from '@/lib/utils/randomUuid';
 import type { OrderCancellationPreview } from '@/lib/accounting/customer-money';
 import type { TransactionData } from '../types/transaction.types';
 import { OrderCancellationModal } from '../components/OrderCancellationModal';
@@ -45,7 +46,7 @@ export function useOrderCancellation() {
     const key = `${transaction.id}:${kind}`;
     let requestId = requestKeys.current.get(key);
     if (!requestId) {
-      requestId = crypto.randomUUID();
+      requestId = randomUuid();
       requestKeys.current.set(key, requestId);
     }
     await api.post(

@@ -1,5 +1,6 @@
 import { api, ApiError } from '@/lib/api/client';
 import { buildApiPath } from '@/lib/api/paths';
+import { randomUuid } from '@/lib/utils/randomUuid';
 import type { TransactionData } from '../types/transaction.types';
 import { buildDraftCreatePayload } from './transactionOperationUtils';
 
@@ -40,7 +41,7 @@ export async function createDraftTransactionFromRow(
     const rejected =
       error instanceof ApiError && [400, 404, 409, 422].includes(error.status);
     if (rejected && !request.mayHaveCommitted) {
-      request.key = crypto.randomUUID();
+      request.key = randomUuid();
       request.payload = undefined;
     } else {
       request.mayHaveCommitted = true;

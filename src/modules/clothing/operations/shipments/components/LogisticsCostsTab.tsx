@@ -41,6 +41,7 @@ import {
 import { buildApiPath } from '@/lib/api/paths';
 import { COMMON_DATE_INPUT_PROPS } from '@/lib/dateInputConfig';
 import { logger } from '@/lib/logger';
+import { randomUuid } from '@/lib/utils/randomUuid';
 import { toISODate } from '@/utils/date';
 import type { ShipmentData } from '../types/shipment.types';
 import {
@@ -553,7 +554,7 @@ export const LogisticsCostsTab = memo(function LogisticsCostsTab({
       if (pendingPost.current?.signature !== signature) {
         pendingPost.current = {
           signature,
-          requestId: window.crypto.randomUUID(),
+          requestId: randomUuid(),
         };
       }
       try {

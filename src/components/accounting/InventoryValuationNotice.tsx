@@ -13,6 +13,7 @@ import {
 import { UniversalModal } from '@/components/modals/UniversalModal';
 import { IconAlertTriangle, IconCheck } from '@tabler/icons-react';
 import { api } from '@/lib/api/client';
+import { randomUuid } from '@/lib/utils/randomUuid';
 import type {
   InventoryValuationIssue,
   InventoryValuationSummary,
@@ -47,7 +48,7 @@ export function InventoryValuationNotice({
     const payload = { movementId: selected.movementId, reason: reason.trim() };
     const fingerprint = JSON.stringify(payload);
     if (request.current?.fingerprint !== fingerprint) {
-      request.current = { fingerprint, key: crypto.randomUUID() };
+      request.current = { fingerprint, key: randomUuid() };
     }
     setSaving(true);
     setError(null);

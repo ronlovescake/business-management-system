@@ -20,6 +20,7 @@ import type { NotificationData } from '@mantine/notifications';
 import type { CellEditEvent } from '@/components/ui/HandsontableGrid';
 import { TransactionService } from '../services/TransactionService';
 import { logger } from '@/lib/logger';
+import { randomUuid } from '@/lib/utils/randomUuid';
 import { getSwal } from '@/lib/alerts';
 import type { TransactionData, PriceTier } from '../types/transaction.types';
 import { queryKeys } from '@/lib/queryKeys';
@@ -178,7 +179,7 @@ export function useTransactionOperations(
         return;
       }
       const request = requestsRef.current.get(placeholderRow) ?? {
-        key: crypto.randomUUID(),
+        key: randomUuid(),
       };
       requestsRef.current.set(placeholderRow, request);
       setCreatingDraft(true);

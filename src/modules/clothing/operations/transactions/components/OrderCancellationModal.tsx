@@ -18,6 +18,7 @@ import { IconCheck } from '@tabler/icons-react';
 import { useSession } from 'next-auth/react';
 import { useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api/client';
+import { randomUuid } from '@/lib/utils/randomUuid';
 import type { OrderCancellationPreview } from '@/lib/accounting/customer-money';
 
 type Props = {
@@ -87,7 +88,7 @@ export function OrderCancellationModal({
     };
     const payload = JSON.stringify(details);
     if (request.current?.payload !== payload) {
-      request.current = { payload, id: crypto.randomUUID() };
+      request.current = { payload, id: randomUuid() };
     }
     setSaving(true);
     setError(null);

@@ -18,6 +18,7 @@ import {
 import { UniversalModal } from '@/components/modals/UniversalModal';
 import { IconAdjustments, IconCheck, IconRefresh } from '@tabler/icons-react';
 import { api } from '@/lib/api/client';
+import { randomUuid } from '@/lib/utils/randomUuid';
 import { getCurrentDateISO } from '@/utils/date';
 import { formatCurrencyPHP } from '@/lib/accounting/formatters';
 
@@ -118,7 +119,7 @@ export function InventoryCostCorrections({
     };
     const fingerprint = JSON.stringify(payload);
     if (request.current?.fingerprint !== fingerprint) {
-      request.current = { fingerprint, key: crypto.randomUUID() };
+      request.current = { fingerprint, key: randomUuid() };
     }
     lock.current = true;
     setSaving(true);
