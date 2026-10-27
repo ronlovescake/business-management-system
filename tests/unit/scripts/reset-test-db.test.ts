@@ -111,7 +111,10 @@ describe('test database bootstrap', () => {
       expect(lifecycleRules).toContain(`ADD CONSTRAINT ${constraint}`);
     }
     expect(lifecycleRules).not.toContain('ADD COLUMN');
-    expect(commands[7]).toContain('db seed');
+    expect(commands[7]).toContain(
+      'db execute --file prisma/migrations/20261027160000_clothing_transaction_product_clear/migration.sql'
+    );
+    expect(commands[8]).toContain('db seed');
     const options = result.execute.mock.calls[0][1] as {
       input: string;
       env: { DATABASE_URL: string };
@@ -131,7 +134,7 @@ describe('test database bootstrap', () => {
       'postgresql://test:test@localhost:5433/business_ci_test'
     );
     expect(result.failure).toBeUndefined();
-    expect(result.execute).toHaveBeenCalledTimes(7);
+    expect(result.execute).toHaveBeenCalledTimes(8);
     expect(
       result.execute.mock.calls.some(([command]) => command.includes('db seed'))
     ).toBe(false);

@@ -143,6 +143,11 @@ for (const [migration, definition] of [
   );
 }
 
+run(
+  `${prismaArgs.join(' ')} db execute --file prisma/migrations/20261027160000_clothing_transaction_product_clear/migration.sql --schema prisma/schema.prisma`,
+  'install clothing transaction product clearing rules'
+);
+
 if (shouldSeed) {
   run(
     `${prismaArgs.join(' ')} db seed --schema prisma/schema.prisma`,

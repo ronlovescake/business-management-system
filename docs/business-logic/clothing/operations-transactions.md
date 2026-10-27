@@ -10,6 +10,72 @@ new rows use the current saved tier for their quantity. Product-code changes
 also update linked inventory movement codes so inventory and transaction
 rollups continue to refer to the same product.
 
+### Inline Product Corrections (2026-10-27)
+
+An editable clothing transaction may temporarily have a blank Product Code.
+Clearing it detaches its nullable `productId`; entering a unique active standard
+product code resolves the new link. Customer clearing and re-entry retain their
+existing identity rules. Single PATCH and bulk PUT use the same database rule,
+so a retained full-row draft can also save its cleared product code.
+
+The original product-identity trigger rejected a clear on an already linked row
+with SQLSTATE `23514` ("Product code is missing or ambiguous; choose a unique
+product"), surfaced as HTTP 500. The forward migration
+`prisma/migrations/20261027160000_clothing_transaction_product_clear/migration.sql`
+allows blank codes only for updates to clothing transactions. Other tables,
+nonblank missing/ambiguous replacement checks, and explicit product-ID/code
+consistency on insertion retain their existing protections. No existing records,
+quantities, prices, balances or payments are rewritten by the migration.
+
+The clothing transaction service still enforces closed-order financial guards,
+revision checks and atomic row/status/inventory writes. A successful clear
+deactivates owned automatic inventory movements while retaining their product,
+quantity and financial history. Create/import validation and background product
+renames are unchanged; general merchandise uses a separate identity function and
+is outside this requested correction.
+
+Apply the forward migration using the reviewed environment-specific database
+release procedure. The application code does not need rebuilding for this
+trigger-only repair. Development verification applied it only to the isolated
+localhost:5433 test database, not the development business database or production.
+If the grid already retains a failed edit, use its existing refresh-and-retry
+flow after the migration; do not assume the previous failed request saved.
+
+#### Correction Change Record
+
+```json
+{
+  "businessRuleChange": true,
+  "rationale": "Restore the requested clothing transaction clear-and-reenter workflow without weakening product identity checks outside blank transaction updates.",
+  "owner": "Ron, requesting clothing operations owner; the clothing product-identity trigger owns linkage and the clothing transaction service owns financial/status enforcement.",
+  "invariant": "An editable clothing transaction can clear its product link and resolve a unique standard product again; row and owned inventory changes remain atomic, with financial history and revision guards preserved.",
+  "domains": ["clothing"],
+  "policyPaths": ["docs/business-logic/clothing/operations-transactions.md"],
+  "affectedPaths": [
+    "prisma/migrations/20261027160000_clothing_transaction_product_clear/migration.sql",
+    "src/modules/transactions/api/service.ts",
+    "src/modules/transactions/api/transactionInventorySync.ts",
+    "src/modules/clothing/operations/transactions/hooks/useTransactionGridSaveQueue.ts",
+    "scripts/reset-test-db.js"
+  ],
+  "tests": {
+    "paths": [
+      "tests/integration/transaction-save-concurrency.integration.test.ts",
+      "tests/unit/scripts/reset-test-db.test.ts"
+    ],
+    "results": "The new linked-row clear/reenter regression reproduced the original SQLSTATE 23514 before the repair. All 10 transaction save-boundary integration tests passed after the repair and after a fresh isolated database reset/seed, covering single/bulk corrections, customer identity, canonical revisions, inventory history, unchanged invalid/ambiguous and price-table guards, explicit-ID insert validation, rollback, concurrent writers and creation replay. Bootstrap unit tests verify installation before optional seed and retain unsafe-target/failure protections. Guardrails, lint (existing warnings), typecheck, full unit (4377), integration (88), hardening (12) and coverage (4377; repository line coverage 32.17%) passed. Isolated-test inventory ledger controls passed; accounting sanitycheck scanned one remaining baseline transaction and found zero issues. Browser E2E was not run for this SQL-only correction. No development business database or production migration, build, commit, push or deployment was performed."
+  },
+  "docs": {
+    "paths": ["docs/business-logic/clothing/operations-transactions.md"]
+  },
+  "divergence": {
+    "status": "intentional",
+    "reason": "Ron limited the fix to clothing transactions. General merchandise has a separate product-identity function; its existing behavior and all other clothing trigger consumers remain unchanged.",
+    "approvedBy": "Ron, requesting owner, limited the requested fix to /clothing/operations/transactions."
+  }
+}
+```
+
 ## Net Prices And Draft Deletion
 
 Discount is per item and is already included in Unit Price. When a stored line
