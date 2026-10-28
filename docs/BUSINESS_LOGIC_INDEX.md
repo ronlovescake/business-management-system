@@ -11,6 +11,7 @@ This index is the shortest path to the domain and workspace logic documents with
 ### Operations
 
 - [Master Business Workflow, SOP Manual and Employee Knowledge Base](./business-logic/clothing/operations-workflow.md)
+- [Employee Handbook page: access, content and runtime contract](./business-logic/clothing/operations-handbook.md)
 - [Manual invoicing and checkout links](./business-logic/clothing/operations-checkout-links.md)
 - [Transactions](./business-logic/clothing/operations-transactions.md)
 - [Accounts Receivable: current implemented rules](./business-logic/clothing/operations-transactions.md#accounts-receivable-shipped-goods-awaiting-payment)

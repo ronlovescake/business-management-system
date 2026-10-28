@@ -7,7 +7,12 @@ process.env.TZ = 'Asia/Manila';
 const nextConfig = {
   reactStrictMode: true,
   optimizeFonts: false,
+  distDir:
+    process.env.NODE_ENV === 'development'
+      ? process.env.BMS_DEV_DIST_DIR || '.next'
+      : '.next',
   experimental: {
+    serverComponentsExternalPackages: ['isomorphic-dompurify'],
     optimizePackageImports: [
       '@mantine/core',
       '@mantine/hooks',
@@ -25,6 +30,9 @@ const nextConfig = {
       '/api/generate-invoice': [
         'templates/**',
         'settings/invoice-settings.json',
+      ],
+      '/clothing/operations/handbook': [
+        'docs/business-logic/clothing/operations-workflow.md',
       ],
     },
     // Turbopack is enabled via CLI flag: next dev --turbo

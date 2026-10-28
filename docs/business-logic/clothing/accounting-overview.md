@@ -8,6 +8,11 @@ and the [current reconciliation report](../../reports/CLOTHING_SUPPLIER_RECONCIL
 owns execution evidence and open financial findings. A developer contract is not
 a second employee procedure or proof of deployed behavior.
 
+The Employee Handbook at `/clothing/operations/handbook` includes curated
+Accounting explanations for ordinary staff. It does not grant access to
+Accounting screens, imports or posting actions; these retain administrator
+requirements. See the [handbook page contract](operations-handbook.md).
+
 > **Source root:** `src/app/clothing/accounting/`
 > **Docs root:** `docs/business-logic/clothing/`
 

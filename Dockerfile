@@ -90,6 +90,7 @@ COPY --from=builder --chown=node:node /app/scripts ./scripts
 COPY --from=builder --chown=node:node /app/src ./src
 COPY --from=builder --chown=node:node /app/tsconfig.json ./tsconfig.json
 COPY --from=builder --chown=node:node /app/settings ./settings
+COPY --from=builder --chown=node:node /app/docs/business-logic/clothing/operations-workflow.md ./docs/business-logic/clothing/operations-workflow.md
 # Handlebars/HTML templates used at runtime for PDF generation
 # (packing lists, invoices, payslips, distributions).
 COPY --from=builder --chown=node:node /app/templates ./templates

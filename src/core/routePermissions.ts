@@ -25,6 +25,7 @@ export const ROUTE_PERMISSIONS: Record<string, RouteRole[]> = {
 
   // Operations routes - All authenticated users
   '/clothing/operations': ['USER', 'ADMIN', 'SUPER_ADMIN'],
+  '/clothing/operations/handbook': ['USER', 'ADMIN', 'SUPER_ADMIN'],
   '/clothing/operations/customers': ['USER', 'ADMIN', 'SUPER_ADMIN'],
   '/clothing/operations/dispatch': ['USER', 'ADMIN', 'SUPER_ADMIN'],
   '/clothing/operations/transactions': ['USER', 'ADMIN', 'SUPER_ADMIN'],

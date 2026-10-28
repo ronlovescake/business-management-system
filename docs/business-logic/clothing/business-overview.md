@@ -17,6 +17,7 @@ does not imply deployment or certification of historical records.
 | -------------------------- | ---------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
 | Dashboard                  | [operations-dashboard.md](./operations-dashboard.md)                         | Dashboard data and explicit mock/future limitations.                                                                           |
 | Business Intelligence      | [operations-business-intelligence.md](./operations-business-intelligence.md) | Manila report windows, customer/refund metrics and report limitations.                                                         |
+| Employee Handbook          | [operations-handbook.md](./operations-handbook.md)                           | Staff-readable module search and procedures from the canonical manual; Accounting/HR permissions stay unchanged.               |
 | Transactions               | [operations-transactions.md](./operations-transactions.md)                   | Real collections, cancellation approvals, A/R, atomic Clothing imports, conflicts and stock status.                            |
 | Customers                  | [operations-customers.md](./operations-customers.md)                         | Saved identity, actual payout history, ordinary goods refunds and keyed physical-only returns.                                 |
 | Products                   | [operations-products.md](./operations-products.md)                           | Supplier selection, future-purchase credit, explicit posting, five tabs, source-cost composite definitions and identity locks. |
@@ -109,6 +110,7 @@ Each rule file shares a common structure:
 | ---------- | ---------------------- | ---------------------- | ------------------------------------------------------------------------------------------------------------------------ |
 | Operations | Dashboard              | Documented             | Module doc exists and covers current dashboard workflow.                                                                 |
 | Operations | Business Intelligence  | Documented             | Filters, stats, and chart behaviour are documented.                                                                      |
+| Operations | Employee Handbook      | Documented             | Authenticated read-only Operations/Accounting guidance; single-source content, mobile navigation and role boundaries.    |
 | Operations | Transactions           | Documented             | Core transaction workflows, stock dialogs, and status logic are documented.                                              |
 | Operations | Customers              | Documented             | Includes detail-page workflow, refund flow, and cross-tab sync notes.                                                    |
 | Operations | Products               | Documented             | Large workflow surface is documented, including product-owned transit build-up and reclass-to-stock workflows.           |

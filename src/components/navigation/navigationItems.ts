@@ -1,5 +1,6 @@
 import {
   IconBell,
+  IconBook2,
   IconCalendar,
   IconChartBar,
   IconClipboardList,
@@ -243,6 +244,12 @@ export function buildNavigationItems(
         path: `${basePath}/notifications`,
         icon: IconBell as IconComponent,
         order: 12,
+      },
+      {
+        label: 'Employee Handbook',
+        path: `${basePath}/handbook`,
+        icon: IconBook2 as IconComponent,
+        order: 12.5,
       },
       {
         label: 'Settings',
