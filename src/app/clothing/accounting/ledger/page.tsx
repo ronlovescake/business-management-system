@@ -3,5 +3,7 @@
 import { LedgerRoutePage } from '@/app/accounting/_shared/LedgerRoutePage';
 
 export default function LedgerPage() {
-  return <LedgerRoutePage manualEntryGuidance />;
+  return (
+    <LedgerRoutePage manualEntryGuidance showRecurringPaymentsTab={false} />
+  );
 }

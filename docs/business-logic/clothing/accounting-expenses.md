@@ -63,6 +63,34 @@ second-journal-line rollback, and coordinated approval-versus-skip. These checks
 do not certify historical expense/payroll reconciliation or the unchanged GM
 recurring implementation.
 
+### Recurring Payments tab
+
+The Expenses page's **Recurring Payments** tab uses the same layout as Personal
+Expenses ([panel](../../../src/app/clothing/accounting/components/RecurringPaymentsPanel.tsx)).
+It still posts through the journal workflow above, not as manual expense records.
+
+| #   | Logic                                                                                                                                                      | Explanation                                                                                                                                                                                                      |
+| --- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| R1  | Header: `Search recurring payments...`, **Generate Due Drafts**, **Add Recurring Payment**                                                                 | Generation creates drafts due on or before today; it does not post them.                                                                                                                                         |
+| R2  | Table columns: Name, Amount, Kind, Accounts (debit → credit), Next Due (with day of month), Payments Left (with end date), Status (Active/Paused), Actions | Active payments sort first, then by next due date. Search matches name, kind, accounts and description; the description shows on hover.                                                                          |
+| R3  | Double-clicking a row or pressing **Edit** opens the prefilled Edit Recurring Payment form                                                                 | Saving sends only changed fields, so unchanged older due dates are not revalidated against a later cutover. The journal reference previews `RECURRING:<name>`; renaming affects only drafts generated afterward. |
+| R4  | Form fields: Next Due Date, Kind, Monthly Amount, Day of Month, Name, Debit/Credit Account and optional tags, End Date, Active, Description                | Name, a positive amount, day 1-31, next due date and both accounts are required; the end date cannot precede the next due date.                                                                                  |
+| R5  | Row action **Pause/Resume** toggles Active                                                                                                                 | There is no Delete action: the existing delete removes the template and its drafts permanently, including approved-draft history.                                                                                |
+| R6  | Drafts are reviewed in the **Expense List**, not on this tab                                                                                               | See "Recurring rows in the Expense List" below. The panel's own drafts table is shown only where no expense list exists (General Merchandise ledger).                                                            |
+
+### Recurring rows in the Expense List
+
+The list also shows Clothing recurring-payment drafts as read-only rows. They
+are projections of recurring drafts, not Expense records, and approval still
+posts through the journal workflow above.
+
+| #   | Logic                                                                                                                                                                       | Explanation                                                                                                                                                                      |
+| --- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| R7  | Drafts due on or before today appear with category `Recurring Payments`, source `Recurring` and an **Awaiting approval** badge, pinned above every other row                | Highlighted so unapproved dues are easy to see. Approve (check) posts the balanced journal pair; Skip (x) asks for confirmation because skipping is permanent and posts nothing. |
+| R8  | Approved drafts appear on their due date and sort with the other rows, newest first, showing **Posted**                                                                     | Recurring rows have no Edit/Delete; change the schedule on the Recurring Payments tab.                                                                                           |
+| R9  | Stat cards, Filtered Total and Analytics include recurring rows: drafts count toward Pending Approval and approved recurring payments toward Total, Approved and This Month | Owner-approved on 2026-10-29 to match Personal Finance. These totals now mix manual expense records with posted recurring payments.                                              |
+| R10 | CSV export still contains manual expense records only                                                                                                                       | Recurring rows are excluded so an export/import round trip cannot create duplicate manual expenses. The Category filter lists `Recurring Payments`; the add/edit form does not.  |
+
 ## A - Page Layout & Stat Cards
 
 | #   | Logic                                                                                                       | Explanation                                                                                     |

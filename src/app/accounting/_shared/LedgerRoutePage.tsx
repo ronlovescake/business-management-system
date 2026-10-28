@@ -9,18 +9,24 @@ import { LedgerListTable } from '@/app/clothing/accounting/ledger/components/Led
 import { OpeningBalancePanel } from '@/app/clothing/accounting/ledger/components/OpeningBalancePanel';
 import {
   RecurringPaymentsPanel,
+  type RecurringGenerateResult,
   type RecurringPaymentService,
-} from '@/app/clothing/accounting/ledger/components/RecurringPaymentsPanel';
+} from '@/app/clothing/accounting/components/RecurringPaymentsPanel';
 import { OpeningBalanceEntryModal } from '@/app/clothing/accounting/ledger/components/OpeningBalanceEntryModal';
 import { ManualJournalEntryModal } from '@/app/clothing/accounting/components/ManualJournalEntryModal';
 import { LedgerHelpPanel } from '@/app/clothing/accounting/ledger/components/LedgerHelpPanel';
 import { useLedger } from '@/app/clothing/accounting/ledger/hooks/useLedger';
 import { AccountingLoadErrorAlert } from '@/app/accounting/_shared/AccountingLoadErrorAlert';
+import { showNotification } from '@mantine/notifications';
+import { formatDateForInput } from '@/lib/dateInputConfig';
+import { logger } from '@/lib/logger';
+import { ClothingRecurringPaymentService } from '@/services/ClothingRecurringPaymentService';
 
 type LedgerRoutePageProps = {
   apiBasePath?: string;
   recurringPaymentService?: RecurringPaymentService;
   manualEntryGuidance?: boolean;
+  showRecurringPaymentsTab?: boolean;
 };
 
 export function LedgerRoutePage(props: LedgerRoutePageProps) {
@@ -28,6 +34,7 @@ export function LedgerRoutePage(props: LedgerRoutePageProps) {
     apiBasePath,
     recurringPaymentService,
     manualEntryGuidance = false,
+    showRecurringPaymentsTab = true,
   } = props;
   const {
     entries,
@@ -83,7 +90,39 @@ export function LedgerRoutePage(props: LedgerRoutePageProps) {
   const isOpeningBalanceTab = activeTab === 'opening-balance';
   const isHelpTab = activeTab === 'help';
   const isBusinessGuideTab = activeTab === 'business-guide';
-  const isRecurringPaymentsTab = activeTab === 'recurring-payments';
+  const isRecurringPaymentsTab =
+    showRecurringPaymentsTab && activeTab === 'recurring-payments';
+
+  const [recurringSearchQuery, setRecurringSearchQuery] = React.useState('');
+  const [recurringAddOpened, setRecurringAddOpened] = React.useState(false);
+  const [isGeneratingRecurring, setIsGeneratingRecurring] =
+    React.useState(false);
+  const [recurringRefreshToken, setRecurringRefreshToken] = React.useState(0);
+  const [lastRecurringGenerateResult, setLastRecurringGenerateResult] =
+    React.useState<RecurringGenerateResult | null>(null);
+
+  const handleGenerateRecurring = async () => {
+    setIsGeneratingRecurring(true);
+    try {
+      const result = await (
+        recurringPaymentService ?? ClothingRecurringPaymentService
+      ).generate({
+        upToDate: formatDateForInput(new Date()),
+      });
+      setLastRecurringGenerateResult(result);
+      setRecurringRefreshToken((token) => token + 1);
+    } catch (error) {
+      logger.error('Failed to generate recurring drafts', { error });
+      showNotification({
+        title: 'Recurring payments',
+        message:
+          error instanceof Error ? error.message : 'Failed to generate drafts',
+        color: 'red',
+      });
+    } finally {
+      setIsGeneratingRecurring(false);
+    }
+  };
 
   return (
     <PageLayout fluid withPadding>
@@ -122,6 +161,12 @@ export function LedgerRoutePage(props: LedgerRoutePageProps) {
           manualEntryGuidance={manualEntryGuidance}
           onStartGuidedEntry={handleAddEntry}
           onAddOpeningEntry={openOpeningEntryModal}
+          showRecurringPaymentsTab={showRecurringPaymentsTab}
+          recurringSearchQuery={recurringSearchQuery}
+          onRecurringSearchChange={setRecurringSearchQuery}
+          onGenerateRecurring={() => void handleGenerateRecurring()}
+          isGeneratingRecurring={isGeneratingRecurring}
+          onAddRecurring={() => setRecurringAddOpened(true)}
         />
 
         {isHelpTab ? (
@@ -131,6 +176,11 @@ export function LedgerRoutePage(props: LedgerRoutePageProps) {
             accounts={accounts}
             onLedgerUpdated={refreshLedger}
             service={recurringPaymentService}
+            searchQuery={recurringSearchQuery}
+            opened={recurringAddOpened}
+            setOpened={setRecurringAddOpened}
+            refreshToken={recurringRefreshToken}
+            lastGenerateResult={lastRecurringGenerateResult}
           />
         ) : isOpeningBalanceTab ? (
           <OpeningBalancePanel

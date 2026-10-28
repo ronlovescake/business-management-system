@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useMemo, useCallback, useEffect } from 'react';
 import { useSession } from 'next-auth/react';
 import { logger } from '@/lib/logger';
 import {
@@ -33,8 +33,16 @@ import { getAccountingLoadErrorMessage } from '@/lib/accounting/load-error';
 import { useExpenseData } from '@/hooks/useSheetData';
 import { showNotification } from '@mantine/notifications';
 import { getCurrentDateISO } from '@/utils/date';
-import { showError, showDeleteConfirm } from '@/lib/alerts';
+import { showError, showDeleteConfirm, showConfirm } from '@/lib/alerts';
 import { expenseCategoryOptions } from '@/modules/clothing/ledger/utils';
+import { formatDateForInput } from '@/lib/dateInputConfig';
+import type {
+  RecurringPaymentDraftDTO,
+  RecurringPaymentService,
+} from '@/app/clothing/accounting/components/RecurringPaymentsPanel';
+
+export const RECURRING_EXPENSE_SOURCE = 'RECURRING';
+export const RECURRING_EXPENSE_CATEGORY = 'Recurring Payments';
 
 /**
  * Expense Interface
@@ -53,6 +61,8 @@ export interface Expense {
   sourceId?: string | null;
   sourceLineKey?: string | null;
   systemGenerated?: boolean;
+  /** Set only on rows projected from recurring-payment drafts; they are not Expense records. */
+  recurringDraftId?: string;
 }
 
 type ExpenseDTO = {
@@ -97,7 +107,28 @@ const MAX_EXPENSE_IMPORT_ROWS = 1000;
 
 type UseExpensesOptions = {
   expenseDataHook?: () => ReturnType<typeof useExpenseData>;
+  recurringService?: RecurringPaymentService;
+  recurringRefreshToken?: number;
 };
+
+const isPendingRecurring = (expense: Expense) =>
+  Boolean(expense.recurringDraftId) && expense.status === 'pending';
+
+const toRecurringExpense = (draft: RecurringPaymentDraftDTO): Expense => ({
+  id: `recurring:${draft.id}`,
+  date: draft.dueDate,
+  amount: draft.amount,
+  description: draft.template.name,
+  category: RECURRING_EXPENSE_CATEGORY,
+  notes: draft.description ?? '',
+  receipt: null,
+  status: draft.status === 'DRAFT' ? 'pending' : 'approved',
+  sourceType: RECURRING_EXPENSE_SOURCE,
+  sourceId: draft.id,
+  sourceLineKey: null,
+  systemGenerated: true,
+  recurringDraftId: draft.id,
+});
 
 /**
  * Custom Hook: useExpenses
@@ -116,6 +147,7 @@ type UseExpensesOptions = {
 export function useExpenses(options: UseExpensesOptions = {}) {
   const { data: session } = useSession();
   const expenseDataHook = options.expenseDataHook ?? useExpenseData;
+  const { recurringService, recurringRefreshToken = 0 } = options;
   const currentUserName = useMemo(() => {
     const name = session?.user?.name?.trim();
     if (name) {
@@ -208,6 +240,53 @@ export function useExpenses(options: UseExpensesOptions = {}) {
   // STATE MANAGEMENT
   // ============================================================================
 
+  const [recurringDrafts, setRecurringDrafts] = useState<
+    RecurringPaymentDraftDTO[]
+  >([]);
+  const [recurringReloadToken, setRecurringReloadToken] = useState(0);
+  const [busyRecurringDraftId, setBusyRecurringDraftId] = useState<
+    string | null
+  >(null);
+
+  useEffect(() => {
+    if (!recurringService) {
+      return undefined;
+    }
+    let cancelled = false;
+    void (async () => {
+      try {
+        const [pending, approved] = await Promise.all([
+          recurringService.getDrafts({
+            status: 'DRAFT',
+            dueOnOrBefore: formatDateForInput(new Date()),
+          }),
+          recurringService.getDrafts({ status: 'APPROVED' }),
+        ]);
+        if (!cancelled) {
+          setRecurringDrafts([...pending, ...approved]);
+        }
+      } catch (error) {
+        logger.warn('Failed to load recurring payment drafts', { error });
+        if (!cancelled) {
+          setRecurringDrafts([]);
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [recurringService, recurringRefreshToken, recurringReloadToken]);
+
+  const recurringExpenses = useMemo(
+    () => recurringDrafts.map(toRecurringExpense),
+    [recurringDrafts]
+  );
+
+  const listExpenses = useMemo<Expense[]>(
+    () => [...expenses, ...recurringExpenses],
+    [expenses, recurringExpenses]
+  );
+
   const [searchQuery, setSearchQuery] = useState('');
   const [filterCategory, setFilterCategory] = useState<string | null>(null);
   const [filterStatus, setFilterStatus] = useState<string | null>(null);
@@ -241,27 +320,34 @@ export function useExpenses(options: UseExpensesOptions = {}) {
   // ============================================================================
 
   const categories = useMemo<string[]>(() => [...expenseCategoryOptions], []);
+  const filterCategories = useMemo<string[]>(
+    () =>
+      recurringExpenses.length
+        ? [...categories, RECURRING_EXPENSE_CATEGORY]
+        : categories,
+    [categories, recurringExpenses.length]
+  );
 
   const getSourceLabel = getExpenseSourceLabel;
   const getSourceColor = getExpenseSourceColor;
 
   const sourceOptions = useMemo(() => {
     const labels = new Set<string>();
-    expenses.forEach((exp) => {
+    listExpenses.forEach((exp) => {
       const label = getSourceLabel(exp.sourceType);
       if (label) {
         labels.add(label);
       }
     });
     return Array.from(labels).sort((a, b) => a.localeCompare(b));
-  }, [expenses, getSourceLabel]);
+  }, [listExpenses, getSourceLabel]);
 
   // ============================================================================
   // COMPUTED VALUES
   // ============================================================================
 
   const filteredExpenses = useMemo(() => {
-    return filterAndSortExpenses(expenses, {
+    const sorted = filterAndSortExpenses(listExpenses, {
       searchQuery,
       filterCategory,
       filterStatus,
@@ -277,8 +363,12 @@ export function useExpenses(options: UseExpensesOptions = {}) {
       getSourceLabel: (expense) => getSourceLabel(expense.sourceType),
       getDate: (expense) => expense.date,
     });
+    return [
+      ...sorted.filter(isPendingRecurring),
+      ...sorted.filter((expense) => !isPendingRecurring(expense)),
+    ];
   }, [
-    expenses,
+    listExpenses,
     searchQuery,
     filterCategory,
     filterStatus,
@@ -296,10 +386,10 @@ export function useExpenses(options: UseExpensesOptions = {}) {
   const monthlyBreakdown = useMemo((): MonthlyBreakdown[] => {
     return computeMonthlyBreakdownByCategory(
       filteredExpenses,
-      categories,
+      filterCategories,
       totalExpenses
     ) as MonthlyBreakdown[];
-  }, [filteredExpenses, categories, totalExpenses]);
+  }, [filteredExpenses, filterCategories, totalExpenses]);
 
   const loadError = useMemo(() => {
     if (!expenseLoadFailure) {
@@ -347,8 +437,65 @@ export function useExpenses(options: UseExpensesOptions = {}) {
       'Water Bill [Warehouse]': 'blue.4',
       'Business Expense - Others': 'gray.6',
       'Business Expense - Food': 'green.6',
+      [RECURRING_EXPENSE_CATEGORY]: 'violet.6',
     };
     return colorMap[category] || 'gray';
+  };
+
+  const runRecurringDraftAction = async (
+    draftId: string,
+    action: (service: RecurringPaymentService) => Promise<unknown>,
+    successMessage: string
+  ) => {
+    if (!recurringService) {
+      return;
+    }
+    setBusyRecurringDraftId(draftId);
+    try {
+      await action(recurringService);
+      showNotification({
+        title: 'Recurring payments',
+        message: successMessage,
+        color: 'green',
+      });
+    } catch (error) {
+      logger.error('Recurring draft action failed', { error });
+      showNotification({
+        title: 'Recurring payments',
+        message:
+          error instanceof Error ? error.message : 'Recurring action failed',
+        color: 'red',
+      });
+    } finally {
+      setBusyRecurringDraftId(null);
+      setRecurringReloadToken((token) => token + 1);
+    }
+  };
+
+  const handleApproveRecurring = (draftId: string) =>
+    runRecurringDraftAction(
+      draftId,
+      (service) => service.approveDraft(draftId),
+      'Recurring payment approved and posted to the ledger'
+    );
+
+  const handleSkipRecurring = async (draftId: string) => {
+    const confirmed = await showConfirm({
+      title: 'Skip this recurring payment?',
+      message:
+        'Skipping is permanent and posts nothing for this due date. Approve it instead if it was paid.',
+      type: 'warning',
+      confirmButtonText: 'Skip',
+      cancelButtonText: 'Cancel',
+    });
+    if (!confirmed) {
+      return;
+    }
+    await runRecurringDraftAction(
+      draftId,
+      (service) => service.skipDraft(draftId),
+      'Recurring payment skipped'
+    );
   };
 
   // ============================================================================
@@ -674,7 +821,10 @@ export function useExpenses(options: UseExpensesOptions = {}) {
   };
 
   const handleExportCSV = async () => {
-    if (filteredExpenses.length === 0) {
+    const exportableExpenses = filteredExpenses.filter(
+      (expense) => !expense.recurringDraftId
+    );
+    if (exportableExpenses.length === 0) {
       await showError('No expenses to export', 'Export Error');
       return;
     }
@@ -690,7 +840,7 @@ export function useExpenses(options: UseExpensesOptions = {}) {
       'Employee Name',
     ];
 
-    const rows = filteredExpenses.map((expense) => [
+    const rows = exportableExpenses.map((expense) => [
       escapeCsvValue(expense.date),
       escapeCsvValue(expense.amount.toFixed(2)),
       escapeCsvValue(expense.description),
@@ -728,7 +878,7 @@ export function useExpenses(options: UseExpensesOptions = {}) {
 
   return {
     // State
-    expenses,
+    expenses: listExpenses,
     filteredExpenses,
     searchQuery,
     setSearchQuery,
@@ -771,6 +921,7 @@ export function useExpenses(options: UseExpensesOptions = {}) {
 
     // Computed values
     categories,
+    filterCategories,
     sourceOptions,
     totalExpenses,
     pendingExpenses,
@@ -792,6 +943,9 @@ export function useExpenses(options: UseExpensesOptions = {}) {
     handleSaveExpense,
     handleApprove,
     handleReject,
+    handleApproveRecurring,
+    handleSkipRecurring,
+    busyRecurringDraftId,
     handleViewReceipt,
     handleImportCSV,
     handleExportCSV,

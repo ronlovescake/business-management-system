@@ -7,7 +7,9 @@ import {
   IconRepeat,
   IconHelpCircle,
   IconBook,
+  IconSearch,
 } from '@tabler/icons-react';
+import { actionButtonStyles } from '@/components/shared/styles/actionButtonStyles';
 import {
   ControlPanelCard,
   type ControlPanelTabConfig,
@@ -43,6 +45,12 @@ interface LedgerControlsProps {
   onStartGuidedEntry?: (scenarioId: ClothingManualEntryPresetId) => void;
   onAddOpeningEntry?: () => void;
   isImporting?: boolean;
+  showRecurringPaymentsTab?: boolean;
+  recurringSearchQuery?: string;
+  onRecurringSearchChange?: (query: string) => void;
+  onGenerateRecurring?: () => void;
+  isGeneratingRecurring?: boolean;
+  onAddRecurring?: () => void;
 }
 
 export const LedgerControls = memo(function LedgerControls({
@@ -65,6 +73,12 @@ export const LedgerControls = memo(function LedgerControls({
   onStartGuidedEntry,
   onAddOpeningEntry,
   isImporting = false,
+  showRecurringPaymentsTab = true,
+  recurringSearchQuery = '',
+  onRecurringSearchChange,
+  onGenerateRecurring,
+  isGeneratingRecurring = false,
+  onAddRecurring,
 }: LedgerControlsProps) {
   useCtrlFFocus(
     '[data-ctrlf-target="ledger-controls-search"]',
@@ -142,11 +156,33 @@ export const LedgerControls = memo(function LedgerControls({
       panel: (
         <Group wrap="wrap" gap="sm">
           <TextInput
-            placeholder="Recurring payments are managed below"
-            value=""
-            readOnly
+            placeholder="Search recurring payments..."
+            leftSection={<IconSearch size={16} />}
+            value={recurringSearchQuery}
+            onChange={(event) =>
+              onRecurringSearchChange?.(event.currentTarget.value)
+            }
             style={{ flex: 1, minWidth: 220 }}
           />
+          <Button
+            leftSection={<IconRepeat size={16} />}
+            size="sm"
+            radius="sm"
+            styles={actionButtonStyles}
+            onClick={() => onGenerateRecurring?.()}
+            loading={isGeneratingRecurring}
+          >
+            Generate Due Drafts
+          </Button>
+          <Button
+            leftSection={<IconPlus size={16} />}
+            size="sm"
+            radius="sm"
+            color="green"
+            onClick={() => onAddRecurring?.()}
+          >
+            Add Recurring Payment
+          </Button>
         </Group>
       ),
     },
@@ -167,12 +203,16 @@ export const LedgerControls = memo(function LedgerControls({
     });
   }
 
+  const visibleTabs = showRecurringPaymentsTab
+    ? tabs
+    : tabs.filter((tab) => tab.value !== 'recurring-payments');
+
   return (
     <ControlPanelCard
       title="Ledger"
       activeTab={activeTab}
       onTabChange={onTabChange}
-      tabs={tabs}
+      tabs={visibleTabs}
     />
   );
 });

@@ -49,6 +49,9 @@ interface ExpenseListTableProps {
   onMarkPaid?: (id: string) => void;
   onEdit: (expense: Expense) => void;
   onDelete: (id: string) => void;
+  onApproveRecurring?: (draftId: string) => void;
+  onSkipRecurring?: (draftId: string) => void;
+  busyRecurringDraftId?: string | null;
 }
 
 /**
@@ -76,6 +79,9 @@ export const ExpenseListTable = memo(function ExpenseListTable({
   onMarkPaid,
   onEdit,
   onDelete,
+  onApproveRecurring,
+  onSkipRecurring,
+  busyRecurringDraftId = null,
 }: ExpenseListTableProps) {
   const colSpan = showAccountColumn ? 10 : 9;
   const filteredTotal = filteredExpenses.reduce(
@@ -129,194 +135,259 @@ export const ExpenseListTable = memo(function ExpenseListTable({
                 </Table.Td>
               </Table.Tr>
             ) : (
-              filteredExpenses.map((expense) => (
-                <Table.Tr key={expense.id}>
-                  <Table.Td style={ACCOUNTING_TABLE_TD_CENTER_STYLE}>
-                    {formatDate(expense.date)}
-                  </Table.Td>
-                  <Table.Td style={{ textAlign: 'right' }}>
-                    <Text fw={600} c={ACCOUNTING_TABLE_TD_TEXT_STYLE.color}>
-                      {formatCurrency(expense.amount)}
-                    </Text>
-                  </Table.Td>
-                  <Table.Td>
-                    <Text
-                      size="sm"
-                      fw={500}
-                      c={ACCOUNTING_TABLE_TD_TEXT_STYLE.color}
-                    >
-                      {expense.description}
-                    </Text>
-                  </Table.Td>
-                  <Table.Td>
-                    <Badge
-                      color={getCategoryColor(expense.category)}
-                      variant="light"
-                    >
-                      {expense.category}
-                    </Badge>
-                  </Table.Td>
-                  <Table.Td>
-                    <Group gap={6} justify="center">
-                      <Badge
-                        color={getSourceColor(expense.sourceType)}
-                        variant="light"
-                      >
-                        {getSourceLabel(expense.sourceType)}
-                      </Badge>
-                      {expense.systemGenerated && (
-                        <Badge color="gray" variant="outline">
-                          Auto
-                        </Badge>
-                      )}
-                    </Group>
-                  </Table.Td>
-                  {showAccountColumn && (
-                    <Table.Td style={{ textAlign: 'center' }}>
-                      <Text size="sm" c={ACCOUNTING_TABLE_TD_TEXT_STYLE.color}>
-                        {getAccountLabel
-                          ? getAccountLabel(expense.accountId)
-                          : '—'}
+              filteredExpenses.map((expense) => {
+                const recurringDraftId = expense.recurringDraftId;
+                const isAwaitingApproval =
+                  Boolean(recurringDraftId) && expense.status === 'pending';
+                return (
+                  <Table.Tr
+                    key={expense.id}
+                    style={
+                      isAwaitingApproval
+                        ? { backgroundColor: 'var(--mantine-color-yellow-0)' }
+                        : undefined
+                    }
+                  >
+                    <Table.Td style={ACCOUNTING_TABLE_TD_CENTER_STYLE}>
+                      {formatDate(expense.date)}
+                    </Table.Td>
+                    <Table.Td style={{ textAlign: 'right' }}>
+                      <Text fw={600} c={ACCOUNTING_TABLE_TD_TEXT_STYLE.color}>
+                        {formatCurrency(expense.amount)}
                       </Text>
                     </Table.Td>
-                  )}
-                  <Table.Td>
-                    <Text
-                      size="sm"
-                      lineClamp={2}
-                      c={ACCOUNTING_TABLE_TD_TEXT_STYLE.color}
-                    >
-                      {expense.notes || '-'}
-                    </Text>
-                  </Table.Td>
-                  <Table.Td style={{ textAlign: 'center' }}>
-                    {expense.receipt ? (
-                      <Group
-                        gap="xs"
-                        style={{ cursor: 'pointer' }}
-                        onClick={() => {
-                          if (expense.receipt) {
-                            onViewReceipt(expense.receipt);
-                          }
-                        }}
+                    <Table.Td>
+                      <Text
+                        size="sm"
+                        fw={500}
+                        c={ACCOUNTING_TABLE_TD_TEXT_STYLE.color}
                       >
-                        <IconReceipt
-                          size={16}
-                          color={ACCOUNTING_TABLE_TD_TEXT_STYLE.color}
-                        />
-                        <Text
-                          size="xs"
-                          c={ACCOUNTING_TABLE_TD_TEXT_STYLE.color}
-                          style={{ textDecoration: 'underline' }}
-                        >
-                          {expense.receipt}
-                        </Text>
-                      </Group>
-                    ) : (
-                      <Text size="xs" c="dimmed">
-                        No receipt
+                        {expense.description}
                       </Text>
-                    )}
-                  </Table.Td>
-                  <Table.Td style={{ textAlign: 'center' }}>
-                    <Text size="sm" c={ACCOUNTING_TABLE_TD_TEXT_STYLE.color}>
-                      {expense.employeeName || '—'}
-                    </Text>
-                  </Table.Td>
-                  <Table.Td>
-                    <Group gap="xs" justify="center">
-                      {expense.status === 'pending' &&
-                        pendingActionMode === 'approve-reject' && (
-                          <>
-                            <Tooltip label="Approve">
-                              <ActionIcon
-                                color="green"
-                                variant="light"
-                                size="sm"
-                                onClick={() => onApprove?.(expense.id)}
-                                {...getActionLabel(
-                                  'Approve',
-                                  'expense',
-                                  `${expense.employeeName || 'Unknown'} - ${expense.category}`
-                                )}
-                              >
-                                <IconCheck size={16} />
-                              </ActionIcon>
-                            </Tooltip>
-                            <Tooltip label="Reject">
-                              <ActionIcon
-                                color="red"
-                                variant="light"
-                                size="sm"
-                                onClick={() => onReject?.(expense.id)}
-                                {...getActionLabel(
-                                  'Reject',
-                                  'expense',
-                                  `${expense.employeeName || 'Unknown'} - ${expense.category}`
-                                )}
-                              >
-                                <IconX size={16} />
-                              </ActionIcon>
-                            </Tooltip>
-                          </>
+                    </Table.Td>
+                    <Table.Td>
+                      <Badge
+                        color={getCategoryColor(expense.category)}
+                        variant="light"
+                      >
+                        {expense.category}
+                      </Badge>
+                    </Table.Td>
+                    <Table.Td>
+                      <Group gap={6} justify="center">
+                        <Badge
+                          color={getSourceColor(expense.sourceType)}
+                          variant="light"
+                        >
+                          {getSourceLabel(expense.sourceType)}
+                        </Badge>
+                        {expense.systemGenerated && !recurringDraftId && (
+                          <Badge color="gray" variant="outline">
+                            Auto
+                          </Badge>
                         )}
+                        {isAwaitingApproval && (
+                          <Badge color="yellow" variant="light">
+                            Awaiting approval
+                          </Badge>
+                        )}
+                      </Group>
+                    </Table.Td>
+                    {showAccountColumn && (
+                      <Table.Td style={{ textAlign: 'center' }}>
+                        <Text
+                          size="sm"
+                          c={ACCOUNTING_TABLE_TD_TEXT_STYLE.color}
+                        >
+                          {getAccountLabel
+                            ? getAccountLabel(expense.accountId)
+                            : '—'}
+                        </Text>
+                      </Table.Td>
+                    )}
+                    <Table.Td>
+                      <Text
+                        size="sm"
+                        lineClamp={2}
+                        c={ACCOUNTING_TABLE_TD_TEXT_STYLE.color}
+                      >
+                        {expense.notes || '-'}
+                      </Text>
+                    </Table.Td>
+                    <Table.Td style={{ textAlign: 'center' }}>
+                      {expense.receipt ? (
+                        <Group
+                          gap="xs"
+                          style={{ cursor: 'pointer' }}
+                          onClick={() => {
+                            if (expense.receipt) {
+                              onViewReceipt(expense.receipt);
+                            }
+                          }}
+                        >
+                          <IconReceipt
+                            size={16}
+                            color={ACCOUNTING_TABLE_TD_TEXT_STYLE.color}
+                          />
+                          <Text
+                            size="xs"
+                            c={ACCOUNTING_TABLE_TD_TEXT_STYLE.color}
+                            style={{ textDecoration: 'underline' }}
+                          >
+                            {expense.receipt}
+                          </Text>
+                        </Group>
+                      ) : (
+                        <Text size="xs" c="dimmed">
+                          No receipt
+                        </Text>
+                      )}
+                    </Table.Td>
+                    <Table.Td style={{ textAlign: 'center' }}>
+                      <Text size="sm" c={ACCOUNTING_TABLE_TD_TEXT_STYLE.color}>
+                        {expense.employeeName || '—'}
+                      </Text>
+                    </Table.Td>
+                    <Table.Td>
+                      {recurringDraftId ? (
+                        <Group gap="xs" justify="center">
+                          {isAwaitingApproval ? (
+                            <>
+                              <Tooltip label="Approve and post to ledger">
+                                <ActionIcon
+                                  color="green"
+                                  variant="light"
+                                  size="sm"
+                                  loading={
+                                    busyRecurringDraftId === recurringDraftId
+                                  }
+                                  onClick={() =>
+                                    onApproveRecurring?.(recurringDraftId)
+                                  }
+                                  aria-label={`Approve recurring payment ${expense.description}`}
+                                >
+                                  <IconCheck size={16} />
+                                </ActionIcon>
+                              </Tooltip>
+                              <Tooltip label="Skip this due date">
+                                <ActionIcon
+                                  color="gray"
+                                  variant="light"
+                                  size="sm"
+                                  disabled={
+                                    busyRecurringDraftId === recurringDraftId
+                                  }
+                                  onClick={() =>
+                                    onSkipRecurring?.(recurringDraftId)
+                                  }
+                                  aria-label={`Skip recurring payment ${expense.description}`}
+                                >
+                                  <IconX size={16} />
+                                </ActionIcon>
+                              </Tooltip>
+                            </>
+                          ) : (
+                            <Badge color="green" variant="light">
+                              Posted
+                            </Badge>
+                          )}
+                        </Group>
+                      ) : (
+                        <Group gap="xs" justify="center">
+                          {expense.status === 'pending' &&
+                            pendingActionMode === 'approve-reject' && (
+                              <>
+                                <Tooltip label="Approve">
+                                  <ActionIcon
+                                    color="green"
+                                    variant="light"
+                                    size="sm"
+                                    onClick={() => onApprove?.(expense.id)}
+                                    {...getActionLabel(
+                                      'Approve',
+                                      'expense',
+                                      `${expense.employeeName || 'Unknown'} - ${expense.category}`
+                                    )}
+                                  >
+                                    <IconCheck size={16} />
+                                  </ActionIcon>
+                                </Tooltip>
+                                <Tooltip label="Reject">
+                                  <ActionIcon
+                                    color="red"
+                                    variant="light"
+                                    size="sm"
+                                    onClick={() => onReject?.(expense.id)}
+                                    {...getActionLabel(
+                                      'Reject',
+                                      'expense',
+                                      `${expense.employeeName || 'Unknown'} - ${expense.category}`
+                                    )}
+                                  >
+                                    <IconX size={16} />
+                                  </ActionIcon>
+                                </Tooltip>
+                              </>
+                            )}
 
-                      {expense.status === 'pending' &&
-                        pendingActionMode === 'mark-paid' &&
-                        (expense.sourceType || '').toUpperCase() ===
-                          'RECURRING' && (
-                          <Tooltip label="Mark as Paid">
+                          {expense.status === 'pending' &&
+                            pendingActionMode === 'mark-paid' &&
+                            (expense.sourceType || '').toUpperCase() ===
+                              'RECURRING' && (
+                              <Tooltip label="Mark as Paid">
+                                <ActionIcon
+                                  color="green"
+                                  variant="light"
+                                  size="sm"
+                                  onClick={() => onMarkPaid?.(expense.id)}
+                                  {...getActionLabel(
+                                    'Mark as Paid',
+                                    'expense',
+                                    `${expense.employeeName || 'Unknown'} - ${expense.category}`
+                                  )}
+                                >
+                                  <IconCheck size={16} />
+                                </ActionIcon>
+                              </Tooltip>
+                            )}
+
+                          <Tooltip label="Edit">
                             <ActionIcon
-                              color="green"
+                              color="blue"
                               variant="light"
                               size="sm"
-                              onClick={() => onMarkPaid?.(expense.id)}
+                              onClick={() => onEdit(expense)}
                               {...getActionLabel(
-                                'Mark as Paid',
+                                'Edit',
                                 'expense',
                                 `${expense.employeeName || 'Unknown'} - ${expense.category}`
                               )}
                             >
-                              <IconCheck size={16} />
+                              <IconEdit size={16} />
                             </ActionIcon>
                           </Tooltip>
-                        )}
 
-                      <Tooltip label="Edit">
-                        <ActionIcon
-                          color="blue"
-                          variant="light"
-                          size="sm"
-                          onClick={() => onEdit(expense)}
-                          {...getActionLabel(
-                            'Edit',
-                            'expense',
-                            `${expense.employeeName || 'Unknown'} - ${expense.category}`
-                          )}
-                        >
-                          <IconEdit size={16} />
-                        </ActionIcon>
-                      </Tooltip>
-
-                      <Tooltip label="Delete">
-                        <ActionIcon
-                          color="red"
-                          variant="light"
-                          size="sm"
-                          onClick={() => onDelete(expense.id)}
-                          {...getActionLabel(
-                            'Delete',
-                            'expense',
-                            `${expense.employeeName || 'Unknown'} - ${expense.category}`
-                          )}
-                        >
-                          <IconTrash size={16} />
-                        </ActionIcon>
-                      </Tooltip>
-                    </Group>
-                  </Table.Td>
-                </Table.Tr>
-              ))
+                          <Tooltip label="Delete">
+                            <ActionIcon
+                              color="red"
+                              variant="light"
+                              size="sm"
+                              onClick={() => onDelete(expense.id)}
+                              {...getActionLabel(
+                                'Delete',
+                                'expense',
+                                `${expense.employeeName || 'Unknown'} - ${expense.category}`
+                              )}
+                            >
+                              <IconTrash size={16} />
+                            </ActionIcon>
+                          </Tooltip>
+                        </Group>
+                      )}
+                    </Table.Td>
+                  </Table.Tr>
+                );
+              })
             )}
           </Table.Tbody>
         </Table>

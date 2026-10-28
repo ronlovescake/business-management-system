@@ -27,6 +27,7 @@ interface ExpenseControlsProps {
   onRecurringSearchChange?: (query: string) => void;
   onGenerateRecurring?: () => void;
   isGeneratingRecurring?: boolean;
+  generateRecurringLabel?: string;
   onAddRecurring?: () => void;
   dateFilter?: string | null;
   onDateFilterChange?: (value: string | null) => void;
@@ -64,6 +65,7 @@ export const ExpenseControls = memo(function ExpenseControls({
   onRecurringSearchChange,
   onGenerateRecurring,
   isGeneratingRecurring = false,
+  generateRecurringLabel = 'Generate This Month',
   onAddRecurring,
   dateFilter,
   onDateFilterChange,
@@ -237,7 +239,7 @@ export const ExpenseControls = memo(function ExpenseControls({
                   onClick={() => onGenerateRecurring?.()}
                   loading={isGeneratingRecurring}
                 >
-                  Generate This Month
+                  {generateRecurringLabel}
                 </Button>
                 <Button
                   leftSection={<IconPlus size={16} />}

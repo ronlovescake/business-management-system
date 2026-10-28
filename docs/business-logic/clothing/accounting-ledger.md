@@ -165,6 +165,13 @@ Clothing and the GM shared consumer; the real period/filter/CSV sequence passes.
 
 ## G - Recurring Payments Panel
 
+Clothing recurring payments are managed on **Accounting > Expenses > Recurring
+Payments**, not on the Clothing Ledger; the Clothing Ledger hides that tab. The
+shared panel and its rules are documented in
+[Accounting: Expenses](accounting-expenses.md#recurring-ledger-payments). General
+Merchandise still shows the same panel on its ledger, with the same header
+controls. Rows 45-59 below are retained for numbering only and are superseded.
+
 | #   | Logic                                                                                                                                                                                                                                                                                                                                                                                                                                                        | Explanation                                                                                            |
 | --- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------ |
 | 45  | Recurring Payments Panel has two sub-sections: Templates table and Drafts table                                                                                                                                                                                                                                                                                                                                                                              | Switch between views via tab.                                                                          |

@@ -2,16 +2,24 @@
 
 import React from 'react';
 import { Stack } from '@mantine/core';
+import { showNotification } from '@mantine/notifications';
 import { PageLayout } from '@/components/layout/PageLayout';
 import { ExpenseFormDialog } from '@/app/clothing/accounting/components/ExpenseFormDialog';
 import { StatsCards } from '@/app/clothing/accounting/components/StatsCards';
 import { ExpenseControls } from '@/app/clothing/accounting/components/ExpenseControls';
 import { ExpenseListTable } from '@/app/clothing/accounting/components/ExpenseListTable';
 import { AnalyticsTable } from '@/app/clothing/accounting/components/AnalyticsTable';
+import {
+  RecurringPaymentsPanel,
+  type RecurringGenerateResult,
+} from '@/app/clothing/accounting/components/RecurringPaymentsPanel';
 import { ReceiptViewerModal } from '@/components/modals/ReceiptViewerModal';
 import { ExpensesErrorBoundary } from '@/app/clothing/accounting/components/ExpensesErrorBoundary';
 import { useExpenses } from '@/app/clothing/accounting/hooks/useExpenses';
 import { AccountingLoadErrorAlert } from '@/app/accounting/_shared/AccountingLoadErrorAlert';
+import { ClothingRecurringPaymentService } from '@/services/ClothingRecurringPaymentService';
+import { formatDateForInput } from '@/lib/dateInputConfig';
+import { logger } from '@/lib/logger';
 import type { useExpenseData } from '@/hooks/useSheetData';
 
 type ExpensesRoutePageProps = {
@@ -25,6 +33,8 @@ type ExpensesRoutePageProps = {
 export function ExpensesRoutePage(props: ExpensesRoutePageProps) {
   const { expenseDataHook, addTitle, editTitle, addSubtitle, editSubtitle } =
     props;
+
+  const [recurringRefreshToken, setRecurringRefreshToken] = React.useState(0);
 
   const {
     expenses,
@@ -63,6 +73,7 @@ export function ExpensesRoutePage(props: ExpensesRoutePageProps) {
     setReceiptZoom,
     receiptFileName,
     categories,
+    filterCategories,
     sourceOptions,
     totalExpenses,
     pendingExpenses,
@@ -80,11 +91,46 @@ export function ExpensesRoutePage(props: ExpensesRoutePageProps) {
     handleSaveExpense,
     handleApprove,
     handleReject,
+    handleApproveRecurring,
+    handleSkipRecurring,
+    busyRecurringDraftId,
     handleViewReceipt,
     handleImportCSV,
     handleExportCSV,
     handleDownloadTemplate,
-  } = useExpenses({ expenseDataHook });
+  } = useExpenses({
+    expenseDataHook,
+    recurringService: ClothingRecurringPaymentService,
+    recurringRefreshToken,
+  });
+
+  const [recurringSearchQuery, setRecurringSearchQuery] = React.useState('');
+  const [recurringAddOpened, setRecurringAddOpened] = React.useState(false);
+  const [isGeneratingRecurring, setIsGeneratingRecurring] =
+    React.useState(false);
+  const [lastRecurringGenerateResult, setLastRecurringGenerateResult] =
+    React.useState<RecurringGenerateResult | null>(null);
+
+  const handleGenerateRecurring = async () => {
+    setIsGeneratingRecurring(true);
+    try {
+      const result = await ClothingRecurringPaymentService.generate({
+        upToDate: formatDateForInput(new Date()),
+      });
+      setLastRecurringGenerateResult(result);
+      setRecurringRefreshToken((token) => token + 1);
+    } catch (error) {
+      logger.error('Failed to generate recurring drafts', { error });
+      showNotification({
+        title: 'Recurring payments',
+        message:
+          error instanceof Error ? error.message : 'Failed to generate drafts',
+        color: 'red',
+      });
+    } finally {
+      setIsGeneratingRecurring(false);
+    }
+  };
 
   return (
     <ExpensesErrorBoundary>
@@ -103,6 +149,13 @@ export function ExpensesRoutePage(props: ExpensesRoutePageProps) {
           <ExpenseControls
             activeTab={activeTab}
             onTabChange={setActiveTab}
+            showRecurringPaymentsTab
+            recurringSearchQuery={recurringSearchQuery}
+            onRecurringSearchChange={setRecurringSearchQuery}
+            onGenerateRecurring={() => void handleGenerateRecurring()}
+            isGeneratingRecurring={isGeneratingRecurring}
+            generateRecurringLabel="Generate Due Drafts"
+            onAddRecurring={() => setRecurringAddOpened(true)}
             searchQuery={searchQuery}
             onSearchChange={setSearchQuery}
             filterCategory={filterCategory}
@@ -111,7 +164,7 @@ export function ExpensesRoutePage(props: ExpensesRoutePageProps) {
             onStatusFilterChange={setFilterStatus}
             filterSource={filterSource}
             onSourceFilterChange={setFilterSource}
-            categories={categories}
+            categories={filterCategories}
             sources={sourceOptions}
             onImportCSV={handleImportCSV}
             onDownloadTemplate={handleDownloadTemplate}
@@ -134,6 +187,20 @@ export function ExpensesRoutePage(props: ExpensesRoutePageProps) {
               onReject={handleReject}
               onEdit={handleEditExpense}
               onDelete={handleDeleteExpense}
+              onApproveRecurring={(draftId) =>
+                void handleApproveRecurring(draftId)
+              }
+              onSkipRecurring={(draftId) => void handleSkipRecurring(draftId)}
+              busyRecurringDraftId={busyRecurringDraftId}
+            />
+          ) : activeTab === 'recurring' ? (
+            <RecurringPaymentsPanel
+              searchQuery={recurringSearchQuery}
+              opened={recurringAddOpened}
+              setOpened={setRecurringAddOpened}
+              refreshToken={recurringRefreshToken}
+              lastGenerateResult={lastRecurringGenerateResult}
+              showDrafts={false}
             />
           ) : (
             <AnalyticsTable
