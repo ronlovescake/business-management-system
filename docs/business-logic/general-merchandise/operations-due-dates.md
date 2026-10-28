@@ -20,6 +20,13 @@
 
 ## B — Workflow Baseline
 
+Current shared calculation: an invoice dated October 26 is due October 29 at
+11:59 PM Asia/Manila (the stored cutoff includes the final millisecond), not a
+fixed 72-hour timer. The source is Clothing's shared `DueDateService` used by
+the GM wrapper. This observed shared date behavior does not import Clothing's
+supplier-credit, cancellation-approval, refund or valuation policies into GM.
+Those remain in GM's own contracts and data namespace.
+
 | #   | Logic                                                                                                                 | Explanation                                                              |
 | --- | --------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------ |
 | 4   | The GM due-dates workflow follows the same shared due-date computation and status-display behavior as the shared page | Operator workflow is inherited from the shared due-dates implementation. |

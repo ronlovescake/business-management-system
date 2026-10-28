@@ -255,6 +255,7 @@ npm run accounting:transactions:sanitycheck
 
 ## Documentation Index
 
+- [Master SOP Manual and Employee Knowledge Base](docs/business-logic/clothing/operations-workflow.md): the current Clothing product-to-reseller procedures, exceptions, examples and FAQ.
 - [Documentation hub](docs/README.md): current guides, tooling, plans and historical evidence.
 - [Business logic index](docs/BUSINESS_LOGIC_INDEX.md): domain-specific behavior and the clothing operating workflow.
 - [Contributor guide](CONTRIBUTING.md): local workflow and quality gates.

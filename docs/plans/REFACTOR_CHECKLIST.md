@@ -1,6 +1,6 @@
 # Refactor Checklist
 
-Last updated: 2026-04-06 (completed large-surface controller extractions, reconciled Audit Cycle 3 status, recorded defer decisions, landed soft-delete/schema groundwork, removed dead code, extracted shared schedule/attendance helpers, standardized the employee-automation, expense, attendance/apply-leave, attendance, schedules, leave-requests, and thirteenth-month-pay API route families, and converted the remaining route work into a continuous verified backlog)
+Last updated: 2026-10-28 (Clothing reconciliation handoff and documentation consolidation). The last broad architecture/backlog checkpoint below is April 6; its metrics were not rerun by this documentation change.
 
 This file is the canonical tracker for repo-wide refactor work.
 
@@ -12,6 +12,20 @@ for its separately scoped follow-up outcomes.
 Historical detail: [audit cycles and coverage evidence](../reports/archive/REFACTOR_AUDIT_CYCLES_2026-03-17_TO_2026-04-06.md)
 and [date/time findings](../reports/archive/DATE_TIME_REFACTOR_AUDIT_2026-04-12.md).
 These extracted records retain their original dated status; they are not new approvals.
+
+## Clothing Reconciliation And Documentation Handoff (2026-10-28)
+
+- [x] Record the completed implementation separately from refactor backlog: commit `ce3f8f5d` contains the owner-approved supplier, inventory/cost provenance, composite return, import atomicity, conflict/retry and cache-invalidation work. All 26 mandatory scenarios and nine required gates completed on isolated synthetic databases. This does not close unrelated architecture tasks or certify business books.
+- [x] Keep employee instructions in the existing [Master SOP Manual](../business-logic/clothing/operations-workflow.md), accounting interpretation in the [policy](../OPERATIONAL_WORKFLOW_AND_ACCOUNTING_POLICY.md), and technical invariants in owning module contracts. No parallel manual was created.
+- [x] Remove the completed A/R plan after consolidating its still-needed rules into the Transactions contract; remove duplicate invoicing sections and obsolete refund/deadline/reset guidance. Keep only the canonical refactor contract here rather than repeating it in the accounting policy or phased checklist.
+- [x] Correct verified stale summaries: actual Products tabs, retained transit source modes, current deadline, source-event mutation locks and the intermediate-status received-stock fallback. Do not silently convert a display limitation into approved business policy.
+- [x] Retain active legacy status/cost readers, migrations, distinct domain adapters and unique audit evidence. They are still consumed or needed for recovery; no unused runtime-code deletion was proven or performed by this documentation task.
+
+The [current reconciliation and documentation record](../reports/CLOTHING_SUPPLIER_RECONCILIATION_2026-10-27.md)
+owns actual implementation tests, cleanup decisions, documentation checks and
+open owner decisions. Expense history, Bank Fees inference, partial-shortage
+credit and separately authorized migration/release work remain open. No new
+commit, push, deployment, production build or business-data repair is implied.
 
 ## Refactor Contract
 
@@ -27,6 +41,8 @@ These rules apply to every future refactor in this repository.
 - A refactor is not complete until lint and typecheck pass.
 - A refactor is not complete until impacted business flows are validated for domain isolation.
 - A Clothing Operations, Accounting, or Employees workflow change is not complete until the affected docs under `docs/business-logic/clothing/` are updated in the same work item.
+- Stable relational/source fields own new financial identity; labels and note text are not a replacement. Preserve still-needed legacy readers until a verified migration/retirement covers their consumers.
+- Refactoring does not authorize destructive schema/data operations or weakened auth, scheduler, route-access or backup/restore checks. Risky changes need their own approval, recovery plan and tests.
 
 ## Architecture Standards
 

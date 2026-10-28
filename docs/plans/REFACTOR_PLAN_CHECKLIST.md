@@ -7,6 +7,16 @@ does not replace the [long-running refactor tracker](./REFACTOR_CHECKLIST.md).
 Recorded validations and completed phases are dated evidence; open items require
 current source/test review and do not authorize migrations, builds or deployments.
 
+## Current Handoff (2026-10-28)
+
+The Clothing reconciliation completed 26/26 mandatory scenarios and all nine
+required gates; the [canonical tracker](REFACTOR_CHECKLIST.md#clothing-reconciliation-and-documentation-handoff-2026-10-28)
+records the implementation and documentation handoff. The [master manual](../business-logic/clothing/operations-workflow.md)
+is now the sole employee SOP. The [current report](../reports/CLOTHING_SUPPLIER_RECONCILIATION_2026-10-27.md)
+owns source/test evidence and remaining findings. None of that marks the open
+UI decomposition or cross-domain coverage tasks below complete. Phase-level
+test counts and final checkboxes retain their original dated scope.
+
 ## How To Use This Checklist
 
 - Work top to bottom unless a production bug forces a narrower detour.
@@ -17,15 +27,19 @@ current source/test review and do not authorize migrations, builds or deployment
 
 ## Global Refactor Contract
 
-- [ ] Preserve business-domain isolation: clothing, general merchandise, trucking, household, and platform/admin keep their own route namespaces and Prisma bindings.
-- [ ] Keep shared code data-source agnostic; pass delegates/config instead of importing a domain model inside shared modules.
-- [ ] Avoid destructive schema or data operations unless explicitly approved with a rollback plan.
-- [ ] Do not weaken auth, route access, scheduler tokens, or backup/restore checks to simplify a refactor.
-- [ ] Do not rely on note text, UI labels, or display strings as a long-term relational contract when a stable field can exist.
-- [ ] Add or update tests before behavior-sensitive cleanup in accounting, inventory, backup/restore, payroll, and auth.
-- [ ] Update relevant docs in the same change set when behavior, commands, routes, scheduler policy, or operational expectations change.
+Apply the [canonical Refactor Contract](REFACTOR_CHECKLIST.md#refactor-contract)
+and [Architecture Standards](REFACTOR_CHECKLIST.md#architecture-standards).
+They are continuing requirements, not seven unfinished work items or an
+alternative policy copy in this execution tracker.
 
 ## Validation Setup
+
+Before any database command below, verify ownership, target, isolation and
+recovery requirements. A Docker test service or `.env.test` name alone does not
+make an existing database disposable. Current reconciliation simulations use
+owned throwaway databases and explicit cleanup, not default application resets;
+see the current report. Documentation-only consolidation uses focused semantic,
+link, declaration and formatting checks, not a new business-database simulation.
 
 - [x] Start from a clean baseline or clearly document unrelated local changes.
 - [x] Start the Docker test database when running integration or full validation:

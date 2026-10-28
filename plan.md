@@ -1,8 +1,24 @@
-Yes. I found your original message:
+# Clothing Owner Requirements And Implementation Record
+
+Updated reading order, 2026-10-28: this is the owner-designated requirements and
+approval/evidence record, not another employee manual or active implementation
+queue. Employee procedures live only in the [Master SOP Manual](docs/business-logic/clothing/operations-workflow.md).
+The [current reconciliation report](docs/reports/CLOTHING_SUPPLIER_RECONCILIATION_2026-10-27.md)
+records 26/26 mandatory scenarios, all nine final gates and implementation commit
+`ce3f8f5d`. That later authorized completion supersedes earlier pauses and the
+SUMMARIZE guardrail blocker below; the old test counts retain their original scope.
+Expense-history findings, unsupported corrections and authentic migration/external
+funds/stock evidence remain separate. No new commit, push or release is authorized.
+
+## Original Owner Requirements (Historical Planning Context)
+
+The recovered owner request was:
 
 > “refunds should also appear on the balance sheet, accounting dashboard and the business intelligence dashboard.”
 
-Those requirements were not explicit enough in the previous plan. I’ve updated it with **15 traceable requirements**, including your choice of **both** refund reminders.
+The original plan recorded **15 traceable requirements**, including **both**
+refund reminders. The planned wording below is retained for requirement provenance,
+not as an alternative to the implemented manual and owning contracts.
 
 **Refund Visibility**
 | Surface | Planned Behavior |
@@ -25,13 +41,8 @@ Those requirements were not explicit enough in the previous plan. I’ve updated
 - Keep supplier-failure **Voided** distinct from normal cancellation.
 - Standardize Reservation Deposit terminology; no separate Reservation Fee.
 
-**Execution Order**
-
-1. Finalize outstanding policy details and safe historical compatibility.
-2. Implement payment safeguards and cancellation/refund lifecycle.
-3. Build shared refund summaries, then integrate all seven surfaces above in parallel.
-4. Complete remaining ledger, CARD, date, inventory and valuation corrections.
-5. Verify complete scenarios in an isolated database, including retries, concurrent payouts and cross-report agreement.
+**Execution status:** the later requirement/evidence register and current
+reconciliation report replace the original proposed implementation sequence.
 
 One correction matters: **recorded refunds already affect balance-sheet Cash**. The plan must preserve that behavior while adding pending obligations and clearer visibility.
 
@@ -62,7 +73,8 @@ accounting-policy change is authorized by this tracking record.
 
 The register reflects the current development implementation, not deployment.
 Focused, disposable-database, isolated browser and final-gate evidence is recorded
-below, including the unchanged aggregate guardrail block. Preexisting dirty work
+below. The earlier guardrail block is superseded by the later completed run.
+Preexisting dirty work
 and historical batch-01 results alone are not completion evidence.
 
 | ID  | Requirement                                                                                  | Acceptance evidence required                                                                            | Status                                     |
@@ -345,12 +357,14 @@ artifacts or production certification. All database work is confined to the
 manifest/label-verified tmpfs PostgreSQL 16 task container on port 32769; no
 application instance was started against unapplied existing schemas.
 
-### Final Handoff Gates
+### Earlier Lifecycle Handoff Gates (Superseded Checkpoint)
 
-All implementable R01-R15 and A01-A10/A12 development work is complete within
-the approved scope. The fresh checks below cover the final code, not just batch 01. The required aggregate guardrail is still blocked, so this is not a green
-merge/deployment certification. No override, coverage-floor change, test disable,
-production build, git write or production access was used.
+At this earlier checkpoint, implementable R01-R15 and A01-A10/A12 development
+work was complete within that scope, but SUMMARIZE blocked aggregate guardrails.
+The table preserves that actual outcome, not a current failure. The later
+reconciliation report records 4,514 unit, 90 integration and 12 hardening tests
+with all nine final gates passing and the separately approved implementation
+commit. Neither checkpoint certifies historical business books or deployment.
 
 | Final check                                                     | Actual result                                                                                                                                                                                                                                                                          |
 | --------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -372,8 +386,9 @@ production build, git write or production access was used.
 External blockers are A11's actual bank/e-wallet/cash/stock evidence and M01's
 authentic migration SQL/checksum provenance. Conservative costing/location
 review blocks are deliberate documented limits, not silent historical repairs.
-These and the preexisting SUMMARIZE guardrail must remain explicit release
-conditions; unavailable external evidence cannot be replaced with fabricated
+External evidence and target migration review remain explicit release
+conditions; the old SUMMARIZE gate failure is not a current blocker. Unavailable
+external evidence cannot be replaced with fabricated
 SQL, inferred original agreements or a synthetic test pass.
 
 ### Current Batch Business-Rule Record

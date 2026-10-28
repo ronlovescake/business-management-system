@@ -1,5 +1,21 @@
 # Executive Summary — Refactor Work (Feb 14, 2026)
 
+## Current Record And Reading Order (2026-10-28)
+
+This append-only report retains dated refactor evidence, not a fresh whole-repo
+certification. The original summary and later historic metrics remain below.
+The [current reconciliation report](CLOTHING_SUPPLIER_RECONCILIATION_2026-10-27.md)
+owns the completed Clothing 26/26 scenario run, its actual nine gates, commit
+`ce3f8f5d`, documentation consolidation and remaining findings. The
+[canonical refactor tracker](../plans/REFACTOR_CHECKLIST.md) owns open architecture
+work. The [Master SOP Manual](../business-logic/clothing/operations-workflow.md)
+owns employee procedures; earlier workflow advice here cannot override it.
+
+The current documentation work centralizes those owners and removes verified
+obsolete/duplicate instructions. It does not rerun old architecture scans, delete
+active compatibility code, close unrelated backlog, certify financial history or
+authorize another commit, push or deployment.
+
 ## Audience
 
 This summary is for non-technical stakeholders and project owners.
@@ -2991,7 +3007,7 @@ Execution mode:
 
 ### Scope / readiness
 
-- [x] **LIV-1:** Track `src/modules/general-merchandise/employees/**` introduction and switch status from N/A to covered when path is created (completed Oct 26, 2026).
+- [x] **LIV-1:** Track `src/modules/general-merchandise/employees/**` introduction and switch status from N/A to covered when path is created (completed Oct 21, 2026).
 
 ### P1 — Highest-priority decomposition
 

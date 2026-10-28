@@ -1,5 +1,9 @@
 # Clothing — Transactions Business Logic
 
+Employee procedures are maintained only in the [Master SOP Manual](operations-workflow.md).
+This document owns the developer-facing transaction contract. Current completion
+and independent unresolved findings are in the [reconciliation record](../../reports/CLOTHING_SUPPLIER_RECONCILIATION_2026-10-27.md).
+
 ## Product Identity And Historical Prices
 
 Transactions linked to a standard product use its stable `Product.id` to show
@@ -75,6 +79,50 @@ flow after the migration; do not assume the previous failed request saved.
   }
 }
 ```
+
+## Accounts Receivable: Shipped Goods Awaiting Payment
+
+This is the implemented Clothing contract, consolidated from the completed A/R
+implementation plan. `Accounts Receivable` means goods have already been
+dispatched but some payment remains. Ordinary authorized operators can select
+it without a separate customer credit-approval flag. General Merchandise's
+`Pending Payment` retains its independent reservation meaning.
+
+1. Select A/R only for an actual shipment with a positive outstanding balance.
+   New Clothing A/R records store the shipment date and a due date two calendar
+   months later. Early and partial payments are supported; there is no interest,
+   late fee, credit-limit feature or automated collection in this workflow.
+2. The first shipment records the sale, stock consumption and sold cost once.
+   Existing deposits are applied once; they do not remain a duplicate liability.
+   Partial A/R collections reduce debt, not create another sale or reservation
+   deposit. The exact final collection resolves the saved order to `Shipped`.
+3. Shipment/due dates remain stable through partial payments and final payment.
+   A zero-value order cannot retain an unpaid receivable. Historical Clothing
+   `Pending Payment` compatibility must remain; do not remove its status mapping.
+4. The Transactions Due Dates tab is the separate Prepared-order deadline: end
+   of the third Manila calendar day after the invoice date, not exactly 72 hours.
+   It is not a two-month A/R collection list. Review A/R outstanding amounts and
+   recorded due dates separately; no A/R Due Date column is added to the grid.
+5. Cancellation removes unpaid debt separately from the eligible collected money
+   approved for refund. It neither pays the whole order value back nor restores
+   sold stock. Preserve recorded payments, costs, shipment and approval history.
+
+Example: ship a PHP1,000 order after collecting PHP200. A/R is PHP800. Collect
+PHP300 and PHP500 as actual later receipts; the final balance is zero and the
+status becomes Shipped without a second sale. Cancelling before those later
+receipts instead separates PHP800 debt cancellation from at most PHP200 eligible
+cash refund, less any prior refund.
+
+Enforcement: `src/modules/transactions/api/service.ts`,
+`src/modules/transactions/api/service-calculations.ts`,
+`src/lib/transactions/order-status.ts`, transaction inventory synchronization,
+and the Clothing customer-money/payment APIs. Evidence includes
+`tests/unit/api/transaction-accounts-receivable.service.test.ts`,
+`tests/integration/transaction-save-concurrency.integration.test.ts` and C09
+in the reconciliation record. Existing schema/migration and legacy cost
+fallbacks remain required; this consolidation changes no runtime behavior.
+The earlier missing-sequence test-setup blocker is superseded by the recorded
+successful isolated integration runs, not by a business-database repair.
 
 ## Net Prices And Draft Deletion
 
@@ -258,8 +306,9 @@ decisions, paid-status guards, permissions and domain differences remain policy.
   key and row/movement transaction provide a real saved ID and safe same-key
   replay after an uncertain response. The first submitted payload stays frozen
   after uncertain failures. A definite validation rejection before any uncertain
-  attempt permits a corrected request with a new key. Normal multi-row imports
-  keep their existing path and are not claimed to be idempotent or newly atomic.
+  attempt permits a corrected request with a new key. Clothing multi-row imports
+  now create and synchronize their exact rows atomically as described in section
+  E; this does not give CSV imports the single-row creation-key replay contract.
 - Drafts are keyed by placeholder object, not visual row index. Creation is
   awaited by ordered edit processing. The old placeholder retains the saved ID
   for edits already captured against it; a new blank placeholder replaces it.
@@ -442,6 +491,8 @@ business computations and stock/confirmation decisions were copied unchanged.
   navigation. Firefox/WebKit and authenticated manual testing were not run.
 - Test-database inventory ledger controls and accounting sanitycheck passed;
   accounting reported zero issues. No production-data certification is implied.
-- Checkpoint `0ec2bffc` is local and was not pushed. This hardening remains
-  uncommitted. No production build, Docker rebuild, app migration or deployment
-  was performed. The new nullable unique columns must be migrated before release.
+- The counts above describe the dated queue-hardening checkpoint, not a new gate
+  run. The later implementation commit `ce3f8f5d` and 26/26 reconciliation evidence
+  are recorded in the current report. No production build, Docker rebuild,
+  business-database migration or deployment is established by these checks.
+  Review all required migrations against the target environment before release.

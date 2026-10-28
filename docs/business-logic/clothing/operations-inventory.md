@@ -1,5 +1,8 @@
 # Clothing — Inventory Business Logic
 
+Employee steps are owned by the [Master SOP Manual](operations-workflow.md).
+This file owns quantity/cost enforcement, supported corrections and compatibility.
+
 ## Adjustments And Physical Returns
 
 Sellable availability deducts scrap/write-offs as well as sold and reserved
@@ -139,7 +142,12 @@ allocation rules still reduce or restore the appropriate supply. Available Stock
 and ending available-inventory value refer to physically available stock, not
 goods still travelling. Legacy products without an explicit In Transit status
 retain their existing received-supply fallback; the label is not evidence that
-historical physical counts have been reconciled.
+historical physical counts have been reconciled. The current predicate tests
+only normalized `In Transit`: other intermediate shipment statuses can also
+use the received-supply branch. Do not equate that branch with confirmed arrival
+or claim I01 verified every shipment status. A real location/count discrepancy
+requires operational review; this documentation does not introduce another
+quantity/status repair.
 
 This projection is read-only. A shipment availability label never creates an
 accounting journal, changes a receipt or posts a financial reclassification.

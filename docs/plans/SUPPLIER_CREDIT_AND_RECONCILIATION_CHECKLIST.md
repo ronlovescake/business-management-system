@@ -404,28 +404,27 @@ current-source workflow regressions have passed.
 
 ## Operator Notes And Release Prerequisites
 
-- Available supplier credit is a selection of issued records, not an amount
-  field. Choose the recorded supplier, select its eligible credit reference,
-  enter the separate amount to apply, then save with a valid Manila posting
-  date. Example: issued 5,000, apply 3,000 to a 10,000 purchase; gross stays
-  10,000, other funding is 7,000 and available credit becomes 2,000.
-- A 5,000 Supplier Short follow-up note does not create that issued record.
-  Do not issue an entire purchase as a workaround for a partial shortage. Its
-  allocation, valuation and correction workflow still needs owner approval.
-- Keep accrual, actual payment and correction distinct. An approved September
-  expense is not proof of September cash payment. Do not delete, re-date or
-  toggle a posted expense to make historical reports agree; retain supporting
-  documents and request an approved dated settlement/reversal workflow.
+- Employee procedures live only in the [Master SOP Manual](../business-logic/clothing/operations-workflow.md), including supplier credit, partial-shortage limits, expenses, retries and escalation. This checklist owns scenario/test completion, not a second set of operating steps.
+- The [owner handoff and follow-up register](../reports/CLOTHING_SUPPLIER_RECONCILIATION_2026-10-27.md#owner-handoff-and-follow-up-2026-10-28)
+  summarizes the expected improvements, unresolved expense/classification and
+  partial-credit findings, accountable owner, and evidence needed for closure.
+  These independent follow-ups do not reopen the completed 26 mandatory scenarios.
 - These are development changes validated with synthetic isolated databases.
   Two nullable additive migrations introduce Clothing movement provenance and
   split-component acquisition costs. Their isolated DDL replay is not proof
   that any target environment has a compatible full migration history. Release
   authorization, reviewed environment-specific migrations, backup/recovery and
-  deployment remain separate prerequisites. No commit, push or deployment was
-  performed. Unresolved policy and external funds/stock checks remain open.
+  deployment remain separate prerequisites. Implementation was separately
+  committed as `ce3f8f5d` with owner approval; nothing was pushed or deployed.
+  This follow-up documentation update is not included in that commit. Unresolved
+  policy and external funds/stock checks remain open.
 
 ## Scope And Safety
 
-Creating this checklist is documentation only, not a business-rule change. Prior plans and historical results remain intact. This plan specifies future work; it does not change policy or authorize data repair.
+This is the completed 26-scenario execution/evidence register. Its initial
+creation was documentation-only; subsequent implementation followed separately
+recorded owner approvals. Open findings and release prerequisites remain open,
+not unfinished mandatory scenarios. Documentation consolidation changes no
+business rule and grants no operational or git permission.
 
 Do not issue/retry real supplier credits, modify cutoff settings, alter historical financial records, access production, apply business-database migrations, run production builds, commit, push or deploy without separate explicit authorization. Partial-shortage credit issuance, supplier-credit reversal/expiry and any unresolved money/valuation semantics require a separately approved design; include their gaps in the analysis and simulations rather than pretending they work.

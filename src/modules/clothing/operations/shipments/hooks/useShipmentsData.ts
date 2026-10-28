@@ -266,15 +266,22 @@ export function useShipmentsData({
 
       return { previousShipments };
     },
+    retry: (failureCount, error) =>
+      !(error instanceof ApiError && error.status < 500) && failureCount < 1,
     onError: (_error, _variables, context) => {
       // Rollback on error
       if (context?.previousShipments) {
         queryClient.setQueryData(shipmentsQueryKey, context.previousShipments);
       }
       logger.error('Error updating shipment:', _error);
+      const serverMessage =
+        _error instanceof ApiError
+          ? (_error.data as { error?: string } | undefined)?.error
+          : undefined;
       showNotification({
         title: '❌ Error',
-        message: 'Failed to update shipment. Please try again.',
+        message:
+          serverMessage || 'Failed to update shipment. Please try again.',
         color: 'red',
       });
     },

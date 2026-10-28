@@ -145,7 +145,7 @@ insertion fails. This is an API contract, not a restored Drive-sync UI feature.
 | 33  | Local Invoicing shows transactions with an invoice date in eligible statuses | Eligible statuses: `prepared`, `on-hold`, `ready for dispatch`. Transactions must have a non-null `invoiceDate`.                                  |
 | 34  | An invoice date filter narrows the list                                      | A `Select` populated from distinct invoice dates defaults to the most recent date. Changing the filter immediately re-filters the displayed rows. |
 | 35  | Clicking a customer name runs the same Messenger flow                        | Same sequence as the Invoicing tab, except `driveFilesUrl` is passed as an empty string (no Google Drive link).                                   |
-| 36  | Tickboxes in Local Invoicing are local state only                            | Unlike the Invoicing tab, local invoicing tickboxes are NOT persisted to the database — they are session state only and reset on page refresh.    |
+| 36  | Tickboxes in Local Invoicing are local state only                            | The served Invoicing panel keeps tickboxes only in local state; they reset on refresh and do not prove delivery or database persistence.          |
 | 37  | Auto-tick after Messenger flow is local state only                           | After clicking the customer name, the local tickbox is set to `true` in state; no API call is made.                                               |
 
 ---
@@ -215,41 +215,5 @@ insertion fails. This is an API contract, not a restored Drive-sync UI feature.
 
 ---
 
-## O — Eligible Order Statuses (Weight Calculation)
-
-| #   | Logic                                                          | Explanation                                                                                                                        |
-| --- | -------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
-| 61  | Only three order statuses qualify for weight calculation       | `CUSTOMER_ORDER_ELIGIBLE_STATUSES = ['prepared', 'on-hold', 'ready for dispatch']`. Transactions in any other status are excluded. |
-| 62  | The same status filter applies to all weight-related functions | Used in `calculateCustomerActualWeight`, the Customer Orders tab query, and the Local Invoicing tab row filter.                    |
-
----
-
-## P — Actual Weight Calculation Logic
-
-| #   | Logic                                                                          | Explanation                                                                                                                                                              |
-| --- | ------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| 63  | Actual weight = sum of (qty × per-piece weight) across all eligible line items | `calculateCustomerActualWeight` iterates the filtered transactions and multiplies each line item's `qty` by its `perPieceWeight`.                                        |
-| 64  | Product weight is sourced from the product code in the item name               | `buildProductWeightMap` extracts the code from parentheses: `"Kids Dress (KD-010425)"` → `"KD-010425"`. Full name is used as fallback when no parenthetical code exists. |
-| 65  | Duplicate product codes use the first occurrence                               | Subsequent entries with the same code are skipped in the weight map.                                                                                                     |
-| 66  | Items with no matching product code contribute zero weight                     | If the code is absent from the weight map, the line item adds 0 to the total.                                                                                            |
-
----
-
-## Q — Final Shipping Weight Formula
-
-| #   | Logic                                      | Explanation                                                                                                                           |
-| --- | ------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------- |
-| 67  | Weights ≤ 3 kg snap to half-kilogram tiers | Fixed tiers: 0.5, 1.0, 1.5, 2.0, 2.5, 3.0 kg. The nearest tier ≥ actual weight is selected.                                           |
-| 68  | Weights > 3 kg use a polynomial formula    | `poly = 0.0012w² + 0.0075w + 0.198`. Final weight = `CEIL((w + poly + 0.25) × 2) / 2`.                                                |
-| 69  | The 0.25 buffer prevents under-billing     | The constant upward offset ensures the billed weight is always at least slightly above the actual dimensional weight before rounding. |
-| 70  | Result is always a multiple of 0.5 kg      | Both methods guarantee half-kilogram increments.                                                                                      |
-
----
-
-## R — Checkout Link Matching
-
-| #   | Logic                                           | Explanation                                                                                              |
-| --- | ----------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
-| 71  | Links are matched by exact shipping weight      | `findCheckoutLinkByWeight` searches for an entry where `Math.abs(link.weight − targetWeight) < 0.001`.   |
-| 72  | Batch matching is O(1) per customer             | `batchFindCheckoutLinks` builds a `Map<weight, CheckoutLink>`, resolving each customer in constant time. |
-| 73  | No match found → customer shows "no link found" | Operators must add a checkout link record for the exact computed weight tier to resolve the gap.         |
+Weight eligibility, item weights, rounding and link matching are specified once
+in sections A-D above. Do not maintain a second copy of those formulas here.

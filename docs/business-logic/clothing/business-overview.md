@@ -1,66 +1,76 @@
 # Clothing Business — Business Logic Overview
 
 This directory documents the extracted business rules and workflow behaviour for the **Clothing** business unit.
-The intent is for this folder to be the authoritative documentation set for current Clothing **Operations**, **Accounting**, and **Employees** workflows, including business rules, buttons, modals, toasts, alerts, redirects, and other operator-facing behaviour.
-Each file uses a numbered-table format (`# | Logic | Explanation`) grouped by lettered sections.
+Employee procedures are owned by the [Master SOP Manual](operations-workflow.md),
+updated 2026-10-28 with normal work, exceptions, examples and FAQ. The module
+files below own technical enforcement and known limits, not competing SOPs.
+Accounting interpretation lives in the [policy](../../OPERATIONAL_WORKFLOW_AND_ACCOUNTING_POLICY.md);
+the [current reconciliation report](../../reports/CLOTHING_SUPPLIER_RECONCILIATION_2026-10-27.md)
+owns actual execution evidence and open financial decisions. Development behavior
+does not imply deployment or certification of historical records.
 
 ---
 
 ## Operations
 
-| Module                     | File                                                                         | Rules | Key Topics                                                                                                                                                                                                          |
-| -------------------------- | ---------------------------------------------------------------------------- | ----- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Dashboard                  | [operations-dashboard.md](./operations-dashboard.md)                         | 41    | Mock/future data, statistics grid (4 cards), sales performance chart (7d/30d/90d), order pipeline funnel, inventory health, shipment timeline, sidebar highlights                                                   |
-| Business Intelligence      | [operations-business-intelligence.md](./operations-business-intelligence.md) | 32    | 7 date filters (YTD/MTD/…/All), 3 parallel queries, 6 stat cards, monthly trend charts, top-10 products & customers, shipment metrics chart                                                                         |
-| Transactions               | [operations-transactions.md](./operations-transactions.md)                   | 80    | Status machine, payment recording, CSV import, stock-check SweetAlert2 dialogs (SOLD_OUT blocks, INSUFFICIENT_STOCK caps, LOW_STOCK warns), invoice generation, due-date tracking                                   |
-| Customers                  | [operations-customers.md](./operations-customers.md)                         | 107   | Validation, duplicate detection (60/25/15 weighting, 50% threshold), auto-fill, add/edit modals, additional info (5 categories × 5 max each), refund recording, transaction tabs, cross-tab sync, CSV notifications |
-| Products                   | [operations-products.md](./operations-products.md)                           | 170   | Costing model (CNY→PHP), product code generation, edit mode, inline cell editing, transit build-up, reclass to stock on hand, add/edit modal, bundles, mix & match, shipping fee calculator, CSV import             |
-| Prices                     | [operations-prices.md](./operations-prices.md)                               | 38    | Tier ordering validation, price auto-sync from Actual Price, add/edit modals, CSV full-replace import, increase/decrease stats                                                                                      |
-| Inventory                  | [operations-inventory.md](./operations-inventory.md)                         | 45    | 7 movement buckets, actualQtyReceived/directSellableQty formulas, transfer guards, quick-adjustment modals (supplier short, additionals), edit/delete movements                                                     |
-| Sorting & Distribution     | [operations-sorting-distribution.md](./operations-sorting-distribution.md)   | 38    | localStorage persistence, quantity pill buttons, SweetAlert2 mismatch alert (Add N / Deduct N), Handsontable inline edit, 1 s auto-save, percentage/distribution/group number formulas                              |
-| Shipments                  | [operations-shipments.md](./operations-shipments.md)                         | 82    | Validation, duration (ceil days), 7 status buckets, shipment-scoped transit routes, landed-cost clearing workflow, CRUD modals, search/filter                                                                       |
-| Dispatch                   | [operations-dispatch.md](./operations-dispatch.md)                           | 53    | 24 h shipped window, 2-step confirm, fuzzy matching (40% threshold, top 10), XLSX import, clipboard copy with fallback, match tab prepared-totals, recently-updated tab                                             |
-| Due Dates                  | [operations-due-dates.md](./operations-due-dates.md)                         | 35    | Invoice Date + 72 h rule, Prepared-only filter, grouped-by-customer table, overdue/due-soon/on-track badges (red/orange/green), Facebook link lookup, shared GM support                                             |
-| Invoicing (Checkout Links) | [operations-checkout-links.md](./operations-checkout-links.md)               | 73    | Eligible statuses, actual weight formula, fixed tiers ≤3 kg, polynomial >3 kg, Messenger flow, Google Drive sync, local invoicing, CSV import/export, delete with typed confirmation                                |
-| Notifications              | [operations-notifications.md](./operations-notifications.md)                 | 16    | 4 entity tabs (transactions/products/prices/shipments), staleTime:0, grouped by transactionId+action+user+date, expand/collapse change-detail rows                                                                  |
-| Settings                   | [operations-settings.md](./operations-settings.md)                           | 45    | 5 tabs, accounting cutover dates, transaction field protections (double SweetAlert2), invoice format (PDF/PNG), invoice message template (placeholder validation), double SweetAlert2 reset, backup redirect        |
-| Post Template              | [operations-post-template.md](./operations-post-template.md)                 | 15    | Nested under Settings → Message tab, intro paragraphs (min 1), bullet points, upsert by slug, green/red save notifications                                                                                          |
-| Message Templates          | [operations-message-templates.md](./operations-message-templates.md)         | 30    | Canonical order display, copy-with-check-icon, SweetAlert2 before edit and save, create modal with validation, badge colour (Reminder=blue/Cancellation=red/other=gray)                                             |
-| Dispatching                | [operations-dispatching.md](./operations-dispatching.md)                     | 7     | **Placeholder** — mock data only, no API, import/edit/delete simulated                                                                                                                                              |
-| Messaging                  | [operations-messaging.md](./operations-messaging.md)                         | 7     | **Placeholder** — type definitions and mock conversations only, no UI or API implemented                                                                                                                            |
+| Module                     | File                                                                         | Key Topics                                                                                                                     |
+| -------------------------- | ---------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| Dashboard                  | [operations-dashboard.md](./operations-dashboard.md)                         | Dashboard data and explicit mock/future limitations.                                                                           |
+| Business Intelligence      | [operations-business-intelligence.md](./operations-business-intelligence.md) | Manila report windows, customer/refund metrics and report limitations.                                                         |
+| Transactions               | [operations-transactions.md](./operations-transactions.md)                   | Real collections, cancellation approvals, A/R, atomic Clothing imports, conflicts and stock status.                            |
+| Customers                  | [operations-customers.md](./operations-customers.md)                         | Saved identity, actual payout history, ordinary goods refunds and keyed physical-only returns.                                 |
+| Products                   | [operations-products.md](./operations-products.md)                           | Supplier selection, future-purchase credit, explicit posting, five tabs, source-cost composite definitions and identity locks. |
+| Prices                     | [operations-prices.md](./operations-prices.md)                               | Saved tiers, selling prices versus acquisition costs and destructive full-replace CSV scope.                                   |
+| Inventory                  | [operations-inventory.md](./operations-inventory.md)                         | Physical/transit limits, free goods, cost-preserving transfers, original-component returns and protected source history.       |
+| Sorting & Distribution     | [operations-sorting-distribution.md](./operations-sorting-distribution.md)   | Autosave, rounded allocation suggestions and actual physical count.                                                            |
+| Shipments                  | [operations-shipments.md](./operations-shipments.md)                         | Status propagation, actual logistics, separate payment/capitalization and retained source-flow guards.                         |
+| Dispatch                   | [operations-dispatch.md](./operations-dispatch.md)                           | Last-24-hour shipped window, fuzzy-match review, replace import and partial-success bulk updates.                              |
+| Due Dates                  | [operations-due-dates.md](./operations-due-dates.md)                         | Prepared unpaid orders; invoice date plus three Manila calendar days at end-of-day, not a 72-hour timer.                       |
+| Invoicing (Checkout Links) | [operations-checkout-links.md](./operations-checkout-links.md)               | Saved invoice/weight/link calculations, manual message handoff and local-only tickboxes; Drive sync is retired.                |
+| Notifications              | [operations-notifications.md](./operations-notifications.md)                 | Grouped transaction/product/price/shipment changes.                                                                            |
+| Settings                   | [operations-settings.md](./operations-settings.md)                           | Runtime cutoff, field protections, invoice defaults and backup navigation.                                                     |
+| Post Template              | [operations-post-template.md](./operations-post-template.md)                 | Saved post-template text and validation.                                                                                       |
+| Message Templates          | [operations-message-templates.md](./operations-message-templates.md)         | Deposit terminology, saved defaults and actual send responsibility.                                                            |
+| Dispatching                | [operations-dispatching.md](./operations-dispatching.md)                     | Placeholder/mock surface, separate from the implemented Dispatch page.                                                         |
+| Messaging                  | [operations-messaging.md](./operations-messaging.md)                         | Implemented persisted conversations/messages, user-visible deletion, unread state and pagination.                              |
 
 ---
 
 ## Accounting
 
-| Module        | File                                                         | Rules | Key Topics                                                                                               |
-| ------------- | ------------------------------------------------------------ | ----- | -------------------------------------------------------------------------------------------------------- |
-| Expenses      | [accounting-expenses.md](./accounting-expenses.md)           | 50    | Expense tracking, status lifecycle, category mapping, receipt viewing, filters, CSV import/export        |
-| Journal       | [accounting-journal.md](./accounting-journal.md)             | 45    | Double-entry journal, manual entry modal, tagged accounts, CSV import/export, delete confirmation        |
-| Ledger        | [accounting-ledger.md](./accounting-ledger.md)               | 67    | Running balances, opening balance modal, transit build-up actions, recurring payments, CSV import/export |
-| Balance Sheet | [accounting-balance-sheet.md](./accounting-balance-sheet.md) | 27    | Assets/liabilities/equity snapshot, sign inversion, cash/stock/transit subtables, balancing checks       |
-| Profit & Loss | [accounting-profit-loss.md](./accounting-profit-loss.md)     | 29    | Revenue/COGS/expense summaries, comparison overlays, breakdown charts, detail drill-down, CSV export     |
+Use the [Accounting Overview](accounting-overview.md) for current technical
+notes and the source-specific report contracts:
+
+| Module        | File                                                         | Key Topics                                                                                             |
+| ------------- | ------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------ |
+| Expenses      | [accounting-expenses.md](./accounting-expenses.md)           | Actual events, pending/approved/paid distinctions and unresolved historical settlement/deletion risks. |
+| Journal       | [accounting-journal.md](./accounting-journal.md)             | Dated double-entry events and protected source identity.                                               |
+| Ledger        | [accounting-ledger.md](./accounting-ledger.md)               | Brought Forward, Period Movement, Closing Balance, openings and authoritative exports.                 |
+| Balance Sheet | [accounting-balance-sheet.md](./accounting-balance-sheet.md) | As-of assets, liabilities, equity, supplier credits, refund obligations and limits.                    |
+| Profit & Loss | [accounting-profit-loss.md](./accounting-profit-loss.md)     | Revenue/COGS/expense windows, lot valuation completeness and dated corrections.                        |
 
 ---
 
 ## Employees
 
-| Module         | File                                                         | Rules | Key Topics                                                                                                       |
-| -------------- | ------------------------------------------------------------ | ----- | ---------------------------------------------------------------------------------------------------------------- |
-| Team           | [employees-team.md](./employees-team.md)                     | 48    | Employee directory, employee ID generation, create/edit/delete, detail page, related history tabs, avatar upload |
-| Attendance     | [employees-attendance.md](./employees-attendance.md)         | 56    | Check-in/out, status modes, overtime, LWOP, bulk actions, auto-record                                            |
-| Schedules      | [employees-schedules.md](./employees-schedules.md)           | 40    | Two tabs, shift/status colors, modal workflow, recurrence, CSV import/export                                     |
-| Leave Tracker  | [employees-leave-tracker.md](./employees-leave-tracker.md)   | 42    | Leave lifecycle, balances, overlap handling, analytics, calendar impacts                                         |
-| Dashboard      | [employees-dashboard.md](./employees-dashboard.md)           | 20    | Cross-module employee KPIs and summaries                                                                         |
-| Payroll        | [employees-payroll.md](./employees-payroll.md)               | 83    | Generation flow, formulas, approvals, mark-as-paid, payslip ZIP download, CSV import/export                      |
-| Cash Advance   | [employees-cash-advance.md](./employees-cash-advance.md)     | 43    | Request lifecycle, monthly payment math, optimistic updates, prompt/reject flow                                  |
-| Employee Loans | [employees-employee-loans.md](./employees-employee-loans.md) | 43    | **Local-state-only** loan workflow, approval/activation/completion, CSV import/export                            |
-| Leave Requests | [employees-leave-requests.md](./employees-leave-requests.md) | 8     | Request validation, overlap detection with `excludeId`, shared service-base behaviour                            |
-| 13th Month Pay | [employees-13th-month-pay.md](./employees-13th-month-pay.md) | 44    | Multi-source aggregation, `monthsWorked` set semantics, approve/mark-paid locking                                |
-| Settings       | [employees-settings.md](./employees-settings.md)             | 20    | Stay-in automation settings, delta save, run-now action                                                          |
-| Expenses       | [employees-expenses.md](./employees-expenses.md)             | 2     | Redirect stub to Clothing Accounting                                                                             |
-| Notifications  | [employees-notifications.md](./employees-notifications.md)   | —     | **Placeholder** — empty shell, not implemented                                                                   |
-| Calendar       | [employees-calendar.md](./employees-calendar.md)             | —     | **Placeholder** — empty shell, not implemented                                                                   |
+These are separate HR/payroll contracts, not employee retail SOPs:
+
+| Module         | File                                                         | Key Topics                                            |
+| -------------- | ------------------------------------------------------------ | ----------------------------------------------------- |
+| Team           | [employees-team.md](./employees-team.md)                     | Employee identity, detail/history and directory.      |
+| Attendance     | [employees-attendance.md](./employees-attendance.md)         | Check-in/out, overtime, LWOP and bulk actions.        |
+| Schedules      | [employees-schedules.md](./employees-schedules.md)           | Schedule views, shifts and recurrence.                |
+| Leave Tracker  | [employees-leave-tracker.md](./employees-leave-tracker.md)   | Leave balances, overlap, calendar and lifecycle.      |
+| Dashboard      | [employees-dashboard.md](./employees-dashboard.md)           | Employee KPIs and summaries.                          |
+| Payroll        | [employees-payroll.md](./employees-payroll.md)               | Generation, approval, paid locks and payslips.        |
+| Cash Advance   | [employees-cash-advance.md](./employees-cash-advance.md)     | Requests, approval and monthly payment math.          |
+| Employee Loans | [employees-employee-loans.md](./employees-employee-loans.md) | Local-state-only workflow, not financial persistence. |
+| Leave Requests | [employees-leave-requests.md](./employees-leave-requests.md) | Validation, overlap and shared service boundaries.    |
+| 13th Month Pay | [employees-13th-month-pay.md](./employees-13th-month-pay.md) | Aggregation and approval/paid locks.                  |
+| Settings       | [employees-settings.md](./employees-settings.md)             | Stay-in automation settings and execution.            |
+| Expenses       | [employees-expenses.md](./employees-expenses.md)             | Redirect to Clothing Accounting.                      |
+| Notifications  | [employees-notifications.md](./employees-notifications.md)   | Placeholder shell.                                    |
+| Calendar       | [employees-calendar.md](./employees-calendar.md)             | Placeholder shell.                                    |
 
 ---
 
@@ -86,7 +96,7 @@ Each rule file shares a common structure:
 
 - Rules are derived from the current Clothing codebase in both `src/app/clothing/` and `src/modules/clothing/`, including route-level workflow where it affects operator behaviour.
 - Employee modules such as cash advance, leave requests, and 13th month pay may delegate to shared service bases in `src/shared/employees/`; the Clothing docs should still reflect the user-visible behaviour in the Clothing routes.
-- **Dispatching**, **Messaging**, **Employees Calendar**, and **Employees Notifications** are placeholder or shell modules. Their docs should continue to describe the current scaffold state until real workflow is implemented.
+- **Dispatching**, **Employees Calendar**, and **Employees Notifications** retain explicit placeholder/shell caveats. **Messaging** is implemented; its own contract describes persistence and limits.
 - The Products module remains the largest documented single module.
 - The Transactions module contains the densest operator decision logic, including blocking stock-check dialogs.
 - Route-level behaviour also matters: `/clothing/accounting` is the Accounting overview dashboard, and `/clothing/ledger` is a legacy redirect to `/clothing/accounting`.
@@ -114,7 +124,7 @@ Each rule file shares a common structure:
 | Operations | Post Template          | Documented             | Template editing workflow is documented.                                                                                 |
 | Operations | Message Templates      | Documented             | Create/edit/copy workflows are documented.                                                                               |
 | Operations | Dispatching            | Placeholder documented | Current scaffold state is intentionally documented as placeholder-only.                                                  |
-| Operations | Messaging              | Placeholder documented | Current scaffold state is intentionally documented as placeholder-only.                                                  |
+| Operations | Messaging              | Documented             | Persisted conversations/messages and pagination are implemented; the old placeholder summary was superseded.             |
 | Accounting | Expenses               | Documented             | Current expense tracking behaviour is documented.                                                                        |
 | Accounting | Journal                | Documented             | Current journal workflow is documented.                                                                                  |
 | Accounting | Ledger                 | Documented             | Current ledger workflow is documented.                                                                                   |

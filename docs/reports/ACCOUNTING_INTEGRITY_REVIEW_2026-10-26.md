@@ -32,6 +32,27 @@ This is a technical integrity review, not a financial-statement audit, tax opini
 accounting-owner approval, fraud assessment, or certification of live balances.
 No missing money, excess money, or monetary exposure has been established.
 
+### Dated Follow-Up (2026-10-28)
+
+This October 26 assessment is historical, not a current list of unfixed items.
+The [expanded reconciliation analysis](CLOTHING_SUPPLIER_RECONCILIATION_2026-10-27.md#expanded-accounting-analysis-2026-10-28)
+records newer real-app Expenses/P&L/Balance Sheet tests, refund/supplier bridges,
+shared UI/cache repairs and two reproduced high-severity expense-history defects:
+later settlement backdates Cash, and deleting a paid expense removes its earlier
+statement effect without a dated reversal. The statements still balance.
+
+The earlier 19/26 and paused-I01 status is superseded: all 26 mandatory scenarios
+now have passing scoped evidence, and all nine final gates passed. Implementation
+was committed as `ce3f8f5d`; it has not been pushed or deployed by this work.
+The [owner handoff and follow-up register](CLOTHING_SUPPLIER_RECONCILIATION_2026-10-27.md#owner-handoff-and-follow-up-2026-10-28)
+records expected improvements, the two open expense-history defects, Bank Fees
+classification risk, unsupported partial-shortage spendable credit and release
+prerequisites. Other legacy findings and financial-policy decisions remain open.
+Use the linked report/checklist for precise before/after amounts. This dated
+follow-up is documentation only; the October 26 assessment below remains
+historical. No historical business data repair or live-books certification is
+implied by either report.
+
 ## 2. Evidence And Scope
 
 ### Evidence Levels

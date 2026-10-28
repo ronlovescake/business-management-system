@@ -83,6 +83,123 @@ not a deployment certification or a reconciliation of real bank balances/stock.
 The [implementation checklist](../plans/SUPPLIER_CREDIT_AND_RECONCILIATION_CHECKLIST.md)
 records all 26 mandatory cases as complete; unexecuted unrelated workflows are not passes.
 
+## Owner Handoff And Follow-Up (2026-10-28)
+
+This documentation-only summary records the expected improvements and independent
+follow-up items. It does not change business policy or authorize implementation,
+data repair or release. Completion remains 26/26; the open findings below do not
+reopen the completed mandatory scenarios.
+
+### Expected Improvements
+
+| Area                 | Expected Operator Benefit                                                                                                                                                                                                  |
+| -------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Purchases            | Search recorded suppliers, distinguish credit references from amounts, and accept valid Manila posting dates around midnight.                                                                                              |
+| Stock                | Correct the tested explicit In Transit versus Delivered projection, count supplier extras once, and preserve costs through transfers. Other/intermediate or unclear statuses still require physical-location review.       |
+| Supplier-free extras | Sell at the ordinary customer price with explicit zero acquisition cost: 1,000 bought at PHP20 plus 100 free, all sold at PHP50, gives PHP55,000 revenue and PHP20,000 acquisition COGS.                                   |
+| Physical returns     | Preserve original sold components and cost provenance, including applicable dated cost allocations. Partial split pieces stay loose until the original set is complete; cancellation alone does not restock goods.         |
+| Accounting           | Avoid duplicate investor-return expense, allocate freight/cost corrections between sold and unsold goods, and preserve earlier reports for the tested supported event paths. Expense-history exceptions remain open below. |
+| Saves and retries    | Roll back failed bulk order imports together; guard supported keyed retries and competing requests against duplicate or excessive movements.                                                                               |
+| Report screens       | Prevent obsolete responses and stale cached data from replacing current filtered balances after supported saves.                                                                                                           |
+
+### Follow-Up Register
+
+Accountable policy owner: Ron, the requesting business/project owner. Each open
+financial change needs an approved design at its owning boundary before work
+begins. Status must advance only with recorded implementation and acceptance
+evidence, not because the mandatory scenario count is complete.
+
+| Item                                          | Current Status                                                     | Next Decision Or Closure Evidence                                                                                                                                                                                                                        |
+| --------------------------------------------- | ------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| EXP-HISTORY-01: expense-payment backdating    | High severity; unresolved                                          | Approve a separate actual settlement event/date. Prove a later payment does not change earlier Cash/payable statements across all affected writers and reports; see the [expense proposal](#expense-remediation-proposal).                               |
+| EXP-HISTORY-02: paid-expense deletion history | High severity; unresolved                                          | Approve posted-history protection and dated reversal/correction rules. Test single, bulk and import entry points without erasing executed historical effects.                                                                                            |
+| Bank Fees account classification              | Unresolved source/unit counterexample; live impact not established | Approve shared account classification ownership and replace ambiguous label inference through that approved design; verify expense inclusion in P&L and consistent report classification. See [classification risk](#account-label-classification-risk). |
+| Partial-shortage spendable supplier credit    | Unsupported; follow-up notes are not issued credits                | Approve amount allocation, funding, valuation, limits and correction rules, then verify the complete issue/application workflow. Never substitute whole-purchase credit for a partial shortage.                                                          |
+| Release and target migration                  | Not deployed; no business database migrated                        | Obtain separate release authorization, verify target migration history, back up data, and follow the reviewed environment-specific migration/deployment procedure.                                                                                       |
+
+Other existing legacy audit findings and supplier-credit reversal, expiry and
+write-off decisions remain open as described under [Unresolved Audit Findings](#unresolved-audit-findings)
+and [Remaining Work And Owner Decisions](#remaining-work-and-owner-decisions).
+No live-data impact count, historical repair, bank reconciliation or physical
+stock certification is implied.
+
+Implementation commit: `ce3f8f5d` (`fix(clothing): complete supplier and inventory
+reconciliation`), with 99 approved files and normal hooks passing. It has not been
+pushed or deployed by this work. Recorded validation is 26 workflow scenarios and
+all nine final gates, including 4,514 unit, 90 integration and 12 hardening tests
+on isolated synthetic data; see [Fresh Required Gates](#fresh-required-gates).
+This follow-up documentation update is not included in that implementation commit.
+
+## Documentation Consolidation And Employee Handoff (2026-10-28)
+
+The requesting owner subsequently asked for relevant business, workflow,
+process and refactor documents to be reconciled, verified obsolete material
+removed, and one plain-English employee knowledge base. This is a separate
+documentation-only change, not another financial implementation or release.
+
+### Canonical Owners
+
+- Employee procedures: the existing [Master SOP Manual and Employee Knowledge Base](../business-logic/clothing/operations-workflow.md), expanded in place to 12 normal stages, 22 exception procedures, practical examples and FAQ. Each exception states what happened, numbered next steps and an example. No second manual was created.
+- Accounting interpretation: [Operational Workflow And Accounting Policy](../OPERATIONAL_WORKFLOW_AND_ACCOUNTING_POLICY.md). Developer enforcement: the [Business Logic Index](../BUSINESS_LOGIC_INDEX.md) and owning module contracts. Evidence/open findings: this report and the completed scenario checklist.
+- Process/refactor: [developer onboarding](../DEVELOPER_ONBOARDING.md), [canonical refactor tracker](../plans/REFACTOR_CHECKLIST.md), phased execution record and dated historical reports. The owner-designated root [requirements record](../../plan.md) retains unique approvals/evidence, clearly distinguished from current employee procedure.
+
+### Verified Cleanup Decisions
+
+| Removed Or Corrected                                                       | Verification And Surviving Owner                                                                                                                                                                                                  |
+| -------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Completed standalone A/R plan                                              | Needed shipment/collection/legacy/domain rules consolidated into [Transactions](../business-logic/clothing/operations-transactions.md#accounts-receivable-shipped-goods-awaiting-payment); navigation replaced before deletion.   |
+| Four duplicated invoicing formula/eligibility sections                     | Canonical sections A-D retained. Retired Drive-sync references and false local-tickbox distinctions corrected, including the shared GM summary.                                                                                   |
+| Competing old refund/deadline/operator advice                              | Replaced by the implemented manual and supported cancellation/payout/physical-return distinction. Checklist and dated supplier review now refer to that manual rather than repeat a procedure.                                    |
+| Estimated-charge accrual and default missing-goods cash refund             | Removed from accounting policy; confirmed actual logistics and approved whole-product future-purchase credit remain in their owning contracts.                                                                                    |
+| Old monthly-reset/env-only/opening-balance apply recipe                    | Removed; current policy requires explicit accounting approval, verified prior closing, runtime cutoff, supported opening entries, report verification and separate target-operation authorization.                                |
+| Duplicate refactor contracts and obsolete migration-generation instruction | One contract remains in the canonical tracker; the accounting migration already exists. File presence is not deployment or authentic-history proof.                                                                               |
+| Stale overview counts/features and unsafe recreation claim                 | Unmaintained rule counts removed from Clothing overviews; Split, implemented Messaging, end-of-third-day deadlines, retired Drive sync, protected source events and retained transit flow modes checked against source/contracts. |
+
+The structural scan covered 150 Markdown files and found no byte-identical
+duplicates. Semantic cleanup was scoped to the Clothing lifecycle and its
+affected shared documentation, not a new whole-repository unused-code audit.
+Active legacy statuses, cost/source fallbacks, migrations, distinct domain
+adapters and unique legal/audit/recovery evidence remain intentionally retained.
+They were not proven unused; deleting them would risk current consumers or
+unresolved recovery obligations. Nothing was archived merely to keep an obsolete
+alternative procedure alive.
+
+### Documentation Verification And Limits
+
+Focused checks passed for all 12 normal stages and all 22 exception blocks,
+required situation/numbered-steps/example structure, FAQ links, canonical
+navigation, source-backed tab/status/source-mode statements, unchanged 26/26
+scenario rows and preserved original owner declarations. Formatting,
+doc-command drift and whitespace checks passed during each edit slice. Final
+changed-document Markdown AST/formatting checks passed for 27 documents, 419
+local links, 60 heading targets and four business-rule declarations, with no
+broken links or invalid records. The 26 scenario rows and original owner/
+implementation declarations are unchanged. The preexisting refactor report
+body and five unrelated user files retain their exact prior bytes; HEAD is
+unchanged and the index is empty. Editor diagnostics are clear. Remaining
+mentions of the deleted plan's filename occur only in the retained historical
+conversation log, not current documentation navigation. These are documentation
+checks, not a rerun of financial browser/database gates.
+
+No runtime business rule, source file, schema, migration SQL or business data
+was changed by this consolidation. The original implementation declaration
+below remains intact. Its earlier nine-gate/26-scenario results are recorded
+evidence, not newly executed documentation tests. Expense history, Bank Fees
+classification, unsupported partial-shortage credit, intermediate-status
+location fallback and release prerequisites remain explicit limits. These new
+documentation changes are uncommitted; no push, deploy or production build occurred.
+
+<!-- business-rule-change -->
+
+```json
+{
+  "businessRuleChange": false,
+  "rationale": "Documentation-only consolidation of the already approved and implemented Clothing supplier-to-reseller lifecycle: expand the existing employee manual, centralize policy and enforcement ownership, remove verified superseded plans and duplicate instructions, correct source-verified summaries, and preserve original approvals, scenario evidence, active compatibility and unresolved financial/release limits. No runtime, schema, data or business-policy change is introduced."
+}
+```
+
+<!-- /business-rule-change -->
+
 ## Authorized Change
 
 The requesting business/project owner authorized supplier discovery, Manila
@@ -827,7 +944,9 @@ Owner decisions remain necessary for partial-shortage spendable credits,
 credit reversal/expiry/write-offs and expense correction/legacy evidence. Composite
 physical returns and zero-cost supplier extras follow the explicit approvals above.
 No historical data repair, migration on a business
-database, production build, commit, push or deployment is part of this change.
+database, production build, push or deployment was performed. The owner separately
+authorized implementation commit `ce3f8f5d`; that single-use commit approval does
+not authorize a further commit or release.
 The earlier unanswered physical-return/free-cost decisions were subsequently
 resolved by the owner; they are not current blockers. Unsupported partial-shortage
 spendable credit remains explicit, not disguised as whole-product credit.

@@ -1,7 +1,11 @@
-X# Operational Workflow & Accounting Policy (Supplier → Inventory)
+# Operational Workflow And Accounting Policy
 
-This document captures how we run **supplier-facing** workflows in the app and the accounting rules we want to follow.
-It prevents repeating the same Q&A and acts as a living reference as workflows evolve.
+Updated: 2026-10-28. This is the accounting-policy reference, not a second employee
+procedure manual. Employees use the [Master SOP Manual](business-logic/clothing/operations-workflow.md).
+Developers use the owning [module contracts](BUSINESS_LOGIC_INDEX.md). The
+[current reconciliation record](reports/CLOTHING_SUPPLIER_RECONCILIATION_2026-10-27.md)
+owns execution evidence and unresolved findings. This update documents existing
+approved behavior; it does not authorize new accounting rules or data changes.
 
 ---
 
@@ -61,10 +65,10 @@ On `*/operations/products`, the **Payment** dropdown represents **supplier payme
 
 ### Rare exceptions
 
-| Scenario                                         | What happens                                                                                                                                |
-| ------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Missing item left behind**                     | Supplier ships the missing item on the next shipment (e.g., move from `00222` → `00223`). We transfer the product to the new shipment code. |
-| **Missing item shipped to a different customer** | Supplier can't retrieve it. Supplier provides a **refund** for the missing item.                                                            |
+| Scenario                                         | What happens                                                                                                                                                                                          |
+| ------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Missing item left behind**                     | Supplier ships the missing item on the next shipment (e.g., move from `00222` → `00223`). We transfer the product to the new shipment code.                                                           |
+| **Missing item shipped to a different customer** | For an eligible whole paid product, confirmed future-purchase supplier credit follows the dedicated Clothing resolution. It is not a cash refund. Partial shortages require separate approved policy. |
 
 ### Data corrections
 
@@ -96,10 +100,10 @@ On `*/operations/products`, the **Payment** dropdown represents **supplier payme
 
 We separate **supplier cost** from **logistics costs** operationally and in accounting:
 
-| Cost type          | Source                   | Basis                                                                                            |
-| ------------------ | ------------------------ | ------------------------------------------------------------------------------------------------ |
-| **Supplier cost**  | Products automation      | **Grand Total** — forwarder/courier/packaging are excluded to avoid double-counting.             |
-| **Logistics cost** | Separate payable entries | Forwarder, Lalamove, packaging — entered as **estimates** while in transit; actuals known later. |
+| Cost type          | Source                       | Basis                                                                                                                                   |
+| ------------------ | ---------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
+| **Supplier cost**  | Products automation          | **Grand Total** — forwarder/courier/packaging are excluded to avoid double-counting.                                                    |
+| **Logistics cost** | Separate actual-cost entries | Forwarder, Lalamove and packaging: only confirmed actual charges enter clearing/payables. Pricing estimates never create those entries. |
 
 > 💡 The **Products page COGS** is updated later to reflect the **actual landed cost** once actual logistics amounts are known, so P&L uses the real COGS.
 
@@ -107,7 +111,13 @@ We separate **supplier cost** from **logistics costs** operationally and in acco
 
 The system posts accounting based on **real-world events**:
 
-#### Event 1 — Product created (recognize supplier inventory)
+#### Event 1 — Explicit Transit Build-Up (Recognize Supplier Inventory)
+
+Ordinary product creation and its stock-receipt assurance are not proof that
+financial Transit Build-Up has been posted. The Clothing Products action posts
+eligible linked products for the confirmed shipment. Dedicated credit-funded
+creation/resolution can establish its owned source separately; never post a
+second full acquisition over that source.
 
 | Condition  | Debit                | Credit           | Amount      |
 | ---------- | -------------------- | ---------------- | ----------- |
@@ -134,7 +144,8 @@ Reclass the inventory out of transit:
 | ------------- | -------------------- | ----------- |
 | Stock on Hand | Inventory in Transit | Grand Total |
 
-> 💡 This reclass is performed via the **Transit Reclass** action in the Shipments module (enabled only when shipment status = **Delivered**).
+> This reclass starts from **Reclass to Stock on Hand** on Clothing Products,
+> using the existing shipment API and requiring **Delivered**.
 > Changing status to Delivered alone does **not** auto-post the reclass — this is intentional to avoid silent failures when transit build-up totals don't match product valuation totals.
 
 ---
@@ -303,44 +314,10 @@ Every auto-generated posting must be idempotent:
 
 - Unique key per event + product (and/or shipment) so saving twice does not duplicate entries.
 
-<details>
-<summary><strong>Refactor rationale (engineering summary — click to expand)</strong></summary>
-
-**P1: Shared employee core** (remove clothing/trucking duplication)
-
-- Single source of truth for business rules; fewer "fixed in one module, broken in another" regressions.
-- Faster delivery: implement once, expose via thin wrappers for each domain.
-- Lower test cost: one core test suite covers most behavior; wrappers only need light smoke tests.
-- Better policy consistency (especially payroll/employee/accounting side effects) across modules.
-
-**P1: Split God hooks into focused hooks**
-
-- Smaller units are easier to reason about, review, and safely modify.
-- Lower bug risk from unrelated side effects.
-- Better performance opportunities (more targeted memoization/state updates).
-- Higher confidence for future changes to payment workflows and accounting guardrails.
-
-**P2: Compose oversized API routes + domain adapters**
-
-- Clear separation of concerns improves maintainability.
-- Reduced duplication between clothing and GM accounting endpoints.
-- Safer accounting evolution: one place to enforce rules.
-- Better observability and incident debugging.
-
-**P2: Remove dead/legacy state and backward-compat shims**
-
-- Less cognitive load and fewer misleading code paths.
-- Reduced accidental reactivation of deprecated behavior.
-- Smaller surface area for defects and security issues.
-
-**P3: Move root tmp scripts + enforce retention policy**
-
-- Cleaner repository root; fewer accidental script runs.
-- Clear boundary between permanent tooling and temporary maintenance scripts.
-
-**Overall business impact:** Faster feature throughput, fewer regressions, lower maintenance cost, more reliable accounting behavior.
-
-</details>
+Engineering refactor work is tracked only in the [refactor tracker](plans/REFACTOR_CHECKLIST.md),
+not repeated as accounting policy. Active legacy adapters and historical-cost
+fallbacks must remain until their consumers and migration/recovery requirements
+are explicitly retired.
 
 ---
 
@@ -348,22 +325,56 @@ Every auto-generated posting must be idempotent:
 
 ### A) Missing item moved to next shipment
 
-**Operational action:** Move product from old shipment code to new shipment code.
+**Operational action:** for a wholly delayed unreceived product, use the
+administrator's dedicated Supplier resolution transfer to an existing shipment.
+Do not use an ordinary grid relink or delete the original funding source.
 
-| Posting state                      | Accounting impact                                                                                                                   |
-| ---------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
-| Not yet delivered/reclassed        | Usually **no accounting impact** (still in transit).                                                                                |
-| Already reclassed to Stock on Hand | Correction required — move product's value **back** to Inventory in Transit, then reclass later when the new shipment is delivered. |
+| Posting state                                      | Accounting impact                                                                                                                       |
+| -------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
+| Eligible whole unreceived product                  | Transfer preserves original product funding, amount, dates and source keys; no second payment or acquisition.                           |
+| Partially received, fulfilled or already reclassed | Dedicated whole-product transfer rejects. Obtain an owner-approved correction; no generic reversal/relink procedure is authorized here. |
 
-### B) Supplier refund for missing item
+### B) Confirmed Future-Purchase Supplier Credit
 
-On refund date, reverse the in-transit asset for that product:
+Only eligible entirely unreceived, funded Clothing purchases support this
+workflow. Issuance uses saved Grand Total, preserves original payment/card debt,
+and records the confirmed replacement claim:
 
-| Debit | Credit               |
-| ----- | -------------------- |
-| Cash  | Inventory in Transit |
+| Debit            | Credit               |
+| ---------------- | -------------------- |
+| Supplier Credits | Inventory in Transit |
 
-> 💡 If the amount was still in Supplier Payable (not yet paid), reduce the payable accordingly instead of crediting Cash.
+Applying issued credit preserves the new purchase's gross amount and consumes
+only the selected credit, with the rest funded by Cash/card or Supplier Payable.
+An unsettled Unpaid original cannot create a funded supplier-credit asset.
+Follow-up notes on partial shortages are not usable credits. No automatic cash
+refund, partial issuance, reversal, expiry or write-off is approved by this text.
+See the [owning Products contract](business-logic/clothing/operations-products.md#supplier-nonfulfillment-and-future-purchase-credit).
+
+### C) Supplier Extras, Physical Returns And Dated Costs
+
+Genuine supplier extras are separate explicit zero-acquisition-cost units, sold
+at the ordinary customer price. Keep original paid lot costs; do not redistribute
+them or silently confirm a missing cost as zero. Actual source costs follow
+transfers, assembly, fulfillment and physical returns. Split components require
+explicit acquisition costs conserving the parent; selling prices do not allocate cost.
+
+Cancellation approval, actual money payout and physical return are separate.
+Original component/source history stays intact; complete original split pieces
+may rebuild a parent once. Approved dated corrections preserve original sale
+snapshots while allocating the corrected carrying value as of their actual date.
+Ambiguous or transformed histories can require review rather than guessed edits.
+See [Inventory](business-logic/clothing/operations-inventory.md) and
+[P&L valuation](business-logic/clothing/accounting-profit-loss.md#valuation-completeness-and-dated-corrections).
+
+### D) Open Financial Correction Risks
+
+Expense-payment backdating (EXP-HISTORY-01), paid-expense deletion history
+(EXP-HISTORY-02) and Bank Fees label classification remain unresolved. Do not
+describe status toggles, deleting paid rows or renaming accounts as a safe
+correction. The [follow-up register](reports/CLOTHING_SUPPLIER_RECONCILIATION_2026-10-27.md#follow-up-register)
+owns decisions and acceptance evidence. Passing tests or a balanced statement
+does not certify those workflows, external cash or physical stock.
 
 ---
 
@@ -393,12 +404,16 @@ The Inventory page/report uses a **4-number split** per product code:
 
 ### Source of truth for "on-hand" vs "in-transit"
 
-| Shipment status                        | Treated as |
-| -------------------------------------- | ---------- |
-| **Delivered**                          | On-hand    |
-| Any other status (incl. blank/unknown) | In-transit |
+| Shipment status                                | Treated as                                                                                                                                                                                      |
+| ---------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Explicit **In Transit**                        | Current Clothing projection shows zero physical stock and separates transit reserved/unreserved.                                                                                                |
+| **Delivered**                                  | Received projection; verify actual count and any shortage/damage.                                                                                                                               |
+| Other, blank, unmatched or intermediate status | Existing received-supply fallback can apply; this is not proof of actual arrival. Reconcile physical location rather than assuming every non-Delivered status is automatically held in transit. |
 
-This matches the accounting reclass: `Dr Stock on Hand / Cr Inventory in Transit` at delivery.
+Approved physical policy still requires actual arrival; the display's fallback
+does not redefine it. The linked shipment overrides stale product status when
+available. Display reads do not perform the separate financial reclassification.
+See the [Inventory contract](business-logic/clothing/operations-inventory.md#physical-location-and-reservation-split).
 
 > ⚠️ **Reservations can exist while in transit.** Preorder allocations show under "In-transit reserved" until the shipment is Delivered.
 
@@ -423,82 +438,21 @@ These may be created early for preorder selling while they are still in transit.
 
 ## Monthly reset / New cutover (practical)
 
-If you want to start fresh for a new month (e.g., Feb 1) because the prior month is confusing or mismatched, **do not rewrite history**. Instead:
+Changing a cutoff is not a routine monthly reset or a remedy for confusing
+balances. It hides scope rather than proving the missing events are correct.
 
-### Step 1 — Set a new accounting cutover date
+1. Obtain explicit owner/accounting approval for the scope, date, evidence and
+   recovery plan. Do not copy February example balances or modify another domain.
+2. Verify the actual prior closing and all assets, liabilities, deposits and
+   refund obligations. New openings must represent documented balances, not
+   whichever numbers make the new statement balance.
+3. Use reviewed domain-specific runtime settings and supported paired opening
+   entries with unique descriptions. Saved runtime settings can override the
+   environment/default cutoff; changing an environment variable alone is not proof.
+4. Verify prior and new as-of reports, brought-forward amounts, period movements,
+   closing balances and exports without rewriting original events. Keep evidence.
 
-| Env variable                       | Value                         | Notes                                                  |
-| ---------------------------------- | ----------------------------- | ------------------------------------------------------ |
-| `ACCOUNTING_CUTOVER_DATE_CLOTHING` | `"2026-02-01"` (UTC midnight) | Sets the clothing module cutover.                      |
-| `ACCOUNTING_CUTOVER_DATE_GM`       | _(leave empty)_               | GM stays on the original default cutover (2026-01-17). |
-| `ACCOUNTING_CUTOVER_DATE`          | _(leave empty)_               | Avoids changing both modules accidentally.             |
-
-### Step 2 — Enter a clean Opening Balance snapshot (full Balance Sheet)
-
-Add balances you want the books to start with: `Cash`, `Stock on Hand`, `Inventory in Transit`, and any non-zero liabilities.
-If a liability account is 0, omit it (no entry = 0 balance).
-
-#### Editing opening balances
-
-> ⚠️ The Ledger UI "Edit Opening Entry" modal treats an opening entry as a **two-line pair** (one debit, one credit).
-> It finds the counterpart line by matching: **Date**, **Ref**, **Description**, **Amount**.
->
-> For anything you may want to edit later (especially loans), create **explicit debit/credit pairs** with a **unique Description per pair** (critical when two loans share the same amount).
-
-**Tips:**
-
-- The bulk opening-balance script auto-adds a balancing **Opening Equity** line — correct accounting-wise, but bulk-loading many liabilities under one ref may cause lines to appear "unpaired" in the editor.
-- To keep things editable, either enter pairs via the UI, or apply openings in separate batches with unique descriptions.
-
-#### Scripted approach (with dry-run preview)
-
-Create `tmp/opening-balances-2026-02-01.json`:
-
-```json
-{
-  "Cash": 80990,
-  "Stock on Hand": 0,
-  "Inventory in Transit": 0,
-  "Customer Deposits": 0,
-  "Loan Payable – Interest-free borrowing": 0,
-  "Loan Payable – Unionbank Personal Loan": 0,
-  "Loan Payable – BPI Business Loan 1": 0
-}
-```
-
-Dry run:
-
-```bash
-npx tsx scripts/set-opening-balances.ts \
-  --module clothing --date 2026-02-01 \
-  --ref OPENING-2026-02-01 \
-  --input tmp/opening-balances-2026-02-01.json
-```
-
-Apply:
-
-```bash
-npx tsx scripts/set-opening-balances.ts \
-  --module clothing --date 2026-02-01 \
-  --ref OPENING-2026-02-01 \
-  --input tmp/opening-balances-2026-02-01.json --apply
-```
-
-The script:
-
-- Skips 0-balance lines automatically
-- Auto-adds a balancing `Opening Equity` line so debits = credits
-
-#### Practical approach we used (Feb 1, 2026 Clothing)
-
-Instead of one giant opening import, we applied separate refs for clarity and safer editing:
-
-| Ref             | Entry                                   |
-| --------------- | --------------------------------------- |
-| `OPENING-STOCK` | Dr Stock on Hand / Cr Opening Equity    |
-| `OPENING-LOANS` | Per-loan paired entries for editability |
-| `OPENING-CASH`  | Dr Cash / Cr Opening Equity             |
-
-### Step 3 — Verify
-
-Re-check Balance Sheet and Ledger as-of the cutover date.
+X04 provides isolated cross-cutover proof, not authorization to reset business
+books. Target operations, migrations and historical recovery require their own
+review under [Deployment](DEPLOYMENT.md) and
+[migration recovery evidence](reports/DEVELOPMENT_MIGRATION_RECOVERY_2026-10-26.md).

@@ -7,7 +7,23 @@ Review date: 2026-10-26. Pre-implementation supplement to the
 the user's implementation approval. See the
 [approved implementation and validation record](ACCOUNTING_INTEGRITY_REVIEW_2026-10-26.md#12-approved-supplier-resolution-implementation)
 for subsequent changes; the earlier "unimplemented" status below is not a claim
-about the current working tree.
+about the current working tree. Current employee instructions live only in the
+[Master SOP Manual](../business-logic/clothing/operations-workflow.md); current
+completion/evidence is in the [reconciliation report](CLOTHING_SUPPLIER_RECONCILIATION_2026-10-27.md).
+
+## Current Disposition (2026-10-28)
+
+This report is retained for its original scenario, review evidence and still-needed
+manifest/recognition questions, not as a second current workflow.
+
+- S03/S04/S07's eligible whole-product credit, transfer and replacement funding gaps were superseded by the approved Products contract and completed scenario evidence. Partial quantities and unsupported corrections were not automatically approved.
+- S08's explicit In Transit projection was repaired and tested against Delivered. Other/intermediate or unknown statuses retain a received-stock fallback; no all-status or quantity-level receipt engine was certified.
+- S01/S02's lack of a general per-product manifest/receipt-confirmation engine remains a limitation. Financial reclass selections and a Delivered shipment do not prove every linked unit arrived.
+- S05's original preview evidence and S06's shortage/accounting distinction remain review context; do not infer a new closure or usable partial-shortage credit from the 26/26 count. Credit reversal, expiry, disputed fees, recognition timing and historical corrections still need separate owner decisions.
+
+The approved whole-product accounting entries now belong to the
+[Products contract](../business-logic/clothing/operations-products.md#supplier-nonfulfillment-and-future-purchase-credit).
+The illustrative proposals below are historical analysis, not posting permission.
 
 ## 1. Scope And Direct Answer
 
@@ -164,28 +180,13 @@ At review time, the [classifier](../../src/lib/accounting/account-classification
 did not explicitly list Supplier Credits. A custom account label alone was not
 proof it would appear as the intended asset throughout reporting.
 
-## 5. Safe Workflow Direction
+## 5. Current Procedure Owner
 
-1. Distinguish expected manifest, supplier-dispatched goods, confirmed KPC receipt,
-   warehouse receipt, shortage, and financial posting. One shipment code cannot
-   stand in for every event.
-2. Before a new build, confirm the actual contents and exclude goods not in that
-   shipment. Determine separately how paid goods still with the supplier are
-   recognized so excluding them does not hide the original payment/claim.
-3. For already posted goods, inspect the exact build/reclass/settlement sources
-   in an authorized isolated review before choosing a correction. Do not casually
-   delete or repost them, relink around a lock, or create another supplier payment.
-4. For delayed goods, preserve the product/payment identity and a shortage claim
-   linked to the later receipt; avoid a second asset acquisition or duplicate
-   receipt simply because a new shipment is used.
-5. For supplier credit, record supplier, currency, approved amount, reference,
-   issue/recognition date, source shortage, balance and applications. Do not mark
-   credit Applied solely as a free-standing status update.
-6. Allocate actual logistics only to goods actually transported/received, using
-   the approved actual-cost process, without charging the absent fourth product
-   for transport it did not receive or duplicating charges on later arrival.
-7. Handle affected reseller orders/refunds independently: a supplier credit is
-   not a customer cash refund and does not provide cash for that refund.
+The earlier proposed operator sequence has been replaced by the
+[Master SOP Manual](../business-logic/clothing/operations-workflow.md), especially
+Steps 4-7 and exceptions E01-E04. It owns confirmation before posting, dedicated
+delayed-product transfer, approved whole-product credit, actual-cost allocation
+and separate reseller decisions. Do not run a parallel process from this review.
 
 ## 6. Review Validation And Remaining Decisions
 

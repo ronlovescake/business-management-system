@@ -1,5 +1,8 @@
 # Clothing — Products Business Logic
 
+Employee steps are owned by the [Master SOP Manual](operations-workflow.md).
+This file owns the Products enforcement contract and its implementation limits.
+
 ## Stable Product Identity
 
 `Product.id` is the unique, permanent database identifier. The generated Product
@@ -76,8 +79,10 @@ mutation responses, movement writers, supplier funding, posting dates, costs
 and General Merchandise's separate product service are unchanged.
 
 Example: 100 travelling units with 20 reserved display zero physically received,
-20 transit reserved and 80 transit unreserved. Only after explicit delivery do
-they display 100 received, 20 on-hand reserved and 80 on-hand sellable. This
+20 transit reserved and 80 transit unreserved. The tested transition to Delivered
+shows 100 received, 20 on-hand reserved and 80 on-hand sellable. Other/intermediate
+or unknown statuses can still use the existing received-supply fallback; this
+read repair is not a general all-status physical-arrival guard. This
 projection does not itself post Transit Build-Up or financial reclassification.
 The [Inventory contract](operations-inventory.md#physical-location-and-reservation-split)
 and [I01 evidence](../../reports/CLOTHING_SUPPLIER_RECONCILIATION_2026-10-27.md#i01-transit-fix-and-remaining-settlement-failure)
@@ -278,8 +283,8 @@ and unlinked counts before relying on historical rollups. The audit is read-only
 
 | #   | Logic                               | Explanation                                                                                                                                                                                                                                                        |
 | --- | ----------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| 37  | Products page has four tabs         | `ProductsPage` renders four tabs: **Products**, **Bundles**, **Mix & Match**, **Shipping Calculator**. Default active tab is "products".                                                                                                                           |
-| 38  | Each tab is lazy-loaded             | All four tab panels use `next/dynamic` with `ssr: false`; a skeleton loader is shown while the panel is loading.                                                                                                                                                   |
+| 37  | Products page has five tabs         | `ProductsPage` renders **Products**, **Bundles**, **Mix & Match**, **Split**, **Shipping Calculator**. Default active tab is "products".                                                                                                                           |
+| 38  | Tab content is lazy-loaded          | Tab components use `next/dynamic` with `ssr: false`; the configured skeleton appears while loading.                                                                                                                                                                |
 | 39  | Statistics cards sit above the tabs | Four `ProductStatsCards` are rendered above the tab bar: **Total Products** (count), **Total Value** (₱ sum of COGS or grand total), **Average Value** (per product), **Total Profit** (projected profit sum). These re-compute whenever the product list changes. |
 
 ---

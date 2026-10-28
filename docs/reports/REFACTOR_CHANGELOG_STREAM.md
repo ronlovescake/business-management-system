@@ -1,5 +1,13 @@
 # Refactor Changelog Stream
 
+Historical generated snapshot, not an active backlog or employee procedure.
+Its compact extraction is retained for navigating the dated addenda; the full
+execution evidence remains in the source report. For current work use the
+[canonical refactor tracker](../plans/REFACTOR_CHECKLIST.md),
+[reconciliation and documentation record](CLOTHING_SUPPLIER_RECONCILIATION_2026-10-27.md)
+and [Master SOP Manual](../business-logic/clothing/operations-workflow.md).
+The generation timestamp and counts below were not refreshed by this update.
+
 Generated: 2026-02-20T17:38:19.470Z
 
 This compact stream summarizes backlog execution addenda and active report artifacts.
@@ -87,9 +95,9 @@ This compact stream summarizes backlog execution addenda and active report artif
 - `npm run guardrails:check`: passed (`LIV-1` auto-updated to completed)
 - `npm run lint`: passed
 
-## Active Report Artifacts
+## Historical Report Artifacts
 
-- docs/REPO_VERIFIED_EXEC_SUMMARY_2026-03-29.md
+- [Archived verified summary](archive/REPO_VERIFIED_EXEC_SUMMARY_2026-03-29.md)
 - docs/reports/REFACTOR_AUDIT_REPORT_2026-02-21.md
 - docs/reports/REFACTOR_ANALYSIS_DATA_2026-02-21.json
 - docs/reports/REFACTOR_AUDIT_DATA_2026-02-20.json

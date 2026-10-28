@@ -4,6 +4,21 @@ This guide is the human-facing version of the repository developer instructions.
 
 Start with this guide, then use `README.md` for commands and `docs/README.md` for the rest of the documentation map.
 
+## Current Business Documentation
+
+Read the [Master SOP Manual](business-logic/clothing/operations-workflow.md) for
+the Clothing employee journey and the [Business Logic Index](BUSINESS_LOGIC_INDEX.md)
+for the owning technical contracts. The [accounting policy](OPERATIONAL_WORKFLOW_AND_ACCOUNTING_POLICY.md)
+owns accounting interpretation; the [reconciliation report](reports/CLOTHING_SUPPLIER_RECONCILIATION_2026-10-27.md)
+owns 26/26 scenario evidence and remaining financial findings. Refactor backlog
+lives in [REFACTOR_CHECKLIST.md](plans/REFACTOR_CHECKLIST.md). Historical plans are
+not current procedure, deployment proof or permission to operate on business data.
+
+When retiring documentation or compatibility code, identify current references,
+move any still-needed rules into their owning contract, repair links and remove
+the obsolete copy. Keep active migrations, legacy readers and recovery evidence
+until their actual consumers and obligations have been retired explicitly.
+
 ## 1. What This Repository Is
 
 This is one application that serves several business areas:
@@ -37,7 +52,7 @@ If you are trying to understand behavior, follow the path in this order:
 
 ## 3. First-Day Setup
 
-Minimum local setup:
+Minimum setup for a verified fresh disposable local database only:
 
 ```bash
 npm install
@@ -45,6 +60,12 @@ npm run db:generate
 npm run db:push
 npm run dev
 ```
+
+Do not run `db:push` against an existing business/test database as a substitute
+for reviewed migrations. First verify the target and use the environment-specific
+procedure in [Deployment](DEPLOYMENT.md). For high-risk workflow simulations use
+the owned-database isolation described in the current reconciliation report;
+existing development databases and default E2E reset targets are not disposable.
 
 Useful follow-up checks:
 

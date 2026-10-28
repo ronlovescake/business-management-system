@@ -14,7 +14,19 @@ Nested `*-overview.md` files under `docs/business-logic/**` are domain and works
 - [README.md](../README.md) — project overview, local development, scripts, deployment contract
 - [DEVELOPER_ONBOARDING.md](./DEVELOPER_ONBOARDING.md) — human-facing onboarding guide that mirrors the repo developer instructions
 - [CONTRIBUTING.md](../CONTRIBUTING.md) — contributor workflow and coding standards
-- [docs/reports/archive/REPO_VERIFIED_EXEC_SUMMARY_2026-03-29.md](./reports/archive/REPO_VERIFIED_EXEC_SUMMARY_2026-03-29.md) — short validated summary of the repo (archived 2026-04-19)
+
+## Employee Procedures And Source Ownership
+
+- [Master Business Workflow, SOP Manual and Employee Knowledge Base](./business-logic/clothing/operations-workflow.md) - the single Clothing employee manual, with 12 normal stages, 22 exception procedures, worked examples and FAQ.
+- [Business Logic Index](./BUSINESS_LOGIC_INDEX.md) - developer-facing module contracts and separate business-domain rules.
+- [Accounting policy](./OPERATIONAL_WORKFLOW_AND_ACCOUNTING_POLICY.md) - approved accounting interpretation, not a second employee manual.
+- [Current reconciliation and follow-up register](./reports/CLOTHING_SUPPLIER_RECONCILIATION_2026-10-27.md) - implemented changes, 26/26 scoped scenario evidence, open findings and release limits.
+
+The manual owns employee steps; module contracts own technical enforcement;
+the policy owns accounting interpretation; the report owns evidence and open
+decisions. Do not copy entire procedures between them. General Merchandise,
+Trucking and Household retain their separate contracts; Clothing rules do not
+automatically apply to them. Development implementation is not proof of deployment.
 
 ## Everyday Guides
 
@@ -32,10 +44,9 @@ Nested `*-overview.md` files under `docs/business-logic/**` are domain and works
 
 The detailed business-logic documents still live under `docs/business-logic/**`, but this index is the intended shortcut so you do not have to browse deep folder paths to find the right file.
 
-The [clothing operating workflow](./business-logic/clothing/operations-workflow.md)
-describes the user-confirmed business sequence. The
-[accounting policy](./OPERATIONAL_WORKFLOW_AND_ACCOUNTING_POLICY.md) and linked
-module contracts distinguish confirmed actual logistics charges from pricing estimates.
+Employee instructions are centralized in the master manual above. The module
+contracts describe implemented behavior, intentional compatibility and known
+limits; they must not present proposals or dated plans as current instructions.
 
 ## Plans And Templates
 
@@ -49,16 +60,11 @@ the owning source and focused tests before implementing or closing an item.
 
 ## Repository Maps And Deep Analysis
 
-- [Accounting integrity and correctness review](./reports/ACCOUNTING_INTEGRITY_REVIEW_2026-10-26.md) - clothing accounting findings, first-batch fixes, policy decisions, validation evidence, and reconciliation limits.
-- [Clothing supplier and accounting reconciliation](./reports/CLOTHING_SUPPLIER_RECONCILIATION_2026-10-27.md) - current checklist evidence, deeper Expenses/P&L/Balance Sheet analysis, shared UI repairs and unresolved historical expense defects.
 - [Development supplier-migration recovery](./reports/DEVELOPMENT_MIGRATION_RECOVERY_2026-10-26.md) - verified backup, restored-copy rehearsal, development migration, and unresolved historical-file/checksum evidence.
-- [Clothing integrity audit and remediation](./reports/CLOTHING_INTEGRITY_AUDIT_2026-10-24.md) - confirmed fixes, verification evidence, all 40 page paths, and remaining review limits.
 
-Dated structural snapshots have been archived under `docs/reports/archive/` to keep this hub focused on living docs:
-
-- [REPOSITORY_LOGIC_AND_COMPUTATION_MAP_2026-02-20.md](./reports/archive/REPOSITORY_LOGIC_AND_COMPUTATION_MAP_2026-02-20.md)
-- [REPOSITORY_SITEMAP_TREE_DIAGRAM_2026-02-20.md](./reports/archive/REPOSITORY_SITEMAP_TREE_DIAGRAM_2026-02-20.md)
-- [REPO_SIDEMAP_DEEP_SCAN_2026-02-20.md](./reports/archive/REPO_SIDEMAP_DEEP_SCAN_2026-02-20.md)
+Dated accounting, supplier and structural reviews are linked from the historical
+index below. Retain their unique evidence and unresolved findings, not obsolete
+instructions or alternative current procedures.
 
 ## Historical Refactor And Audit Records
 
@@ -70,4 +76,6 @@ Dated structural snapshots have been archived under `docs/reports/archive/` to k
 - Keep domain behavior under `docs/business-logic/`, tooling under `docs/tooling/`, plans under `docs/plans/`, and legal templates under `docs/legal/`.
 - Prefer direct, descriptive filenames over generic planning names.
 - Do not add new “framework”, “implementation complete”, or temporary cleanup reports unless they are truly current and needed.
-- Archive superseded evidence through the historical index. Do not delete useful audit trails, legal artifacts or unresolved policy decisions merely because they are old.
+- Remove genuinely superseded plans and duplicate procedures after preserving required policy/evidence and updating all consumers. Do not keep obsolete alternatives just to avoid deleting a file.
+- Retain useful audit trails, legal artifacts, migration provenance and unresolved findings through the historical index. Age alone is not proof they are obsolete.
+- The owner-designated root `plan.md` remains a requirements/evidence register; it is not another employee manual or a source of standing operational permission.

@@ -1,5 +1,13 @@
 # Repo-Wide Refactor Audit — 2026-02-21
 
+This is retained dated audit evidence. Counts, largest-file lists and closures
+below belong to that scan, not the current source tree. For current work use the
+[canonical tracker](../plans/REFACTOR_CHECKLIST.md) and
+[Clothing reconciliation/documentation record](CLOTHING_SUPPLIER_RECONCILIATION_2026-10-27.md).
+Employees use the [Master SOP Manual](../business-logic/clothing/operations-workflow.md),
+not historical audit instructions. No new whole-repository architecture audit was
+performed by the October 28 documentation consolidation.
+
 ## 1. Scope coverage checklist (covered / N/A)
 
 - [x] src/modules/clothing/operations/\*\* — covered (302 files)

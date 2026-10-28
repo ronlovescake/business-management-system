@@ -6,6 +6,14 @@ Moved under docs on 2026-10-25. This preserves the dated scan and decisions;
 checkboxes and metrics below must not be treated as current verification.
 Deferred schema/accounting/security changes still need their own approval and tests.
 
+Current follow-up (2026-10-28): the Clothing reconciliation is complete within
+its 26-scenario scope; [the report](../reports/CLOTHING_SUPPLIER_RECONCILIATION_2026-10-27.md)
+owns actual gates and open financial findings. Employee procedures now live only
+in the [Master SOP Manual](../business-logic/clothing/operations-workflow.md).
+The [refactor tracker](REFACTOR_CHECKLIST.md) records the verified documentation
+cleanup; no April metrics, current monetary precision or unrelated backlog were
+re-certified by that work.
+
 The script inventory now lives at [the scripts manifest](../tooling/SCRIPTS_MANIFEST.md);
 old script-manifest paths below record the original 2026-04-19 work.
 
@@ -111,7 +119,7 @@ Tick `[x]` as items are completed. Add the PR/commit hash and date in the "Done"
 - Auth: centralized `BYPASS_AUTH_FOR_TESTS` reading via `src/lib/auth/bypass.ts`.
 - Docs: API Contract Standard section added; `scripts/check-doc-command-drift.js` wired into `guardrails:check`.
 
-**Items that need explicit user approval before they can land:**
+**Dated disposition of the original approval list (not a current queue):**
 
 1. Float → Decimal monetary migration (§1.1) — analyzer landed; full migration deferred.
 2. Soft-delete query rollout for the new `deletedAt` columns on accounting models (§1.2 follow-up) — DELETE handlers now soft-delete via `updateMany` / `update`.
@@ -128,7 +136,9 @@ Tick `[x]` as items are completed. Add the PR/commit hash and date in the "Done"
 - §6.1 oversized component decomposition: the originally-flagged components (`HandsontableGrid.tsx`, `HeaderQuickActions.tsx`) are now 153 / 232 lines respectively (already refactored). Three components remain >1000 lines (`ChangeLogPage.tsx`, `BackupPreviewModal.tsx`, `LogisticsCostsTab.tsx`); decomposition deferred pending visual-regression baselines.
 - §7.2 physical script relocation: explicitly avoided per `scripts/SCRIPTS_MANIFEST.md` (relocation creates churn across `package.json`, `prisma/`, Dockerfiles, and CI without proportional benefit). Instead, the manifest is the source of truth, enforced by `scripts/check-scripts-manifest.js` (wired into `guardrails:check`).
 
-**Migration note:** the new schema-additive columns and indexes are NOT yet
-generated as a Prisma migration in this branch. Run
-`npx prisma migrate dev --name add_accounting_softdelete_and_indexes`
-in a safe environment before deploying.
+**Migration note:** the additive SQL already exists at
+`prisma/migrations/20260419120000_add_accounting_softdelete_and_indexes/migration.sql`.
+Do not generate another migration for those same columns from this dated
+checklist. File existence is not proof of target application or authentic
+historical-chain recovery; use the [reviewed deployment procedure](../DEPLOYMENT.md)
+and preserve [migration provenance findings](../reports/DEVELOPMENT_MIGRATION_RECOVERY_2026-10-26.md).
