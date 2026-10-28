@@ -32,6 +32,11 @@ import {
 } from './movementStateHelpers';
 import { TransactionValidationError } from './referenceValidation';
 import { pickUnitCostFromProductRow } from '@/lib/accounting/inventoryCogsShared';
+import {
+  allocateInventoryCostLots,
+  loadAvailableInventoryCostLots,
+} from '@/lib/inventory/cost-lots';
+import { ensureSplitChildStock } from '@/lib/inventory/split-stock';
 
 const WAREHOUSE_SHIPMENT_STATUSES = new Set([
   'for pickup',
@@ -269,7 +274,48 @@ async function syncSimpleReserveAndSaleMovements(params: {
   }
 
   if (fulfilled) {
+    if (existingSale && !existingSale.deletedAt) {
+      return;
+    }
     const unitCost = await getProductUnitCost(client, productCode);
+    const lots = await loadAvailableInventoryCostLots(
+      client,
+      productCode,
+      transactionId,
+      unitCost,
+      postingDate
+    );
+    if (lots !== null) {
+      const allocation = allocateInventoryCostLots(lots, quantity);
+      if (!allocation) {
+        throw new TransactionValidationError(
+          'Insufficient recorded physical stock for this fulfillment. Review the receipt and sale history.'
+        );
+      }
+      for (let index = 0; index < allocation.length; index += 1) {
+        const lot = allocation[index];
+        await setAutoMovementActive({
+          client,
+          existing: index === 0 ? existingSale : null,
+          productCode,
+          quantity: lot.quantity,
+          unitCost: lot.unitCost,
+          costBasis: lot.costBasis,
+          sourceMovementId: lot.sourceMovementId,
+          fromBucket: shouldKeepReserveActive ? 'reserved' : 'sellable',
+          toBucket: 'sold',
+          postingDate,
+          note:
+            index === 0 ? saleNote : `${saleNote} lot ${lot.sourceMovementId}`,
+          metadata: {
+            sourceTransactionId: transactionId,
+            movementSource: 'transaction',
+            movementType: 'sale',
+          },
+        });
+      }
+      return;
+    }
     await setAutoMovementActive({
       client,
       existing: existingSale,
@@ -356,7 +402,8 @@ async function syncMixAndMatchMovements(params: {
 
   const availabilityByCode = await getMovementAdjustedAvailabilityByProduct(
     client,
-    componentCodes
+    componentCodes,
+    transaction.id
   );
 
   const allocatedByCode = buildAllocatedByCode(
@@ -368,6 +415,20 @@ async function syncMixAndMatchMovements(params: {
       transaction.quantity ?? 0
     )
   );
+
+  if (
+    (state.fulfilled || state.reserved) &&
+    Array.from(allocatedByCode.values()).reduce(
+      (sum, allocated) => sum + allocated,
+      0
+    ) +
+      0.000001 <
+      (transaction.quantity ?? 0)
+  ) {
+    throw new TransactionValidationError(
+      'Insufficient physical component stock for the complete mix order.'
+    );
+  }
 
   await deactivateMixAutoMovements(client, notes);
 
@@ -391,10 +452,29 @@ async function syncMixAndMatchMovements(params: {
 
 async function resolveSimpleMovementProductCode(
   client: TransactionClientLike,
-  productCode: string
+  productCode: string,
+  transaction: TransactionForInventorySync,
+  state: DerivedMovementState
 ) {
   const splitChild = await findSplitBatchByChildSkuTx(client, productCode);
-  return splitChild?.parentSku ?? productCode;
+  if (splitChild && (state.reserved || state.fulfilled)) {
+    try {
+      await ensureSplitChildStock(client, {
+        ...splitChild,
+        componentSku: productCode,
+        quantity: transaction.quantity ?? 0,
+        transactionId: transaction.id,
+        postingDate: state.postingDate,
+      });
+    } catch (error) {
+      throw new TransactionValidationError(
+        error instanceof Error
+          ? error.message
+          : 'Unable to open the original split stock.'
+      );
+    }
+  }
+  return productCode;
 }
 
 export function assertCanSetPaidStatus(params: {
@@ -543,7 +623,8 @@ async function findMixAndMatchBySku(
 
 async function getMovementAdjustedAvailabilityByProduct(
   client: TransactionClientLike,
-  productCodes: string[]
+  productCodes: string[],
+  transactionId: number
 ) {
   const uniqueCodes = Array.from(
     new Set(productCodes.map((code) => (code ?? '').trim()).filter(Boolean))
@@ -559,6 +640,7 @@ async function getMovementAdjustedAvailabilityByProduct(
       quantity: true,
       fromBucket: true,
       toBucket: true,
+      sourceTransactionId: true,
     },
   });
 
@@ -581,7 +663,9 @@ async function getMovementAdjustedAvailabilityByProduct(
   });
 
   const relevantMovements = movements.filter(
-    (movement) => movement.toBucket !== 'supplier_short'
+    (movement) =>
+      movement.toBucket !== 'supplier_short' &&
+      movement.sourceTransactionId !== transactionId
   );
 
   const sellableDeltaByProduct = buildSellableDeltaMap(relevantMovements);
@@ -606,6 +690,19 @@ export async function syncInventoryMovementsForTransaction(
   client: TransactionClientLike,
   transaction: TransactionForInventorySync
 ) {
+  const recordedSale = await client.inventoryMovement.findFirst({
+    where: {
+      deletedAt: null,
+      sourceTransactionId: transaction.id,
+      movementSource: 'transaction',
+      movementType: 'sale',
+      toBucket: 'sold',
+    },
+    select: { id: true },
+  });
+  if (recordedSale) {
+    return;
+  }
   const productCode = normalizeProductCode(transaction.productCode);
   const quantity = transaction.quantity ?? 0;
 
@@ -633,7 +730,9 @@ export async function syncInventoryMovementsForTransaction(
 
   const simpleMovementProductCode = await resolveSimpleMovementProductCode(
     client,
-    productCode
+    productCode,
+    transaction,
+    movementState
   );
 
   await deactivateMixAutoMovements(client, notes);

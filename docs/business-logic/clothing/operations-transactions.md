@@ -84,11 +84,17 @@ Do not subtract Discount again. An explicit finite zero line total is retained;
 null, undefined, empty, and non-finite totals use the fallback. Refund caps use
 the same net-price contract.
 
-Mass deletion is draft cleanup, not a reversal workflow. Paid, fulfilled,
+Single and mass deletion are draft cleanup, not a reversal workflow. Closed,
+cancelled, voided, forfeited, paid, fulfilled,
 historically paid/fulfilled, invoiced, packed, shipped, refunded, or financially
 posted transactions block the entire operation with HTTP 409. Permitted draft
 cleanup deactivates only owned automatic movements and soft-deletes the selected
 transactions in one serializable transaction. Existing audit history is retained.
+The single-ID DELETE route uses the same `softDeleteDraftTransactions` boundary
+as bulk deletion. A cancellation record or historical closed status blocks
+deletion even when no customer money was collected. This closes a direct-route
+bypass discovered by the isolated reconciliation browser test; it does not
+rewrite previously deleted records or introduce a reversal workflow.
 
 > **Source files:**
 >
@@ -164,20 +170,28 @@ inherits this copy/alias change, not the Clothing cancellation lifecycle.
 
 ## D — Inventory Movement Sync
 
-| #   | Logic                                                                                                                    | Explanation                                                                                                                                                                     |
-| --- | ------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 10  | Every transaction save still re-syncs its auto-created inventory movements                                               | The sync remains the post-save source of inventory movement updates.                                                                                                            |
-| 11  | Blank product codes, zero quantity rows, and inactive scenarios deactivate both standard and mix-prefixed auto movements | Cleanup happens before early return.                                                                                                                                            |
-| 12  | Standard SKUs use a simple reserve/sale movement pattern                                                                 | Reserve = `sellable → reserved`; sale = `reserved → sold` or `sellable → sold` depending on existing reserve state.                                                             |
-| 13  | Mix-and-match SKUs deactivate standard auto movements and create per-component auto movements instead                    | Allocation is derived from current component availability via `allocateByAvailability`.                                                                                         |
-| 14  | Mix-and-match movement notes use component-specific note variants                                                        | Notes are `auto-reserve txn {id} mix {component}` and `auto-sale txn {id} mix {component}`.                                                                                     |
-| 15  | Split-child SKUs keep the standard reserve/sale note pattern but target the parent split SKU                             | The child code is resolved to the parent before standard movement sync runs.                                                                                                    |
-| 16  | Split-child movement quantity currently matches the transaction quantity, not a separate loose-piece bucket adjustment   | Loose-piece reuse is modeled in read-time allocation, not as a dedicated inventory movement type.                                                                               |
-| 17  | Auto-created reserve and sale movements store explicit transaction source metadata                                       | New movement writes populate `sourceTransactionId`, `movementSource = transaction`, and `movementType = reserve/sale`; notes remain human-readable and support legacy fallback. |
+| #   | Logic                                                                                                                   | Explanation                                                                                                                                                                     |
+| --- | ----------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 10  | Unfulfilled saves sync reservations; a recorded actual sale freezes its original allocation                             | Later status, availability or harmless-note changes cannot redistribute or overwrite fulfilled quantities/costs.                                                                |
+| 11  | Blank product codes, zero quantity rows, and inactive unfulfilled scenarios deactivate standard and mix reservations    | Closed actual-sale history remains protected rather than being erased by cleanup.                                                                                               |
+| 12  | Standard SKUs use a simple reserve/sale movement pattern                                                                | Reserve = `sellable → reserved`; sale = `reserved → sold` or `sellable → sold` depending on existing reserve state.                                                             |
+| 13  | New mix allocation uses component availability excluding its own reservation and must cover the full requested quantity | Fulfillment snapshots actual component source lots; later physical return selects from the original allocation, not current availability.                                       |
+| 14  | Mix-and-match movement notes use component-specific note variants                                                       | Notes are `auto-reserve txn {id} mix {component}` and `auto-sale txn {id} mix {component}`.                                                                                     |
+| 15  | New split-child reserves/sales target actual child stock after cost-conserving parent opening                           | Recorded parent receipt cost is converted into explicit included-piece acquisition costs; the parent is not also sold.                                                          |
+| 16  | Existing loose pieces are reused before opening another parent                                                          | Only complete original components at their original conserved value rebuild a parent; legacy virtual projections remain for definitions without physical conversion evidence.   |
+| 17  | Auto-created reserve and sale movements store explicit transaction source metadata                                      | New movement writes populate `sourceTransactionId`, `movementSource = transaction`, and `movementType = reserve/sale`; notes remain human-readable and support legacy fallback. |
 
 ---
 
 ## E — Bulk Update & Soft Delete
+
+Bulk import now creates its exact rows and syncs reservations/fulfillment inside
+one Serializable retry boundary. A later source-stock or conversion failure rolls
+back all imported orders and movements. Timestamp-based discovery of unrelated
+recent orders is no longer used. The existing single-row creation UUID retains
+its own once-only path; CSV imports do not acquire a new idempotency promise.
+The real database regression first left two orders after a stock failure, then
+passed with zero orders and the original receipt intact after the atomic repair.
 
 | #   | Logic                                                              | Explanation                                                                                      |
 | --- | ------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------ |

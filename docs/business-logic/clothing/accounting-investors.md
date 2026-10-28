@@ -58,6 +58,26 @@ For PHP 1,000,000 received and a PHP 50,000 return paid, cash increases net PHP 
 - Monthly returns may still be recorded for legacy agreements without linked funding (which may already exist in opening balances); the unlinked funding warning remains until reconciliation. New returns must not be duplicated as ordinary expenses or manual journals.
 - This integration uses the existing journal table and requires no new database migration.
 
+### Reconciled Return Reporting
+
+P&L summary and details consume posted returns through their dedicated investor
+fetcher. The generic journal projection excludes only that same
+`INVESTOR_RETURN` / `Investor Return Expense` line, preventing double counting;
+manual same-account entries and other investor expense categories remain eligible.
+No source journal or historical payment is rewritten by this reporting repair.
+
+Real authenticated API evidence on 2026-10-28 created an investor/agreement
+without posting, recorded funding 1,000, rejected partial return 49, and paid the
+full 50. Journal/Ledger, P&L summary/details, Balance Sheet, actual report cards
+and downloaded CSVs agreed: Cash +950, principal liability 1,000 and expense 50
+exactly once. Duplicate funding/payment rejected with unchanged reports. Only
+owned fixtures were removed, restoring original report payloads; the isolated
+database was removed and verified absent. Evidence:
+`/tmp/bms-reconciliation-2PU6ww`, driven by
+`node tests/e2e/clothing-reconciliation.browser.cjs --reminders-only`.
+This does not newly certify principal repayment, legacy reconciliation, external
+bank settlement, every schedule rule or the whole investor UI lifecycle.
+
 The payout schedule can generate a branded A4 Investor Payout Statement ZIP for a selected banking month. It includes only recorded payments whose scheduled banking date falls in that month, with one PDF per agreement payout. The statement shows investor and agreement details, scheduled banking date, recorded amount, and payment date. It is not a bank transfer receipt or tax invoice; generation does not record a separate document or transfer reference.
 
 Each PDF keeps the payout statement on portrait page 1 and adds **Projected returns** on landscape page 2. Page 1 highlights the amount paid, PAID status, and agreement month (of 36), followed by payout-month, banking-date, and payment-date tiles, investment details, and the principal × monthly rate calculation. Page 2 shows summary tiles for paid to date, upcoming, overdue, and total contract returns, a paid-months progress bar, and the 36 months in two side-by-side tables with status pills; the statement's own month is highlighted. The second page lists all 36 agreement months, anniversary and bank-adjusted dates, return amounts, recorded payment dates, and Paid, Upcoming, Overdue, Setup deferral, or March waived statuses. Paid status uses all recorded payments for that agreement, not just the selected banking month. Unpaid banking dates before the generation business date are Overdue; today and later are Upcoming. This is a current snapshot, not a historical month-end statement. Projections use the current bank calendar and exclude principal repayment.

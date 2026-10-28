@@ -1,13 +1,25 @@
 import { describe, expect, it } from 'vitest';
 import { prisma } from '@/lib/db';
-import { transactionService } from '@/modules/transactions/api/service';
+import {
+  softDeleteDraftTransactions,
+  transactionService,
+} from '@/modules/transactions/api/service';
 import { mapToDTO } from '@/modules/transactions/api/dto';
 import { randomUUID } from 'node:crypto';
 import { generalMerchandiseTransactionService } from '@/modules/general-merchandise/transactions/api/service';
 import { ensureGeneralMerchandiseCustomersForNames } from '@/modules/general-merchandise/customers/api/service';
 
 let failMovementWrite = false;
+let failDraftDelete = false;
 prisma.$use(async (parameters, next) => {
+  if (
+    failDraftDelete &&
+    parameters.model === 'Transaction' &&
+    parameters.action === 'updateMany' &&
+    parameters.args?.data?.deletedAt
+  ) {
+    throw new Error('INJECTED_DRAFT_DELETE_FAILURE');
+  }
   if (failMovementWrite && parameters.model === 'InventoryMovement') {
     throw new Error('INJECTED_TRANSACTION_MOVEMENT_FAILURE');
   }
@@ -15,6 +27,177 @@ prisma.$use(async (parameters, next) => {
 });
 
 describe('Integration • Transaction save boundaries', () => {
+  it('rolls back every imported order and allocation when a later fulfilled row exceeds recorded stock', async () => {
+    const productCode = `IMPORT-COST-LOTS-${randomUUID()}`;
+    const product = await prisma.product.create({
+      data: {
+        productCode,
+        quantity: 1,
+        landedUnitCost: 20,
+        cogs: 20,
+        shipmentStatus: 'Delivered',
+      },
+    });
+    const customer = await prisma.customer.create({
+      data: {
+        customerName: `Atomic import ${randomUUID()}`,
+        date: '2026-10-27',
+        phoneNumber: '',
+        address: '',
+        facebook: '',
+        emailAddress: '',
+        businessName: '',
+        taxNumber: '',
+        businessContactNumber: '',
+        businessAddress: '',
+        customerStatus: 'Active',
+      },
+    });
+    const receipt = await prisma.inventoryMovement.create({
+      data: {
+        productCode,
+        quantity: 1,
+        unitCost: 20,
+        costBasis: 'PURCHASE',
+        fromBucket: 'opening_inventory',
+        toBucket: 'sellable',
+        postingDate: '2026-10-27',
+      },
+    });
+    const input = {
+      'Order Date': '2026-10-27',
+      'Packed Date': '2026-10-27',
+      Customers: customer.customerName,
+      'Product Code': productCode,
+      'Unit Price': 50,
+      Discount: 0,
+      Adjustment: 0,
+      'Order Status': 'Accounts Receivable',
+    };
+    try {
+      await expect(
+        transactionService.importTransactions([
+          { ...input, Quantity: 1, 'Line Total': 50 },
+          { ...input, Quantity: 2, 'Line Total': 100 },
+        ])
+      ).rejects.toThrow('Insufficient recorded physical stock');
+      expect(await prisma.transaction.count({ where: { productCode } })).toBe(
+        0
+      );
+      expect(
+        await prisma.inventoryMovement.findMany({ where: { productCode } })
+      ).toEqual([receipt]);
+    } finally {
+      await prisma.$executeRaw`DELETE FROM public.inventory_movements WHERE "productCode" = ${productCode}`;
+      await prisma.$executeRaw`DELETE FROM public.transactions WHERE "productCode" = ${productCode}`;
+      await prisma.product.delete({ where: { id: product.id } });
+      await prisma.customer.delete({ where: { id: customer.id } });
+    }
+  });
+
+  it('scopes draft deletion, rejects closed history and rolls back deactivated movements on failure', async () => {
+    const productCode = `DELETE-${randomUUID()}`;
+    const product = await prisma.product.create({
+      data: { productCode },
+    });
+    const draft = await prisma.transaction.create({
+      data: {
+        productId: product.id,
+        productCode: product.productCode,
+        orderStatus: 'Warehouse',
+        quantity: 2,
+        unitPrice: 10,
+        lineTotal: 20,
+        adjustment: 0,
+      },
+    });
+    const closed = await prisma.transaction.create({
+      data: { orderStatus: 'Cancelled', quantity: 0, adjustment: 0 },
+    });
+    const reservation = await prisma.inventoryMovement.create({
+      data: {
+        productId: product.id,
+        productCode,
+        quantity: 2,
+        fromBucket: 'sellable',
+        toBucket: 'reserved',
+        sourceTransactionId: draft.id,
+        movementSource: 'transaction',
+        movementType: 'reserve',
+      },
+    });
+    const manual = await prisma.inventoryMovement.create({
+      data: {
+        productId: product.id,
+        productCode,
+        quantity: 1,
+        fromBucket: 'sellable',
+        toBucket: 'supplier_short',
+        movementSource: 'adjustment',
+      },
+    });
+    try {
+      await expect(
+        softDeleteDraftTransactions([draft.id, closed.id])
+      ).rejects.toThrow('Cannot delete');
+      expect(
+        (
+          await prisma.transaction.findUniqueOrThrow({
+            where: { id: draft.id },
+          })
+        ).deletedAt
+      ).toBeNull();
+      failDraftDelete = true;
+      await expect(softDeleteDraftTransactions([draft.id])).rejects.toThrow(
+        'INJECTED_DRAFT_DELETE_FAILURE'
+      );
+      failDraftDelete = false;
+      expect(
+        (
+          await prisma.inventoryMovement.findUniqueOrThrow({
+            where: { id: reservation.id },
+          })
+        ).deletedAt
+      ).toBeNull();
+      expect(
+        (
+          await prisma.transaction.findUniqueOrThrow({
+            where: { id: draft.id },
+          })
+        ).deletedAt
+      ).toBeNull();
+      expect((await softDeleteDraftTransactions([draft.id])).deleted).toBe(1);
+      const saved = await prisma.$queryRaw<
+        Array<{ deletedAt: Date | null }>
+      >`SELECT "deletedAt" FROM public.transactions WHERE id = ${draft.id}`;
+      const movement = await prisma.$queryRaw<
+        Array<{ deletedAt: Date | null }>
+      >`SELECT "deletedAt" FROM public.inventory_movements WHERE id = ${reservation.id}`;
+      expect(saved[0].deletedAt).toBeInstanceOf(Date);
+      expect(movement[0].deletedAt).toBeInstanceOf(Date);
+      expect(
+        (
+          await prisma.inventoryMovement.findUniqueOrThrow({
+            where: { id: manual.id },
+          })
+        ).deletedAt
+      ).toBeNull();
+      expect(
+        (
+          await prisma.transaction.findUniqueOrThrow({
+            where: { id: closed.id },
+          })
+        ).deletedAt
+      ).toBeNull();
+      expect((await softDeleteDraftTransactions([draft.id])).deleted).toBe(0);
+    } finally {
+      failDraftDelete = false;
+      await prisma.$executeRaw`DELETE FROM public.inventory_movements WHERE "productId" = ${product.id}`;
+      await prisma.$executeRaw`DELETE FROM public.transactions WHERE id IN (${draft.id}, ${closed.id})`;
+      await prisma.$executeRaw`DELETE FROM public.products WHERE id = ${product.id}`;
+    }
+  });
+
   it.each(['single', 'bulk'])(
     'clears and re-enters clothing customer and product cells through %s saves',
     async (mode) => {

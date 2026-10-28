@@ -236,3 +236,12 @@ Verification: four pure balance tests, thirteen API tests, authorization checks,
 six component regressions and five real scratch-PostgreSQL scenarios cover the
 new contract. This does not certify arbitrary manual accounting entries,
 historical reconciliation, product COGS updates or real external delivery.
+
+The later I08 actual UI/API sequence separately verifies one PHP200 actual charge,
+one payment and one capitalization, followed by the administrator's dated
+PHP20-to22 product-cost allocation: PHP8 sold COGS and PHP192 unsold carrying cost.
+A later original-sale physical return restores corrected PHP22 value while all
+five earlier reports and stored sale snapshots remain unchanged. Logistics replay
+does not create another journal pair; allocation does not repay the vendor or
+capitalize the same freight again. See the current reconciliation report for
+the isolated result and verified cleanup; this is not a real-vendor audit.

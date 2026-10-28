@@ -76,3 +76,8 @@ Forward, Period Movement and Closing Balance, including accounts with earlier
 activity but no current-period row. GM source models, stock treatment and
 recurring-payment rules remain separate; this change does not introduce the
 Clothing cancellation/deposit lifecycle into GM.
+
+The shared ledger hook accepts only the latest period/refresh response. A stale
+success or error cannot replace current GM rows, opening/closing balances or
+stats. Deterministic GM-namespace regressions cover both late-response cases;
+GM services, recurring-payment posting and financial recognition stay separate.

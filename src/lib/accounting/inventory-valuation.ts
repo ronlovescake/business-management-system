@@ -179,7 +179,9 @@ export async function recordDatedCostCorrection(
         if (
           movement.toBucket === 'scrap' ||
           movement.fromBucket === 'assembly_wip' ||
-          movement.toBucket === 'assembly_wip'
+          movement.toBucket === 'assembly_wip' ||
+          movement.movementSource === 'inventory_split' ||
+          movement.movementSource === 'inventory_bundle'
         ) {
           throw new FinancialOperationError(
             'Scrapped or transformed goods require a separately reviewed valuation correction.'

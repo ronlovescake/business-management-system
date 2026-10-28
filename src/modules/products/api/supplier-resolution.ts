@@ -1,8 +1,9 @@
 import { Prisma, type Product } from '@prisma/client';
 import { prisma } from '@/lib/db';
 import { getCurrentUser } from '@/lib/auth/session';
-import { getAccountingCutoverDate } from '@/lib/accounting/cutover';
+import { getRuntimeAccountingCutoverDate } from '@/lib/accounting/cutover';
 import { parseDate } from '@/lib/accounting/date-utils';
+import { getCurrentDateISO } from '@/utils/date';
 import {
   getPaymentAccountForMethod,
   getSupplierSettlementCreditAccount,
@@ -65,19 +66,29 @@ export async function supplierOperationsUser() {
   return user;
 }
 
-function accountingDate(value: string): Date {
+async function accountingDate(value: string): Promise<Date> {
   const date = parseDate(value);
-  const today = new Date();
-  today.setUTCHours(23, 59, 59, 999);
   if (
     !date ||
-    date < getAccountingCutoverDate() ||
-    date > today ||
-    (/^\d{4}-\d{2}-\d{2}$/.test(value) &&
-      date.toISOString().slice(0, 10) !== value)
+    !/^\d{4}-\d{2}-\d{2}$/.test(value) ||
+    date.toISOString().slice(0, 10) !== value
   ) {
     throw new SupplierResolutionError(
-      'Use a valid posting date on or after cutover and no later than today.',
+      'Enter a valid posting date in YYYY-MM-DD format.',
+      400
+    );
+  }
+  const cutover = await getRuntimeAccountingCutoverDate('clothing');
+  if (date < cutover) {
+    throw new SupplierResolutionError(
+      `Posting date must be on or after the clothing cutoff (${cutover.toISOString().slice(0, 10)}).`,
+      400
+    );
+  }
+  const today = getCurrentDateISO();
+  if (value > today) {
+    throw new SupplierResolutionError(
+      `Posting date cannot be later than today in Asia/Manila (${today}).`,
       400
     );
   }
@@ -160,6 +171,44 @@ async function assertUnreceived(
         isFulfilledStatus(change.newStatus)
       )
   );
+  const shortages = await tx.inventoryMovement.findMany({
+    where: {
+      deletedAt: null,
+      OR: [
+        { productId: product.id },
+        { productId: null, productCode: product.productCode ?? '' },
+      ],
+      AND: [
+        {
+          OR: [
+            { fromBucket: 'sellable', toBucket: 'supplier_short' },
+            { fromBucket: 'supplier_short', toBucket: 'sellable' },
+          ],
+        },
+      ],
+    },
+  });
+  const shortQuantity = shortages
+    .filter(
+      (movement) => !/^(additionals|transfer)/i.test(movement.notes ?? '')
+    )
+    .reduce(
+      (sum, movement) =>
+        sum +
+        (movement.toBucket === 'supplier_short'
+          ? movement.quantity
+          : -movement.quantity),
+      0
+    );
+  if (
+    !Number.isFinite(shortQuantity) ||
+    shortQuantity < 0 ||
+    (shortQuantity > 0 && shortQuantity !== product.quantity)
+  ) {
+    throw new SupplierResolutionError(
+      'A partial Supplier Short requires a separate quantity/accounting correction before whole-product supplier resolution.'
+    );
+  }
   if (reclass || physicalMovement || fulfilled) {
     throw new SupplierResolutionError(
       'Received, reclassified, assembled, damaged, or sold goods require a separate accounting correction.'
@@ -369,7 +418,7 @@ export async function issueSupplierCredit(input: {
 }) {
   const user = await supplierOperationsUser();
   const supplier = supplierKey(input.supplierReference);
-  const date = accountingDate(input.postingDate);
+  const date = await accountingDate(input.postingDate);
   return prisma.$transaction(
     async (tx) => {
       const existing = await tx.clothingSupplierCredit.findUnique({
@@ -446,7 +495,7 @@ export async function issueSupplierCredit(input: {
             'An unpaid purchase needs a payable cancellation, not a funded supplier-credit asset.'
           );
         }
-        const purchaseDate = accountingDate(
+        const purchaseDate = await accountingDate(
           product.postingDate || product.orderDate || ''
         );
         if (purchaseDate > date) {
@@ -652,7 +701,7 @@ export async function applySupplierCreditInTransaction(
   }
 ) {
   const amount = supplierMoney(input.amount);
-  const date = accountingDate(input.postingDate);
+  const date = await accountingDate(input.postingDate);
   if (amount.lte(0) || !amount.equals(input.amount)) {
     throw new SupplierResolutionError(
       'Apply a positive credit amount with at most two decimal places.',
@@ -708,7 +757,7 @@ export async function applySupplierCreditInTransaction(
       400
     );
   }
-  const purchaseDate = accountingDate(
+  const purchaseDate = await accountingDate(
     product.postingDate || product.orderDate || ''
   );
   if (date < purchaseDate) {

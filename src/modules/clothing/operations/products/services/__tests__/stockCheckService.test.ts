@@ -62,6 +62,39 @@ describe('checkClothingStock', () => {
     });
   });
 
+  it.each([0, 1000])(
+    'counts supplier-free additional units once with %s paid units already sold',
+    async (sold) => {
+      mockPrisma.product.findFirst.mockResolvedValue({
+        productCode: 'ONESIES',
+        quantity: 1000,
+      });
+      mockPrisma.product.findMany.mockResolvedValue([
+        { productCode: 'ONESIES', quantity: 1000 },
+      ]);
+      mockPrisma.inventoryMovement.findMany.mockResolvedValue([
+        {
+          productCode: 'ONESIES',
+          quantity: 100,
+          fromBucket: 'supplier_short',
+          toBucket: 'sellable',
+          notes: 'additionals: free supplier units',
+        },
+      ]);
+      mockPrisma.transaction.findMany.mockResolvedValue(
+        sold
+          ? [{ productCode: 'ONESIES', quantity: sold, orderStatus: 'Shipped' }]
+          : []
+      );
+      const result = await checkClothingStock({
+        productCode: 'ONESIES',
+        requestedQuantity: 100,
+      });
+      expect(result.availableStock).toBe(1100 - sold);
+      expect(result.canFulfill).toBe(true);
+    }
+  );
+
   it('combines assembled bundle stock with component-constrained capacity', async () => {
     mockPrisma.bundleBatch.findMany.mockResolvedValue([
       {
@@ -171,7 +204,112 @@ describe('checkClothingStock', () => {
       requestedQuantity: 20,
       status: 'IN_STOCK',
       canFulfill: true,
-      message: 'Split-child of "SET-1": 0 loose piece(s) + 28 complete set(s) remaining',
+      message:
+        'Split-child of "SET-1": 0 loose piece(s) + 28 complete set(s) remaining',
     });
   });
+
+  it.each([
+    ['SET', 9],
+    ['TOP', 19],
+    ['BOTTOM', 10],
+  ])(
+    'uses actual opened and returned split lots for %s instead of reallocating the sale',
+    async (productCode, expected) => {
+      mockPrisma.product.findFirst.mockResolvedValue({ quantity: 10 });
+      mockPrisma.splitBatch.findFirst.mockResolvedValue({
+        splitSku: 'SET',
+        components: [
+          { componentSku: 'TOP', includedQuantity: 2 },
+          { componentSku: 'BOTTOM', includedQuantity: 1 },
+        ],
+      });
+      mockPrisma.transaction.findMany.mockResolvedValue([
+        { productCode: 'TOP', quantity: 2, orderStatus: 'Shipped' },
+      ]);
+      const rows = [
+        {
+          id: 1,
+          productCode: 'SET',
+          quantity: 10,
+          fromBucket: 'opening_inventory',
+          toBucket: 'sellable',
+          unitCost: 20,
+        },
+        {
+          id: 2,
+          productCode: 'SET',
+          quantity: 1,
+          fromBucket: 'sellable',
+          toBucket: 'opening_inventory',
+          unitCost: 20,
+          movementSource: 'inventory_split',
+          sourceMovementId: 1,
+        },
+        {
+          id: 3,
+          productCode: 'TOP',
+          quantity: 2,
+          fromBucket: 'opening_inventory',
+          toBucket: 'sellable',
+          unitCost: 5,
+          movementSource: 'inventory_split',
+          sourceMovementId: 2,
+        },
+        {
+          id: 4,
+          productCode: 'BOTTOM',
+          quantity: 1,
+          fromBucket: 'opening_inventory',
+          toBucket: 'sellable',
+          unitCost: 10,
+          movementSource: 'inventory_split',
+          sourceMovementId: 2,
+        },
+        {
+          id: 5,
+          productCode: 'TOP',
+          quantity: 2,
+          fromBucket: 'sellable',
+          toBucket: 'reserved',
+          unitCost: 5,
+          sourceMovementId: 3,
+        },
+        {
+          id: 6,
+          productCode: 'TOP',
+          quantity: 2,
+          fromBucket: 'reserved',
+          toBucket: 'sold',
+          unitCost: 5,
+          sourceMovementId: 3,
+        },
+        {
+          id: 7,
+          productCode: 'TOP',
+          quantity: 1,
+          fromBucket: 'sold',
+          toBucket: 'sellable',
+          unitCost: 5,
+          sourceMovementId: 6,
+        },
+      ];
+      mockPrisma.inventoryMovement.findMany.mockImplementation(
+        async ({ where }) =>
+          rows.filter(
+            (row) =>
+              !where.productCode?.equals ||
+              row.productCode === where.productCode.equals
+          )
+      );
+      expect(
+        (
+          await checkClothingStock({
+            productCode: String(productCode),
+            requestedQuantity: 1,
+          })
+        ).availableStock
+      ).toBe(expected);
+    }
+  );
 });

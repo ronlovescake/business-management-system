@@ -7,6 +7,11 @@ const mockPrisma = vi.hoisted(() => ({
   customer: { findUnique: vi.fn() },
   transaction: { findFirst: vi.fn() },
   transactionPayment: { findMany: vi.fn() },
+  clothingFinancialRequest: {
+    findUnique: vi.fn(),
+    create: vi.fn(),
+    update: vi.fn(),
+  },
   transactionRefund: {
     findMany: vi.fn(),
     findFirst: vi.fn(),
@@ -14,13 +19,19 @@ const mockPrisma = vi.hoisted(() => ({
     update: vi.fn(),
   },
   inventoryMovement: {
+    findMany: vi.fn(),
     findFirst: vi.fn(),
     create: vi.fn(),
     updateMany: vi.fn(),
   },
+  splitBatchComponent: { findFirst: vi.fn() },
 }));
 
 vi.mock('@/lib/db', () => ({ prisma: mockPrisma }));
+vi.mock('@/lib/accounting/cutover', () => ({
+  getRuntimeAccountingCutoverDate: async () =>
+    new Date('2026-01-17T00:00:00.000Z'),
+}));
 vi.mock('@/lib/auth/session', () => ({
   requireAuth: async () => ({ id: 'user-1', role: 'USER' }),
 }));
@@ -45,7 +56,7 @@ const buildBody = (overrides: Record<string, unknown> = {}) => ({
 
 describe('clothing customer refund route', () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    vi.resetAllMocks();
     mockPrisma.$transaction.mockImplementation(async (work) =>
       work(mockPrisma)
     );
@@ -61,6 +72,9 @@ describe('clothing customer refund route', () => {
       orderStatus: 'Shipped',
     });
     mockPrisma.transactionPayment.findMany.mockResolvedValue([]);
+    mockPrisma.clothingFinancialRequest.findUnique.mockResolvedValue(null);
+    mockPrisma.clothingFinancialRequest.create.mockResolvedValue({});
+    mockPrisma.clothingFinancialRequest.update.mockResolvedValue({});
     mockPrisma.transactionRefund.findMany.mockResolvedValue([]);
     mockPrisma.transactionRefund.create.mockImplementation(
       async ({ data }) => ({
@@ -71,6 +85,26 @@ describe('clothing customer refund route', () => {
       })
     );
     mockPrisma.inventoryMovement.findFirst.mockResolvedValue({ unitCost: 12 });
+    mockPrisma.splitBatchComponent.findFirst.mockResolvedValue(null);
+    mockPrisma.inventoryMovement.findMany.mockImplementation(
+      async ({ where }) => {
+        if (where.movementType === 'return') {
+          return [];
+        }
+        const sale = await mockPrisma.inventoryMovement.findFirst();
+        return sale
+          ? [
+              {
+                id: 1,
+                productCode: 'SKU-5',
+                costBasis: null,
+                createdAt: new Date('2026-05-30T00:00:00.000Z'),
+                ...sale,
+              },
+            ]
+          : [];
+      }
+    );
     mockPrisma.inventoryMovement.create.mockResolvedValue({ id: 10 });
   });
 
@@ -102,6 +136,192 @@ describe('clothing customer refund route', () => {
     });
     expect(response.status).toBe(400);
     expect(mockPrisma.transactionRefund.create).not.toHaveBeenCalled();
+  });
+
+  it('records an independent zero-money physical return after an approved cancellation', async () => {
+    mockPrisma.transaction.findFirst.mockResolvedValue({
+      id: 5,
+      productCode: 'SKU-5',
+      quantity: 4,
+      lineTotal: 100,
+      adjustment: 0,
+      unitPrice: 25,
+      discount: 0,
+      orderStatus: 'Cancelled',
+      cancellation: { id: 'approval-1' },
+    });
+    mockPrisma.inventoryMovement.findFirst
+      .mockResolvedValueOnce({
+        quantity: 4,
+        unitCost: 12,
+        postingDate: '2026-05-30',
+      })
+      .mockResolvedValueOnce(null);
+    const { POST } = await import('../route');
+    const request = buildRequest(
+      buildBody({ amount: 0, returnedQuantity: 1, restockBucket: 'sellable' })
+    );
+    request.headers.set(
+      'Idempotency-Key',
+      '93e8abea-8bb9-4f4b-927c-1d3f4dbf04c1'
+    );
+    const response = await POST(request, { params: { id: '1' } });
+
+    expect(response.status).toBe(201);
+    expect(mockPrisma.transactionRefund.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ amount: 0, returnedQuantity: 1 }),
+      })
+    );
+    expect(mockPrisma.inventoryMovement.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        quantity: 1,
+        unitCost: 12,
+        fromBucket: 'sold',
+        toBucket: 'sellable',
+        postingDate: '2026-06-01',
+      }),
+    });
+    expect(mockPrisma.transactionPayment.findMany).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ['missing sale', null],
+    [
+      'missing cost',
+      { quantity: 4, unitCost: null, postingDate: '2026-05-30' },
+    ],
+    [
+      'insufficient sold quantity',
+      { quantity: 0.5, unitCost: 12, postingDate: '2026-05-30' },
+    ],
+  ])(
+    'rejects a physical-only return with %s without refund or movement writes',
+    async (_label, sale) => {
+      mockPrisma.inventoryMovement.findFirst.mockResolvedValueOnce(sale);
+      const { POST } = await import('../route');
+      const request = buildRequest(
+        buildBody({ amount: 0, returnedQuantity: 1, restockBucket: 'sellable' })
+      );
+      request.headers.set(
+        'Idempotency-Key',
+        '93e8abea-8bb9-4f4b-927c-1d3f4dbf04c1'
+      );
+      const response = await POST(request, { params: { id: '1' } });
+      expect(response.status).toBe(400);
+      expect(mockPrisma.transactionRefund.create).not.toHaveBeenCalled();
+      expect(mockPrisma.inventoryMovement.create).not.toHaveBeenCalled();
+    }
+  );
+
+  it.each(['2026-01-16', '2026-02-30', '2026-05-29', '2099-01-01'])(
+    'rejects an invalid, out-of-period or pre-sale physical-return date %s',
+    async (refundDate) => {
+      mockPrisma.inventoryMovement.findFirst.mockResolvedValueOnce({
+        quantity: 4,
+        unitCost: 12,
+        postingDate: '2026-05-30',
+      });
+      const { POST } = await import('../route');
+      const request = buildRequest(
+        buildBody({
+          amount: 0,
+          returnedQuantity: 1,
+          restockBucket: 'sellable',
+          refundDate,
+        })
+      );
+      request.headers.set(
+        'Idempotency-Key',
+        '93e8abea-8bb9-4f4b-927c-1d3f4dbf04c1'
+      );
+      expect((await POST(request, { params: { id: '1' } })).status).toBe(400);
+      expect(mockPrisma.transactionRefund.create).not.toHaveBeenCalled();
+      expect(mockPrisma.inventoryMovement.create).not.toHaveBeenCalled();
+    }
+  );
+
+  it('replays a physical return once and rejects changed details using the same key', async () => {
+    mockPrisma.inventoryMovement.findFirst
+      .mockResolvedValueOnce({
+        quantity: 4,
+        unitCost: 12,
+        postingDate: '2026-05-30',
+      })
+      .mockResolvedValueOnce(null);
+    const { POST } = await import('../route');
+    const makeRequest = (quantity: number) => {
+      const request = buildRequest(
+        buildBody({
+          amount: 0,
+          returnedQuantity: quantity,
+          restockBucket: 'sellable',
+        })
+      );
+      request.headers.set(
+        'Idempotency-Key',
+        '93e8abea-8bb9-4f4b-927c-1d3f4dbf04c1'
+      );
+      return request;
+    };
+    const first = await POST(makeRequest(1), { params: { id: '1' } });
+    expect(first.status).toBe(201);
+    mockPrisma.clothingFinancialRequest.findUnique.mockResolvedValue({
+      ...mockPrisma.clothingFinancialRequest.create.mock.calls[0][0].data,
+      result:
+        mockPrisma.clothingFinancialRequest.update.mock.calls[0][0].data.result,
+    });
+    const replay = await POST(makeRequest(1), { params: { id: '1' } });
+    expect(replay.status).toBe(201);
+    expect(await replay.json()).toEqual(await first.json());
+    expect((await POST(makeRequest(2), { params: { id: '1' } })).status).toBe(
+      409
+    );
+    expect(mockPrisma.transactionRefund.create).toHaveBeenCalledTimes(1);
+    expect(mockPrisma.inventoryMovement.create).toHaveBeenCalledTimes(1);
+  });
+
+  it('requires a stable key for a physical-only return', async () => {
+    const { POST } = await import('../route');
+    const response = await POST(
+      buildRequest(
+        buildBody({ amount: 0, returnedQuantity: 1, restockBucket: 'sellable' })
+      ),
+      { params: { id: '1' } }
+    );
+    expect(response.status).toBe(400);
+    expect(mockPrisma.transactionRefund.create).not.toHaveBeenCalled();
+  });
+
+  it('preserves the original free-unit sale provenance on a zero-money physical return', async () => {
+    mockPrisma.inventoryMovement.findFirst
+      .mockResolvedValueOnce({
+        id: 75,
+        quantity: 2,
+        unitCost: 0,
+        costBasis: 'FREE_GOODS',
+        postingDate: '2026-05-30',
+      })
+      .mockResolvedValueOnce(null);
+    const { POST } = await import('../route');
+    const request = buildRequest(
+      buildBody({ amount: 0, returnedQuantity: 1, restockBucket: 'sellable' })
+    );
+    request.headers.set(
+      'Idempotency-Key',
+      '93e8abea-8bb9-4f4b-927c-1d3f4dbf04c1'
+    );
+    expect((await POST(request, { params: { id: '1' } })).status).toBe(201);
+    expect(mockPrisma.inventoryMovement.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        quantity: 1,
+        unitCost: 0,
+        costBasis: 'FREE_GOODS',
+        sourceMovementId: 75,
+        fromBucket: 'sold',
+        toBucket: 'sellable',
+      }),
+    });
   });
 
   it('preserves a completed cash payout and its physical return when delete is requested', async () => {

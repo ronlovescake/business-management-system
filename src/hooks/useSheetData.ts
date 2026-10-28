@@ -414,6 +414,10 @@ function useExpenseDataFactory(
   queryKey: QueryKey
 ) {
   const queryClient = useQueryClient();
+  const refreshExpenses = async () => {
+    await queryClient.cancelQueries({ queryKey });
+    await queryClient.invalidateQueries({ queryKey });
+  };
 
   const {
     data = [],
@@ -428,7 +432,7 @@ function useExpenseDataFactory(
 
   const createMutation = useMutation({
     mutationFn: (newItem: Partial<ExpenseDTO>) => service.create(newItem),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey }),
+    onSuccess: refreshExpenses,
   });
 
   const updateMutation = useMutation({
@@ -439,22 +443,22 @@ function useExpenseDataFactory(
       id: string | number;
       data: Partial<ExpenseDTO>;
     }) => service.update(id, data),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey }),
+    onSuccess: refreshExpenses,
   });
 
   const deleteMutation = useMutation({
     mutationFn: (id: string | number) => service.deleteById(id),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey }),
+    onSuccess: refreshExpenses,
   });
 
   const bulkUpdateMutation = useMutation({
     mutationFn: (newData: ExpenseDTO[]) => service.bulkUpdate(newData),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey }),
+    onSuccess: refreshExpenses,
   });
 
   const bulkCreateMutation = useMutation({
     mutationFn: (newData: Partial<ExpenseDTO>[]) => service.bulkCreate(newData),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey }),
+    onSuccess: refreshExpenses,
   });
 
   return {

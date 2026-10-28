@@ -2,6 +2,7 @@ import { api } from '@/lib/api/client';
 import { buildApiPath } from '@/lib/api/paths';
 import { logger } from '@/lib/logger';
 import type { BundleBatch, CreateBundleInput } from '../types/bundle.types';
+import { randomUuid } from '@/lib/utils/randomUuid';
 
 export class BundleService {
   static async loadBundles(apiBasePath?: string): Promise<BundleBatch[]> {
@@ -18,11 +19,15 @@ export class BundleService {
 
   static async createBundle(
     bundle: CreateBundleInput,
-    apiBasePath?: string
+    apiBasePath?: string,
+    requestId?: string
   ): Promise<BundleBatch> {
     return await api.post<BundleBatch>(
       buildApiPath(apiBasePath, '/bundles'),
-      bundle
+      bundle,
+      !apiBasePath || apiBasePath === '/api'
+        ? { headers: { 'Idempotency-Key': requestId ?? randomUuid() } }
+        : undefined
     );
   }
 

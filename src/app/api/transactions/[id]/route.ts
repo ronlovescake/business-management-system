@@ -3,6 +3,10 @@ import { ApiResponse } from '@/core/api';
 import { withErrorHandler } from '@/core/api/middleware';
 import { prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
+import {
+  softDeleteDraftTransactions,
+  TransactionValidationError,
+} from '@/modules/transactions/api/service';
 
 type RouteContext = {
   params: {
@@ -47,10 +51,7 @@ export const DELETE = withErrorHandler(
       return ApiResponse.badRequest('Transaction already deleted');
     }
 
-    await prisma.transaction.update({
-      where: { id },
-      data: { deletedAt: new Date() },
-    });
+    await softDeleteDraftTransactions([id]);
 
     logger.info('Transaction soft deleted', {
       transactionId: id,
@@ -64,6 +65,12 @@ export const DELETE = withErrorHandler(
       },
       'Transaction deleted successfully'
     );
+  },
+  {
+    onError: (error) =>
+      error instanceof TransactionValidationError
+        ? ApiResponse.error(error.message, 409)
+        : undefined,
   }
 );
 

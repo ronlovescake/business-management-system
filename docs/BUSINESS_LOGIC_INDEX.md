@@ -6,6 +6,7 @@ This index is the shortest path to the domain and workspace logic documents with
 
 - [Business overview](./business-logic/clothing/business-overview.md)
 - [Integrity audit and remediation](./reports/CLOTHING_INTEGRITY_AUDIT_2026-10-24.md)
+- [Current supplier/accounting reconciliation](./reports/CLOTHING_SUPPLIER_RECONCILIATION_2026-10-27.md) - scenario evidence, Expenses/P&L/Balance Sheet bridges and unresolved historical defects.
 
 ### Operations
 

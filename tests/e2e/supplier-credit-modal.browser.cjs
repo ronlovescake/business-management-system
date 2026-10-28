@@ -133,6 +133,19 @@ async function main() {
         });
         if (pathname === '/api/settings/payment-cards') {
           await route.fulfill({ json: [] });
+        } else if (pathname === '/api/products') {
+          await route.fulfill({
+            json: {
+              success: true,
+              data: [
+                { id: 51, 'Supplier Reference': 'Supplier A' },
+                { id: 52, 'Supplier Reference': ' SUPPLIER  A ' },
+                { id: 53, 'Supplier Reference': 'Products Only Supplier' },
+              ],
+            },
+          });
+        } else if (pathname === '/api/shipments') {
+          await route.fulfill({ json: { success: true, data: [] } });
         } else if (pathname === '/api/products/supplier-credits') {
           const issued = page.url().includes('scenario=issued');
           await route.fulfill({
@@ -227,6 +240,39 @@ async function main() {
       );
 
       section = await open('new');
+      const supplierInput = page.getByRole('textbox', {
+        name: 'Supplier',
+        exact: true,
+      });
+      await supplierInput.click();
+      await expect(
+        page.getByRole('option', { name: /^supplier a$/i })
+      ).toHaveCount(1);
+      await supplierInput.fill('Products Only Supplier');
+      await supplierInput.press('ArrowDown');
+      await supplierInput.press('Enter');
+      await supplierInput.press('Tab');
+      await expect(supplierInput).toHaveValue('Products Only Supplier');
+      await page
+        .getByRole('textbox', {
+          name: 'Available supplier credit',
+          exact: true,
+        })
+        .click();
+      await expect(
+        page.getByText('No available credits', { exact: true })
+      ).toBeVisible();
+      await supplierInput.fill('New Supplier');
+      await page
+        .getByRole('option', { name: 'Add supplier "New Supplier"' })
+        .click();
+      await supplierInput.press('Tab');
+      await expect(supplierInput).toHaveValue('New Supplier');
+      await supplierInput.fill('Supplier A');
+      await page.getByRole('option', { name: /^supplier a$/i }).click();
+      checks.push(
+        `${viewport.name}: recorded/new supplier selection persists, deduplicates and filters credits`
+      );
       await page
         .getByRole('textbox', {
           name: 'Available supplier credit',

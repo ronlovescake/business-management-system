@@ -3,6 +3,17 @@ import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
 import { MIX_AND_MATCH_NAME_PREFIX } from '@/lib/inventory/mixAndMatchTag';
+import { getCurrentUser } from '@/lib/auth/session';
+import {
+  FinancialOperationError,
+  financialRequestId,
+  runFinancialRequest,
+  runFinancialTransaction,
+} from '@/lib/accounting/financial-transactions';
+import { getRuntimeAccountingCutoverDate } from '@/lib/accounting/cutover';
+import { parseDate } from '@/lib/accounting/date-utils';
+import { getCurrentDateISO } from '@/utils/date';
+import { assembleInventoryBundle } from '@/lib/inventory/bundle-stock';
 
 export const dynamic = 'force-dynamic';
 
@@ -50,6 +61,19 @@ export async function GET() {
 
 export async function POST(request: NextRequest) {
   try {
+    const user = await getCurrentUser();
+    if (!user) {
+      return NextResponse.json(
+        { error: 'Authentication required' },
+        { status: 401 }
+      );
+    }
+    if (!['USER', 'ADMIN', 'SUPER_ADMIN'].includes(user.role)) {
+      return NextResponse.json(
+        { error: 'Insufficient permissions' },
+        { status: 403 }
+      );
+    }
     const body = (await request.json()) as CreateBundleRequest;
 
     const postingDate = body.postingDate?.trim();
@@ -63,6 +87,20 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         { error: 'postingDate, bundleName, and bundleSku are required' },
         { status: 400 }
+      );
+    }
+    const parsedDate = parseDate(postingDate);
+    const cutoff = await getRuntimeAccountingCutoverDate('clothing');
+    if (
+      !/^\d{4}-\d{2}-\d{2}$/.test(postingDate) ||
+      !parsedDate ||
+      parsedDate.toISOString().slice(0, 10) !== postingDate ||
+      parsedDate < cutoff ||
+      postingDate > getCurrentDateISO()
+    ) {
+      throw new FinancialOperationError(
+        'Assembly date must be a valid clothing accounting date no later than today in Asia/Manila.',
+        400
       );
     }
 
@@ -99,62 +137,74 @@ export async function POST(request: NextRequest) {
           c.includedQuantity > 0
       );
 
-    if (normalizedComponents.length === 0) {
+    if (
+      normalizedComponents.length !== components.length ||
+      new Set(
+        normalizedComponents.map((component) =>
+          component.productCode.toLowerCase()
+        )
+      ).size !== normalizedComponents.length ||
+      normalizedComponents.some(
+        (component) =>
+          component.productCode.toLowerCase() === bundleSku.toLowerCase()
+      )
+    ) {
       return NextResponse.json(
         { error: 'Components must have productCode and includedQuantity > 0' },
         { status: 400 }
       );
     }
 
-    const created = await prisma.$transaction(async (tx) => {
-      const createdBatch = await tx.bundleBatch.create({
-        data: {
-          postingDate,
-          bundleName,
-          bundleSku,
-          quantity,
-          price,
-          components: {
-            create: normalizedComponents.map((c) => ({
-              componentProductCode: c.productCode,
-              includedQuantity: c.includedQuantity,
-            })),
+    const created = await runFinancialRequest(
+      financialRequestId(request.headers),
+      'INVENTORY_BUNDLE',
+      {
+        postingDate,
+        bundleName,
+        bundleSku,
+        quantity,
+        price,
+        components: normalizedComponents,
+      },
+      async (tx) => {
+        const createdBatch = await tx.bundleBatch.create({
+          data: {
+            postingDate,
+            bundleName,
+            bundleSku,
+            quantity,
+            price,
+            components: {
+              create: normalizedComponents.map((c) => ({
+                componentProductCode: c.productCode,
+                includedQuantity: c.includedQuantity,
+              })),
+            },
           },
-        },
-        include: { components: true },
-      });
+          include: { components: true },
+        });
 
-      const note = `bundle-assembly batch ${createdBatch.id} sku ${bundleSku}`;
-
-      // Consume component inventory (sellable -> assembly_wip) for each component.
-      await tx.inventoryMovement.createMany({
-        data: normalizedComponents.map((component) => ({
-          productCode: component.productCode.trim(),
-          quantity: component.includedQuantity * quantity,
-          fromBucket: 'sellable',
-          toBucket: 'assembly_wip',
-          postingDate,
-          notes: note,
-        })),
-      });
-
-      // Produce the bundled SKU (assembly_wip -> sellable) for the batch quantity.
-      await tx.inventoryMovement.create({
-        data: {
-          productCode: bundleSku,
+        await assembleInventoryBundle(tx, {
+          batchId: createdBatch.id,
+          bundleSku,
+          bundleName,
           quantity,
-          fromBucket: 'assembly_wip',
-          toBucket: 'sellable',
           postingDate,
-          notes: note,
-        },
-      });
+          components: normalizedComponents,
+        });
 
-      return createdBatch;
-    });
+        return createdBatch;
+      }
+    );
 
     return NextResponse.json(created, { status: 201 });
   } catch (error) {
+    if (error instanceof FinancialOperationError) {
+      return NextResponse.json(
+        { error: error.message },
+        { status: error.status }
+      );
+    }
     logger.error('Failed to create bundle', error);
 
     // Prisma unique constraint errors are usually safe to surface as a 409
@@ -176,6 +226,19 @@ export async function POST(request: NextRequest) {
 
 export async function PATCH(request: NextRequest) {
   try {
+    const user = await getCurrentUser();
+    if (!user) {
+      return NextResponse.json(
+        { error: 'Authentication required' },
+        { status: 401 }
+      );
+    }
+    if (!['USER', 'ADMIN', 'SUPER_ADMIN'].includes(user.role)) {
+      return NextResponse.json(
+        { error: 'Insufficient permissions' },
+        { status: 403 }
+      );
+    }
     const body = (await request.json()) as UpdateBundleRequest;
 
     const id = Number(body.id);
@@ -248,15 +311,17 @@ export async function PATCH(request: NextRequest) {
       );
     }
 
-    const updated = await prisma.$transaction(async (tx) => {
+    const updated = await runFinancialTransaction(async (tx) => {
       const notePrefix = `bundle-assembly batch ${id} `;
-      await tx.inventoryMovement.updateMany({
-        where: {
-          notes: { startsWith: notePrefix },
-          deletedAt: null,
-        },
-        data: { deletedAt: new Date() },
+      const history = await tx.inventoryMovement.findFirst({
+        where: { notes: { startsWith: notePrefix } },
+        select: { id: true },
       });
+      if (history) {
+        throw new FinancialOperationError(
+          'Recorded bundle assembly is immutable. Create a new batch instead of changing its original components or costs.'
+        );
+      }
 
       const updatedBatch = await tx.bundleBatch.update({
         where: { id },
@@ -277,35 +342,17 @@ export async function PATCH(request: NextRequest) {
         include: { components: true },
       });
 
-      const note = `bundle-assembly batch ${updatedBatch.id} sku ${bundleSku}`;
-
-      await tx.inventoryMovement.createMany({
-        data: normalizedComponents.map((component) => ({
-          productCode: component.productCode.trim(),
-          quantity: component.includedQuantity * quantity,
-          fromBucket: 'sellable',
-          toBucket: 'assembly_wip',
-          postingDate,
-          notes: note,
-        })),
-      });
-
-      await tx.inventoryMovement.create({
-        data: {
-          productCode: bundleSku,
-          quantity,
-          fromBucket: 'assembly_wip',
-          toBucket: 'sellable',
-          postingDate,
-          notes: note,
-        },
-      });
-
       return updatedBatch;
     });
 
     return NextResponse.json(updated, { status: 200 });
   } catch (error) {
+    if (error instanceof FinancialOperationError) {
+      return NextResponse.json(
+        { error: error.message },
+        { status: error.status }
+      );
+    }
     logger.error('Failed to update bundle', error);
 
     const message =
@@ -326,6 +373,19 @@ export async function PATCH(request: NextRequest) {
 
 export async function DELETE(request: NextRequest) {
   try {
+    const user = await getCurrentUser();
+    if (!user) {
+      return NextResponse.json(
+        { error: 'Authentication required' },
+        { status: 401 }
+      );
+    }
+    if (!['USER', 'ADMIN', 'SUPER_ADMIN'].includes(user.role)) {
+      return NextResponse.json(
+        { error: 'Insufficient permissions' },
+        { status: 403 }
+      );
+    }
     const url = new URL(request.url);
     const idParam = url.searchParams.get('id');
     const id = idParam ? Number(idParam) : NaN;
@@ -345,21 +405,29 @@ export async function DELETE(request: NextRequest) {
       );
     }
 
-    await prisma.$transaction(async (tx) => {
+    await runFinancialTransaction(async (tx) => {
       const notePrefix = `bundle-assembly batch ${id} `;
-      await tx.inventoryMovement.updateMany({
-        where: {
-          notes: { startsWith: notePrefix },
-          deletedAt: null,
-        },
-        data: { deletedAt: new Date() },
+      const history = await tx.inventoryMovement.findFirst({
+        where: { notes: { startsWith: notePrefix } },
+        select: { id: true },
       });
+      if (history) {
+        throw new FinancialOperationError(
+          'Recorded bundle assembly cannot be deleted. Its original inventory and cost history must remain available.'
+        );
+      }
 
       await tx.bundleBatch.delete({ where: { id } });
     });
 
     return NextResponse.json({ success: true }, { status: 200 });
   } catch (error) {
+    if (error instanceof FinancialOperationError) {
+      return NextResponse.json(
+        { error: error.message },
+        { status: error.status }
+      );
+    }
     logger.error('Failed to delete bundle', error);
     return NextResponse.json(
       { error: 'Failed to delete bundle' },

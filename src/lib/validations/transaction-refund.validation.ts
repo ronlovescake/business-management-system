@@ -17,6 +17,7 @@ export const transactionRefundCreateSchema = z.object({
   amount: z.number().min(0),
   reason: z.string().max(255).nullable().optional(),
   returnedQuantity: z.number().min(0).nullable().optional(),
+  returnedProductCode: z.string().trim().min(1).max(255).optional(),
   restockBucket: z.enum(INVENTORY_BUCKETS).nullable().optional(),
   notes: z.string().max(2000).nullable().optional(),
 });

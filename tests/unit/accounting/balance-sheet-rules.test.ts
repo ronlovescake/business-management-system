@@ -15,9 +15,107 @@
  *   normalizeAccountForReporting — cash-equivalent merging
  */
 
-import { describe, it, expect } from 'vitest';
+import { afterEach, describe, it, expect, vi } from 'vitest';
+import { act, render, renderHook, waitFor } from '@testing-library/react';
+import { fireEvent, screen, within } from '@testing-library/dom';
+import React, { createElement } from 'react';
+import { MantineProvider } from '@mantine/core';
+import { useBalanceSheet } from '@/app/clothing/accounting/balance-sheet/hooks/useBalanceSheet';
+import { BalanceSheetControls } from '@/app/clothing/accounting/balance-sheet/components/BalanceSheetControls';
+import { getCurrentDateISO } from '@/utils/date';
+import { formatLongDateUS } from '@/lib/accounting/formatters';
 import { detectAccountType } from '@/lib/accounting/account-classification';
 import { normalizeAccountForReporting } from '@/lib/accounting/account-normalization';
+
+describe('shared Balance Sheet statement totals', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it('keeps today selectable after switching to a historical statement without duplicate dates', () => {
+    vi.stubGlobal('React', React);
+    render(
+      createElement(
+        MantineProvider,
+        null,
+        createElement(BalanceSheetControls, {
+          activeTab: 'list',
+          onTabChange: vi.fn(),
+          searchQuery: '',
+          onSearchChange: vi.fn(),
+          asOf: 'December 31, 2025',
+          onAsOfChange: vi.fn(),
+          onExportCSV: vi.fn(),
+          onDownloadTemplate: vi.fn(),
+        })
+      )
+    );
+    fireEvent.click(
+      within(
+        screen.getByRole('tabpanel', { name: 'Balance Sheet' })
+      ).getByPlaceholderText('As of date')
+    );
+    expect(
+      screen.getAllByRole('option', { name: 'December 31, 2025' })
+    ).toHaveLength(1);
+    expect(
+      screen.getByRole('option', {
+        name: formatLongDateUS(getCurrentDateISO()),
+      })
+    ).toBeVisible();
+  });
+
+  it.each([
+    { apiBasePath: undefined, equity: -60, balance: 0 },
+    { apiBasePath: undefined, equity: -50, balance: 10 },
+    { apiBasePath: '/api/general-merchandise', equity: -60, balance: 0 },
+    { apiBasePath: '/api/general-merchandise', equity: -50, balance: 10 },
+  ])(
+    'preserves signed server totals for $apiBasePath with balance=$balance',
+    async ({ apiBasePath, equity, balance }) => {
+      const totals = { assets: 400, liabilities: -340, equity, balance };
+      vi.stubGlobal(
+        'fetch',
+        vi.fn(
+          async () =>
+            new Response(
+              JSON.stringify({
+                success: true,
+                data: {
+                  rows: [
+                    { id: 'cash', account: 'Cash', type: 'Asset', amount: 400 },
+                    {
+                      id: 'refunds',
+                      account: 'Refunds Payable',
+                      type: 'Liability',
+                      amount: -340,
+                    },
+                    {
+                      id: 'equity',
+                      account: 'Current Earnings',
+                      type: 'Equity',
+                      amount: equity,
+                    },
+                  ],
+                  stats: { ...totals, asOf: '2026-10-28T15:59:59.999Z' },
+                },
+              }),
+              { status: 200 }
+            )
+        )
+      );
+      const { result } = renderHook(() => useBalanceSheet({ apiBasePath }));
+      await waitFor(() => expect(result.current.stats.assets).toBe(400));
+      expect(result.current.stats).toMatchObject(totals);
+      act(() => result.current.setSearchQuery('Cash'));
+      expect(result.current.filteredRows).toHaveLength(1);
+      expect(result.current.stats).toMatchObject(totals);
+      act(() => result.current.setSearchQuery('NO-MATCH'));
+      expect(result.current.filteredRows).toHaveLength(0);
+      expect(result.current.stats).toMatchObject(totals);
+    }
+  );
+});
 
 // =========================================================================
 // Rule #10: detectAccountType classifies accounts

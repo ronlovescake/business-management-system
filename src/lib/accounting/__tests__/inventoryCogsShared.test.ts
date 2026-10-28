@@ -5,6 +5,30 @@ import {
 } from '../inventoryCogsShared';
 
 describe('dated inventory cost history', () => {
+  it('treats a conserved explicit zero split allocation as known cost rather than a paid-product fallback', () => {
+    const movement = {
+      id: 50,
+      productCode: 'ZERO-TOP',
+      quantity: 2,
+      unitCost: 0,
+      costBasis: 'SPLIT_ALLOCATION',
+      fromBucket: 'sellable',
+      toBucket: 'sold',
+      postingDate: '2026-10-28',
+      createdAt: new Date('2026-10-28'),
+      when: new Date('2026-10-28'),
+    };
+    const result = buildCogsEntriesFromMovements({
+      movements: [movement],
+      unitCostByProductCode: new Map([['ZERO-TOP', 20]]),
+      customerNameByTransactionId: new Map(),
+      cogsAccount: 'COGS',
+      inventoryAccount: 'Stock on Hand',
+      cogsDescriptionStyle: 'short',
+    });
+    expect(result.totalCogs).toBe(0);
+    expect(result.valuationIssues).toEqual([]);
+  });
   it.each(['2026-10-25', '2026-10-26'])(
     'preserves an original missing-cost basis and only confirms it at the dated event: %s',
     (cutoff) => {
@@ -95,9 +119,115 @@ describe('dated inventory cost history', () => {
     expect(result.map((movement) => movement.unitCost)).toEqual([100, 120]);
     expect(movements.map((movement) => movement.unitCost)).toEqual([100, 100]);
   });
+
+  it('uses the exact corrected original sale lot when the same order also contains explicit free units', () => {
+    const paid = {
+      id: 42,
+      productCode: 'SKU',
+      quantity: 4,
+      unitCost: 100,
+      costBasis: 'PURCHASE',
+      fromBucket: 'sellable',
+      toBucket: 'sold',
+      postingDate: '2026-10-20',
+      createdAt: new Date('2026-10-20'),
+      when: new Date('2026-10-20'),
+      sourceTransactionId: 12,
+    };
+    const free = {
+      ...paid,
+      id: 43,
+      quantity: 2,
+      unitCost: 0,
+      costBasis: 'FREE_GOODS',
+    };
+    const returns = [
+      {
+        ...paid,
+        id: 44,
+        quantity: 1,
+        fromBucket: 'sold',
+        toBucket: 'sellable',
+        sourceMovementId: 42,
+        postingDate: '2026-10-28',
+        createdAt: new Date('2026-10-28'),
+        when: new Date('2026-10-28'),
+      },
+      {
+        ...free,
+        id: 45,
+        quantity: 1,
+        fromBucket: 'sold',
+        toBucket: 'sellable',
+        sourceMovementId: 43,
+        postingDate: '2026-10-28',
+        createdAt: new Date('2026-10-28'),
+        when: new Date('2026-10-28'),
+      },
+    ];
+    const corrections = [
+      {
+        productCode: 'SKU',
+        date: '2026-10-26',
+        newUnitCost: 120,
+        resolvedMovementIds: [42],
+        movementCosts: [{ movementId: 42, unitCost: 100 }],
+      },
+    ];
+    const movements = [paid, free, ...returns];
+    expect(
+      projectDatedMovementCosts(
+        movements,
+        corrections,
+        new Date('2026-10-28')
+      ).map((movement) => movement.unitCost)
+    ).toEqual([100, 0, 120, 0]);
+    expect(
+      projectDatedMovementCosts(
+        movements,
+        corrections,
+        new Date('2026-10-25')
+      ).map((movement) => movement.unitCost)
+    ).toEqual([100, 0, 100, 0]);
+    expect(movements.map((movement) => movement.unitCost)).toEqual([
+      100, 0, 100, 0,
+    ]);
+  });
 });
 
 describe('buildCogsEntriesFromMovements', () => {
+  it('keeps explicitly identified free goods at zero cost instead of borrowing the paid product cost', () => {
+    const freeSale = {
+      id: 75,
+      createdAt: new Date('2026-10-28'),
+      postingDate: '2026-10-28',
+      productCode: 'SKU',
+      quantity: 2,
+      unitCost: 0,
+      costBasis: 'FREE_GOODS',
+      fromBucket: 'sellable',
+      toBucket: 'sold',
+      sourceTransactionId: 12,
+      when: new Date('2026-10-28'),
+    };
+    const movements = projectDatedMovementCosts(
+      [freeSale],
+      [],
+      new Date('2026-10-28')
+    );
+    const result = buildCogsEntriesFromMovements({
+      movements,
+      unitCostByProductCode: new Map([['SKU', 20]]),
+      customerNameByTransactionId: new Map(),
+      cogsAccount: 'COGS',
+      inventoryAccount: 'Stock on Hand',
+      cogsDescriptionStyle: 'short',
+    });
+    expect(result.totalCogs).toBe(0);
+    expect(result.entries).toEqual([]);
+    expect(result.valuationIssues).toEqual([]);
+  });
+
   it.each([
     { unitCost: null, fallback: undefined, reason: 'MISSING_COST', total: 0 },
     {

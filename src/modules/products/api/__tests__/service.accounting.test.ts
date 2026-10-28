@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Prisma } from '@prisma/client';
 import { mapFromDTO, type ProductDTO } from '../dto';
+import { buildInventoryItems } from '@/modules/clothing/operations/inventory/lib/inventoryTransforms';
 
 process.env.ACCOUNTING_CUTOVER_DATE = '2026-01-17';
 
@@ -11,6 +12,7 @@ const mockPrisma = vi.hoisted(() => ({
     findUnique: vi.fn(),
     update: vi.fn(),
   },
+  shipment: { findMany: vi.fn() },
   inventoryMovement: {
     findFirst: vi.fn(),
     create: vi.fn(),
@@ -93,6 +95,147 @@ function buildDto(overrides: Partial<ProductDTO> = {}): ProductDTO {
 }
 
 describe('productService accounting automation', () => {
+  it.each(
+    ['Paid', 'Unpaid'].flatMap((payment) =>
+      [null, '', 'Delivered'].map((storedStatus) => ({ payment, storedStatus }))
+    )
+  )(
+    'keeps a $payment purchase in transit using its linked shipment instead of stored status $storedStatus',
+    async ({ payment, storedStatus }) => {
+      const { productService } = await import('../service');
+      mockPrisma.product.findMany.mockResolvedValue([
+        {
+          ...mapFromDTO(buildDto({ Quantity: 100, Payment: payment })),
+          id: 123,
+          shipmentStatus: storedStatus,
+        },
+      ]);
+      mockPrisma.shipment.findMany.mockResolvedValue([
+        { shipmentCode: 'KPC-001', shipmentStatus: 'In Transit' },
+      ]);
+
+      const products = await productService.findActive();
+      const [item] = buildInventoryItems(
+        products.map((product) => ({ ...product, id: String(product.id) })),
+        [
+          {
+            id: '1',
+            'Product Code': 'TP-001',
+            Quantity: 20,
+            'Unit Price': 200,
+            'Order Status': 'In Transit',
+          },
+        ],
+        [],
+        [
+          {
+            id: 1,
+            productCode: 'TP-001',
+            quantity: 100,
+            fromBucket: 'opening_inventory',
+            toBucket: 'sellable',
+            notes: 'auto-receipt product 123',
+          },
+        ]
+      );
+
+      expect(item).toMatchObject({
+        shipmentStatus: 'In Transit',
+        actualQuantityReceived: 0,
+        onHandReserved: 0,
+        onHandSellable: 0,
+        inTransitReserved: 20,
+        inTransitUnreserved: 80,
+      });
+      expect(mockPrisma.product.update).not.toHaveBeenCalled();
+      expect(mockPrisma.inventoryMovement.create).not.toHaveBeenCalled();
+      expect(
+        mockPrisma.clothingAccountingJournalLine.upsert
+      ).not.toHaveBeenCalled();
+      expect(mockPrisma.shipment.findMany).toHaveBeenCalledWith({
+        where: { shipmentCode: { in: ['KPC-001'] }, deletedAt: null },
+        select: { shipmentCode: true, shipmentStatus: true },
+      });
+    }
+  );
+
+  it('moves stock on hand only after the linked shipment is explicitly Delivered', async () => {
+    const { productService } = await import('../service');
+    mockPrisma.product.findMany.mockResolvedValue([
+      { ...mapFromDTO(buildDto({ Quantity: 100 })), id: 123 },
+    ]);
+    mockPrisma.shipment.findMany
+      .mockResolvedValueOnce([
+        { shipmentCode: 'KPC-001', shipmentStatus: 'In Transit' },
+      ])
+      .mockResolvedValueOnce([
+        { shipmentCode: 'KPC-001', shipmentStatus: 'Delivered' },
+      ]);
+
+    const transit = await productService.findActive();
+    const delivered = await productService.findActive();
+    const [transitItem] = buildInventoryItems(
+      transit.map((product) => ({ ...product, id: String(product.id) })),
+      []
+    );
+    const [deliveredItem] = buildInventoryItems(
+      delivered.map((product) => ({ ...product, id: String(product.id) })),
+      []
+    );
+
+    expect(transitItem).toMatchObject({
+      actualQuantityReceived: 0,
+      onHandSellable: 0,
+      inTransitUnreserved: 100,
+    });
+    expect(deliveredItem).toMatchObject({
+      actualQuantityReceived: 100,
+      onHandSellable: 100,
+      inTransitUnreserved: 0,
+    });
+    expect(mockPrisma.product.update).not.toHaveBeenCalled();
+    expect(mockPrisma.inventoryMovement.create).not.toHaveBeenCalled();
+    expect(
+      mockPrisma.clothingAccountingJournalLine.upsert
+    ).not.toHaveBeenCalled();
+  });
+
+  it('preserves unlinked legacy status without querying or inventing a shipment', async () => {
+    const { productService } = await import('../service');
+    mockPrisma.product.findMany.mockResolvedValue([
+      {
+        ...mapFromDTO(
+          buildDto({ 'Shipment Code': null, 'Shipment Status': 'In Transit' })
+        ),
+        id: 123,
+      },
+    ]);
+
+    await expect(productService.findActive()).resolves.toEqual([
+      expect.objectContaining({
+        'Shipment Code': null,
+        'Shipment Status': 'In Transit',
+      }),
+    ]);
+    expect(mockPrisma.shipment.findMany).not.toHaveBeenCalled();
+  });
+
+  it('does not present a stale received status when the authoritative shipment lookup fails', async () => {
+    const { productService } = await import('../service');
+    mockPrisma.product.findMany.mockResolvedValue([
+      { ...mapFromDTO(buildDto({ 'Shipment Status': 'Delivered' })), id: 123 },
+    ]);
+    mockPrisma.shipment.findMany.mockRejectedValue(
+      new Error('Shipment lookup unavailable')
+    );
+
+    await expect(productService.findActive()).rejects.toThrow(
+      'Shipment lookup unavailable'
+    );
+    expect(mockPrisma.product.update).not.toHaveBeenCalled();
+    expect(mockPrisma.inventoryMovement.create).not.toHaveBeenCalled();
+  });
+
   it('blocks direct/import cost changes after inventory events but permits unchanged costs', async () => {
     const { assertProductAccountingIdentityChange } = await import(
       '../service'
@@ -179,6 +322,7 @@ describe('productService accounting automation', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    mockPrisma.shipment.findMany.mockResolvedValue([]);
     mockPrisma.$transaction.mockImplementation(
       async (fn: (tx: typeof mockPrisma) => unknown | Promise<unknown>) =>
         fn(mockPrisma)
@@ -217,6 +361,38 @@ describe('productService accounting automation', () => {
     expect(
       mockPrisma.clothingInventoryTransitBuildEntry.create
     ).not.toHaveBeenCalled();
+  });
+
+  it('snapshots acquisition cost on a new purchase receipt without posting an expense or rewriting older receipts', async () => {
+    const { productService } = await import('../service');
+    const dto = buildDto({
+      Quantity: 100,
+      'Landed Unit Cost': 20,
+      COGS: 2000,
+      'Actual Price': 50,
+    });
+    mockPrisma.product.create.mockResolvedValue({
+      ...mapFromDTO(dto),
+      id: 123,
+    });
+    mockPrisma.inventoryMovement.findFirst.mockResolvedValue(null);
+    await productService.createSingle(dto);
+    expect(mockPrisma.inventoryMovement.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        productCode: 'TP-001',
+        quantity: 100,
+        unitCost: 20,
+        costBasis: 'PURCHASE',
+        fromBucket: 'opening_inventory',
+        toBucket: 'sellable',
+      }),
+    });
+    expect(
+      mockPrisma.clothingInventoryTransitBuildEntry.create
+    ).not.toHaveBeenCalled();
+    mockPrisma.inventoryMovement.findFirst.mockResolvedValue({ id: 9 });
+    await productService.createSingle(dto);
+    expect(mockPrisma.inventoryMovement.create).toHaveBeenCalledTimes(1);
   });
 
   it('does not auto-post transit build-up when creating an UNPAID product', async () => {
@@ -304,6 +480,47 @@ describe('productService accounting automation', () => {
         productService.createSingle({ ...payload, ...changes })
       ).rejects.toMatchObject({ status: 409 });
       expect(mockPrisma.product.create).not.toHaveBeenCalled();
+    }
+  );
+
+  it.each([
+    ['2026-10-27T15:59:59Z', '2026-10-27'],
+    ['2026-10-27T16:00:00Z', '2026-10-28'],
+    ['2026-10-28T00:00:00Z', '2026-10-28'],
+  ])(
+    'posts supplier settlement at %s on Manila day %s',
+    async (instant, day) => {
+      vi.useFakeTimers({ toFake: ['Date'] });
+      vi.setSystemTime(new Date(instant));
+      try {
+        const { postSupplierSettlementForProductPaymentChange } = await import(
+          '../service'
+        );
+        mockPrisma.clothingInventoryTransitBuildEntry.findMany.mockResolvedValue(
+          [{ amount: 100 }]
+        );
+        await postSupplierSettlementForProductPaymentChange(
+          {
+            productId: 789,
+            prevPayment: 'Unpaid',
+            nextPayment: 'Paid',
+            productCode: 'TP-003',
+            shipmentCode: 'KPC-001',
+            paymentMethod: 'BANK',
+          },
+          mockTransactionClient
+        );
+        expect(
+          mockPrisma.clothingAccountingJournalLine.upsert
+        ).toHaveBeenCalledTimes(2);
+        for (const [args] of mockPrisma.clothingAccountingJournalLine.upsert
+          .mock.calls) {
+          expect(args.create.date.toISOString()).toBe(`${day}T00:00:00.000Z`);
+          expect(args.update).toEqual({});
+        }
+      } finally {
+        vi.useRealTimers();
+      }
     }
   );
 

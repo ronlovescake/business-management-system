@@ -18,10 +18,12 @@ export type CogsMovementInput = {
   productCode: string;
   quantity: number;
   unitCost?: number | null;
+  costBasis?: string | null;
   fromBucket: string;
   toBucket: string;
   notes?: string | null;
   sourceTransactionId?: number | null;
+  sourceMovementId?: number | null;
   movementSource?: string | null;
   movementType?: string | null;
   when: Date;
@@ -60,6 +62,23 @@ export type DatedInventoryCostCorrection = {
   movementCosts: Array<{ movementId: number; unitCost: number }>;
 };
 
+export function isFreeGoodsCost(
+  movement: Pick<CogsMovementInput, 'costBasis' | 'unitCost'>
+): boolean {
+  return movement.costBasis === 'FREE_GOODS' && movement.unitCost === 0;
+}
+
+export function isKnownZeroAcquisitionCost(
+  movement: Pick<CogsMovementInput, 'costBasis' | 'unitCost'>
+): boolean {
+  return (
+    movement.unitCost === 0 &&
+    (isFreeGoodsCost(movement) ||
+      movement.costBasis === 'SPLIT_ALLOCATION' ||
+      movement.costBasis === 'ASSEMBLY')
+  );
+}
+
 export function projectDatedMovementCosts(
   movements: CogsMovementInput[],
   corrections: DatedInventoryCostCorrection[],
@@ -79,6 +98,7 @@ export function projectDatedMovementCosts(
       .flatMap((correction) => correction.movementCosts)
       .find((cost) => cost.movementId === movement.id)?.unitCost;
     const valuationConfirmed =
+      isKnownZeroAcquisitionCost(movement) ||
       (typeof movement.unitCost === 'number' && movement.unitCost > 0) ||
       evidence.some(
         (correction) =>
@@ -87,10 +107,11 @@ export function projectDatedMovementCosts(
       );
     return {
       ...movement,
-      unitCost:
-        movement.unitCost === null ||
-        movement.unitCost === undefined ||
-        movement.unitCost === 0
+      unitCost: isKnownZeroAcquisitionCost(movement)
+        ? 0
+        : movement.unitCost === null ||
+            movement.unitCost === undefined ||
+            movement.unitCost === 0
           ? (firstCost ?? movement.unitCost)
           : movement.unitCost,
       valuationConfirmed,
@@ -101,7 +122,8 @@ export function projectDatedMovementCosts(
     if (
       movement.fromBucket !== 'sold' ||
       !INVENTORY_ASSET_BUCKETS.has(movement.toBucket) ||
-      !movement.sourceTransactionId
+      !movement.sourceTransactionId ||
+      isKnownZeroAcquisitionCost(movement)
     ) {
       return movement;
     }
@@ -110,6 +132,7 @@ export function projectDatedMovementCosts(
         sale.toBucket === 'sold' &&
         sale.productCode === movement.productCode &&
         sale.sourceTransactionId === movement.sourceTransactionId &&
+        (!movement.sourceMovementId || sale.id === movement.sourceMovementId) &&
         sale.when <= movement.when
     );
     const costs = new Set(
@@ -346,11 +369,12 @@ export function buildCogsEntriesFromMovements(params: {
 
     const code = (movement.productCode ?? '').trim();
     if (
-      movement.id &&
-      params.confirmedZeroCostMovementIds?.has(movement.id) &&
-      (movement.unitCost === null ||
-        movement.unitCost === undefined ||
-        Number(movement.unitCost) === 0)
+      isKnownZeroAcquisitionCost(movement) ||
+      (movement.id &&
+        params.confirmedZeroCostMovementIds?.has(movement.id) &&
+        (movement.unitCost === null ||
+          movement.unitCost === undefined ||
+          Number(movement.unitCost) === 0))
     ) {
       continue;
     }

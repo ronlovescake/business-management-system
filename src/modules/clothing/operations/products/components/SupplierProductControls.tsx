@@ -30,6 +30,7 @@ import {
   parseDateValue,
 } from '@/lib/dateInputConfig';
 import { getCurrentDateISO } from '@/utils/date';
+import { queryKeys } from '@/lib/queryKeys';
 import type { ProductData, ProductFormData } from '../types/product.types';
 import { ProductService } from '../services/ProductService';
 
@@ -61,6 +62,9 @@ const money = (value: number) =>
   new Intl.NumberFormat('en-PH', { style: 'currency', currency: 'PHP' }).format(
     value
   );
+
+const supplierKey = (value: string) =>
+  value.trim().replace(/\s+/g, ' ').toLowerCase();
 
 async function readResponse<T>(response: Response): Promise<T> {
   const body = await response.json();
@@ -95,6 +99,15 @@ export function SupplierProductControls({
   const [saving, setSaving] = useState(false);
   const [recorded, setRecorded] = useState(false);
   const [error, setError] = useState('');
+  const [supplierSearch, setSupplierSearch] = useState('');
+  const productsQuery = useQuery({
+    queryKey: [...queryKeys.products.lists(), 'default'],
+    queryFn: () =>
+      ProductService.loadProducts(undefined, { throwOnError: true }),
+    staleTime: 30 * 1000,
+    enabled: admin,
+    retry: false,
+  });
   const {
     data: credits = [],
     isLoading,
@@ -113,27 +126,46 @@ export function SupplierProductControls({
     return null;
   }
 
-  const supplier = (form.supplierReference ?? '')
-    .trim()
-    .replace(/\s+/g, ' ')
-    .toLowerCase();
-  const credit = credits.find(
+  const supplier = supplierKey(form.supplierReference ?? '');
+  const suppliers = new Map<string, string>();
+  for (const reference of [
+    ...(productsQuery.data ?? []).map(
+      (item) => item['Supplier Reference'] ?? ''
+    ),
+    ...credits.map((item) => item.supplierReference),
+    form.supplierReference ?? '',
+  ]) {
+    const key = supplierKey(reference);
+    if (key && !suppliers.has(key)) {
+      suppliers.set(key, reference.trim().replace(/\s+/g, ' '));
+    }
+  }
+  const supplierOptions = Array.from(suppliers, ([value, label]) => ({
+    value,
+    label,
+  })).sort((left, right) => left.label.localeCompare(right.label));
+  const newSupplier = supplierKey(supplierSearch);
+  if (newSupplier && !suppliers.has(newSupplier)) {
+    supplierOptions.push({
+      value: newSupplier,
+      label: `Add supplier "${supplierSearch.trim().replace(/\s+/g, ' ')}"`,
+    });
+  }
+  const availableCredits = credits.filter(
     (item) =>
-      item.id === form.supplierCreditId && item.supplierReference === supplier
+      supplierKey(item.supplierReference) === supplier &&
+      item.currency === 'PHP' &&
+      item.availableAmount > 0 &&
+      item.sourceProduct.id !== product?.id
+  );
+  const credit = availableCredits.find(
+    (item) => item.id === form.supplierCreditId
   );
   const issued = credits.find((item) => item.sourceProduct.id === product?.id);
-  const creditOptions = credits
-    .filter(
-      (item) =>
-        item.supplierReference === supplier &&
-        item.currency === 'PHP' &&
-        item.availableAmount > 0 &&
-        item.sourceProduct.id !== product?.id
-    )
-    .map((item) => ({
-      value: item.id,
-      label: `${item.reference} | ${item.sourceProduct.productCode} | ${money(item.availableAmount)}`,
-    }));
+  const creditOptions = availableCredits.map((item) => ({
+    value: item.id,
+    label: `${item.reference} | ${item.sourceProduct.productCode} | ${money(item.availableAmount)}`,
+  }));
   const purchaseAmount = product ? product['Grand Total'] : grandTotal;
   const appliedAmount = Number(form.supplierCreditAmount ?? 0);
   const canApply =
@@ -262,15 +294,36 @@ export function SupplierProductControls({
           </Button>
         </Alert>
       )}
+      {productsQuery.isError && (
+        <Alert color="red" title="Recorded suppliers unavailable">
+          <Button variant="subtle" onClick={() => void productsQuery.refetch()}>
+            Retry supplier list
+          </Button>
+        </Alert>
+      )}
       {!resolved && (
         <>
-          <TextInput
-            label="Supplier reference"
-            value={form.supplierReference ?? ''}
-            onChange={(event) => {
-              updateField('supplierReference', event.currentTarget.value);
-              updateField('supplierCreditId', '');
-              updateField('supplierCreditAmount', 0);
+          <Select
+            label="Supplier"
+            searchable
+            clearable
+            maxLength={200}
+            data={supplierOptions}
+            value={supplier || null}
+            searchValue={supplierSearch}
+            onSearchChange={setSupplierSearch}
+            onChange={(value) => {
+              updateField(
+                'supplierReference',
+                value
+                  ? (suppliers.get(value) ??
+                      supplierSearch.trim().replace(/\s+/g, ' '))
+                  : ''
+              );
+              if (value !== supplier) {
+                updateField('supplierCreditId', '');
+                updateField('supplierCreditAmount', 0);
+              }
             }}
             disabled={
               saving || Number(product?.['Supplier Credit Applied'] ?? 0) > 0
@@ -336,7 +389,11 @@ export function SupplierProductControls({
                 label="Available supplier credit"
                 searchable
                 clearable
-                disabled={isLoading || saving || !supplier}
+                placeholder={isLoading ? 'Loading credits...' : 'Select credit'}
+                nothingFoundMessage={
+                  isError ? 'Credits unavailable' : 'No available credits'
+                }
+                disabled={isLoading || isError || saving || !supplier}
                 value={credit?.id ?? null}
                 data={creditOptions}
                 onChange={(value) => {
@@ -356,6 +413,10 @@ export function SupplierProductControls({
               />
               {credit && (
                 <>
+                  <Text size="sm" style={{ overflowWrap: 'anywhere' }}>
+                    {credit.reference} | {credit.sourceProduct.productCode} |{' '}
+                    Available: {money(credit.availableAmount)}
+                  </Text>
                   <NumberInput
                     label="Credit to apply (PHP)"
                     min={0.01}
@@ -383,6 +444,7 @@ export function SupplierProductControls({
               value={parseDateValue(postingDate)}
               onChange={(value) => setPostingDate(formatDateForInput(value))}
               {...COMMON_DATE_INPUT_PROPS}
+              maxDate={parseDateValue(getCurrentDateISO()) ?? undefined}
               disabled={saving}
             />
           )}

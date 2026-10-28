@@ -29,6 +29,61 @@ reverting a settled product to Unpaid, or deleted settlement lines retaining tho
 keys require accounting resolution and return 409. Ordinary edits to a completely
 settled product do not repost it.
 
+First supplier settlement uses the shared Manila current calendar day, stored
+as the existing UTC-midnight day bucket. The owner authorized completing I01 on
+October 28; the UTC-calendar bug was reproduced at Manila midnight, then repaired
+without changing amounts, permissions or completed dates. Frozen before/at/after
+midnight regressions and the full Paid/Unpaid real browser lifecycle now pass,
+including the two dated lines and unchanged replay. No historical records were
+repaired. See the [current findings](../../reports/CLOTHING_SUPPLIER_RECONCILIATION_2026-10-27.md#i01-transit-fix-and-remaining-settlement-failure).
+
+### New Receipt Cost And Composite Definitions
+
+New Clothing purchase receipts snapshot their known positive acquisition cost and
+`PURCHASE` basis, including create/import/bulk receipt assurance. Existing receipts
+are not rewritten and an unknown cost remains null, never silently confirmed zero.
+Receipt assurance does not post an operating expense or buy the stock again.
+Supplier-free extras instead use the separately approved zero-cost lot workflow.
+
+Bundle creation now atomically records value-conserving assembly from actual
+component receipt lots under a stable request UUID. Split definitions persist
+nullable explicit component acquisition costs, separate from selling prices;
+opening a parent requires a complete cost-conserving definition. Used bundle/mix
+and opened split definitions cannot be edited or deleted beneath posted history.
+See the [physical inventory contract](operations-inventory.md#approved-original-composite-returns).
+
+### Authoritative Shipment Location
+
+On October 28 the requesting business owner explicitly confirmed that goods
+remain in transit until marked on hand. The existing operational transition is
+setting the linked shipment to `Delivered`; no new status or automatic receipt
+transition is introduced.
+
+Clothing's `productService.findActive` resolves the current status from active
+linked shipments in one batch for `GET /api/products`. A nonempty linked
+`Shipment.shipmentStatus` overrides an empty or stale product-level status in
+the returned DTO. Paid and Unpaid purchases use the same physical-location rule.
+Products already enriched their grid from Shipments; Inventory previously read
+the raw product status and could falsely show received stock. Both now receive
+the linked shipment's status on a refreshed collection read.
+
+This read boundary covers records created by the form, direct API, import and
+bulk writers without rewriting their stored status. A failed shipment lookup
+fails the read rather than returning stale successful data. Unlinked products,
+unmatched codes and blank linked statuses retain the existing legacy fallback;
+this is not reconciliation of unknown historical locations. Single-record
+mutation responses, movement writers, supplier funding, posting dates, costs
+and General Merchandise's separate product service are unchanged.
+
+Example: 100 travelling units with 20 reserved display zero physically received,
+20 transit reserved and 80 transit unreserved. Only after explicit delivery do
+they display 100 received, 20 on-hand reserved and 80 on-hand sellable. This
+projection does not itself post Transit Build-Up or financial reclassification.
+The [Inventory contract](operations-inventory.md#physical-location-and-reservation-split)
+and [I01 evidence](../../reports/CLOTHING_SUPPLIER_RECONCILIATION_2026-10-27.md#i01-transit-fix-and-remaining-settlement-failure)
+record the focused regressions and actual browser stages. The later authorized
+settlement-date repair and complete I01 sequence now pass.
+
 ### Supplier Nonfulfillment And Future-Purchase Credit
 
 The requesting business/project owner approved this workflow on 2026-10-26:
@@ -56,13 +111,31 @@ omits clothing fields and its APIs reject credit requests.
 | SC7 | Posted funding cannot be silently rewritten         | Credit-owned products cannot be deleted or have their purchase basis changed through direct edits, imports or bulk updates. Paid method/card identity is locked; an Unpaid replacement may select a method when settling only its remaining payable. Generic transit build-up skips credit-owned products instead of recreating full cash/card funding.                                                                                                                |
 | SC8 | Resolution uses saved data, not unsaved edits       | Save/discard unrelated form edits before a supplier action. Supplier actions have their own posting date, confirmation and request ID. A committed action whose refresh fails is shown as recorded and cannot be submitted again from the same form.                                                                                                                                                                                                                   |
 
-Posting dates must be valid calendar dates at/after accounting cutover and no
-later than today; applications cannot predate either the issued credit or the
-replacement purchase. Separate forwarder, courier and packaging amounts are not
-added to the credit. Calculator inputs/results are neither read nor changed.
+Supplier is a searchable selection built from active product supplier references
+and issued credits. Existing whitespace/case normalization deduplicates choices
+without rewriting historical references. An ordinary purchase can explicitly
+select `Add supplier` for a new name; typing alone does not accept a new supplier.
+Changing supplier clears the selected credit and amount. Supplier identity is
+separate from the supplier credit document reference. Available credits show
+their reference, source product code and PHP balance; only same-supplier,
+positive-balance PHP credits from another product are eligible choices.
+
+Posting dates must be strict `YYYY-MM-DD` calendar dates at/after the saved
+runtime clothing accounting cutoff (with the existing environment/default
+fallback), and no later than **today in Asia/Manila**. The form default and the
+service use the same shared Manila-date helper; UTC-midnight storage does not
+change. Invalid dates, dates before cutoff and future dates have distinct errors
+with the relevant bounds. Applications cannot predate either the issued credit
+or the replacement purchase. Separate forwarder, courier and packaging amounts
+are not added to the credit. Calculator inputs/results are neither read nor changed.
 
 Credit applications and issue journals are source dependencies: their underlying
 financial sources cannot be independently edited/deleted/restored as a correction.
+An unresolved net Supplier Short between zero and the whole product quantity
+blocks all whole-product supplier actions. Full shortages remain eligible subject
+to the other guards; fully reversed shortages do not block by themselves.
+Transfer/additional-goods annotations are not treated as ordinary shortages.
+
 No credit reversal, expiry, dispute write-off, partial-receipt resolution,
 customer refund automation or historical repair is introduced. Reconcile those
 cases with the accountable owner rather than deleting source history.
@@ -124,6 +197,7 @@ and unlinked counts before relying on historical rollups. The audit is read-only
 > - `src/modules/clothing/operations/shipments/services/ShipmentService.ts`
 > - `src/lib/productCalculations.ts`
 > - `src/modules/products/api/financials.ts`
+> - `src/modules/products/api/service.ts`
 > - `src/modules/products/api/routeFactory.ts`
 > - `src/app/api/products/[id]/route.ts`
 

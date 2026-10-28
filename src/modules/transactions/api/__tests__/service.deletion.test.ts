@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { transactionService } from '../service';
+import { softDeleteDraftTransactions, transactionService } from '../service';
 
 const database = vi.hoisted(() => ({
   transaction: { count: vi.fn(), findMany: vi.fn(), updateMany: vi.fn() },
@@ -23,7 +23,7 @@ const draft = {
   refunds: [],
 };
 
-describe('transaction bulk deletion integrity', () => {
+describe('transaction deletion integrity', () => {
   beforeEach(() => {
     vi.resetAllMocks();
     database.$transaction.mockImplementation(
@@ -60,6 +60,11 @@ describe('transaction bulk deletion integrity', () => {
   });
 
   it.each([
+    { orderStatus: 'Cancelled' },
+    { orderStatus: 'Voided' },
+    { orderStatus: 'Forfeited' },
+    { cancellation: { id: 'decision' } },
+    { statusChanges: [{ newStatus: 'Cancelled' }] },
     { orderStatus: 'Shipped' },
     { adjustment: 10 },
     { payments: [{ id: 1 }] },
@@ -75,7 +80,7 @@ describe('transaction bulk deletion integrity', () => {
         { ...draft, ...history },
       ]);
       await expect(transactionService.softDeleteAll()).rejects.toThrow(
-        'Cannot mass-delete'
+        'Cannot delete'
       );
       expect(database.transaction.updateMany).not.toHaveBeenCalled();
       expect(database.inventoryMovement.updateMany).not.toHaveBeenCalled();
@@ -86,6 +91,24 @@ describe('transaction bulk deletion integrity', () => {
     database.inventoryMovement.findFirst.mockResolvedValue({ id: 55 });
     await expect(transactionService.softDeleteAll()).rejects.toThrow(
       'posted inventory movements'
+    );
+    expect(database.transaction.updateMany).not.toHaveBeenCalled();
+  });
+
+  it('scopes single deletion to the requested draft and keeps the shared movement guards', async () => {
+    expect((await softDeleteDraftTransactions([1])).deleted).toBe(1);
+    expect(database.transaction.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { deletedAt: null, id: { in: [1] } } })
+    );
+    expect(database.transaction.updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { id: { in: [1] }, deletedAt: null } })
+    );
+    database.transaction.findMany.mockResolvedValue([
+      { ...draft, cancellation: { id: 'decision' } },
+    ]);
+    database.transaction.updateMany.mockClear();
+    await expect(softDeleteDraftTransactions([1])).rejects.toThrow(
+      'Cannot delete'
     );
     expect(database.transaction.updateMany).not.toHaveBeenCalled();
   });

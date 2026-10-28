@@ -6,6 +6,7 @@ import { MantineProvider } from '@mantine/core';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { SupplierProductControls } from '../SupplierProductControls';
 import type { ProductData, ProductFormData } from '../../types/product.types';
+import { ProductService } from '../../services/ProductService';
 
 const fixture = vi.hoisted(() => ({ role: 'ADMIN', confirm: vi.fn() }));
 vi.mock('next-auth/react', () => ({
@@ -49,15 +50,24 @@ function mount(
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
   });
+  function Controls() {
+    const [values, setValues] = React.useState(overrides.form ?? form);
+    return (
+      <SupplierProductControls
+        grandTotal={3000}
+        {...overrides}
+        form={values}
+        updateField={(field, value) => {
+          updateField(field, value);
+          setValues((previous) => ({ ...previous, [field]: value }));
+        }}
+      />
+    );
+  }
   render(
     <MantineProvider>
       <QueryClientProvider client={queryClient}>
-        <SupplierProductControls
-          form={form}
-          grandTotal={3000}
-          updateField={updateField}
-          {...overrides}
-        />
+        <Controls />
       </QueryClientProvider>
     </MantineProvider>
   );
@@ -72,6 +82,11 @@ describe('supplier product controls', () => {
       value: vi.fn(),
     });
     fixture.role = 'ADMIN';
+    vi.spyOn(ProductService, 'loadProducts').mockResolvedValue([
+      { 'Supplier Reference': 'Supplier A' },
+      { 'Supplier Reference': ' SUPPLIER  A ' },
+      { 'Supplier Reference': 'Products Only Supplier' },
+    ] as ProductData[]);
     fixture.confirm.mockResolvedValue(true);
     vi.stubGlobal(
       'fetch',
@@ -86,6 +101,7 @@ describe('supplier product controls', () => {
     Reflect.deleteProperty(HTMLElement.prototype, 'scrollIntoView');
     vi.unstubAllGlobals();
     vi.clearAllMocks();
+    vi.mocked(ProductService.loadProducts).mockRestore();
   });
 
   it('hides financial supplier controls from ordinary users', () => {
@@ -120,6 +136,46 @@ describe('supplier product controls', () => {
     );
   });
 
+  it('deduplicates recorded suppliers and keeps a keyboard selection after blur', async () => {
+    mount();
+    const input = screen.getByRole('textbox', {
+      name: 'Supplier',
+    });
+    fireEvent.click(input);
+    await screen.findByRole('option', { name: 'Products Only Supplier' });
+    expect(screen.getAllByRole('option', { name: 'Supplier A' })).toHaveLength(
+      1
+    );
+    fireEvent.change(input, { target: { value: 'Products Only Supplier' } });
+    fireEvent.keyDown(input, { key: 'ArrowDown' });
+    fireEvent.keyDown(input, { key: 'Enter' });
+    fireEvent.blur(input);
+    expect((input as HTMLInputElement).value).toBe('Products Only Supplier');
+  });
+
+  it('adds a new supplier only when explicitly selected and clears incompatible credit', async () => {
+    const { updateField } = mount({
+      form: {
+        ...form,
+        supplierCreditId: 'credit-42',
+        supplierCreditAmount: 1000,
+      },
+    });
+    const input = screen.getByRole('textbox', {
+      name: 'Supplier',
+    });
+    fireEvent.change(input, { target: { value: 'New Supplier' } });
+    expect(updateField).not.toHaveBeenCalled();
+    fireEvent.click(
+      await screen.findByRole('option', { name: 'Add supplier "New Supplier"' })
+    );
+    fireEvent.blur(input);
+    expect((input as HTMLInputElement).value).toBe('New Supplier');
+    expect(updateField).toHaveBeenCalledWith('supplierCreditId', '');
+    expect(updateField).toHaveBeenCalledWith('supplierCreditAmount', 0);
+    expect(screen.queryByLabelText('Credit to apply (PHP)')).toBeNull();
+  });
+
   it('issues credit for the saved missing product rather than a user-entered amount', async () => {
     const onResolved = vi.fn();
     mount({ product, onResolved });
@@ -146,6 +202,93 @@ describe('supplier product controls', () => {
       reference: 'CREDIT-42',
     });
     expect(body.amount).toBeUndefined();
+  });
+
+  it('lists credit-only suppliers but excludes exhausted, foreign-currency and other-supplier credits', async () => {
+    vi.mocked(fetch).mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          success: true,
+          data: [
+            ...credits,
+            {
+              ...credits[0],
+              id: 'zero',
+              reference: 'EXHAUSTED',
+              availableAmount: 0,
+            },
+            { ...credits[0], id: 'usd', reference: 'FOREIGN', currency: 'USD' },
+            {
+              ...credits[0],
+              id: 'other',
+              reference: 'OTHER',
+              supplierReference: 'Credit Only Supplier',
+            },
+          ],
+        })
+      )
+    );
+    mount();
+    const supplier = screen.getByRole('textbox', {
+      name: 'Supplier',
+    });
+    fireEvent.click(supplier);
+    await screen.findByRole('option', { name: 'Credit Only Supplier' });
+    fireEvent.keyDown(supplier, { key: 'Escape' });
+    fireEvent.click(
+      screen.getByRole('textbox', { name: 'Available supplier credit' })
+    );
+    expect(
+      await screen.findByRole('option', { name: /CREDIT-42/ })
+    ).toBeTruthy();
+    expect(
+      screen.queryByRole('option', { name: /EXHAUSTED|FOREIGN|OTHER/ })
+    ).toBeNull();
+  });
+
+  it('disables credit choice while loading and recovers after a failed fetch', async () => {
+    let resolveCredits!: (value: Response) => void;
+    vi.mocked(fetch).mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          resolveCredits = resolve;
+        })
+    );
+    mount();
+    const creditInput = screen.getByRole('textbox', {
+      name: 'Available supplier credit',
+    }) as HTMLInputElement;
+    expect(creditInput.disabled).toBe(true);
+    expect(creditInput.placeholder).toBe('Loading credits...');
+    resolveCredits(
+      new Response(JSON.stringify({ error: 'Unavailable' }), { status: 500 })
+    );
+    await screen.findByText('Supplier credits unavailable');
+    expect(creditInput.disabled).toBe(true);
+    fireEvent.click(screen.getByRole('button', { name: 'Retry' }));
+    await waitFor(() => expect(creditInput.disabled).toBe(false));
+    fireEvent.click(creditInput);
+    expect(
+      await screen.findByRole('option', { name: /CREDIT-42/ })
+    ).toBeTruthy();
+  });
+
+  it('recovers the recorded supplier list independently of credit data', async () => {
+    vi.mocked(ProductService.loadProducts).mockRejectedValueOnce(
+      new Error('Supplier list unavailable')
+    );
+    mount();
+    await screen.findByText('Recorded suppliers unavailable');
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Retry supplier list' })
+    );
+    await waitFor(() =>
+      expect(screen.queryByText('Recorded suppliers unavailable')).toBeNull()
+    );
+    fireEvent.click(screen.getByRole('textbox', { name: 'Supplier' }));
+    expect(
+      await screen.findByRole('option', { name: 'Products Only Supplier' })
+    ).toBeTruthy();
   });
 
   it('shows issued-credit remaining balance and purchase applications', async () => {

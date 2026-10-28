@@ -560,6 +560,44 @@ describe('Accounting Ledger API - GET /api/accounting/ledger', () => {
     expect(credit?.credit).toBe(50);
   });
 
+  it.each([
+    ['2026-10-28', 200],
+    ['2026-10-29', 0],
+  ])(
+    'applies deposit dated %s through the Manila fulfillment day, not its raw UTC timestamp',
+    async (paymentDate, expectedCredit) => {
+      mockFetchers.fetchTransactionPayments.mockResolvedValue([
+        {
+          id: 12,
+          transactionId: 10,
+          paymentDate,
+          amount: 200,
+          method: 'cash',
+          isReservation: true,
+          transaction: {
+            id: 10,
+            productCode: 'RECON-C09',
+            customers: 'Customer C09',
+            orderStatus: 'Accounts Receivable',
+            shippedAt: new Date('2026-10-27T18:56:27.046Z'),
+          },
+        },
+      ]);
+      const response = await GET(
+        buildRequest('/api/accounting/ledger?from=2026-10-01&to=2026-10-31')
+      );
+      expect(response.status).toBe(200);
+      const payload = await response.json();
+      expect(payload.data.entries).toContainEqual(
+        expect.objectContaining({
+          id: 'DEP-REVENUE-TX-10-credit',
+          account: 'Accounts Receivable',
+          credit: expectedCredit,
+        })
+      );
+    }
+  );
+
   it('reclasses reservation deposits to Forfeited Deposits when forfeited', async () => {
     mockFetchers.fetchPaidTransactions.mockResolvedValue([]);
 

@@ -19,6 +19,7 @@ import { mapFromDTO, mapToDTO } from './dto';
 import type { ProductDTO } from './dto';
 import { expenseService } from '@/modules/clothing/ledger/api/service';
 import type { ExpenseCreateInput } from '@/modules/clothing/ledger/api/schemas';
+import { getCurrentDateISO } from '@/utils/date';
 
 // Cutover rule: only auto-post expenses for orders on/after this date
 const EXPENSE_CUTOVER_DATE = new Date('2026-01-01');
@@ -72,7 +73,7 @@ async function postSupplierSettlementForProduct(
 ): Promise<void> {
   const { productId, productCode, shipmentCode } = params;
 
-  const today = normalizeToUtcMidnight(new Date());
+  const today = new Date(`${getCurrentDateISO()}T00:00:00.000Z`);
   if (!isOnOrAfterAccountingCutover(today)) {
     return;
   }
@@ -506,9 +507,10 @@ async function ensureReceiptMovementForProduct(params: {
   productId: number;
   productCode: string | null | undefined;
   quantity: number | null | undefined;
+  unitCost: number | null;
   postingDate?: string | null | undefined;
 }) {
-  const { productId, productCode, quantity, postingDate } = params;
+  const { productId, productCode, quantity, postingDate, unitCost } = params;
   const normalizedCode = normalizeProductCode(productCode);
   const qty = quantity ?? 0;
 
@@ -541,6 +543,14 @@ async function ensureReceiptMovementForProduct(params: {
         productCode: normalizedCode,
         product: { connect: { id: productId } },
         quantity: qty,
+        unitCost:
+          unitCost !== null && Number.isFinite(unitCost) && unitCost > 0
+            ? unitCost
+            : null,
+        costBasis:
+          unitCost !== null && Number.isFinite(unitCost) && unitCost > 0
+            ? 'PURCHASE'
+            : null,
         // Use opening_inventory as the canonical source bucket for receipts.
         // (We keep `scrap` reserved for actual write-offs, not receiving.)
         fromBucket: 'opening_inventory',
@@ -698,7 +708,35 @@ export const productService: ProductService = {
       where: { deletedAt: null },
       orderBy: { id: 'asc' },
     });
-    return products.map(mapToDTO);
+    const shipmentCodes = Array.from(
+      new Set(
+        products
+          .map((product) => product.shipmentCode)
+          .filter((code): code is string => Boolean(code))
+      )
+    );
+    const shipments = shipmentCodes.length
+      ? await prisma.shipment.findMany({
+          where: { shipmentCode: { in: shipmentCodes }, deletedAt: null },
+          select: { shipmentCode: true, shipmentStatus: true },
+        })
+      : [];
+    const shipmentStatusByCode = new Map(
+      shipments.map((shipment) => [
+        shipment.shipmentCode,
+        shipment.shipmentStatus,
+      ])
+    );
+    return products.map((product) => {
+      const dto = mapToDTO(product);
+      const shipmentStatus = product.shipmentCode
+        ? shipmentStatusByCode.get(product.shipmentCode)
+        : null;
+      if (shipmentStatus) {
+        dto['Shipment Status'] = shipmentStatus;
+      }
+      return dto;
+    });
   },
 
   async createSingle(payload) {
@@ -795,6 +833,7 @@ export const productService: ProductService = {
       productId: created.id,
       productCode: created.productCode,
       quantity: created.quantity,
+      unitCost: pickUnitCostFromProductRow(created) || null,
       postingDate: created.postingDate ?? created.orderDate ?? null,
     });
     await postExpenseForProduct(created.id, payload);
@@ -879,6 +918,7 @@ export const productService: ProductService = {
           productId,
           productCode: dto['Product Code'],
           quantity: dto.Quantity ?? 0,
+          unitCost: pickUnitCostFromProductRow(mapFromDTO(dto)) || null,
           postingDate: dto['Posting Date'] ?? dto['Order Date'] ?? null,
         })
       )
@@ -1049,6 +1089,7 @@ export const productService: ProductService = {
           productId,
           productCode: dto['Product Code'],
           quantity: dto.Quantity ?? 0,
+          unitCost: pickUnitCostFromProductRow(mapFromDTO(dto)) || null,
           postingDate: dto['Posting Date'] ?? dto['Order Date'] ?? null,
         })
       )

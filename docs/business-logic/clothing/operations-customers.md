@@ -298,6 +298,44 @@ GM, trucking and household policies are not silently replaced. The additive
 migration remains unapplied to existing databases. Mocked and isolated-browser
 checks are not proof of actual database races, migration replay or reconciliation.
 
+### Separate Actual Physical Returns
+
+The requesting owner's October 28 completion authorization implements the existing
+rule that actual goods returns are independent of cancellation approval and cash
+payout. Clothing's Return/Refund tab now provides **Record Physical Return**,
+including after an approved cancellation or completed payout. This action records
+zero monetary amount, positive actual quantity and a destination other than sold.
+Ordinary monetary refunds still exclude approved cancellations and cannot bypass
+the approved payout surface. GM retains its separate existing behavior.
+
+The authenticated customer refund endpoint requires a UUID Idempotency-Key for
+this quantity-only path and uses the existing ClothingFinancialRequest registry
+and Serializable retry boundary. Identical replay returns the prior result;
+changed details conflict. Original sold quantity and known nonnegative sale cost
+are mandatory. Cumulative returns cannot exceed either order or recorded sold
+quantity. Return date must be a valid Manila calendar day within the saved
+accounting period, no later than today and no earlier than the sale. Unknown sale
+history/cost is an explicit review error, never a guessed stock restoration.
+
+The atomic write records zero-money return history and a source-transaction-linked
+sold-to-selected-bucket movement at original sale cost. Approval, actual payouts,
+collections and the original sold movement remain intact. Cancellation/payout
+alone still never restores stock. The C08 real Prepared/fully-paid and Shipped
+flows verify restored physical availability and cost, unchanged money history,
+once-only replay and rejected excess quantity; 17 endpoint tests cover limits.
+
+Owning paths: `src/app/api/customers/[id]/refunds/route.ts`,
+`src/lib/accounting/financial-transactions.ts`, and
+`src/app/clothing/operations/customers/[id]/components/OrdersAndTransactions.tsx`.
+This return boundary introduces no historical-data rewrite. I07's owner-approved
+composite behavior now loads all original sale lots, requires a selected original
+component for multi-SKU sales, caps each component independently and records the
+exact original source link/cost. Partial split pieces stay loose until a complete
+original set can be rebuilt in the same transaction. The allocation query is
+customer-owned, and Save is blocked while that evidence is loading or failed.
+Monetary refunds retain their separate existing path; do not infer identical
+multi-component semantics for the legacy amount-bearing refund path.
+
 ## Permanent Order Customer Identity
 
 Orders use nullable `Transaction.customerId` foreign keys to `Customer.id`.

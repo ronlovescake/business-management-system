@@ -240,17 +240,29 @@ describe('GET /api/accounting/profit-loss', () => {
   });
 
   it('includes investor returns in net profit and expense details, not revenue', async () => {
-    mockFetchers.fetchInvestorReturnExpenses.mockResolvedValue([
+    const returnLine = {
+      id: 'journal-1',
+      date: new Date('2026-04-28T00:00:00Z'),
+      ref: 'INV-001',
+      account: 'Investor Return Expense',
+      debit: 50000,
+      credit: 0,
+      description: 'Investor return',
+      sourceType: 'INVESTOR_RETURN',
+      sourceId: 'payment-1',
+      sourceLineKey: 'debit',
+      systemGenerated: true,
+    };
+    mockFetchers.fetchInvestorReturnExpenses.mockResolvedValue([returnLine]);
+    mockFetchers.fetchManualJournalLines.mockResolvedValue([
+      returnLine,
       {
-        id: 'journal-1',
-        date: new Date('2026-04-28T00:00:00Z'),
-        ref: 'INV-001',
-        account: 'Investor Return Expense',
-        debit: 50000,
-        credit: 0,
-        description: 'Investor return',
-        sourceType: 'INVESTOR_RETURN',
-        sourceId: 'payment-1',
+        ...returnLine,
+        id: 'journal-2',
+        account: 'Cash',
+        debit: 0,
+        credit: 50000,
+        sourceLineKey: 'credit',
       },
     ]);
     const { GET } = await import('@/app/api/accounting/profit-loss/route');
@@ -269,6 +281,7 @@ describe('GET /api/accounting/profit-loss', () => {
     expect(body.data.stats.expenseTotal).toBe(50000);
     expect(body.data.stats.netProfit).toBe(-50000);
     const detailBody = await (await details(request)).json();
+    expect(detailBody.data.rows).toHaveLength(1);
     expect(detailBody.data.rows).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
@@ -279,4 +292,59 @@ describe('GET /api/accounting/profit-loss', () => {
       ])
     );
   });
+
+  it.each([
+    { sourceType: 'MANUAL', account: 'Investor Return Expense' },
+    { sourceType: 'INVESTOR_RETURN', account: 'Card Processing Fees' },
+  ])(
+    'retains the non-dedicated $sourceType / $account expense',
+    async ({ sourceType, account }) => {
+      const expenseLine = {
+        id: 'journal-other',
+        date: new Date('2026-04-28T00:00:00Z'),
+        ref: 'OTHER-001',
+        account,
+        debit: 25,
+        credit: 0,
+        description: 'Separate valid expense',
+        sourceType,
+        sourceId: 'other-1',
+        sourceLineKey: 'debit',
+        systemGenerated: false,
+      };
+      mockFetchers.fetchManualJournalLines.mockResolvedValue([
+        expenseLine,
+        {
+          ...expenseLine,
+          id: 'journal-cash',
+          account: 'Cash',
+          debit: 0,
+          credit: 25,
+          sourceLineKey: 'credit',
+        },
+      ]);
+      const { GET } = await import('@/app/api/accounting/profit-loss/route');
+      const { GET: details } = await import(
+        '@/app/api/accounting/profit-loss/details/route'
+      );
+      const request = mockNextRequest({
+        method: 'GET',
+        url: getTestApiUrl(
+          '/api/accounting/profit-loss?from=2026-04-01&to=2026-04-30'
+        ),
+      });
+      const body = await (await GET(request)).json();
+      expect(body.data.stats.expenseTotal).toBe(25);
+      expect(body.data.stats.netProfit).toBe(-25);
+      const detailBody = await (await details(request)).json();
+      expect(detailBody.data.rows).toEqual([
+        expect.objectContaining({
+          category: account,
+          sourceType,
+          amount: 25,
+          type: 'Expense',
+        }),
+      ]);
+    }
+  );
 });

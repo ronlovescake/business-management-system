@@ -1,9 +1,129 @@
-import { describe, it, expect } from 'vitest';
+import { afterEach, describe, it, expect, vi } from 'vitest';
+import { createElement, type ReactNode } from 'react';
+import { act, waitFor } from '@testing-library/react';
+import { renderHook } from '@testing-library/react/pure';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import {
+  useExpenseData,
+  useGeneralMerchandiseExpenseData,
+  useTruckingExpenseData,
+} from '@/hooks/useSheetData';
+import {
+  ExpenseService,
+  GeneralMerchandiseExpenseService,
+  TruckingExpenseService,
+} from '@/services';
+import type { ExpenseDTO } from '@/types';
 import {
   computeExpenseTotals,
   computeMonthlyBreakdownByCategory,
   type ExpenseLike,
 } from '@/lib/accounting/expenses-utils';
+
+vi.mock('@/services', () => {
+  const service = () => ({
+    getAll: vi.fn(),
+    create: vi.fn(),
+    update: vi.fn(),
+    deleteById: vi.fn(),
+    bulkCreate: vi.fn(),
+    bulkUpdate: vi.fn(),
+  });
+  return {
+    ExpenseService: service(),
+    GeneralMerchandiseExpenseService: service(),
+    TruckingExpenseService: service(),
+  };
+});
+
+afterEach(() => {
+  vi.clearAllMocks();
+});
+
+describe('expense mutation during initial loading', () => {
+  describe.each([
+    ['clothing', useExpenseData, ExpenseService],
+    [
+      'general merchandise',
+      useGeneralMerchandiseExpenseData,
+      GeneralMerchandiseExpenseService,
+    ],
+    ['trucking', useTruckingExpenseData, TruckingExpenseService],
+  ] as const)('%s', (_domain, useData, service) => {
+    it.each([
+      'create',
+      'update',
+      'delete',
+      'bulkCreate',
+      'bulkUpdate',
+    ] as const)(
+      '%s refreshes without publishing an older response',
+      async (operation) => {
+        const saved: ExpenseDTO = {
+          id: 1,
+          date: '2026-10-28',
+          amount: 100,
+          description: 'Fuel refresh regression',
+          category: 'Fuel',
+          notes: null,
+          receipt: null,
+          status: 'pending',
+          employeeName: null,
+        };
+        const expected = operation === 'delete' ? [] : [saved];
+        let resolveInitial: (rows: ExpenseDTO[]) => void = () => {};
+        const initial = new Promise<ExpenseDTO[]>((resolve) => {
+          resolveInitial = resolve;
+        });
+        vi.mocked(service.getAll)
+          .mockReset()
+          .mockImplementationOnce(() => initial)
+          .mockResolvedValue(expected);
+        vi.mocked(service.create).mockResolvedValue(saved);
+        vi.mocked(service.update).mockResolvedValue(saved);
+        vi.mocked(service.deleteById).mockResolvedValue(undefined);
+        vi.mocked(service.bulkCreate).mockResolvedValue({ count: 1 });
+        vi.mocked(service.bulkUpdate).mockResolvedValue({ count: 1 });
+        const queryClient = new QueryClient({
+          defaultOptions: { queries: { retry: false, gcTime: 0 } },
+        });
+        const wrapper = ({ children }: { children: ReactNode }) =>
+          createElement(QueryClientProvider, { client: queryClient }, children);
+        const { result, unmount } = renderHook(() => useData(), { wrapper });
+        let mutating: Promise<unknown> | undefined;
+        const actions = {
+          create: () => result.current.createAsync(saved),
+          update: () =>
+            result.current.updateAsync({ id: saved.id, data: saved }),
+          delete: () => result.current.deleteAsync(saved.id),
+          bulkCreate: () => result.current.bulkCreateAsync([saved]),
+          bulkUpdate: () => result.current.bulkUpdateAsync([saved]),
+        };
+        try {
+          await waitFor(() => expect(service.getAll).toHaveBeenCalledTimes(1));
+          act(() => {
+            mutating = actions[operation]();
+          });
+          await waitFor(() => expect(service.getAll).toHaveBeenCalledTimes(2));
+          await act(async () => {
+            await mutating;
+          });
+          await waitFor(() => expect(result.current.data).toEqual(expected));
+          await act(async () => {
+            resolveInitial([{ ...saved, description: 'Superseded response' }]);
+            await initial;
+          });
+          expect(result.current.data).toEqual(expected);
+        } finally {
+          resolveInitial([]);
+          await mutating;
+          unmount();
+          queryClient.clear();
+        }
+      }
+    );
+  });
+});
 
 // ──────────────────────────────────────────────────────────
 // computeExpenseTotals

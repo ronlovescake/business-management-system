@@ -2,6 +2,17 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { NextRequest } from 'next/server';
 import { DELETE, PUT } from '@/app/api/transactions/[id]/route';
 import { getTestApiUrl } from '@/core/testing/test-helpers';
+import {
+  softDeleteDraftTransactions,
+  TransactionValidationError,
+} from '@/modules/transactions/api/service';
+
+vi.mock('@/modules/transactions/api/service', async (importOriginal) => ({
+  ...(await importOriginal<
+    typeof import('@/modules/transactions/api/service')
+  >()),
+  softDeleteDraftTransactions: vi.fn(),
+}));
 
 const { mockPrisma } = vi.hoisted(() => ({
   mockPrisma: {
@@ -36,6 +47,11 @@ describe('/api/transactions/[id] DELETE', () => {
     vi.clearAllMocks();
     mockPrisma.transaction.findUnique.mockReset();
     mockPrisma.transaction.update.mockReset();
+    vi.mocked(softDeleteDraftTransactions).mockReset();
+    vi.mocked(softDeleteDraftTransactions).mockResolvedValue({
+      deleted: 1,
+      alreadyDeleted: 0,
+    });
   });
 
   it('soft deletes a transaction', async () => {
@@ -57,6 +73,29 @@ describe('/api/transactions/[id] DELETE', () => {
     expect(response.status).toBe(200);
     expect(payload.success).toBe(true);
     expect(payload.data.id).toBe(1);
+    expect(softDeleteDraftTransactions).toHaveBeenCalledWith([1]);
+    expect(mockPrisma.transaction.update).not.toHaveBeenCalled();
+  });
+
+  it('returns 409 when the shared draft boundary rejects financial history', async () => {
+    mockPrisma.transaction.findUnique.mockResolvedValueOnce({
+      id: 1,
+      deletedAt: null,
+    });
+    vi.mocked(softDeleteDraftTransactions).mockRejectedValueOnce(
+      new TransactionValidationError('Cannot delete financial history')
+    );
+    const response = await DELETE(
+      new NextRequest(getTestApiUrl('/api/transactions/1'), {
+        method: 'DELETE',
+      }),
+      buildContext('1')
+    );
+    expect(response.status).toBe(409);
+    expect((await response.json()).error).toBe(
+      'Cannot delete financial history'
+    );
+    expect(mockPrisma.transaction.update).not.toHaveBeenCalled();
   });
 
   it('returns 400 for invalid id', async () => {
@@ -114,7 +153,7 @@ describe('/api/transactions/[id] DELETE', () => {
       customers: 'Acme',
       productCode: 'SKU-1',
     });
-    mockPrisma.transaction.update.mockRejectedValueOnce(
+    vi.mocked(softDeleteDraftTransactions).mockRejectedValueOnce(
       new Error('Database offline')
     );
 

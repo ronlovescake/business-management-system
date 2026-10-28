@@ -11,6 +11,8 @@ import {
 } from '@/components/ui/ControlPanelCard';
 import { useCtrlFFocus } from '@/hooks/useCtrlFFocus';
 import { AccountingSearchSelectExportTabPanel } from '../../components/AccountingSearchSelectExportTabPanel';
+import { getCurrentDateISO } from '@/utils/date';
+import { formatLongDateUS } from '@/lib/accounting/formatters';
 
 interface BalanceSheetControlsProps {
   activeTab: string | null;
@@ -33,6 +35,14 @@ export const BalanceSheetControls = memo(function BalanceSheetControls({
   onExportCSV,
   onDownloadTemplate,
 }: BalanceSheetControlsProps) {
+  const asOfOptions = Array.from(
+    new Set([
+      asOf,
+      formatLongDateUS(getCurrentDateISO()),
+      'December 31, 2025',
+      'November 30, 2025',
+    ])
+  );
   useCtrlFFocus(
     '[data-ctrlf-target="balance-sheet-controls-search"]',
     activeTab === 'list' ||
@@ -53,7 +63,7 @@ export const BalanceSheetControls = memo(function BalanceSheetControls({
           onSearchChange={onSearchChange}
           searchCtrlFTarget="balance-sheet-controls-search"
           selectPlaceholder="As of date"
-          selectOptions={[asOf, 'December 31, 2025', 'November 30, 2025']}
+          selectOptions={asOfOptions}
           selectValue={asOf}
           onSelectChange={onAsOfChange}
           selectWidth={220}
@@ -73,7 +83,7 @@ export const BalanceSheetControls = memo(function BalanceSheetControls({
           onSearchChange={onSearchChange}
           searchCtrlFTarget="balance-sheet-controls-search"
           selectPlaceholder="As of date"
-          selectOptions={[asOf, 'December 31, 2025', 'November 30, 2025']}
+          selectOptions={asOfOptions}
           selectValue={asOf}
           onSelectChange={onAsOfChange}
           selectWidth={220}
@@ -93,7 +103,7 @@ export const BalanceSheetControls = memo(function BalanceSheetControls({
           onSearchChange={onSearchChange}
           searchCtrlFTarget="balance-sheet-controls-search"
           selectPlaceholder="As of date"
-          selectOptions={[asOf, 'December 31, 2025', 'November 30, 2025']}
+          selectOptions={asOfOptions}
           selectValue={asOf}
           onSelectChange={onAsOfChange}
           selectWidth={220}
@@ -113,7 +123,7 @@ export const BalanceSheetControls = memo(function BalanceSheetControls({
           onSearchChange={onSearchChange}
           searchCtrlFTarget="balance-sheet-controls-search"
           selectPlaceholder="As of date"
-          selectOptions={[asOf, 'December 31, 2025', 'November 30, 2025']}
+          selectOptions={asOfOptions}
           selectValue={asOf}
           onSelectChange={onAsOfChange}
           selectWidth={220}

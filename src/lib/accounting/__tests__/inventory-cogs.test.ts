@@ -158,6 +158,8 @@ describe('dated cost correction allocation', () => {
     'different lot',
     'later movement',
     'different snapshot',
+    'split conversion',
+    'bundle assembly',
     'staff',
   ])(
     'rejects %s evidence before changing cost or posting journals',
@@ -187,6 +189,23 @@ describe('dated cost correction allocation', () => {
             unitCost: 75,
             fromBucket: 'sellable',
             toBucket: 'sold',
+            postingDate: '2026-10-20',
+            createdAt: new Date('2026-10-20'),
+          },
+        ]);
+      }
+      if (scenario === 'split conversion' || scenario === 'bundle assembly') {
+        prismaMock.inventoryMovement.findMany.mockResolvedValue([
+          {
+            id: 43,
+            quantity: 1,
+            unitCost: 100,
+            fromBucket: 'sellable',
+            toBucket: 'opening_inventory',
+            movementSource:
+              scenario === 'split conversion'
+                ? 'inventory_split'
+                : 'inventory_bundle',
             postingDate: '2026-10-20',
             createdAt: new Date('2026-10-20'),
           },
@@ -562,4 +581,40 @@ describe('buildCogsAndInventoryEntries', () => {
       ])
     );
   });
+
+  it.each([
+    ['sellable', 'scrap'],
+    ['scrap', 'sellable'],
+  ])(
+    'does not replace explicit free zero cost with a paid fallback for %s to %s',
+    async (fromBucket, toBucket) => {
+      prismaMock.inventoryMovement.findMany.mockResolvedValue([
+        {
+          id: 60,
+          createdAt: new Date('2026-01-25'),
+          postingDate: '2026-01-25',
+          productCode: 'SKU-1',
+          quantity: 2,
+          unitCost: 0,
+          costBasis: 'FREE_GOODS',
+          fromBucket,
+          toBucket,
+        },
+      ]);
+      prismaMock.product.findMany.mockResolvedValue([
+        {
+          productCode: 'SKU-1',
+          shipmentStatus: 'Delivered',
+          landedUnitCost: 100,
+          cogs: 1000,
+          quantity: 10,
+        },
+      ]);
+      const result = await buildInventorySeedAndShrinkageEntries({
+        from: new Date('2026-01-01'),
+        to: null,
+      });
+      expect(result.entries).toEqual([]);
+    }
+  );
 });

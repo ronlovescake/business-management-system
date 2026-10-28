@@ -1,4 +1,4 @@
-import React, { memo, useMemo, useState } from 'react';
+import React, { memo, useMemo, useRef, useState } from 'react';
 import {
   Card,
   Tabs,
@@ -14,7 +14,7 @@ import {
   Textarea,
   ActionIcon,
 } from '@mantine/core';
-import { IconPlus, IconTrash } from '@tabler/icons-react';
+import { IconPackageImport, IconPlus, IconTrash } from '@tabler/icons-react';
 import { showConfirm } from '@/lib/alerts';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { showNotification } from '@mantine/notifications';
@@ -23,8 +23,10 @@ import { buildApiPath } from '@/lib/api/paths';
 import { queryKeys } from '@/lib/queryKeys';
 import { logger } from '@/lib/logger';
 import { getCurrentDateISO } from '@/utils/date';
+import { randomUuid } from '@/lib/utils/randomUuid';
 import {
   isCancelledOrderStatus,
+  isVoidedOrderStatus,
   normalizeOrderStatus,
 } from '@/lib/transactions/order-status';
 import type {
@@ -60,6 +62,8 @@ export const OrdersAndTransactions = memo(function OrdersAndTransactions({
   const isClothing = !apiBasePath || apiBasePath === '/api';
   const obligations = useRefundObligations(undefined, undefined, isClothing);
   const [refundModalOpen, setRefundModalOpen] = useState(false);
+  const [physicalReturn, setPhysicalReturn] = useState(false);
+  const returnRequestId = useRef<string | null>(null);
 
   const [refundTransactionId, setRefundTransactionId] = useState<string | null>(
     null
@@ -68,8 +72,25 @@ export const OrdersAndTransactions = memo(function OrdersAndTransactions({
   const [refundAmount, setRefundAmount] = useState<number>(0);
   const [refundReason, setRefundReason] = useState<string>('');
   const [returnedQuantity, setReturnedQuantity] = useState<number | null>(null);
+  const [returnedProductCode, setReturnedProductCode] = useState<string | null>(
+    null
+  );
   const [restockBucket, setRestockBucket] = useState<string | null>(null);
   const [refundNotes, setRefundNotes] = useState<string>('');
+
+  const openRefundForm = (returnOnly: boolean) => {
+    setPhysicalReturn(returnOnly);
+    returnRequestId.current = returnOnly ? randomUuid() : null;
+    setRefundTransactionId(null);
+    setRefundDate(getCurrentDateISO());
+    setRefundAmount(0);
+    setRefundReason('');
+    setReturnedQuantity(null);
+    setReturnedProductCode(null);
+    setRestockBucket(null);
+    setRefundNotes('');
+    setRefundModalOpen(true);
+  };
 
   const transactionById = useMemo(() => {
     return new Map(transactions.map((t) => [t.id, t] as const));
@@ -108,6 +129,25 @@ export const OrdersAndTransactions = memo(function OrdersAndTransactions({
   const totalRefunded = useMemo(() => {
     return refunds.reduce((sum, r) => sum + (r.amount || 0), 0);
   }, [refunds]);
+
+  const returnAllocations = useQuery({
+    queryKey: ['physical-return-allocations', customerId, refundTransactionId],
+    queryFn: () =>
+      api.get<Array<{ productCode: string; quantity: number }>>(
+        buildApiPath(
+          apiBasePath,
+          `/customers/${customerId}/refunds?transactionId=${refundTransactionId}&saleAllocations=true`
+        )
+      ),
+    enabled:
+      isClothing && physicalReturn && refundModalOpen && !!refundTransactionId,
+    staleTime: 0,
+  });
+  const returnProductOptions = Array.from(
+    new Set(
+      (returnAllocations.data ?? []).map((allocation) => allocation.productCode)
+    )
+  ).map((code) => ({ value: code, label: code }));
 
   const getRefundErrorMessage = (error: unknown): string => {
     if (error instanceof ApiError) {
@@ -153,7 +193,34 @@ export const OrdersAndTransactions = memo(function OrdersAndTransactions({
         throw new Error('Please provide a refund date.');
       }
 
-      if (!Number.isFinite(refundAmount) || refundAmount <= 0) {
+      if (
+        physicalReturn &&
+        (!isClothing ||
+          !returnedQuantity ||
+          !Number.isFinite(returnedQuantity) ||
+          returnedQuantity <= 0 ||
+          !restockBucket ||
+          restockBucket === 'sold' ||
+          !returnRequestId.current)
+      ) {
+        throw new Error(
+          'Provide a positive returned quantity and a destination bucket.'
+        );
+      }
+      if (
+        physicalReturn &&
+        (returnAllocations.isLoading ||
+          returnAllocations.isError ||
+          (returnProductOptions.length > 1 && !returnedProductCode))
+      ) {
+        throw new Error(
+          'Load the original sale and select the actual component returned.'
+        );
+      }
+      if (
+        !physicalReturn &&
+        (!Number.isFinite(refundAmount) || refundAmount <= 0)
+      ) {
         throw new Error('Refund amount must be greater than 0.');
       }
 
@@ -162,19 +229,29 @@ export const OrdersAndTransactions = memo(function OrdersAndTransactions({
         {
           transactionId,
           refundDate,
-          amount: refundAmount,
+          amount: physicalReturn ? 0 : refundAmount,
           reason:
             refundReason.trim().length > 0 ? refundReason.trim() : undefined,
           returnedQuantity,
+          returnedProductCode: physicalReturn
+            ? returnedProductCode || undefined
+            : undefined,
           restockBucket: restockBucket || undefined,
           notes: refundNotes.trim().length > 0 ? refundNotes.trim() : undefined,
-        }
+        },
+        physicalReturn && returnRequestId.current
+          ? { headers: { 'Idempotency-Key': returnRequestId.current } }
+          : undefined
       );
     },
     onSuccess: async () => {
       showNotification({
-        title: '✅ Refund recorded',
-        message: 'The refund has been saved successfully.',
+        title: physicalReturn
+          ? 'Physical return recorded'
+          : '✅ Refund recorded',
+        message: physicalReturn
+          ? 'The returned quantity has been saved.'
+          : 'The refund has been saved successfully.',
         color: 'green',
         autoClose: 4000,
       });
@@ -187,8 +264,13 @@ export const OrdersAndTransactions = memo(function OrdersAndTransactions({
       setReturnedQuantity(null);
       setRestockBucket(null);
       setRefundNotes('');
+      returnRequestId.current = null;
 
-      await queryClient.invalidateQueries({ queryKey: refundQueryKey });
+      if (physicalReturn) {
+        await queryClient.invalidateQueries();
+      } else {
+        await queryClient.invalidateQueries({ queryKey: refundQueryKey });
+      }
     },
     onError: (error) => {
       showNotification({
@@ -233,7 +315,12 @@ export const OrdersAndTransactions = memo(function OrdersAndTransactions({
         : []
     );
     return transactions
-      .filter((transaction) => !approvedOrders.has(transaction.id))
+      .filter((transaction) =>
+        physicalReturn
+          ? Boolean(transaction.productCode) &&
+            !isVoidedOrderStatus(transaction.orderStatus)
+          : !approvedOrders.has(transaction.id)
+      )
       .map((t) => {
         const date = t.orderDate ? formatDate(t.orderDate) : 'No date';
         const code = t.productCode || 'No product code';
@@ -242,7 +329,7 @@ export const OrdersAndTransactions = memo(function OrdersAndTransactions({
           label: `#${t.id} • ${code} • ${date}`,
         };
       });
-  }, [transactions, isClothing, obligations.data]);
+  }, [transactions, isClothing, obligations.data, physicalReturn]);
 
   const handleDeleteRefund = async (refund: TransactionRefund) => {
     const confirmed = await showConfirm({
@@ -430,9 +517,18 @@ export const OrdersAndTransactions = memo(function OrdersAndTransactions({
               </Text>
             </Stack>
             <Group gap="xs">
+              {isClothing && (
+                <Button
+                  leftSection={<IconPackageImport size={16} />}
+                  variant="light"
+                  onClick={() => openRefundForm(true)}
+                >
+                  Record Physical Return
+                </Button>
+              )}
               <Button
                 leftSection={<IconPlus size={16} />}
-                onClick={() => setRefundModalOpen(true)}
+                onClick={() => openRefundForm(false)}
                 disabled={isClothing && !obligations.isSuccess}
               >
                 Record Refund
@@ -549,7 +645,7 @@ export const OrdersAndTransactions = memo(function OrdersAndTransactions({
           <UniversalModal
             opened={refundModalOpen}
             onClose={() => setRefundModalOpen(false)}
-            title="Record Refund"
+            title={physicalReturn ? 'Record Physical Return' : 'Record Refund'}
             closeButtonProps={{ 'aria-label': 'Close refund form' }}
             centered
             size="lg"
@@ -564,37 +660,71 @@ export const OrdersAndTransactions = memo(function OrdersAndTransactions({
                 }
                 data={transactionOptions}
                 value={refundTransactionId}
-                onChange={setRefundTransactionId}
+                onChange={(value) => {
+                  setRefundTransactionId(value);
+                  setReturnedProductCode(null);
+                }}
                 searchable
                 withAsterisk
                 disabled={transactions.length === 0}
               />
               <Group grow>
                 <TextInput
-                  label="Refund Date"
+                  label={physicalReturn ? 'Return Date' : 'Refund Date'}
                   placeholder="YYYY-MM-DD"
                   value={refundDate}
                   onChange={(e) => setRefundDate(e.currentTarget.value)}
                   withAsterisk
                 />
-                <NumberInput
-                  label="Refund Amount"
-                  hideControls
-                  decimalScale={2}
-                  min={0}
-                  value={refundAmount === 0 ? undefined : refundAmount}
-                  onChange={(value) => {
-                    const next =
-                      typeof value === 'number' ? value : Number(value);
-                    setRefundAmount(Number.isFinite(next) ? next : 0);
-                  }}
-                  withAsterisk
-                />
+                {!physicalReturn && (
+                  <NumberInput
+                    label="Refund Amount"
+                    hideControls
+                    decimalScale={2}
+                    min={0}
+                    value={refundAmount === 0 ? undefined : refundAmount}
+                    onChange={(value) => {
+                      const next =
+                        typeof value === 'number' ? value : Number(value);
+                      setRefundAmount(Number.isFinite(next) ? next : 0);
+                    }}
+                    withAsterisk
+                  />
+                )}
               </Group>
+
+              {physicalReturn && returnProductOptions.length > 1 && (
+                <Select
+                  label="Returned Component"
+                  data={returnProductOptions}
+                  value={returnedProductCode}
+                  onChange={setReturnedProductCode}
+                  searchable
+                  required
+                />
+              )}
+              {physicalReturn && returnAllocations.isError && (
+                <Group>
+                  <Text c="red" size="sm">
+                    Original sale could not be loaded.
+                  </Text>
+                  <Button
+                    variant="subtle"
+                    onClick={() => void returnAllocations.refetch()}
+                  >
+                    Retry
+                  </Button>
+                </Group>
+              )}
 
               <Group grow>
                 <NumberInput
-                  label="Returned Quantity (optional)"
+                  label={
+                    physicalReturn
+                      ? 'Returned Quantity'
+                      : 'Returned Quantity (optional)'
+                  }
+                  withAsterisk={physicalReturn}
                   hideControls
                   decimalScale={3}
                   min={0}
@@ -610,7 +740,12 @@ export const OrdersAndTransactions = memo(function OrdersAndTransactions({
                   }}
                 />
                 <Select
-                  label="Restock Bucket (optional)"
+                  label={
+                    physicalReturn
+                      ? 'Restock Bucket'
+                      : 'Restock Bucket (optional)'
+                  }
+                  withAsterisk={physicalReturn}
                   placeholder="Choose bucket"
                   data={[
                     { value: 'sellable', label: 'sellable' },
@@ -619,7 +754,9 @@ export const OrdersAndTransactions = memo(function OrdersAndTransactions({
                     { value: 'assembly_wip', label: 'assembly_wip' },
                     { value: 'scrap', label: 'scrap' },
                     { value: 'sold', label: 'sold' },
-                  ]}
+                  ].filter(
+                    (bucket) => !physicalReturn || bucket.value !== 'sold'
+                  )}
                   value={restockBucket}
                   onChange={setRestockBucket}
                   clearable
@@ -649,9 +786,13 @@ export const OrdersAndTransactions = memo(function OrdersAndTransactions({
                 </Button>
                 <Button
                   loading={createRefundMutation.isPending}
-                  onClick={() => void createRefundMutation.mutateAsync()}
+                  disabled={
+                    physicalReturn &&
+                    (returnAllocations.isFetching || returnAllocations.isError)
+                  }
+                  onClick={() => createRefundMutation.mutate()}
                 >
-                  Save Refund
+                  {physicalReturn ? 'Save Physical Return' : 'Save Refund'}
                 </Button>
               </Group>
             </Stack>

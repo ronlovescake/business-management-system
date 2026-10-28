@@ -1,6 +1,7 @@
 import type { Prisma, Transaction } from '@prisma/client';
 import type { ChangeLogEntryInput } from '@/core/change-log';
 import { prisma } from '@/lib/db';
+import { runFinancialTransaction } from '@/lib/accounting/financial-transactions';
 import { isFulfilledStatus, isReservedStatus } from '@/lib/inventory/statuses';
 import { logger } from '@/lib/logger';
 import type { TransactionDTO } from './dto';
@@ -330,42 +331,18 @@ export const transactionService: TransactionService = {
       };
     }
 
-    const importStartedAt = new Date();
-    const result = await prisma.transaction.createMany({ data: allRows });
-
-    // createMany does not return created IDs; re-query recent rows and post
-    // reservation/sale movements based on their initial status.
-    const createdTransactions = await prisma.transaction.findMany({
-      where: {
-        deletedAt: null,
-        createdAt: { gte: importStartedAt },
-      },
-      select: {
-        id: true,
-        productCode: true,
-        quantity: true,
-        unitPrice: true,
-        discount: true,
-        lineTotal: true,
-        orderDate: true,
-        packedDate: true,
-        orderStatus: true,
-        adjustment: true,
-      },
-    });
-
-    const needsMovementSync = createdTransactions.filter(
-      (tx) =>
-        isReservedStatus(tx.orderStatus) || isFulfilledStatus(tx.orderStatus)
-    );
-
-    if (needsMovementSync.length > 0) {
-      await prisma.$transaction(async (tx) => {
-        for (const created of needsMovementSync) {
+    const result = await runFinancialTransaction(async (tx) => {
+      for (const input of allRows) {
+        const created = await tx.transaction.create({ data: input });
+        if (
+          isReservedStatus(created.orderStatus) ||
+          isFulfilledStatus(created.orderStatus)
+        ) {
           await syncInventoryMovementsForTransaction(tx, created);
         }
-      });
-    }
+      }
+      return { count: allRows.length };
+    });
 
     const summaryMessage = `Imported ${result.count} transaction records (${preparedRows.length} with data, ${skippedEmptyRows} empty rows skipped${skippedTemplateRows ? `, ${skippedTemplateRows} template rows skipped` : ''})`;
 
@@ -947,96 +924,110 @@ export const transactionService: TransactionService = {
     };
   },
 
-  async softDeleteAll() {
-    const alreadyDeleted = await prisma.transaction.count({
-      where: { deletedAt: { not: null } },
-    });
+  softDeleteAll: softDeleteDraftTransactions,
+};
 
-    const result = await prisma.$transaction(
-      async (tx) => {
-        const transactions = await tx.transaction.findMany({
-          where: { deletedAt: null },
-          include: {
-            payments: { where: { deletedAt: null }, take: 1 },
-            refunds: { where: { deletedAt: null }, take: 1 },
-            statusChanges: { select: { newStatus: true } },
-          },
-        });
-        for (const transaction of transactions) {
-          if (
-            isFulfilledStatus(transaction.orderStatus) ||
-            isPaidStatus(transaction.orderStatus) ||
-            transaction.statusChanges?.some(
-              (change) =>
-                isFulfilledStatus(change.newStatus) ||
-                isPaidStatus(change.newStatus)
-            ) ||
-            (transaction.adjustment ?? 0) > 0 ||
-            (transaction.refundAmount ?? 0) > 0 ||
-            (transaction.refundQty ?? 0) > 0 ||
-            transaction.shippedAt ||
-            transaction.packedDate ||
-            transaction.invoiceDate ||
-            transaction.payments.length > 0 ||
-            transaction.refunds.length > 0
-          ) {
-            throw new TransactionValidationError(
-              'Cannot mass-delete transactions with payment, refund, invoice or shipment history. Use the supported reversal workflow.'
-            );
-          }
-        }
+export async function softDeleteDraftTransactions(transactionIds?: number[]) {
+  const alreadyDeleted = await prisma.transaction.count({
+    where: {
+      deletedAt: { not: null },
+      ...(transactionIds ? { id: { in: transactionIds } } : {}),
+    },
+  });
 
-        const ids = transactions.map((transaction) => transaction.id);
-        if (ids.length === 0) {
-          return { count: 0 };
-        }
-        const postedMovement = await tx.inventoryMovement.findFirst({
-          where: {
-            deletedAt: null,
-            AND: [
-              { OR: [{ fromBucket: 'sold' }, { toBucket: 'sold' }] },
-              {
-                OR: [
-                  { sourceTransactionId: { in: ids } },
-                  ...ids.flatMap((id) => [
-                    { notes: `auto-sale txn ${id}` },
-                    { notes: { startsWith: `auto-sale txn ${id} mix ` } },
-                  ]),
-                ],
-              },
-            ],
-          },
-          select: { id: true },
-        });
-        if (postedMovement) {
+  const result = await prisma.$transaction(
+    async (tx) => {
+      const transactions = await tx.transaction.findMany({
+        where: {
+          deletedAt: null,
+          ...(transactionIds ? { id: { in: transactionIds } } : {}),
+        },
+        include: {
+          payments: { where: { deletedAt: null }, take: 1 },
+          refunds: { where: { deletedAt: null }, take: 1 },
+          statusChanges: { select: { newStatus: true } },
+          cancellation: { select: { id: true } },
+        },
+      });
+      for (const transaction of transactions) {
+        if (
+          transaction.cancellation ||
+          isCancelledOrderStatus(transaction.orderStatus) ||
+          transaction.orderStatus === 'Forfeited' ||
+          isFulfilledStatus(transaction.orderStatus) ||
+          isPaidStatus(transaction.orderStatus) ||
+          transaction.statusChanges?.some(
+            (change) =>
+              isFulfilledStatus(change.newStatus) ||
+              isPaidStatus(change.newStatus) ||
+              isCancelledOrderStatus(change.newStatus) ||
+              change.newStatus === 'Forfeited'
+          ) ||
+          (transaction.adjustment ?? 0) > 0 ||
+          (transaction.refundAmount ?? 0) > 0 ||
+          (transaction.refundQty ?? 0) > 0 ||
+          transaction.shippedAt ||
+          transaction.packedDate ||
+          transaction.invoiceDate ||
+          transaction.payments.length > 0 ||
+          transaction.refunds.length > 0
+        ) {
           throw new TransactionValidationError(
-            'Cannot mass-delete transactions with posted inventory movements. Reverse them first.'
+            'Cannot delete transactions with closure, payment, refund, invoice or shipment history. Use the supported correction workflow.'
           );
         }
-
-        for (const transaction of transactions) {
-          await deactivateInventoryMovementsForTransaction(tx, transaction.id);
-        }
-        return tx.transaction.updateMany({
-          where: { id: { in: ids }, deletedAt: null },
-          data: { deletedAt: new Date() },
-        });
-      },
-      { isolationLevel: 'Serializable' }
-    );
-
-    await logOperationNotification(
-      'transactions',
-      `Deleted ${result.count} transaction records`,
-      {
-        count: result.count,
-        alreadyDeleted,
       }
-    );
 
-    return {
-      deleted: result.count,
+      const ids = transactions.map((transaction) => transaction.id);
+      if (ids.length === 0) {
+        return { count: 0 };
+      }
+      const postedMovement = await tx.inventoryMovement.findFirst({
+        where: {
+          deletedAt: null,
+          AND: [
+            { OR: [{ fromBucket: 'sold' }, { toBucket: 'sold' }] },
+            {
+              OR: [
+                { sourceTransactionId: { in: ids } },
+                ...ids.flatMap((id) => [
+                  { notes: `auto-sale txn ${id}` },
+                  { notes: { startsWith: `auto-sale txn ${id} mix ` } },
+                ]),
+              ],
+            },
+          ],
+        },
+        select: { id: true },
+      });
+      if (postedMovement) {
+        throw new TransactionValidationError(
+          'Cannot delete transactions with posted inventory movements. Reverse them first.'
+        );
+      }
+
+      for (const transaction of transactions) {
+        await deactivateInventoryMovementsForTransaction(tx, transaction.id);
+      }
+      return tx.transaction.updateMany({
+        where: { id: { in: ids }, deletedAt: null },
+        data: { deletedAt: new Date() },
+      });
+    },
+    { isolationLevel: 'Serializable' }
+  );
+
+  await logOperationNotification(
+    'transactions',
+    `Deleted ${result.count} transaction records`,
+    {
+      count: result.count,
       alreadyDeleted,
-    };
-  },
-};
+    }
+  );
+
+  return {
+    deleted: result.count,
+    alreadyDeleted,
+  };
+}

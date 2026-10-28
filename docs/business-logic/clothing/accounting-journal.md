@@ -17,6 +17,13 @@
 | 3   | Entries This Month: count of entries with `date` in the current calendar month | Integer count, not currency.                                                                                                                         |
 | 4   | Data fetched via `GET /accounting/journal?period=...`                          | Returns `{ entries: JournalEntry[], stats: JournalStats }`. Stats (totalDebits, totalCredits, netChange, entriesThisMonth) are computed server-side. |
 
+The API stats describe its dated result before client search/account filters.
+The UI deliberately totals the visible filtered rows; its matching CSV exports
+that subset. A Cash plus Reservation Deposit filter showed debit 200/credit 0,
+and a no-match search showed zero cards. Clearing filters restored period
+totals. This differs from Ledger closing balances and Balance Sheet statement
+cards, which must not be redefined by search. Compare identical scopes.
+
 ---
 
 ## B - Period Filter
@@ -76,6 +83,14 @@ non-finite payment amounts produce no payment posting and do not suppress that
 fallback. Positive payments outside the selected date range still suppress the
 fallback, so changing the period does not count the same receipt twice. The same
 rule applies to the Ledger and P&L summary/details APIs.
+
+Reservation-deposit application compares payment calendar dates through the
+recognition day's Manila end-of-day, using the existing shared date helper.
+It must not compare a UTC-midnight payment bucket directly with an earlier UTC
+instant on the same Manila day. A 200 deposit dated October 28 applies to
+fulfillment at October 27 18:56 UTC (October 28 Manila); a deposit dated October
+29 does not. Ledger, Journal and P&L summary/details share this boundary. Stored
+receipt/fulfillment dates and amounts are unchanged.
 
 | #   | Logic                                                                                                                                                  | Explanation                                                        |
 | --- | ------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------ |

@@ -13,6 +13,7 @@ const {
     transaction: {
       findUnique: vi.fn(),
       update: vi.fn(),
+      create: vi.fn(),
       createMany: vi.fn(),
       findMany: vi.fn(),
     },
@@ -93,6 +94,12 @@ describe('transactionService Accounts Receivable transition', () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date('2026-10-23T12:00:00.000Z'));
     mockPrisma.transaction.findUnique.mockResolvedValue(existingTransaction);
+    mockPrisma.transaction.create.mockImplementation(
+      async ({ data }: { data: Record<string, unknown> }) => ({
+        ...existingTransaction,
+        ...data,
+      })
+    );
     mockPrisma.transaction.createMany.mockResolvedValue({ count: 1 });
     mockPrisma.transaction.findMany.mockResolvedValue([]);
     mockPrisma.price.findMany.mockResolvedValue([]);
@@ -293,14 +300,17 @@ describe('transactionService Accounts Receivable transition', () => {
     ]);
 
     expect(result.count).toBe(1);
-    expect(mockPrisma.transaction.createMany).toHaveBeenCalledWith({
-      data: [
-        expect.objectContaining({
-          orderStatus: 'Accounts Receivable',
-          lineTotal: 3105,
-        }),
-      ],
+    expect(mockPrisma.transaction.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        orderStatus: 'Accounts Receivable',
+        lineTotal: 3105,
+      }),
     });
+    expect(mockPrisma.transaction.createMany).not.toHaveBeenCalled();
+    expect(mockSyncInventoryMovementsForTransaction).toHaveBeenCalledWith(
+      mockPrisma,
+      expect.objectContaining({ id: 51, orderStatus: 'Accounts Receivable' })
+    );
     expect(mockPrisma.customer.findMany).not.toHaveBeenCalled();
   });
 

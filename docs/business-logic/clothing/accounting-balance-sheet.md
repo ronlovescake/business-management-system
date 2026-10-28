@@ -26,6 +26,11 @@
 
 ## B - "As Of" Date Parameter
 
+The shared controls retain Manila today after selecting a past date and dedupe
+the selected/current options across summary and breakdown tabs. The existing
+fixed November/December 2025 choices remain; this is not an arbitrary-date
+picker. The API accepts a date-only as-of scope subject to the runtime cutover.
+
 | #   | Logic                                                            | Explanation                                                                                                                       |
 | --- | ---------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
 | 7   | Data fetched via `GET /accounting/balance-sheet?asOf=YYYY-MM-DD` | The `asOf` parameter uses date-only format (not a full ISO timestamp).                                                            |
@@ -62,6 +67,18 @@ reports; logistics capitalization is not booked a second time. See
 | --- | ------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------ |
 | 10  | Each balance sheet row has: `id`, `account`, `type` (`'Asset'` or `'Liability'` or `'Equity'`), `amount`, `details` (optional array) | `details` is an array of `{ label, amount }` sub-items for accounts with breakdowns. |
 | 11  | Stats returned by the API: `assets`, `liabilities`, `equity`, `balance`, `asOf`                                                      | All are pre-computed server-side.                                                    |
+
+Cards use those authoritative whole-statement stats, including the server's
+signed equation result. Search filters rows/CSV, not assets/liabilities/equity
+or the equation. Do not subtract already-negative liabilities/equity again, or
+replace a genuine nonzero server balance with a recomputed search result. Both
+Clothing and GM shared-hook regressions cover balanced and imbalanced responses.
+
+Real as-of testing also reproduced two unresolved Expenses history defects:
+later settlement backdates Cash to the original expense date, and paid-expense
+soft deletion removes that earlier statement effect. See the
+[expense limits](accounting-expenses.md#reconciliation-and-historical-limits).
+The equation remaining zero does not establish correct dates or completeness.
 
 The balance-sheet API applies signed net movement-based COGS from cutover through
 the as-of date. Positive COGS reduces Stock on Hand and equity; negative net COGS
@@ -101,11 +118,11 @@ cost snapshots or change scrap accounting.
 
 ## F - CSV Export
 
-| #   | Logic                                            | Explanation                                                                                                   |
-| --- | ------------------------------------------------ | ------------------------------------------------------------------------------------------------------------- | ------------------- | --------------------------------- |
-| 24  | Export CSV exports all balance sheet rows        | Calls `handleExportCSV`.                                                                                      |
-| 25  | Exported headers: Account, Type, Amount, Details | `Details` column formatted as `${label}: ${amount}                                                            | ${label}: ${amount} | ...`; empty string if no details. |
-| 26  | Filename: `balance-sheet-${sanitizedAsOf}.csv`   | `sanitizedAsOf` is the `asOf` date converted to lowercase with hyphens replacing non-alphanumeric characters. |
+| #   | Logic                                                  | Explanation                                                                                                   |
+| --- | ------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------- | ------------------- | --------------------------------- |
+| 24  | Export CSV exports the currently filtered account rows | Calls `handleExportCSV`; whole-statement stat cards remain unchanged by that filter.                          |
+| 25  | Exported headers: Account, Type, Amount, Details       | `Details` column formatted as `${label}: ${amount}                                                            | ${label}: ${amount} | ...`; empty string if no details. |
+| 26  | Filename: `balance-sheet-${sanitizedAsOf}.csv`         | `sanitizedAsOf` is the `asOf` date converted to lowercase with hyphens replacing non-alphanumeric characters. |
 
 ---
 

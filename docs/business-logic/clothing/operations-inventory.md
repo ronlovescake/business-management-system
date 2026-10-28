@@ -11,6 +11,80 @@ refunds do not restock. Returns to reserved or assembly WIP are not sellable.
 Manual scrap-to-sellable reversals carry `movementSource: inventory_adjustment`;
 unmarked legacy scrap-origin receipts are not assumed to reverse write-offs.
 
+### Approved Free Goods And Transfers
+
+The requesting business owner approved separate, explicitly zero-acquisition-cost
+supplier extras on October28. They are not customer giveaways:1,000 units bought
+at PHP20 plus100 free units may all sell at PHP50, producing PHP55,000 revenue
+and PHP20,000 total COGS. Paid carrying cost is not redistributed and prior sales
+are not rewritten. A genuine Additionals receipt records `costBasis: FREE_GOODS`
+and `unitCost: 0`; an unmarked zero or absent cost is still incomplete valuation.
+Stock checks count the extra quantity once, not again as negative Supplier Short.
+
+`src/lib/inventory/cost-lots.ts` preserves actual receipt allocation and costs
+through sellable/held/reserved locations. Clothing fulfillment snapshots those
+allocations; returns preserve the original sale cost and source link. The owning
+`POST /api/inventory/movements` transfer operation writes both product sides in
+one keyed serializable transaction, validates the Manila date/runtime cutoff and
+authenticated operational role, rejects oversubscription and carries source cost
+rather than destination catalog cost. A reverse transfer uses only remaining
+original transfer receipts and appends dated opposite movements. Posted transfer
+and free-cost provenance cannot be edited or deleted through adjustment APIs.
+One-sided transfer requests are rejected. The existing Adjust form uses this
+operation; identical-key retries reuse the server result and changed details
+conflict. There is no persisting CSV import or background transfer job.
+
+The additive `20261028000001_inventory_movement_cost_provenance` migration adds
+nullable cost-basis/source links only; legacy records are not rewritten. Deployment
+and business-database migration remain separate, unauthorized operations. These
+Clothing changes do not replace General Merchandise's independent inventory API
+or approve its free-goods/return allocation policy. I06's real isolated browser
+sequence and failure/race evidence are recorded in the reconciliation report.
+
+Recorded future receipts are known but unavailable for an earlier posting date;
+they do not enable the legacy no-receipt catalog fallback. The latter remains
+only for histories with no recorded receipt evidence at all.
+
+### Approved Original Composite Returns
+
+On October28 the requesting business owner approved restoring exact original
+components and recorded costs, then explicitly required operator-recorded split
+component acquisition costs. Selling prices do not allocate acquisition cost.
+Included piece costs must exactly conserve the recorded parent receipt cost;
+missing legacy costs remain null and physical opening rejects unresolved values.
+`20261028000002_split_acquisition_cost` is additive and has no historical backfill.
+An explicitly entered zero component cost is valid only when all included costs
+still conserve the parent. It records `SPLIT_ALLOCATION`, not supplier-free status.
+Conserved `ASSEMBLY` zero lots are also known cost; unmarked zeros remain unknown.
+
+The transaction writer snapshots actual sale lots and preserves them after later
+status, stock or definition changes. Mix fulfillment excludes its own reservation
+and must allocate the full quantity. The keyed physical-only Customers action
+loads all original sale/return movements, requires the actual component for a
+multi-SKU sale, caps each original lot independently and carries its source/cost.
+Monetary refunds remain separate; this approval does not invent a payout policy.
+
+`bundle-stock.ts` converts original component lots into value-conserving assembled
+lots. `split-stock.ts` opens only enough parent sets, stores exact included pieces
+and reuses loose stock for sibling orders. A partial return remains a loose piece.
+Only all pieces from the same original opening, at its conserved value, may rebuild
+that parent set; repeated or competing final-piece returns cannot rebuild twice.
+Used bundle/mix definitions and opened split definitions cannot be edited or
+deleted to erase allocations. Generic movement PATCH/DELETE also reject source-owned
+supplier-credit, transfer, split and bundle events. These operations use existing serialized transaction
+boundaries; no independent stock job or persisting inventory import is introduced.
+
+Inventory transforms and stock checks honor recorded physical split conversions;
+the older virtual rollup remains only for legacy definitions without physical
+conversion evidence. Split-piece returns do not also restore a parent quantity.
+Clothing owns these routes, schema additions and UI; General Merchandise keeps
+its independent APIs. I07's actual lifecycle, five-report, rollback and concurrency
+evidence is recorded in the reconciliation report. No business DB was migrated.
+Both exact additive SQL files were replayed against prior-shaped owned tables:
+legacy values and null new fields were preserved, zero costs round-tripped, and
+source-link restriction/cascade/index checks passed. This is scoped DDL evidence,
+not verification or execution of the target business database's migration history.
+
 > **Source files:**
 >
 > - `src/modules/clothing/operations/inventory/lib/inventoryTransforms.ts`
@@ -18,6 +92,7 @@ unmarked legacy scrap-origin receipts are not assumed to reverse write-offs.
 > - `src/modules/clothing/operations/inventory/hooks/useInventoryAdjustmentSubmit.ts`
 > - `src/modules/clothing/operations/inventory/hooks/useInventoryQuickAdjustments.ts`
 > - `src/modules/clothing/operations/inventory/hooks/useInventoryAdjustmentEditActions.ts`
+> - `src/modules/products/api/service.ts`
 > - `src/lib/inventory/splitAllocation.ts`
 
 ---
@@ -44,6 +119,16 @@ unmarked legacy scrap-origin receipts are not assumed to reverse write-offs.
 | 9   | All displayed inventory bucket values floor at zero                                              | Negative UI inventory is prevented by design.                                                                                                                                                                                                                                                                                    |
 
 ### Physical Location And Reservation Split
+
+The requesting owner confirmed on October 28 that travelling goods must stay
+in transit until explicitly marked on hand. The refreshed Clothing products
+collection now resolves each active linked shipment's nonempty status at the
+API read boundary, overriding empty or stale product-level status. This fixes
+Inventory's earlier false receipt while the Products grid already showed the
+linked shipment correctly. Payment is not proof of arrival. The existing
+`Delivered` shipment action is the explicit arrival transition tested here.
+Unlinked/unmatched products and blank linked statuses retain the legacy behavior
+below; no historical locations are inferred or rewritten.
 
 An explicitly In Transit shipment has zero physically received, on-hand reserved
 and on-hand sellable quantity. Its remaining supply is split into in-transit
@@ -77,26 +162,26 @@ controls are documented in [P&L](accounting-profit-loss.md#valuation-completenes
 
 ## C — Composite Inventory Rules
 
-| #   | Logic                                                                             | Explanation                                                                                                   |
-| --- | --------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
-| 10  | Bundle demand is not surfaced as a separate reserved bucket in the inventory grid | The transform intentionally avoids a confusing bundle-reserved presentation.                                  |
-| 11  | Mix-and-match demand is allocated across pooled component availability            | Component demand is distributed via `allocateByAvailability`, not one-to-one against the virtual mix SKU.     |
-| 12  | Split-child demand is excluded from the direct per-product demand maps            | Split children are handled in a dedicated allocation pass instead of being treated as normal standalone SKUs. |
-| 13  | Split-child demand is rolled up to the parent SKU                                 | Parent reserved and sold quantities reflect opened sets required by split-child transactions.                 |
-| 14  | Split sibling demand reuses loose pieces before opening another parent set        | The parent is consumed by the highest normalized sibling demand, not by summing all child quantities.         |
-| 15  | Split-child revenue is rolled up to the parent inventory row                      | Parent sales metrics include child transactions.                                                              |
-| 16  | Split-child availability is derived, not stored                                   | Child availability comes from loose pieces plus remaining complete parent sets.                               |
-| 17  | Inventory rows are no longer purely independent per product                       | Split allocation is an explicit cross-SKU rollup in the inventory transform.                                  |
+| #   | Logic                                                                                      | Explanation                                                                                               |
+| --- | ------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------- |
+| 10  | Bundle demand is not surfaced as a separate reserved bucket in the inventory grid          | The transform intentionally avoids a confusing bundle-reserved presentation.                              |
+| 11  | Mix-and-match demand is allocated across pooled component availability                     | Component demand is distributed via `allocateByAvailability`, not one-to-one against the virtual mix SKU. |
+| 12  | Physical split-child demand uses actual child stock; legacy demand uses virtual allocation | Recorded conversions exclude that demand from the legacy parent rollup.                                   |
+| 13  | Recorded openings reduce the parent once; legacy split demand is rolled up virtually       | Sibling orders reuse actual loose pieces instead of charging another parent for each child quantity.      |
+| 14  | Split sibling demand reuses loose pieces before opening another parent set                 | The parent is consumed by the highest normalized sibling demand, not by summing all child quantities.     |
+| 15  | Actual child sales retain their own revenue and costs; legacy rollup remains compatible    | Physical child and parent movement quantities are not both treated as the same sale.                      |
+| 16  | Split-child availability is derived, not stored                                            | Child availability comes from loose pieces plus remaining complete parent sets.                           |
+| 17  | Inventory rows are no longer purely independent per product                                | Split allocation is an explicit cross-SKU rollup in the inventory transform.                              |
 
 ---
 
 ## D — What the Inventory Grid Shows for Split Items
 
-| #   | Logic                                                                      | Explanation                                                                       |
-| --- | -------------------------------------------------------------------------- | --------------------------------------------------------------------------------- |
-| 18  | A split parent shows remaining complete sets after child demand            | Parent sellable stock reflects break-pack consumption.                            |
-| 19  | A split child is sellable even when it has no independent product quantity | The inventory layer computes child availability from the parent split definition. |
-| 20  | The products grid can mark split children with a `[SPLIT]` badge           | This is a visual indicator only; inventory still comes from the parent set.       |
+| #   | Logic                                                                      | Explanation                                                                            |
+| --- | -------------------------------------------------------------------------- | -------------------------------------------------------------------------------------- |
+| 18  | A split parent shows remaining complete sets after child demand            | Parent sellable stock reflects break-pack consumption.                                 |
+| 19  | A split child is sellable even when it has no independent product quantity | The inventory layer computes child availability from the parent split definition.      |
+| 20  | The products grid can mark split children with a `[SPLIT]` badge           | Recorded child receipts come from an exact parent opening, with no second acquisition. |
 
 ---
 
@@ -109,6 +194,14 @@ controls are documented in [P&L](accounting-profit-loss.md#valuation-completenes
 | 23  | Reverse-transfer checks destination sellable stock before allowing the edit                                           | The destination must have enough sellable stock to reverse the transfer.                    |
 | 24  | Note-only edits still short-circuit quantity writes                                                                   | If only notes changed, the system updates the latest movement note without bucket rewrites. |
 | 25  | Successful adjustment save, edit, and delete operations still use green notifications; failures use red notifications | The refactor did not change the operator-facing adjustment feedback flow.                   |
+
+Adjustment bucket targets load from current movements when the operator opens
+the form or explicitly changes its product. Background data-reader refreshes
+must not replace values being entered. Reopening reloads current quantities;
+clearing the product resets the targets. The requesting owner's October 28
+completion authorization covers this input-preservation fix; movement creation,
+stock limits and financial policy are unchanged. The selection-hook regression
+and actual I02 purchase/shortage browser sequence verify this boundary.
 
 ---
 

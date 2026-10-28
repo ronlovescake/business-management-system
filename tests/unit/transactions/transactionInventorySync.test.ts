@@ -1,12 +1,22 @@
 import { describe, expect, it, vi } from 'vitest';
 
 import { syncInventoryMovementsForTransaction } from '@/modules/transactions/api/transactionInventorySync';
+import { ensureSplitChildStock } from '@/lib/inventory/split-stock';
+
+vi.mock('@/lib/inventory/split-stock', () => ({
+  ensureSplitChildStock: vi.fn(),
+}));
 
 type MockClientOptions = {
   products?: Array<{ productCode: string; quantity: number }>;
   movements?: Array<{
+    id?: number;
     productCode: string;
     quantity: number;
+    unitCost?: number | null;
+    costBasis?: string | null;
+    sourceMovementId?: number | null;
+    sourceTransactionId?: number | null;
     fromBucket: string;
     toBucket: string;
   }>;
@@ -54,6 +64,103 @@ function createMockClient(options: MockClientOptions = {}) {
 }
 
 describe('syncInventoryMovementsForTransaction', () => {
+  it('preserves actual fulfilled component allocations when current mix availability changes', async () => {
+    const { client, inventoryMovement } = createMockClient({
+      mixAndMatch: {
+        id: 1,
+        components: [
+          { componentProductCode: 'COMP-A' },
+          { componentProductCode: 'COMP-B' },
+        ],
+      },
+      products: [
+        { productCode: 'COMP-A', quantity: 0 },
+        { productCode: 'COMP-B', quantity: 100 },
+      ],
+    });
+    inventoryMovement.findFirst.mockResolvedValue({
+      id: 8,
+      productCode: 'COMP-A',
+      quantity: 2,
+      deletedAt: null,
+      fromBucket: 'sellable',
+      toBucket: 'sold',
+      sourceTransactionId: 202,
+      movementSource: 'transaction',
+      movementType: 'sale',
+    });
+    await syncInventoryMovementsForTransaction(client, {
+      id: 202,
+      productCode: 'MIX-202',
+      quantity: 2,
+      unitPrice: 50,
+      discount: 0,
+      lineTotal: 100,
+      orderDate: '2026-10-28',
+      packedDate: '2026-10-28',
+      orderStatus: 'Shipped',
+      adjustment: 100,
+    });
+    expect(inventoryMovement.create).not.toHaveBeenCalled();
+    expect(inventoryMovement.update).not.toHaveBeenCalled();
+    expect(inventoryMovement.updateMany).not.toHaveBeenCalled();
+  });
+
+  it('fulfills extra orders from explicit free stock at zero cost after paid stock is exhausted', async () => {
+    const { client, inventoryMovement } = createMockClient({
+      movements: [
+        {
+          id: 1,
+          productCode: 'SKU-FREE',
+          quantity: 4,
+          fromBucket: 'opening_inventory',
+          toBucket: 'sellable',
+          unitCost: 20,
+        },
+        {
+          id: 2,
+          productCode: 'SKU-FREE',
+          quantity: 2,
+          fromBucket: 'supplier_short',
+          toBucket: 'sellable',
+          unitCost: 0,
+          costBasis: 'FREE_GOODS',
+        },
+        {
+          id: 3,
+          productCode: 'SKU-FREE',
+          quantity: 4,
+          fromBucket: 'sellable',
+          toBucket: 'sold',
+          unitCost: 20,
+        },
+      ],
+    });
+    await syncInventoryMovementsForTransaction(client, {
+      id: 104,
+      productCode: 'SKU-FREE',
+      quantity: 2,
+      unitPrice: 100,
+      discount: 0,
+      lineTotal: 200,
+      orderDate: '2026-10-28',
+      packedDate: '2026-10-28',
+      orderStatus: 'Shipped',
+      adjustment: 200,
+    });
+    expect(inventoryMovement.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        productCode: 'SKU-FREE',
+        quantity: 2,
+        unitCost: 0,
+        costBasis: 'FREE_GOODS',
+        sourceMovementId: 2,
+        toBucket: 'sold',
+      }),
+      select: { id: true },
+    });
+  });
+
   it('creates a sale movement for accounts-receivable shipments', async () => {
     const { client, inventoryMovement } = createMockClient();
 
@@ -161,7 +268,90 @@ describe('syncInventoryMovementsForTransaction', () => {
     ]);
   });
 
-  it('redirects split-child prepared paid movements to the parent SKU', async () => {
+  it('fulfills every originally reserved mix unit without subtracting its own reservation a second time', async () => {
+    const movements = [
+      {
+        id: 1,
+        productCode: 'COMP-A',
+        quantity: 4,
+        unitCost: 10,
+        fromBucket: 'opening_inventory',
+        toBucket: 'sellable',
+      },
+      {
+        id: 2,
+        productCode: 'COMP-B',
+        quantity: 2,
+        unitCost: 20,
+        fromBucket: 'opening_inventory',
+        toBucket: 'sellable',
+      },
+      {
+        id: 3,
+        productCode: 'COMP-A',
+        quantity: 4,
+        fromBucket: 'sellable',
+        toBucket: 'reserved',
+        sourceTransactionId: 202,
+      },
+      {
+        id: 4,
+        productCode: 'COMP-B',
+        quantity: 2,
+        fromBucket: 'sellable',
+        toBucket: 'reserved',
+        sourceTransactionId: 202,
+      },
+    ];
+    const { client, inventoryMovement } = createMockClient({
+      mixAndMatch: {
+        id: 1,
+        components: [
+          { componentProductCode: 'COMP-A' },
+          { componentProductCode: 'COMP-B' },
+        ],
+      },
+      products: [
+        { productCode: 'COMP-A', quantity: 4 },
+        { productCode: 'COMP-B', quantity: 2 },
+      ],
+    });
+    inventoryMovement.findMany.mockImplementation(async ({ where }) =>
+      movements.filter(
+        (movement) =>
+          !where.productCode?.equals ||
+          movement.productCode === where.productCode.equals
+      )
+    );
+    await syncInventoryMovementsForTransaction(client, {
+      id: 202,
+      productCode: 'MIX-202',
+      quantity: 6,
+      unitPrice: 50,
+      discount: 0,
+      lineTotal: 300,
+      orderDate: '2026-10-28',
+      packedDate: '2026-10-28',
+      orderStatus: 'Accounts Receivable',
+      adjustment: 0,
+    });
+    const sales = inventoryMovement.create.mock.calls
+      .map(([call]) => call.data)
+      .filter((movement) => movement.toBucket === 'sold');
+    expect(
+      sales.map((sale) => [
+        sale.productCode,
+        sale.quantity,
+        sale.unitCost,
+        sale.sourceMovementId,
+      ])
+    ).toEqual([
+      ['COMP-A', 4, 10, 1],
+      ['COMP-B', 2, 20, 2],
+    ]);
+  });
+
+  it('opens recorded split stock then reserves and sells the actual child instead of double-charging its parent', async () => {
     const { client, inventoryMovement } = createMockClient({
       splitChildComponent: {
         componentLabel: 'Top',
@@ -190,7 +380,7 @@ describe('syncInventoryMovementsForTransaction', () => {
     expect(inventoryMovement.create).toHaveBeenCalledTimes(2);
     expect(inventoryMovement.create).toHaveBeenNthCalledWith(1, {
       data: expect.objectContaining({
-        productCode: 'SET-303',
+        productCode: 'TOP-303',
         quantity: 2,
         fromBucket: 'sellable',
         toBucket: 'reserved',
@@ -201,7 +391,7 @@ describe('syncInventoryMovementsForTransaction', () => {
     });
     expect(inventoryMovement.create).toHaveBeenNthCalledWith(2, {
       data: expect.objectContaining({
-        productCode: 'SET-303',
+        productCode: 'TOP-303',
         quantity: 2,
         fromBucket: 'reserved',
         toBucket: 'sold',
@@ -210,5 +400,14 @@ describe('syncInventoryMovementsForTransaction', () => {
       }),
       select: { id: true },
     });
+    expect(ensureSplitChildStock).toHaveBeenCalledWith(
+      client,
+      expect.objectContaining({
+        parentSku: 'SET-303',
+        componentSku: 'TOP-303',
+        quantity: 2,
+        transactionId: 303,
+      })
+    );
   });
 });

@@ -1,10 +1,26 @@
 import type { NextRequest } from 'next/server';
+import type { Prisma } from '@prisma/client';
 import { ApiResponse } from '@/core/api';
 import { withErrorHandler } from '@/core/api/middleware';
+import { getRuntimeAccountingCutoverDate } from '@/lib/accounting/cutover';
+import { parseDate } from '@/lib/accounting/date-utils';
+import {
+  FinancialOperationError,
+  financialRequestId,
+  runFinancialRequest,
+} from '@/lib/accounting/financial-transactions';
 import { prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
 import { sanitizers } from '@/lib/security/sanitize';
 import { isVoidedOrderStatus } from '@/lib/transactions/order-status';
+import { getCurrentDateISO } from '@/utils/date';
+import {
+  allocateOriginalPhysicalReturn,
+  loadOriginalPhysicalReturnEvidence,
+  remainingOriginalSaleAllocations,
+  type OriginalSaleAllocation,
+} from '@/lib/inventory/physical-returns';
+import { rebuildReturnedSplitSets } from '@/lib/inventory/split-stock';
 import {
   transactionRefundCreateSchema,
   type TransactionRefundCreateInput,
@@ -86,6 +102,34 @@ export const GET = withErrorHandler<RouteContext>(
       });
     }
 
+    if (request.nextUrl.searchParams.get('saleAllocations') === 'true') {
+      const transaction = transactionId
+        ? await prisma.transaction.findFirst({
+            where: {
+              id: transactionId,
+              customerId: idResult.id,
+              deletedAt: null,
+            },
+            select: { id: true },
+          })
+        : null;
+      if (!transaction) {
+        return ApiResponse.badRequest(
+          'Select an order belonging to this customer.'
+        );
+      }
+      const evidence = await loadOriginalPhysicalReturnEvidence(
+        prisma,
+        transaction.id
+      );
+      return ApiResponse.success(
+        remainingOriginalSaleAllocations(evidence.sales, evidence.returns).map(
+          (sale) => ({ productCode: sale.productCode, quantity: sale.quantity })
+        ),
+        'Actual unreturned sale allocations'
+      );
+    }
+
     const transactionRefund = prisma.transactionRefund;
 
     const refunds = (await transactionRefund.findMany({
@@ -160,6 +204,27 @@ export const POST = withErrorHandler<RouteContext>(
 
     const returnedQty = Number(sanitized.returnedQuantity ?? 0);
     const hasReturn = Number.isFinite(returnedQty) && returnedQty > 0;
+    const physicalOnly = sanitized.amount === 0 && hasReturn;
+    const requestId = physicalOnly ? financialRequestId(request.headers) : null;
+
+    if (physicalOnly) {
+      const returnDate = parseDate(sanitized.refundDate);
+      if (
+        !returnDate ||
+        !/^\d{4}-\d{2}-\d{2}$/.test(sanitized.refundDate) ||
+        returnDate.toISOString().slice(0, 10) !== sanitized.refundDate
+      ) {
+        return ApiResponse.badRequest(
+          'Enter a valid physical-return date (YYYY-MM-DD).'
+        );
+      }
+      const cutoff = await getRuntimeAccountingCutoverDate('clothing');
+      if (returnDate < cutoff || sanitized.refundDate > getCurrentDateISO()) {
+        return ApiResponse.badRequest(
+          'Physical-return date must be within the clothing accounting period and no later than today in Asia/Manila.'
+        );
+      }
+    }
 
     if (hasReturn) {
       if (!sanitized.restockBucket) {
@@ -177,137 +242,110 @@ export const POST = withErrorHandler<RouteContext>(
       }
     }
 
-    const created: RefundCreateResult = await prisma.$transaction(
-      async (txClient): Promise<RefundCreateResult> => {
-        const transaction = await txClient.transaction.findFirst({
+    const createRefund = async (
+      txClient: Prisma.TransactionClient
+    ): Promise<RefundCreateResult> => {
+      const transaction = await txClient.transaction.findFirst({
+        where: {
+          id: sanitized.transactionId,
+          deletedAt: null,
+          customerId: idResult.id,
+        },
+        select: {
+          id: true,
+          productCode: true,
+          quantity: true,
+          lineTotal: true,
+          adjustment: true,
+          unitPrice: true,
+          discount: true,
+          orderStatus: true,
+          cancellation: { select: { id: true } },
+        },
+      });
+
+      if (!transaction) {
+        return {
+          error: ApiResponse.badRequest('Invalid transaction', {
+            transactionId: 'Transaction not found for this customer.',
+          }),
+        };
+      }
+
+      if (transaction.cancellation && !physicalOnly) {
+        return {
+          error: ApiResponse.badRequest('Use the approved refund payout', {
+            transactionId:
+              'This order has an approved cancellation. Pay only the remaining approved obligation from Customers.',
+          }),
+        };
+      }
+
+      const isVoided = isVoidedOrderStatus(transaction.orderStatus);
+      if (isVoided && hasReturn) {
+        return {
+          error: ApiResponse.badRequest(
+            'Voided transactions cannot record returned inventory',
+            {
+              returnedQuantity:
+                'A voided transaction was not delivered to the customer.',
+            }
+          ),
+        };
+      }
+
+      let refundLimit = computeTransactionRefundLimit(transaction);
+      if (isVoided) {
+        const reservationPayments = await txClient.transactionPayment.findMany({
           where: {
-            id: sanitized.transactionId,
+            transactionId: transaction.id,
             deletedAt: null,
-            customerId: idResult.id,
+            isReservation: true,
           },
-          select: {
-            id: true,
-            productCode: true,
-            quantity: true,
-            lineTotal: true,
-            adjustment: true,
-            unitPrice: true,
-            discount: true,
-            orderStatus: true,
-            cancellation: { select: { id: true } },
-          },
+          select: { amount: true },
         });
+        refundLimit = reservationPayments.reduce(
+          (total, payment) => total + Number(payment.amount ?? 0),
+          0
+        );
+      }
 
-        if (!transaction) {
-          return {
-            error: ApiResponse.badRequest('Invalid transaction', {
-              transactionId: 'Transaction not found for this customer.',
-            }),
-          };
-        }
+      const existingRefunds = await txClient.transactionRefund.findMany({
+        where: { transactionId: transaction.id, deletedAt: null },
+        select: { amount: true, returnedQuantity: true },
+      });
+      const limitError = validateCumulativeRefundLimits({
+        transactionAmount: refundLimit,
+        transactionQuantity: transaction.quantity ?? 0,
+        existingRefunds,
+        amount: sanitized.amount,
+        returnedQuantity: returnedQty,
+        amountLimitMessage: isVoided
+          ? 'Total refunds cannot exceed collected reservation payments.'
+          : undefined,
+      });
 
-        if (transaction.cancellation) {
-          return {
-            error: ApiResponse.badRequest('Use the approved refund payout', {
-              transactionId:
-                'This order has an approved cancellation. Pay only the remaining approved obligation from Customers.',
-            }),
-          };
-        }
+      if (limitError) {
+        return {
+          error: ApiResponse.badRequest('Refund exceeds transaction limits', {
+            [limitError.field]: limitError.message,
+          }),
+        };
+      }
 
-        const isVoided = isVoidedOrderStatus(transaction.orderStatus);
-        if (isVoided && hasReturn) {
-          return {
-            error: ApiResponse.badRequest(
-              'Voided transactions cannot record returned inventory',
-              {
-                returnedQuantity:
-                  'A voided transaction was not delivered to the customer.',
-              }
-            ),
-          };
-        }
+      const productCode = normalizeProductCode(transaction.productCode);
+      if (hasReturn && !productCode) {
+        return {
+          error: ApiResponse.badRequest('Transaction missing productCode', {
+            transactionId:
+              'This transaction has no product code; cannot record a stock return.',
+          }),
+        };
+      }
 
-        let refundLimit = computeTransactionRefundLimit(transaction);
-        if (isVoided) {
-          const reservationPayments =
-            await txClient.transactionPayment.findMany({
-              where: {
-                transactionId: transaction.id,
-                deletedAt: null,
-                isReservation: true,
-              },
-              select: { amount: true },
-            });
-          refundLimit = reservationPayments.reduce(
-            (total, payment) => total + Number(payment.amount ?? 0),
-            0
-          );
-        }
-
-        const existingRefunds = await txClient.transactionRefund.findMany({
-          where: { transactionId: transaction.id, deletedAt: null },
-          select: { amount: true, returnedQuantity: true },
-        });
-        const limitError = validateCumulativeRefundLimits({
-          transactionAmount: refundLimit,
-          transactionQuantity: transaction.quantity ?? 0,
-          existingRefunds,
-          amount: sanitized.amount,
-          returnedQuantity: returnedQty,
-          amountLimitMessage: isVoided
-            ? 'Total refunds cannot exceed collected reservation payments.'
-            : undefined,
-        });
-
-        if (limitError) {
-          return {
-            error: ApiResponse.badRequest('Refund exceeds transaction limits', {
-              [limitError.field]: limitError.message,
-            }),
-          };
-        }
-
-        const productCode = normalizeProductCode(transaction.productCode);
-        if (hasReturn && !productCode) {
-          return {
-            error: ApiResponse.badRequest('Transaction missing productCode', {
-              transactionId:
-                'This transaction has no product code; cannot record a stock return.',
-            }),
-          };
-        }
-
-        const transactionRefund = txClient.transactionRefund;
-
-        const refund = (await transactionRefund.create({
-          data: {
-            transactionId: sanitized.transactionId,
-            refundDate: sanitized.refundDate,
-            amount: sanitized.amount,
-            reason: sanitized.reason,
-            returnedQuantity: sanitized.returnedQuantity,
-            restockBucket: sanitized.restockBucket,
-            notes: sanitized.notes,
-          },
-          select: {
-            id: true,
-            transactionId: true,
-            refundDate: true,
-            amount: true,
-            reason: true,
-            returnedQuantity: true,
-            restockBucket: true,
-            notes: true,
-            createdAt: true,
-            updatedAt: true,
-          },
-        })) as RefundRow;
-
-        if (hasReturn && refund.restockBucket) {
-          const note = buildAutoReturnMovementNote(refund.id);
-          const originalSaleMovement =
-            await txClient.inventoryMovement.findFirst({
+      const originalSaleMovement =
+        hasReturn && !physicalOnly
+          ? await txClient.inventoryMovement.findFirst({
               where: {
                 deletedAt: null,
                 sourceTransactionId: transaction.id,
@@ -315,47 +353,168 @@ export const POST = withErrorHandler<RouteContext>(
                 movementType: 'sale',
                 productCode,
               },
-              select: { unitCost: true },
-            });
-
-          const existingReturnMovement =
-            await txClient.inventoryMovement.findFirst({
-              where: {
-                deletedAt: null,
-                notes: note,
+              select: {
+                id: true,
+                quantity: true,
+                unitCost: true,
+                costBasis: true,
+                postingDate: true,
+                createdAt: true,
               },
-              select: { id: true },
-            });
+            })
+          : null;
+      let physicalAllocations: OriginalSaleAllocation[] = [];
+      if (physicalOnly) {
+        const evidence = await loadOriginalPhysicalReturnEvidence(
+          txClient,
+          transaction.id
+        );
+        try {
+          physicalAllocations = allocateOriginalPhysicalReturn(
+            evidence.sales,
+            evidence.returns,
+            {
+              productCode: sanitized.returnedProductCode,
+              quantity: returnedQty,
+              date: sanitized.refundDate,
+            }
+          );
+        } catch (error) {
+          if (error instanceof FinancialOperationError) {
+            return { error: ApiResponse.badRequest(error.message) };
+          }
+          throw error;
+        }
+      }
 
-          if (!existingReturnMovement) {
-            await txClient.inventoryMovement.create({
-              data: {
-                productCode,
-                quantity: returnedQty,
-                unitCost: originalSaleMovement?.unitCost ?? null,
-                sourceTransactionId: transaction.id,
-                movementSource: 'customer_refund',
-                movementType: 'return',
-                fromBucket: 'sold',
-                toBucket: refund.restockBucket as
-                  | 'sellable'
-                  | 'damaged_hold'
-                  | 'reserved'
-                  | 'assembly_wip'
-                  | 'scrap'
-                  | 'supplier_short'
-                  | 'sold',
-                postingDate: refund.refundDate,
-                notes: note,
-              },
-            });
+      const transactionRefund = txClient.transactionRefund;
+
+      const refund = (await transactionRefund.create({
+        data: {
+          transactionId: sanitized.transactionId,
+          refundDate: sanitized.refundDate,
+          amount: sanitized.amount,
+          reason: sanitized.reason,
+          returnedQuantity: sanitized.returnedQuantity,
+          restockBucket: sanitized.restockBucket,
+          notes: sanitized.notes,
+        },
+        select: {
+          id: true,
+          transactionId: true,
+          refundDate: true,
+          amount: true,
+          reason: true,
+          returnedQuantity: true,
+          restockBucket: true,
+          notes: true,
+          createdAt: true,
+          updatedAt: true,
+        },
+      })) as RefundRow;
+
+      if (physicalOnly && refund.restockBucket) {
+        for (const allocation of physicalAllocations) {
+          await txClient.inventoryMovement.create({
+            data: {
+              productCode: allocation.productCode,
+              quantity: allocation.quantity,
+              unitCost: allocation.unitCost,
+              costBasis: allocation.costBasis,
+              sourceMovementId: allocation.id,
+              sourceTransactionId: transaction.id,
+              movementSource: 'customer_refund',
+              movementType: 'return',
+              fromBucket: 'sold',
+              toBucket: refund.restockBucket as
+                | 'sellable'
+                | 'damaged_hold'
+                | 'reserved'
+                | 'assembly_wip'
+                | 'scrap',
+              postingDate: refund.refundDate,
+              notes: buildAutoReturnMovementNote(refund.id),
+            },
+          });
+        }
+        if (refund.restockBucket === 'sellable') {
+          for (const returnedCode of Array.from(
+            new Set(
+              physicalAllocations.map((allocation) => allocation.productCode)
+            )
+          )) {
+            await rebuildReturnedSplitSets(
+              txClient,
+              returnedCode,
+              refund.refundDate
+            );
           }
         }
+      } else if (hasReturn && refund.restockBucket) {
+        const note = buildAutoReturnMovementNote(refund.id);
+        const existingReturnMovement =
+          await txClient.inventoryMovement.findFirst({
+            where: {
+              deletedAt: null,
+              notes: note,
+            },
+            select: { id: true },
+          });
 
-        return { refund };
-      },
-      { isolationLevel: 'Serializable' }
-    );
+        if (!existingReturnMovement) {
+          await txClient.inventoryMovement.create({
+            data: {
+              productCode,
+              quantity: returnedQty,
+              unitCost: originalSaleMovement?.unitCost ?? null,
+              ...(originalSaleMovement?.costBasis
+                ? { costBasis: originalSaleMovement.costBasis }
+                : {}),
+              ...(originalSaleMovement?.id
+                ? { sourceMovementId: originalSaleMovement.id }
+                : {}),
+              sourceTransactionId: transaction.id,
+              movementSource: 'customer_refund',
+              movementType: 'return',
+              fromBucket: 'sold',
+              toBucket: refund.restockBucket as
+                | 'sellable'
+                | 'damaged_hold'
+                | 'reserved'
+                | 'assembly_wip'
+                | 'scrap'
+                | 'supplier_short'
+                | 'sold',
+              postingDate: refund.refundDate,
+              notes: note,
+            },
+          });
+        }
+      }
+
+      return { refund };
+    };
+    const created: RefundCreateResult =
+      physicalOnly && requestId
+        ? await runFinancialRequest(
+            requestId,
+            'PHYSICAL_RETURN',
+            { customerId: idResult.id, ...sanitized },
+            async (txClient) => {
+              const result = await createRefund(txClient);
+              if ('error' in result) {
+                const details = await result.error.json();
+                throw new FinancialOperationError(
+                  details.error,
+                  result.error.status
+                );
+              }
+              return result;
+            }
+          )
+        : await prisma.$transaction(createRefund, {
+            isolationLevel: 'Serializable',
+          });
 
     if ('error' in created) {
       return created.error;
@@ -368,6 +527,12 @@ export const POST = withErrorHandler<RouteContext>(
     });
 
     return ApiResponse.success(created.refund, 'Refund recorded', 201);
+  },
+  {
+    onError: (error) =>
+      error instanceof FinancialOperationError
+        ? ApiResponse.error(error.message, error.status)
+        : undefined,
   }
 );
 
@@ -378,6 +543,7 @@ function sanitizeCreateInput(input: TransactionRefundCreateInput):
       amount: number;
       reason: string | null;
       returnedQuantity: number | null;
+      returnedProductCode?: string;
       restockBucket:
         | 'sellable'
         | 'damaged_hold'
@@ -432,6 +598,7 @@ function sanitizeCreateInput(input: TransactionRefundCreateInput):
     amount,
     reason,
     returnedQuantity: returnedQuantityRaw,
+    returnedProductCode: input.returnedProductCode,
     restockBucket: input.restockBucket ?? null,
     notes,
   };

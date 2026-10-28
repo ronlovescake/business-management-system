@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { logger } from '@/lib/logger';
 import { PERIOD_OPTIONS, type PeriodOption } from '@/lib/accounting/constants';
 import { buildPeriodSearchParams } from '@/lib/accounting/query';
@@ -74,6 +74,7 @@ export function useLedger(options: { apiBasePath?: string } = {}) {
     closing: Record<string, number>;
   } | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const latestRequest = useRef(0);
   const [stats, setStats] = useState<LedgerStats>({
     totalDebits: 0,
     totalCredits: 0,
@@ -118,13 +119,20 @@ export function useLedger(options: { apiBasePath?: string } = {}) {
   }, [apiPath, period, defaultStats]);
 
   const refreshLedger = useCallback(async () => {
+    const requestId = ++latestRequest.current;
     try {
       const data = await fetchLedgerData();
+      if (requestId !== latestRequest.current) {
+        return;
+      }
       setEntries(data.entries ?? []);
       setStats(data.stats ?? defaultStats());
       setAccountBalances(data.accountBalances);
       setLoadError(null);
     } catch (error) {
+      if (requestId !== latestRequest.current) {
+        return;
+      }
       logger.warn('Ledger fetch failed, showing empty results', { error });
       setLoadError(
         getAccountingLoadErrorMessage(
@@ -163,6 +171,9 @@ export function useLedger(options: { apiBasePath?: string } = {}) {
 
   useEffect(() => {
     refreshLedger();
+    return () => {
+      latestRequest.current += 1;
+    };
   }, [refreshLedger]);
 
   const openingEntriesState = useLedgerOpeningEntries({

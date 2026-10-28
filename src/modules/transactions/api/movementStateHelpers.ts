@@ -51,6 +51,8 @@ export async function setAutoMovementActive(params: {
   productCode: string;
   quantity: number;
   unitCost?: number | null;
+  costBasis?: string | null;
+  sourceMovementId?: number;
   fromBucket: Prisma.InventoryMovementCreateInput['fromBucket'];
   toBucket: Prisma.InventoryMovementCreateInput['toBucket'];
   postingDate: string | null;
@@ -63,6 +65,8 @@ export async function setAutoMovementActive(params: {
     productCode,
     quantity,
     unitCost,
+    costBasis,
+    sourceMovementId,
     fromBucket,
     toBucket,
     postingDate,
@@ -82,6 +86,8 @@ export async function setAutoMovementActive(params: {
         productCode,
         quantity,
         unitCost: existing.unitCost ?? unitCost,
+        ...(costBasis !== undefined ? { costBasis } : {}),
+        ...(sourceMovementId !== undefined ? { sourceMovementId } : {}),
         fromBucket,
         toBucket,
         postingDate,
@@ -99,6 +105,8 @@ export async function setAutoMovementActive(params: {
         productCode,
         quantity,
         unitCost: unitCost ?? null,
+        ...(costBasis !== undefined ? { costBasis } : {}),
+        ...(sourceMovementId !== undefined ? { sourceMovementId } : {}),
         fromBucket,
         toBucket,
         postingDate,

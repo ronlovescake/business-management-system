@@ -19,6 +19,8 @@ type MovementPayload = {
   toBucket: 'sellable' | 'damaged_hold' | 'scrap' | 'supplier_short';
   postingDate?: string;
   notes?: string;
+  transferToProductCode?: string;
+  reverseTransfer?: boolean;
 };
 
 type AdjustmentMovementLike = {
@@ -38,6 +40,7 @@ interface AdjustmentSellablePreviewLike {
 }
 
 interface UseInventoryAdjustmentSubmitParams {
+  atomicTransfers?: boolean;
   selectedProduct: string;
   transferToProduct: string;
   notes: string;
@@ -64,6 +67,7 @@ interface UseInventoryAdjustmentSubmitParams {
 }
 
 export function useInventoryAdjustmentSubmit({
+  atomicTransfers = true,
   selectedProduct,
   transferToProduct,
   notes,
@@ -290,7 +294,11 @@ export function useInventoryAdjustmentSubmit({
         }
       });
 
-      if (transferDelta !== 0 && normalizedTransferDestinationCode) {
+      if (
+        transferDelta !== 0 &&
+        normalizedTransferDestinationCode &&
+        !atomicTransfers
+      ) {
         if (transferDelta > 0) {
           const transferNotes = trimmedNotes
             ? `${transferNoteMarker} from:${normalizedSourceProductCode}; to:${normalizedTransferDestinationCode}; note:${trimmedNotes}`
@@ -340,6 +348,24 @@ export function useInventoryAdjustmentSubmit({
       }
 
       try {
+        if (hasTransfer && atomicTransfers) {
+          await createMovement({
+            productCode:
+              transferDelta > 0
+                ? sourceProductCode
+                : transferDestinationProductCode,
+            transferToProductCode:
+              transferDelta > 0
+                ? transferDestinationProductCode
+                : sourceProductCode,
+            reverseTransfer: transferDelta < 0,
+            quantity: Math.abs(transferDelta),
+            fromBucket: 'sellable',
+            toBucket: 'supplier_short',
+            postingDate: postingDate.trim() || undefined,
+            notes: trimmedNotes || undefined,
+          });
+        }
         for (const movement of inboundToSellable) {
           await createMovement(movement);
         }
@@ -376,6 +402,7 @@ export function useInventoryAdjustmentSubmit({
       }
     },
     [
+      atomicTransfers,
       selectedProduct,
       notes,
       additionalsNoteMarker,

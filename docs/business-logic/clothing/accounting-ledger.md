@@ -17,6 +17,17 @@ The runtime cutover reads only the requested module's saved date. Clothing does
 not depend on the optional GM settings column. Missing settings still use the
 module-specific environment value or the existing default date.
 
+Explicit opening balances belong to Ledger's Opening Balance surface, not
+Journal's period-activity rows. A cross-report bridge adds stored openings dated
+inside the selected period to Journal activity before comparing Ledger movement;
+openings before the period are brought forward, not repeated as current receipts.
+X04 verifies an actual pre-cutover deposit200, explicit opening copied from that
+verified closing, installment800, approval1000 and payout300: October Cash opens
+at200, moves500 and closes700. Later approval/payout/physical return leave all
+earlier report cutoffs unchanged, and the downloaded Cash ledger carries the same
+true running balances. Only the owned synthetic fixture changes its cutover;
+business and General Merchandise settings are not changed by this implementation.
+
 > **Source files:**
 >
 > - `src/app/clothing/accounting/ledger/hooks/useLedger.ts`
@@ -76,6 +87,13 @@ still exports its 125 running balance, not a search-derived 25.
 The Journal's dated customer-money/CARD contract applies unchanged here. Approval
 and actual payouts remain distinct; Card Collections Clearing and Refunds
 Payable are not folded into Cash or supplier Credit Card Payable.
+
+Only the latest requested period/refresh may publish ledger rows, authoritative
+balances, stats or errors. Late successes and failures from a superseded request
+are ignored, including during effect cleanup. A real slow This Month response
+previously replaced Last Month's 50 Cash with 550 while the control still said
+Last Month. Deterministic regressions cover both response orders/errors in
+Clothing and the GM shared consumer; the real period/filter/CSV sequence passes.
 
 ---
 

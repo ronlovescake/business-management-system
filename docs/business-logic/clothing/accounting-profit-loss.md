@@ -7,6 +7,9 @@
 > - `src/app/clothing/accounting/profit-loss/components/ProfitLossBreakdownsPanel.tsx`
 > - `src/app/clothing/accounting/profit-loss/components/ProfitLossDetailsTable.tsx`
 > - `src/app/clothing/accounting/profit-loss/components/ProfitLossTable.tsx`
+> - `src/app/api/accounting/profit-loss/route.ts`
+> - `src/app/api/accounting/profit-loss/details/route.ts`
+> - `src/lib/accounting/profit-loss-journal.ts`
 
 ---
 
@@ -49,6 +52,28 @@ including preserved legacy events and new retained-deposit approval journals.
 BI reads this accounting result; it does not infer forfeiture from total
 collections or treat all installments as retained money.
 
+### Investor Return Source Ownership
+
+Both report routes already include actual investor returns through the dedicated
+`fetchInvestorReturnExpenses` source. The general journal projector must exclude
+only the same `INVESTOR_RETURN` / `Investor Return Expense` debit, or it counts
+that expense twice. Manual entries using that account and other investor-source
+expense categories still pass through the general projector. Funding and
+principal repayment are balance-sheet movements, not expenses; see the
+[Investors contract](accounting-investors.md#accounting-posting).
+
+On 2026-10-28, a real isolated funding 1,000 / return 50 sequence produced net
+Cash 950, principal liability 1,000 and exactly one expense/detail of 50. Journal,
+Ledger, Balance Sheet, actual P&L cards and downloaded summary/detail CSVs agreed.
+The regression first reproduced a 50,000 return being reported as 100,000.
+This repairs overlapping report sources, not persisted investor postings.
+
+Separate unresolved classification risk: broad account-name inference treats
+`Bank Fees` as an Asset because it contains `bank`. A source/unit counterexample
+omitted a 25 journal expense from P&L. This was not a new real-browser proof or
+an approved chart-of-accounts change. It remains open in the
+[reconciliation findings](../../reports/CLOTHING_SUPPLIER_RECONCILIATION_2026-10-27.md#account-label-classification-risk).
+
 ### Valuation Completeness And Dated Corrections
 
 [inventory-valuation](../../../src/lib/accounting/inventory-valuation.ts) owns
@@ -69,6 +94,11 @@ posts COGS/Stock on Hand; logistics and Cash are not posted again. Current produ
 cost changes for future movements, while stored original receipt/sale basis and
 dated correction evidence preserve earlier reports. A linked later physical
 return restores the corrected carrying cost without rewriting either snapshot.
+When a return links to an original sale movement, that exact source determines
+its corrected basis even if the same order also contains paid and supplier-free
+lots. Unlinked legacy returns retain the single-basis fallback, not an invented
+multi-lot allocation. Explicit FREE_GOODS zero-cost scrap and reversal movements
+never borrow a paid product's current cost.
 Generic product edit/import cannot change costs beneath inventory history.
 
 Ambiguous/multi-lot/transformed histories, conflicting bases, stale costs,
@@ -132,6 +162,21 @@ across reporting windows. This rule matches Journal and Ledger recognition.
 ---
 
 ## G - CSV Export
+
+Summary search filters the displayed rows and cards, but the current summary CSV
+exports the complete selected period. A Fuel-only search showed scoped profit
+-140 while its CSV remained identical to the unfiltered period export. Compare
+that CSV with the unfiltered report, not a searched card. This is documented
+current scope behavior, not a new export policy or a claim that the difference
+is self-evident to operators. Real downloaded summary and detail CSV amounts
+were compared with their respective APIs on 2026-10-28.
+
+Operational Expenses CSV includes pending/rejected rows; P&L includes only
+approved/paid expenses plus its other recognized sources. Its 250 operational
+CSV versus 140 financial expense fixture is an explained scope difference.
+Mutable historical expense settlement/deletion still compromises historical
+funding/completeness even when current summary/details agree; see the
+[expense limits](accounting-expenses.md#reconciliation-and-historical-limits).
 
 | #   | Logic                                                                                                                          | Explanation                                                                         |
 | --- | ------------------------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------- |

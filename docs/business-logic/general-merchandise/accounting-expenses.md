@@ -48,6 +48,14 @@
 
 ## D — Workflow Notes
 
+The shared expense data factory cancels superseded queries before refreshing
+after create, update, delete, bulk create and bulk update. Tests hold the initial
+GM fetch open, complete each mutation and then release an older response; the
+fresh saved/deleted state remains visible. Clothing and Trucking consumers have
+the same cache-ordering coverage. Separate domain query keys, services and
+financial rules remain unchanged. This does not certify GM historical expense
+settlement or import/deletion policy from Clothing's financial evidence.
+
 | #   | Logic                                                                                                                | Explanation                                                                  |
 | --- | -------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------- |
 | 17  | The operator-facing add/edit workflow is shared, but the persistence rules are GM-specific                           | Shared UI does not remove GM-specific accounting rules in the service layer. |

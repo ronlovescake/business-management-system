@@ -5,6 +5,7 @@ import {
   parseDateRangeFromParams,
   buildPeriodLabel,
   parseDate,
+  endOfDay,
 } from '@/lib/accounting/date-utils';
 import {
   fetchAccountsReceivableTransactions,
@@ -300,7 +301,7 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
           if (!paidAtPayment) {
             return sum;
           }
-          if (recognizeAt && paidAtPayment > recognizeAt) {
+          if (recognizeAt && paidAtPayment > endOfDay(recognizeAt)) {
             return sum;
           }
           const amt = Number(p.amount ?? 0);

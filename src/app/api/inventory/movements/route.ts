@@ -2,6 +2,16 @@ import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
 import { z } from 'zod';
+import { getCurrentUser } from '@/lib/auth/session';
+import { getRuntimeAccountingCutoverDate } from '@/lib/accounting/cutover';
+import { parseDate } from '@/lib/accounting/date-utils';
+import {
+  FinancialOperationError,
+  financialRequestId,
+  runFinancialRequest,
+} from '@/lib/accounting/financial-transactions';
+import { transferInventoryCostLots } from '@/lib/inventory/cost-lots';
+import { getCurrentDateISO } from '@/utils/date';
 
 const movementSchema = z
   .object({
@@ -27,6 +37,8 @@ const movementSchema = z
     ]),
     postingDate: z.string().optional(),
     notes: z.string().optional(),
+    transferToProductCode: z.string().trim().min(1).optional(),
+    reverseTransfer: z.boolean().optional(),
     supplierShortResolution: z
       .enum([
         'UNRESOLVED',
@@ -159,6 +171,66 @@ export async function POST(request: Request) {
     }
 
     const normalizedCode = normalizeProductCode(productCode);
+    const freeGoods =
+      fromBucket === 'supplier_short' &&
+      toBucket === 'sellable' &&
+      /^additionals\b/i.test(notes ?? '');
+
+    if (parsed.data.transferToProductCode) {
+      const user = await getCurrentUser();
+      if (!user) {
+        return NextResponse.json(
+          { error: 'Authentication required' },
+          { status: 401 }
+        );
+      }
+      if (!['USER', 'ADMIN', 'SUPER_ADMIN'].includes(user.role)) {
+        return NextResponse.json(
+          { error: 'Insufficient permissions' },
+          { status: 403 }
+        );
+      }
+      const date = postingDate?.trim() || getCurrentDateISO();
+      const parsedDate = parseDate(date);
+      const cutoff = await getRuntimeAccountingCutoverDate('clothing');
+      if (
+        !/^\d{4}-\d{2}-\d{2}$/.test(date) ||
+        !parsedDate ||
+        parsedDate.toISOString().slice(0, 10) !== date ||
+        parsedDate < cutoff ||
+        date > getCurrentDateISO()
+      ) {
+        throw new FinancialOperationError(
+          'Transfer date must be a valid clothing accounting date no later than today in Asia/Manila.',
+          400
+        );
+      }
+      const result = await runFinancialRequest(
+        financialRequestId(request.headers),
+        'INVENTORY_TRANSFER',
+        { ...parsed.data, postingDate: date },
+        (tx, requestId) =>
+          transferInventoryCostLots(
+            tx,
+            {
+              productCode: normalizedCode,
+              transferToProductCode: parsed.data.transferToProductCode!,
+              quantity,
+              postingDate: date,
+              notes,
+              reverseTransfer: parsed.data.reverseTransfer,
+            },
+            requestId
+          )
+      );
+      return NextResponse.json(result, { status: 201 });
+    }
+    if (/^transfer\b/i.test(notes ?? '')) {
+      throw new FinancialOperationError(
+        'Transfers must be submitted as one atomic source/destination request.',
+        400
+      );
+    }
 
     return await prisma.$transaction(
       async (tx) => {
@@ -183,10 +255,11 @@ export async function POST(request: Request) {
           data: {
             productCode: normalizedCode,
             quantity,
+            ...(freeGoods ? { unitCost: 0, costBasis: 'FREE_GOODS' } : {}),
             fromBucket,
             toBucket,
             movementSource: 'inventory_adjustment',
-            movementType: 'adjustment',
+            movementType: freeGoods ? 'free_goods_receipt' : 'adjustment',
             postingDate: postingDate?.trim() || null,
             notes,
             supplierShortResolution:
@@ -208,6 +281,12 @@ export async function POST(request: Request) {
       { isolationLevel: 'Serializable' }
     );
   } catch (error) {
+    if (error instanceof FinancialOperationError) {
+      return NextResponse.json(
+        { error: error.message },
+        { status: error.status }
+      );
+    }
     if (
       error &&
       typeof error === 'object' &&
@@ -265,11 +344,19 @@ export async function PATCH(request: Request) {
         }
 
         // Only allow editing adjustment-style movements (keeps behavior predictable).
-        if (existing.movementSource === 'supplier_nonfulfillment') {
+        if (
+          [
+            'supplier_nonfulfillment',
+            'inventory_transfer',
+            'inventory_split',
+            'inventory_bundle',
+          ].includes(existing.movementSource ?? '') ||
+          existing.costBasis === 'FREE_GOODS'
+        ) {
           return NextResponse.json(
             {
               error:
-                'This shortage backs a posted supplier credit and cannot be edited independently.',
+                'This source-owned inventory event cannot be edited independently. Use its recorded workflow.',
             },
             { status: 409 }
           );
@@ -424,11 +511,19 @@ export async function DELETE(request: Request) {
         }
 
         // Only allow deleting adjustment-style movements.
-        if (existing.movementSource === 'supplier_nonfulfillment') {
+        if (
+          [
+            'supplier_nonfulfillment',
+            'inventory_transfer',
+            'inventory_split',
+            'inventory_bundle',
+          ].includes(existing.movementSource ?? '') ||
+          existing.costBasis === 'FREE_GOODS'
+        ) {
           return NextResponse.json(
             {
               error:
-                'This shortage backs a posted supplier credit and cannot be deleted independently.',
+                'This source-owned inventory event cannot be deleted independently. Use its recorded workflow.',
             },
             { status: 409 }
           );

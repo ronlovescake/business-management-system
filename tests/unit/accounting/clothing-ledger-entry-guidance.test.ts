@@ -1,5 +1,6 @@
-import { describe, expect, it } from 'vitest';
-import { act, renderHook } from '@testing-library/react';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import { act, renderHook, waitFor } from '@testing-library/react';
+import { useLedger } from '@/app/clothing/accounting/ledger/hooks/useLedger';
 import { useLedgerManualEntries } from '@/app/clothing/accounting/ledger/hooks/useLedgerManualEntries';
 import {
   CLOTHING_ENTRY_SCENARIOS,
@@ -120,4 +121,95 @@ describe('clothing ledger entry guidance', () => {
       creditAccount: 'Card Collections Clearing',
     });
   });
+});
+
+describe('shared ledger period response ordering', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it.each([
+    { apiBasePath: undefined, staleFailure: false },
+    { apiBasePath: undefined, staleFailure: true },
+    { apiBasePath: '/api/general-merchandise', staleFailure: false },
+    { apiBasePath: '/api/general-merchandise', staleFailure: true },
+  ])(
+    'preserves the latest period for $apiBasePath with staleFailure=$staleFailure',
+    async ({ apiBasePath, staleFailure }) => {
+      const pending: Array<{
+        resolve: (response: Response) => void;
+        reject: (error: Error) => void;
+      }> = [];
+      const response = (closing: number) =>
+        new Response(
+          JSON.stringify({
+            success: true,
+            data: {
+              entries: [
+                {
+                  id: String(closing),
+                  date: '2026-09-30',
+                  ref: 'PERIOD',
+                  account: 'Cash',
+                  debit: closing,
+                  credit: 0,
+                  balance: closing,
+                  description: 'Period response',
+                },
+              ],
+              stats: {
+                totalDebits: closing,
+                totalCredits: 0,
+                netChange: closing,
+                accounts: 1,
+                period: 'Last Month',
+              },
+              openingBalances: { Cash: 0 },
+              closingBalances: { Cash: closing },
+            },
+          }),
+          { status: 200 }
+        );
+      vi.stubGlobal(
+        'fetch',
+        vi.fn((input: RequestInfo | URL) => {
+          if (
+            new URL(String(input), 'http://localhost').pathname.endsWith(
+              '/accounting/ledger'
+            )
+          ) {
+            return new Promise<Response>((resolve, reject) =>
+              pending.push({ resolve, reject })
+            );
+          }
+          return Promise.resolve(
+            new Response(
+              JSON.stringify({ success: true, data: { entries: [] } }),
+              { status: 200 }
+            )
+          );
+        })
+      );
+      const { result } = renderHook(() => useLedger({ apiBasePath }));
+      await waitFor(() => expect(pending).toHaveLength(1));
+      act(() => {
+        result.current.setFilterAccount('Cash');
+        result.current.setPeriod('Last Month');
+      });
+      await waitFor(() => expect(pending).toHaveLength(2));
+      await act(async () => pending[1].resolve(response(50)));
+      expect(result.current.accountBalance?.closing).toBe(50);
+      await act(async () => {
+        if (staleFailure) {
+          pending[0].reject(new Error('Late obsolete request failed'));
+        } else {
+          pending[0].resolve(response(550));
+        }
+      });
+      expect(result.current.period).toBe('Last Month');
+      expect(result.current.entries.map((entry) => entry.id)).toEqual(['50']);
+      expect(result.current.accountBalance?.closing).toBe(50);
+      expect(result.current.loadError).toBeNull();
+    }
+  );
 });

@@ -2,8 +2,15 @@ import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
-import { toStoredSplitName, fromStoredSplitName } from '@/lib/inventory/splitTag';
+import {
+  toStoredSplitName,
+  fromStoredSplitName,
+} from '@/lib/inventory/splitTag';
 import { isStoredMixAndMatchName } from '@/lib/inventory/mixAndMatchTag';
+import {
+  FinancialOperationError,
+  runFinancialTransaction,
+} from '@/lib/accounting/financial-transactions';
 
 export const dynamic = 'force-dynamic';
 
@@ -11,6 +18,7 @@ interface ComponentInput {
   componentLabel: string;
   componentSku: string;
   componentPrice: number;
+  acquisitionUnitCost?: number | null;
   includedQuantity: number;
 }
 
@@ -26,6 +34,20 @@ function parseAndValidate(body: UpsertSplitRequest) {
   const splitSku = (body.splitSku ?? '').trim();
   const components = Array.isArray(body.components) ? body.components : [];
 
+  if (
+    components.some(
+      (component) =>
+        component.acquisitionUnitCost !== undefined &&
+        component.acquisitionUnitCost !== null &&
+        (!Number.isFinite(component.acquisitionUnitCost) ||
+          component.acquisitionUnitCost < 0)
+    )
+  ) {
+    return {
+      error: 'Component acquisition costs must be finite non-negative amounts.',
+    };
+  }
+
   if (!postingDate || !splitSku) {
     return {
       error: 'postingDate and splitSku are required',
@@ -37,6 +59,7 @@ function parseAndValidate(body: UpsertSplitRequest) {
       componentLabel: (c.componentLabel ?? '').trim(),
       componentSku: (c.componentSku ?? '').trim(),
       componentPrice: Number(c.componentPrice),
+      acquisitionUnitCost: c.acquisitionUnitCost ?? null,
       includedQuantity: Number(c.includedQuantity),
     }))
     .filter(
@@ -72,6 +95,7 @@ function formatSplitBatchResponse(row: {
     componentLabel: string;
     componentSku: string;
     componentPrice: number;
+    acquisitionUnitCost?: number | null;
     includedQuantity: number;
   }>;
 }) {
@@ -85,6 +109,7 @@ function formatSplitBatchResponse(row: {
       componentLabel: c.componentLabel,
       componentSku: c.componentSku,
       componentPrice: c.componentPrice,
+      acquisitionUnitCost: c.acquisitionUnitCost ?? null,
       includedQuantity: c.includedQuantity,
     })),
   };
@@ -100,6 +125,7 @@ async function validateSplitBatch(
       componentLabel: string;
       componentSku: string;
       componentPrice: number;
+      acquisitionUnitCost?: number | null;
       includedQuantity: number;
     }>;
   },
@@ -217,6 +243,7 @@ export async function POST(request: NextRequest) {
               componentLabel: c.componentLabel,
               componentSku: c.componentSku,
               componentPrice: c.componentPrice,
+              acquisitionUnitCost: c.acquisitionUnitCost ?? null,
               includedQuantity: c.includedQuantity,
             })),
           },
@@ -280,7 +307,16 @@ export async function PATCH(request: NextRequest) {
       );
     }
 
-    const updated = await prisma.$transaction(async (tx) => {
+    const updated = await runFinancialTransaction(async (tx) => {
+      const history = await tx.inventoryMovement.findFirst({
+        where: { notes: { startsWith: `split:${id}:` } },
+        select: { id: true },
+      });
+      if (history) {
+        throw new FinancialOperationError(
+          'An opened split definition is immutable. Its original piece quantities and acquisition costs must remain available.'
+        );
+      }
       // Validate: parent SKU must exist
       const parentProduct = await tx.product.findFirst({
         where: { productCode: parsed.splitSku, deletedAt: null },
@@ -309,6 +345,7 @@ export async function PATCH(request: NextRequest) {
               componentLabel: c.componentLabel,
               componentSku: c.componentSku,
               componentPrice: c.componentPrice,
+              acquisitionUnitCost: c.acquisitionUnitCost ?? null,
               includedQuantity: c.includedQuantity,
             })),
           },
@@ -323,6 +360,12 @@ export async function PATCH(request: NextRequest) {
       status: 200,
     });
   } catch (error) {
+    if (error instanceof FinancialOperationError) {
+      return NextResponse.json(
+        { error: error.message },
+        { status: error.status }
+      );
+    }
     logger.error('Failed to update split batch', error);
 
     const message =
@@ -368,12 +411,27 @@ export async function DELETE(request: NextRequest) {
       );
     }
 
-    // Note: We do NOT delete auto-created child Product rows
-    // because they may already have transaction history.
-    await prisma.splitBatch.delete({ where: { id } });
+    await runFinancialTransaction(async (tx) => {
+      const history = await tx.inventoryMovement.findFirst({
+        where: { notes: { startsWith: `split:${id}:` } },
+        select: { id: true },
+      });
+      if (history) {
+        throw new FinancialOperationError(
+          'An opened split definition cannot be deleted. Its original inventory and cost history must remain available.'
+        );
+      }
+      await tx.splitBatch.delete({ where: { id } });
+    });
 
     return NextResponse.json({ success: true }, { status: 200 });
   } catch (error) {
+    if (error instanceof FinancialOperationError) {
+      return NextResponse.json(
+        { error: error.message },
+        { status: error.status }
+      );
+    }
     logger.error('Failed to delete split batch', error);
     return NextResponse.json(
       { error: 'Failed to delete split batch' },

@@ -59,6 +59,7 @@ type SplitComponentFormRow = {
   componentLabel: string;
   componentSku: string;
   componentPrice: number;
+  acquisitionUnitCost?: number | null;
   includedQuantity: number;
   isSkuManual: boolean;
 };
@@ -355,6 +356,7 @@ export function SplitTab({ apiBasePath }: SplitTabProps) {
               componentLabel: c.componentLabel,
               componentSku: c.componentSku,
               componentPrice: Number(c.componentPrice) || 0,
+              acquisitionUnitCost: c.acquisitionUnitCost ?? null,
               includedQuantity: Number(c.includedQuantity) || 1,
               isSkuManual:
                 c.componentSku !==
@@ -420,6 +422,7 @@ export function SplitTab({ apiBasePath }: SplitTabProps) {
         componentLabel: c.componentLabel.trim(),
         componentSku: c.componentSku.trim(),
         componentPrice: Math.max(Number(c.componentPrice) || 0, 0),
+        acquisitionUnitCost: c.acquisitionUnitCost ?? null,
         includedQuantity: Math.max(Number(c.includedQuantity) || 1, 1),
       }))
       .filter((c) => c.componentLabel.length > 0 && c.componentSku.length > 0);
@@ -441,6 +444,7 @@ export function SplitTab({ apiBasePath }: SplitTabProps) {
         componentLabel: string;
         componentSku: string;
         componentPrice: number;
+        acquisitionUnitCost?: number | null;
         includedQuantity: number;
       }>;
     }) => {
@@ -589,7 +593,11 @@ export function SplitTab({ apiBasePath }: SplitTabProps) {
               {form.components.map((component, index) => (
                 <SimpleGrid
                   key={component.clientId}
-                  cols={{ base: 1, sm: 2, md: 5 }}
+                  cols={{
+                    base: 1,
+                    sm: 2,
+                    md: !apiBasePath || apiBasePath === '/api' ? 6 : 5,
+                  }}
                   spacing="md"
                 >
                   <TextInput
@@ -667,6 +675,31 @@ export function SplitTab({ apiBasePath }: SplitTabProps) {
                       }));
                     }}
                   />
+
+                  {(!apiBasePath || apiBasePath === '/api') && (
+                    <NumberInput
+                      label={index === 0 ? 'Acquisition Cost' : undefined}
+                      aria-label={`Acquisition cost ${index + 1}`}
+                      min={0}
+                      decimalScale={6}
+                      value={component.acquisitionUnitCost ?? ''}
+                      onChange={(value) =>
+                        setForm((previous) => ({
+                          ...previous,
+                          components: previous.components.map(
+                            (current, currentIndex) =>
+                              currentIndex === index
+                                ? {
+                                    ...current,
+                                    acquisitionUnitCost:
+                                      typeof value === 'number' ? value : null,
+                                  }
+                                : current
+                          ),
+                        }))
+                      }
+                    />
+                  )}
 
                   <NumberInput
                     label={index === 0 ? 'Included Qty' : undefined}

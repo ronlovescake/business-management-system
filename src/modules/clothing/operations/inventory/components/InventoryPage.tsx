@@ -211,6 +211,7 @@ export function InventoryPage({
   });
 
   const { handleMovementSubmit } = useInventoryAdjustmentSubmit({
+    atomicTransfers: !apiBasePath || apiBasePath === '/api',
     selectedProduct,
     transferToProduct,
     notes,

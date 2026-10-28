@@ -69,9 +69,27 @@ export function useInventoryAdjustmentSelection({
   setBucketQuantities,
   openAdjustmentModal,
 }: UseInventoryAdjustmentSelectionParams) {
+  const loadBucketQuantities = useCallback(
+    (productCode: string) => {
+      setBucketQuantities({
+        damaged_hold: productCode
+          ? getCurrentBucketQuantity(productCode, 'damaged_hold')
+          : 0,
+        scrap: productCode ? getCurrentBucketQuantity(productCode, 'scrap') : 0,
+        supplier_short: productCode
+          ? getCurrentBucketQuantity(productCode, 'supplier_short')
+          : 0,
+        additionals: productCode
+          ? getCurrentBucketQuantity(productCode, 'additionals')
+          : 0,
+      });
+    },
+    [getCurrentBucketQuantity, setBucketQuantities]
+  );
   const handleAdjustmentProductChange = useCallback(
     (value: string | null) => {
       const nextProductCode = (value ?? '').trim();
+      loadBucketQuantities(nextProductCode);
       setSelectedProduct(nextProductCode);
       setSearchQuery(nextProductCode);
       setTransferToProduct((previousProductCode) =>
@@ -87,6 +105,7 @@ export function useInventoryAdjustmentSelection({
     },
     [
       getLatestBucketNote,
+      loadBucketQuantities,
       normalizeProductCode,
       setNotes,
       setSearchQuery,
@@ -96,7 +115,9 @@ export function useInventoryAdjustmentSelection({
   );
 
   const openAdjustmentModalFromFilter = useCallback(() => {
-    const defaultProductCode = singleFilteredProductCode || searchQuery.trim();
+    const defaultProductCode =
+      singleFilteredProductCode || searchQuery.trim() || selectedProduct;
+    loadBucketQuantities(defaultProductCode);
 
     if (defaultProductCode) {
       setSelectedProduct(defaultProductCode);
@@ -109,8 +130,10 @@ export function useInventoryAdjustmentSelection({
     openAdjustmentModal();
   }, [
     getLatestBucketNote,
+    loadBucketQuantities,
     openAdjustmentModal,
     searchQuery,
+    selectedProduct,
     setNotes,
     setPostingDate,
     setSelectedProduct,
@@ -126,6 +149,7 @@ export function useInventoryAdjustmentSelection({
         return;
       }
 
+      loadBucketQuantities(code);
       setSelectedProduct(code);
       setSearchQuery(code);
       setPostingDate(getCurrentDateISO());
@@ -136,6 +160,7 @@ export function useInventoryAdjustmentSelection({
     },
     [
       getLatestBucketNote,
+      loadBucketQuantities,
       openAdjustmentModal,
       setNotes,
       setPostingDate,
@@ -167,28 +192,6 @@ export function useInventoryAdjustmentSelection({
       setTransferToProduct,
     ]
   );
-
-  useEffect(() => {
-    if (!selectedProduct) {
-      setBucketQuantities({
-        damaged_hold: 0,
-        scrap: 0,
-        supplier_short: 0,
-        additionals: 0,
-      });
-      return;
-    }
-
-    setBucketQuantities({
-      damaged_hold: getCurrentBucketQuantity(selectedProduct, 'damaged_hold'),
-      scrap: getCurrentBucketQuantity(selectedProduct, 'scrap'),
-      supplier_short: getCurrentBucketQuantity(
-        selectedProduct,
-        'supplier_short'
-      ),
-      additionals: getCurrentBucketQuantity(selectedProduct, 'additionals'),
-    });
-  }, [getCurrentBucketQuantity, selectedProduct, setBucketQuantities]);
 
   useEffect(() => {
     if (!selectedProduct) {

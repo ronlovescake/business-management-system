@@ -2,6 +2,12 @@ import { detectAccountType } from './account-classification';
 import type { ManualJournalLine } from './data-fetchers';
 
 export function projectProfitLossJournalLine(line: ManualJournalLine) {
+  if (
+    line.sourceType === 'INVESTOR_RETURN' &&
+    line.account === 'Investor Return Expense'
+  ) {
+    return null;
+  }
   const category = line.account.trim();
   if (!category || detectAccountType(category)) {
     return null;

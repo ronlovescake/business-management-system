@@ -5,6 +5,7 @@ import {
   buildPeriodLabel,
   parseDate,
   parseDateRangeFromParams,
+  endOfDay,
 } from '@/lib/accounting/date-utils';
 import {
   isCancelledOrderStatus,
@@ -234,7 +235,7 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
         if (!paymentAt) {
           return sum;
         }
-        if (recognizeAt && paymentAt > recognizeAt) {
+        if (recognizeAt && paymentAt > endOfDay(recognizeAt)) {
           return sum;
         }
         const amt = Number(p.amount ?? 0);

@@ -8,6 +8,7 @@ import { isFulfilledStatus, isReservedStatus } from '@/lib/inventory/statuses';
 import { isStoredMixAndMatchName } from '@/lib/inventory/mixAndMatchTag';
 import { allocateByAvailability } from '../lib/mixAndMatchAllocation';
 import { summarizeSplitChildAllocations } from '@/lib/inventory/splitAllocation';
+import { loadAvailableInventoryCostLots } from '@/lib/inventory/cost-lots';
 
 export interface StockCheckRequest {
   productCode: string;
@@ -110,7 +111,10 @@ function buildActualQuantityMap(params: {
   const { baseQuantityMap, movements } = params;
   const damagedDeltaByProduct = buildBucketDeltaMap(movements, 'damaged_hold');
   const supplierShortDeltaByProduct = buildBucketDeltaMap(
-    movements,
+    movements.filter(
+      (movement) =>
+        !(movement.notes ?? '').toLowerCase().startsWith('additionals')
+    ),
     'supplier_short'
   );
   const additionalsByProduct = new Map<string, number>();
@@ -122,12 +126,20 @@ function buildActualQuantityMap(params: {
     }
 
     if (
-      movement.fromBucket === 'supplier_short' &&
-      movement.toBucket === 'sellable' &&
+      ((movement.fromBucket === 'supplier_short' &&
+        movement.toBucket === 'sellable') ||
+        (movement.fromBucket === 'sellable' &&
+          movement.toBucket === 'supplier_short')) &&
       (movement.notes ?? '').toLowerCase().startsWith('additionals')
     ) {
       const current = additionalsByProduct.get(code) ?? 0;
-      additionalsByProduct.set(code, current + movement.quantity);
+      additionalsByProduct.set(
+        code,
+        current +
+          (movement.toBucket === 'sellable'
+            ? movement.quantity
+            : -movement.quantity)
+      );
     }
   });
 
@@ -529,8 +541,55 @@ async function checkSplitBatchStock(params: {
       fromBucket: true,
       toBucket: true,
       notes: true,
+      movementSource: true,
     },
   });
+
+  if (
+    parentMovementRows.some(
+      (movement) => movement.movementSource === 'inventory_split'
+    )
+  ) {
+    const parentLots = await loadAvailableInventoryCostLots(
+      prisma,
+      parentSku,
+      null,
+      null,
+      null
+    );
+    const remainingParentSets = (parentLots ?? []).reduce(
+      (sum, lot) => sum + lot.quantity,
+      0
+    );
+    if (normalizedProductCode === normalizeProductCode(parentSku)) {
+      return summarizeStatus(
+        productCode,
+        remainingParentSets,
+        requestedQuantity
+      );
+    }
+    const component = splitBatch.components.find(
+      (item) =>
+        normalizeProductCode(item.componentSku) === normalizedProductCode
+    );
+    const childLots = await loadAvailableInventoryCostLots(
+      prisma,
+      productCode,
+      null,
+      null,
+      null
+    );
+    const loosePieces = (childLots ?? []).reduce(
+      (sum, lot) => sum + lot.quantity,
+      0
+    );
+    return summarizeStatus(
+      productCode,
+      loosePieces + remainingParentSets * (component?.includedQuantity ?? 0),
+      requestedQuantity,
+      `Split-child of "${parentSku}": ${loosePieces} loose piece(s) + ${remainingParentSets} complete set(s) remaining`
+    );
+  }
 
   const directParentReservedBySku = new Map<string, number>();
   const directParentSoldBySku = new Map<string, number>();
@@ -539,11 +598,17 @@ async function checkSplitBatchStock(params: {
   splitTransactions.forEach((transaction) => {
     const normalizedCode = normalizeProductCode(transaction.productCode);
     const quantity = Math.max(transaction.quantity ?? 0, 0);
-    if (!normalizedCode || quantity <= 0 || normalizedCode !== normalizedParentSku) {
+    if (
+      !normalizedCode ||
+      quantity <= 0 ||
+      normalizedCode !== normalizedParentSku
+    ) {
       return;
     }
 
-    const normalizedStatus = (transaction.orderStatus ?? '').trim().toLowerCase();
+    const normalizedStatus = (transaction.orderStatus ?? '')
+      .trim()
+      .toLowerCase();
     if (
       normalizedStatus === 'ready for dispatch' ||
       normalizedStatus === 'checked out' ||
@@ -608,7 +673,8 @@ async function checkSplitBatchStock(params: {
 
   const availableStock =
     allocation?.childAvailableBySku.get(normalizedProductCode) ?? 0;
-  const loosePieces = allocation?.childLooseBySku.get(normalizedProductCode) ?? 0;
+  const loosePieces =
+    allocation?.childLooseBySku.get(normalizedProductCode) ?? 0;
   const remainingParentSets = allocation?.remainingParentSets ?? 0;
 
   return summarizeStatus(
@@ -696,9 +762,8 @@ async function checkMixAndMatchStock(params: {
     ).map(toMovementRecord),
   });
 
-  const getSellableOnHandWithFallback = createSellableOnHandResolver(
-    actualQuantityMap
-  );
+  const getSellableOnHandWithFallback =
+    createSellableOnHandResolver(actualQuantityMap);
 
   const bundleSellableSupplyBySku = new Map<string, number>();
   bundleSkusSharingComponents.forEach((bundleSku) => {
@@ -728,7 +793,10 @@ async function checkMixAndMatchStock(params: {
 
     const supply = getSellableOnHandWithFallback(componentCode);
     const demandRaw = componentDemandByProduct.get(normalizedCode) ?? 0;
-    initialAvailableByComponent.set(normalizedCode, Math.max(supply - demandRaw, 0));
+    initialAvailableByComponent.set(
+      normalizedCode,
+      Math.max(supply - demandRaw, 0)
+    );
   });
 
   const availableStock = componentCodes.reduce((sum, componentCode) => {
@@ -737,7 +805,9 @@ async function checkMixAndMatchStock(params: {
       return sum;
     }
 
-    return sum + Math.max(initialAvailableByComponent.get(normalizedCode) ?? 0, 0);
+    return (
+      sum + Math.max(initialAvailableByComponent.get(normalizedCode) ?? 0, 0)
+    );
   }, 0);
 
   return summarizeStatus(productCode, availableStock, requestedQuantity);
@@ -764,7 +834,9 @@ async function checkBundleStock(params: {
     mixComponentsBySku,
   } = params;
 
-  const componentCodes = bundleComponents.map((component) => component.componentProductCode);
+  const componentCodes = bundleComponents.map(
+    (component) => component.componentProductCode
+  );
   const bundleSkusSharingComponents = Array.from(
     new Set(
       componentCodes.flatMap((code) =>
@@ -819,7 +891,11 @@ async function checkBundleStock(params: {
           deletedAt: null,
           productCode: {
             in: Array.from(
-              new Set([...componentCodes, productCode, ...bundleSkusSharingComponents])
+              new Set([
+                ...componentCodes,
+                productCode,
+                ...bundleSkusSharingComponents,
+              ])
             ),
           },
         },
@@ -834,9 +910,8 @@ async function checkBundleStock(params: {
     ).map(toMovementRecord),
   });
 
-  const getSellableOnHandWithFallback = createSellableOnHandResolver(
-    actualQuantityMap
-  );
+  const getSellableOnHandWithFallback =
+    createSellableOnHandResolver(actualQuantityMap);
 
   const bundleSellableSupplyBySku = new Map<string, number>();
   [productCode, ...bundleSkusSharingComponents]
@@ -874,7 +949,10 @@ async function checkBundleStock(params: {
 
     const supply = getSellableOnHandWithFallback(componentCode);
     const demandRaw = componentDemandByProduct.get(normalizedCode) ?? 0;
-    initialAvailableByComponent.set(normalizedCode, Math.max(supply - demandRaw, 0));
+    initialAvailableByComponent.set(
+      normalizedCode,
+      Math.max(supply - demandRaw, 0)
+    );
   });
 
   const { componentDemandByProduct: mixDemandByProduct } = accumulateMixDemand(
@@ -892,7 +970,9 @@ async function checkBundleStock(params: {
       return;
     }
 
-    const supply = getSellableOnHandWithFallback(component.componentProductCode);
+    const supply = getSellableOnHandWithFallback(
+      component.componentProductCode
+    );
     const demandRaw =
       (componentDemandByProduct.get(normalizedCode) ?? 0) +
       (mixDemandByProduct.get(normalizedCode) ?? 0);
@@ -913,7 +993,10 @@ async function checkBundleStock(params: {
 
   const bundleSellableSupply = getSellableOnHandWithFallback(productCode);
   const bundleDemandRaw = bundleDemandBySku.get(normalizedProductCode) ?? 0;
-  const assembledAvailable = Math.max(bundleSellableSupply - bundleDemandRaw, 0);
+  const assembledAvailable = Math.max(
+    bundleSellableSupply - bundleDemandRaw,
+    0
+  );
   const bundleAvailable = assembledAvailable + componentBundlesAvailable;
 
   return summarizeStatus(
@@ -1008,7 +1091,11 @@ async function checkDirectProductStock(params: {
         where: {
           deletedAt: null,
           productCode: {
-            in: [productCode, ...bundleSkusThatUseProduct, ...mixComponentCodes],
+            in: [
+              productCode,
+              ...bundleSkusThatUseProduct,
+              ...mixComponentCodes,
+            ],
           },
         },
         select: {
@@ -1029,7 +1116,10 @@ async function checkDirectProductStock(params: {
       return;
     }
 
-    bundleSellableSupplyBySku.set(normalizedSku, actualQuantityMap.get(normalizedSku) ?? 0);
+    bundleSellableSupplyBySku.set(
+      normalizedSku,
+      actualQuantityMap.get(normalizedSku) ?? 0
+    );
   });
 
   const { componentDemandByProduct } = accumulateDemand(
@@ -1051,7 +1141,10 @@ async function checkDirectProductStock(params: {
       fallbackQuantity: actualQuantityMap.get(normalizedCode) ?? 0,
     });
     const demandRaw = componentDemandByProduct.get(normalizedCode) ?? 0;
-    initialAvailableByComponent.set(normalizedCode, Math.max(supply - demandRaw, 0));
+    initialAvailableByComponent.set(
+      normalizedCode,
+      Math.max(supply - demandRaw, 0)
+    );
   });
 
   const { componentDemandByProduct: mixDemandByProduct } = accumulateMixDemand(
@@ -1067,11 +1160,7 @@ async function checkDirectProductStock(params: {
   );
   const onhand = actualQuantityMap.get(normalizedProductCode) ?? 0;
 
-  return summarizeStatus(
-    productCode,
-    onhand - totalOrder,
-    requestedQuantity
-  );
+  return summarizeStatus(productCode, onhand - totalOrder, requestedQuantity);
 }
 
 export async function checkClothingStock(

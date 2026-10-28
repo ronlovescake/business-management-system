@@ -33,6 +33,13 @@
 
 ## C — Documentation Notes
 
+The shared hook preserves the GM API's whole-statement `stats` under search,
+including a genuine nonzero equation result; it no longer recalculates those
+cards from filtered signed rows. Shared as-of controls retain Manila today after
+past-date selection without duplicate options. These interaction regressions
+are covered by the shared tests; no GM recognition/valuation rule or source data
+is changed, and Clothing browser evidence is not a full GM reconciliation.
+
 | #   | Logic                                                                                                                   | Explanation                                                  |
 | --- | ----------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------ |
 | 11  | The GM balance sheet is still a GM-specific business workflow even though the implementation is shared                  | The route is user-visible and tied to GM accounting records. |

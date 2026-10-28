@@ -8,6 +8,7 @@ import {
   formatQty,
   INVENTORY_ASSET_BUCKETS,
   isWithin,
+  isKnownZeroAcquisitionCost,
   normalizeIdSegment,
   pickMovementDate,
   pickUnitCostFromProductRow,
@@ -119,6 +120,8 @@ async function computeInventorySeedAndShrinkageByDate(params: {
       productCode: true,
       quantity: true,
       unitCost: true,
+      costBasis: true,
+      sourceMovementId: true,
       fromBucket: true,
       toBucket: true,
       notes: true,
@@ -235,6 +238,7 @@ async function computeInventorySeedAndShrinkageByDate(params: {
     const code = (m.productCode ?? '').trim();
     const snapshotUnitCost = Number(m.unitCost ?? 0);
     const unitCost =
+      isKnownZeroAcquisitionCost(m) ||
       m.costBasisProjected ||
       (Number.isFinite(snapshotUnitCost) && snapshotUnitCost > 0)
         ? snapshotUnitCost
@@ -321,6 +325,8 @@ export async function buildCogsAndInventoryEntries(params: {
       productCode: true,
       quantity: true,
       unitCost: true,
+      costBasis: true,
+      sourceMovementId: true,
       fromBucket: true,
       toBucket: true,
       notes: true,

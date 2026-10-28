@@ -54,6 +54,27 @@ export function buildInventoryItems(
   //   except fulfilled, including Accounts Receivable shipments.
   // Accounting posting/recognition rules remain unchanged elsewhere.
   const committedQtyByProduct = new Map<string, number>();
+  const conversionDeltaByProduct = new Map<string, number>();
+  const physicalSplitCodes = new Set<string>();
+  movements.forEach((movement) => {
+    if (
+      movement.movementSource !== 'inventory_split' &&
+      movement.movementSource !== 'inventory_bundle'
+    ) {
+      return;
+    }
+    const code = normalizeProductCode(movement.productCode);
+    if (movement.movementSource === 'inventory_split') {
+      physicalSplitCodes.add(code);
+    }
+    const delta =
+      (movement.toBucket === 'sellable' ? movement.quantity : 0) -
+      (movement.fromBucket === 'sellable' ? movement.quantity : 0);
+    conversionDeltaByProduct.set(
+      code,
+      (conversionDeltaByProduct.get(code) ?? 0) + delta
+    );
+  });
 
   const damagedDeltaByProduct = buildBucketDeltaMap(movements, 'damaged_hold');
   const supplierShortDeltaByProduct = new Map<string, number>();
@@ -114,7 +135,10 @@ export function buildInventoryItems(
       return;
     }
 
-    if (splitParentByChildSku.has(normalizedProductCode)) {
+    if (
+      splitParentByChildSku.has(normalizedProductCode) &&
+      !physicalSplitCodes.has(normalizedProductCode)
+    ) {
       return;
     }
 
@@ -122,7 +146,9 @@ export function buildInventoryItems(
     const fulfilledStatus = isFulfilledStatus(orderStatus);
     const shouldCountAsRevenue =
       isReservedStatus(orderStatus) || fulfilledStatus;
-    const shouldCountAsReserved = !soldOrderStatuses.has(normalizedOrderStatus);
+    const shouldCountAsReserved =
+      !soldOrderStatuses.has(normalizedOrderStatus) &&
+      !postedSaleTransactionIds.has(Number(transaction.id));
 
     if (shouldCountAsReserved) {
       const currentCommitted =
@@ -158,7 +184,11 @@ export function buildInventoryItems(
     splitBatches,
     transactions: transactions
       .filter(
-        (transaction) => !postedSaleTransactionIds.has(Number(transaction.id))
+        (transaction) =>
+          !postedSaleTransactionIds.has(Number(transaction.id)) &&
+          !physicalSplitCodes.has(
+            normalizeProductCode(transaction['Product Code'])
+          )
       )
       .map((transaction) => ({
         productCode: transaction['Product Code'],
@@ -348,7 +378,11 @@ export function buildInventoryItems(
     const actualQuantityReceived = nonfulfilled
       ? 0
       : Math.max(
-          quantity + additionalsQty - manualSupplierShortQty - damagedOnHand,
+          quantity +
+            additionalsQty -
+            manualSupplierShortQty -
+            damagedOnHand +
+            (conversionDeltaByProduct.get(normalizedProductCode) ?? 0),
           0
         );
     const directSellableQty = nonfulfilled
@@ -480,7 +514,11 @@ export function buildInventoryItems(
     const supplyQuantity =
       supplyQuantityByProduct.get(normalizedProductCode) ??
       Math.max(
-        quantity + additionalsQty - manualSupplierShortQty - damagedOnHand,
+        quantity +
+          additionalsQty -
+          manualSupplierShortQty -
+          damagedOnHand +
+          (conversionDeltaByProduct.get(normalizedProductCode) ?? 0),
         0
       );
     const shipmentStatus = product['Shipment Status'] || '';

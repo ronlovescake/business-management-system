@@ -183,26 +183,6 @@ export function useBalanceSheet(options: { apiBasePath?: string } = {}) {
       );
   }, [rows, searchQuery]);
 
-  const filteredStats = useMemo<BalanceSheetStats>(() => {
-    const assets = filteredRows
-      .filter((row) => row.type === 'Asset')
-      .reduce((sum, row) => sum + row.amount, 0);
-    const liabilities = filteredRows
-      .filter((row) => row.type === 'Liability')
-      .reduce((sum, row) => sum + row.amount, 0);
-    const equity = filteredRows
-      .filter((row) => row.type === 'Equity')
-      .reduce((sum, row) => sum + row.amount, 0);
-
-    return {
-      assets,
-      liabilities,
-      equity,
-      balance: assets - liabilities - equity,
-      asOf: stats.asOf,
-    };
-  }, [filteredRows, stats.asOf]);
-
   const toDisplayAmount = (row: BalanceSheetRow, amount: number) =>
     row.type === 'Asset' ? amount : -amount;
 
@@ -379,7 +359,7 @@ export function useBalanceSheet(options: { apiBasePath?: string } = {}) {
     transitBreakdownRows: transitBreakdownData.rows,
     transitBreakdownTotalRows: transitBreakdownData.totalRows,
     transitBreakdownSummary: transitBreakdownData.summary,
-    stats: filteredStats,
+    stats,
     asOf,
     setAsOf,
     searchQuery,

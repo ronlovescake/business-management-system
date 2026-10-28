@@ -9,6 +9,125 @@ import type {
 } from '../../types';
 
 describe('buildInventoryItems', () => {
+  it('projects recorded split pieces and partial returns without reopening or double-counting a parent set', () => {
+    const products: ProductFromAPI[] = ['SET', 'TOP', 'BOTTOM'].map(
+      (code, index) => ({
+        id: String(index + 1),
+        'Product Code': code,
+        Quantity: index === 0 ? 10 : 0,
+        COGS: 0,
+        'Actual Price': index === 0 ? 20 : 5,
+        'Shipment Code': null,
+        'Shipment Status': 'Delivered',
+      })
+    );
+    const splitBatches: SplitBatchFromAPI[] = [
+      {
+        id: 1,
+        postingDate: '2026-10-28',
+        splitName: 'Set',
+        splitSku: 'SET',
+        components: [
+          {
+            componentLabel: 'Top',
+            componentSku: 'TOP',
+            componentPrice: 50,
+            includedQuantity: 2,
+          },
+          {
+            componentLabel: 'Bottom',
+            componentSku: 'BOTTOM',
+            componentPrice: 50,
+            includedQuantity: 1,
+          },
+        ],
+      },
+    ];
+    const movements: InventoryMovementFromAPI[] = [
+      {
+        id: 1,
+        productCode: 'SET',
+        quantity: 1,
+        fromBucket: 'sellable',
+        toBucket: 'opening_inventory',
+        movementSource: 'inventory_split',
+        movementType: 'split_open',
+        notes: 'split:1: opening',
+      },
+      {
+        id: 2,
+        productCode: 'TOP',
+        quantity: 2,
+        fromBucket: 'opening_inventory',
+        toBucket: 'sellable',
+        movementSource: 'inventory_split',
+        movementType: 'split_piece_receipt',
+        notes: 'split:1: opening',
+      },
+      {
+        id: 3,
+        productCode: 'BOTTOM',
+        quantity: 1,
+        fromBucket: 'opening_inventory',
+        toBucket: 'sellable',
+        movementSource: 'inventory_split',
+        movementType: 'split_piece_receipt',
+        notes: 'split:1: opening',
+      },
+      {
+        id: 4,
+        productCode: 'TOP',
+        quantity: 2,
+        fromBucket: 'reserved',
+        toBucket: 'sold',
+        movementSource: 'transaction',
+        movementType: 'sale',
+        sourceTransactionId: 7,
+      },
+      {
+        id: 5,
+        productCode: 'TOP',
+        quantity: 1,
+        fromBucket: 'sold',
+        toBucket: 'sellable',
+        movementSource: 'customer_refund',
+        movementType: 'return',
+        sourceTransactionId: 7,
+      },
+    ];
+    const transactions: TransactionFromAPI[] = [
+      {
+        id: '7',
+        'Product Code': 'TOP',
+        Quantity: 2,
+        'Unit Price': 50,
+        'Order Status': 'Accounts Receivable',
+      },
+    ];
+    const result = buildInventoryItems(
+      products,
+      transactions,
+      [],
+      movements,
+      [],
+      splitBatches
+    );
+    expect(result.find((item) => item.productCode === 'SET')).toMatchObject({
+      actualQuantityReceived: 9,
+      availableStock: 9,
+      soldQty: 0,
+    });
+    expect(result.find((item) => item.productCode === 'TOP')).toMatchObject({
+      actualQuantityReceived: 2,
+      availableStock: 1,
+      soldQty: 2,
+    });
+    expect(result.find((item) => item.productCode === 'BOTTOM')).toMatchObject({
+      actualQuantityReceived: 1,
+      availableStock: 1,
+    });
+  });
+
   it.each(['Shipped', 'Cancelled', 'Voided'])(
     'preserves an identified actual sale after status %s without double counting',
     (status) => {

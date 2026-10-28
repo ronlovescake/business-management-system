@@ -3,6 +3,10 @@ import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
 import {
+  FinancialOperationError,
+  runFinancialTransaction,
+} from '@/lib/accounting/financial-transactions';
+import {
   fromStoredMixAndMatchName,
   isStoredMixAndMatchName,
   toStoredMixAndMatchName,
@@ -24,22 +28,6 @@ type UpsertMixAndMatchRequest = {
   price: number;
   components: ComponentInput[];
 };
-
-function buildAutoReserveMovementNote(transactionId: number) {
-  return `auto-reserve txn ${transactionId}`;
-}
-
-function buildAutoSaleMovementNote(transactionId: number) {
-  return `auto-sale txn ${transactionId}`;
-}
-
-function buildAutoMixReserveMovementPrefix(transactionId: number) {
-  return `auto-reserve txn ${transactionId} mix `;
-}
-
-function buildAutoMixSaleMovementPrefix(transactionId: number) {
-  return `auto-sale txn ${transactionId} mix `;
-}
 
 function parseAndValidate(body: UpsertMixAndMatchRequest) {
   const postingDate = (body.postingDate ?? '').trim();
@@ -210,23 +198,36 @@ export async function PATCH(request: NextRequest) {
       );
     }
 
-    const updated = await prisma.bundleBatch.update({
-      where: { id },
-      data: {
-        postingDate: parsed.postingDate,
-        bundleName: toStoredMixAndMatchName(parsed.mixAndMatchName),
-        bundleSku: parsed.mixAndMatchSku,
-        quantity: parsed.quantity,
-        price: parsed.price,
-        components: {
-          deleteMany: {},
-          create: parsed.normalizedComponents.map((component) => ({
-            componentProductCode: component.productCode,
-            includedQuantity: component.includedQuantity,
-          })),
+    const updated = await runFinancialTransaction(async (tx) => {
+      const used = await tx.transaction.findFirst({
+        where: {
+          productCode: { equals: existing.bundleSku, mode: 'insensitive' },
         },
-      },
-      include: { components: true },
+        select: { id: true },
+      });
+      if (used) {
+        throw new FinancialOperationError(
+          'A used mix definition is immutable. Its original fulfilled component and cost allocations must remain available.'
+        );
+      }
+      return tx.bundleBatch.update({
+        where: { id },
+        data: {
+          postingDate: parsed.postingDate,
+          bundleName: toStoredMixAndMatchName(parsed.mixAndMatchName),
+          bundleSku: parsed.mixAndMatchSku,
+          quantity: parsed.quantity,
+          price: parsed.price,
+          components: {
+            deleteMany: {},
+            create: parsed.normalizedComponents.map((component) => ({
+              componentProductCode: component.productCode,
+              includedQuantity: component.includedQuantity,
+            })),
+          },
+        },
+        include: { components: true },
+      });
     });
 
     return NextResponse.json(
@@ -246,6 +247,12 @@ export async function PATCH(request: NextRequest) {
       { status: 200 }
     );
   } catch (error) {
+    if (error instanceof FinancialOperationError) {
+      return NextResponse.json(
+        { error: error.message },
+        { status: error.status }
+      );
+    }
     logger.error('Failed to update mix & match row', error);
 
     const message =
@@ -276,7 +283,7 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: 'id is required' }, { status: 400 });
     }
 
-    const deleted = await prisma.$transaction(async (tx) => {
+    const deleted = await runFinancialTransaction(async (tx) => {
       const existing = await tx.bundleBatch.findUnique({ where: { id } });
 
       if (!existing || !isStoredMixAndMatchName(existing.bundleName)) {
@@ -295,31 +302,9 @@ export async function DELETE(request: NextRequest) {
       });
 
       if (relatedTransactions.length > 0) {
-        const now = new Date();
-        const movementFilters = relatedTransactions.flatMap(
-          ({ id: transactionId }) => [
-            { notes: buildAutoReserveMovementNote(transactionId) },
-            { notes: buildAutoSaleMovementNote(transactionId) },
-            {
-              notes: {
-                startsWith: buildAutoMixReserveMovementPrefix(transactionId),
-              },
-            },
-            {
-              notes: {
-                startsWith: buildAutoMixSaleMovementPrefix(transactionId),
-              },
-            },
-          ]
+        throw new FinancialOperationError(
+          'A used mix definition cannot be deleted. Its recorded inventory and cost history must remain available.'
         );
-
-        await tx.inventoryMovement.updateMany({
-          where: {
-            deletedAt: null,
-            OR: movementFilters,
-          },
-          data: { deletedAt: now },
-        });
       }
 
       await tx.bundleBatch.delete({ where: { id } });
@@ -335,6 +320,12 @@ export async function DELETE(request: NextRequest) {
 
     return NextResponse.json({ success: true }, { status: 200 });
   } catch (error) {
+    if (error instanceof FinancialOperationError) {
+      return NextResponse.json(
+        { error: error.message },
+        { status: error.status }
+      );
+    }
     logger.error('Failed to delete mix & match row', error);
     return NextResponse.json(
       { error: 'Failed to delete mix & match row' },

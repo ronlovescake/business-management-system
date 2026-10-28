@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Alert,
   Button,
@@ -43,6 +43,7 @@ import {
 import { normalizeProductCode } from '@/lib/inventory/movements';
 import { buildApiPath } from '@/lib/api/paths';
 import { createClientId, toInventoryProduct } from '../lib/formHelpers';
+import { randomUuid } from '@/lib/utils/randomUuid';
 
 type BundleComponentRow = {
   clientId: string;
@@ -91,6 +92,7 @@ export function BundlesTab({ apiBasePath }: BundlesTabProps) {
   const [editingBundleId, setEditingBundleId] = useState<number | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [isBundleModalOpen, setIsBundleModalOpen] = useState(false);
+  const createRequestId = useRef<string | null>(null);
 
   const bundlesQueryKey = useMemo(
     () => [...queryKeys.bundles.lists(), apiBasePath ?? 'default'],
@@ -239,10 +241,18 @@ export function BundlesTab({ apiBasePath }: BundlesTabProps) {
 
   const createMutation = useMutation({
     mutationFn: async (payload: CreateBundleInput) => {
-      return await BundleService.createBundle(payload, apiBasePath);
+      createRequestId.current ??= randomUuid();
+      return await BundleService.createBundle(
+        payload,
+        apiBasePath,
+        createRequestId.current
+      );
     },
     onSuccess: () => {
+      createRequestId.current = null;
       queryClient.invalidateQueries({ queryKey: bundlesQueryKey });
+      queryClient.invalidateQueries({ queryKey: productsQueryKey });
+      queryClient.invalidateQueries({ queryKey: ['inventory-movements'] });
       setForm(createEmptyBundle());
       setIsBundleSkuManual(false);
       setEditingBundleId(null);
@@ -307,6 +317,7 @@ export function BundlesTab({ apiBasePath }: BundlesTabProps) {
   const isSaving = createMutation.isPending || updateMutation.isPending;
 
   const handleOpenCreate = () => {
+    createRequestId.current = randomUuid();
     setForm(createEmptyBundle());
     setEditingBundleId(null);
     setIsBundleSkuManual(false);

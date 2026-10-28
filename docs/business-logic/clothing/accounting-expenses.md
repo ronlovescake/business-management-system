@@ -8,6 +8,42 @@
 
 ---
 
+## Reconciliation And Historical Limits
+
+Verified on 2026-10-28 against an isolated real application/database:
+
+- Pending/rejected expenses do not post to financial reports. Approved expenses
+  accrue Accounts Payable; paying the same expense changes its funding account,
+  not its expense amount. Paid Cash 100 plus paid CARD 40 produces expense 140,
+  Cash outflow 100 and Credit Card Payable 40 across Journal, Ledger, P&L
+  summary/details and Balance Sheet.
+- The operational list/cards/CSV include all matching statuses. In that fixture,
+  pending/rejected 110 made the CSV total 250, not the financial expense 140.
+  Approved Total is only the still-approved subset, not approved plus paid.
+- Products and Shipments own purchase/logistics capitalization. Their automatic
+  expense-posting flags are disabled; do not enter those costs again here merely
+  to make an Expenses total equal an inventory asset. Legacy source-linked
+  approved/paid expense rows still require duplicate/source-ownership review.
+- Successful create/update/delete/bulk mutations cancel superseded expense
+  queries before refetching. This prevents a slow initial response from hiding
+  saved changes. The shared cache repair is tested for Clothing, GM and Trucking;
+  their services, query keys, permissions and financial policies stay separate.
+
+Two high-severity historical defects remain **unresolved**. Paying a September
+30 approved expense today moves Cash on September 30 because only the original
+`Expense.date` and mutable status/funding are represented. Deleting that paid
+expense removes its earlier statement effect without a dated reversal. A balanced
+statement therefore does not certify historical event timing or completeness.
+The intended status sequence below is not proof of an immutable server-side
+settlement lifecycle. The accounting owner must approve actual settlement-date,
+reversal, single/bulk/import and legacy-correction rules before remediation.
+
+See the [expanded accounting evidence](../../reports/CLOTHING_SUPPLIER_RECONCILIATION_2026-10-27.md#expanded-accounting-analysis-2026-10-28)
+for the exact amounts, responsible code, reproductions and remaining limits.
+The owner-requested [remediation proposal](../../reports/CLOTHING_SUPPLIER_RECONCILIATION_2026-10-27.md#expense-remediation-proposal)
+is for review only. It does not change this current contract or authorize
+implementation, migrations, legacy-date inference or business-data repair.
+
 ## Recurring Ledger Payments
 
 The [clothing recurring service](../../../src/modules/clothing/ledger/recurringPayments/api/service.ts)
@@ -42,35 +78,35 @@ recurring implementation.
 
 ## B - Expense Status Lifecycle
 
-| #   | Logic                                                                                | Explanation                                                                                                            |
-| --- | ------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------- |
-| 7   | Status flow: `pending` → `approved` or `rejected`; `approved` → `paid`               | No backwards transitions.                                                                                              |
-| 8   | `pending`: default on creation                                                       | Awaiting manager approval.                                                                                             |
-| 9   | `approved`: manually approved                                                        | Sets `status = 'approved'`; no SweetAlert2, direct action. Success: Mantine notification `'Expense approved'` (green). |
-| 10  | `rejected`: manually rejected                                                        | Sets `status = 'rejected'`; direct action. Success notification `'Expense rejected'` (green).                          |
-| 11  | `paid`: expense has been disbursed                                                   | Status transition from approved.                                                                                       |
-| 12  | `systemGenerated` flag: records auto-created by the system (e.g. payroll, shipments) | Used to identify non-manual records; may be excluded from certain views.                                               |
+| #   | Logic                                                                                | Explanation                                                                                                                                |
+| --- | ------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| 7   | Intended UI flow: `pending` → `approved` or `rejected`; `approved` → `paid`          | Do not infer immutable settlement events or complete API/import transition enforcement from these UI actions; see historical limits above. |
+| 8   | `pending`: default on creation                                                       | Awaiting manager approval.                                                                                                                 |
+| 9   | `approved`: manually approved                                                        | Sets `status = 'approved'`; no SweetAlert2, direct action. Success: Mantine notification `'Expense approved'` (green).                     |
+| 10  | `rejected`: manually rejected                                                        | Sets `status = 'rejected'`; direct action. Success notification `'Expense rejected'` (green).                                              |
+| 11  | `paid`: expense has been disbursed                                                   | Status transition from approved.                                                                                                           |
+| 12  | `systemGenerated` flag: records auto-created by the system (e.g. payroll, shipments) | Used to identify non-manual records; may be excluded from certain views.                                                                   |
 
 ---
 
 ## C - Add / Edit Expense Form
 
-| #   | Logic                                                                                        | Explanation                                                                                                        |
-| --- | -------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
-| 13  | "Add New Expense" opens the form in create mode                                              | `editingExpense = null`. Modal title: `'Add New Expense'`; subtitle: `'Fill in the details to add a new expense'`. |
-| 14  | "Edit" row action pre-fills the form with the selected record                                | Modal title: `'Edit Expense'`; subtitle: `'Update the expense details below'`.                                     |
-| 15  | Date (required): DateInput with standard date input props                                    | Cannot be empty.                                                                                                   |
-| 16  | Category (required): Select from `expenseCategoryOptions`; searchable; dropdown height 400px | Must select a category from the list.                                                                              |
-| 17  | Amount (required): NumberInput with ₱ prefix, 2 decimal scale, minimum 0                     | Must be > 0.                                                                                                       |
-| 18  | Description (required): TextInput                                                            | Cannot be empty.                                                                                                   |
-| 19  | Notes (optional): Textarea, minimum 3 rows                                                   | Free-form notes.                                                                                                   |
-| 20  | Receipt (optional): FileButton accepting `image/*` and `application/pdf`                     | Stored as a data URL in component state.                                                                           |
-| 21  | Account (optional): Select from `accountOptions` if provided                                 | Associates the expense with a ledger account.                                                                      |
-| 22  | Trip ID (optional): TextInput shown only when `showTripId = true`                            | Context-specific field for trip-linked expenses.                                                                   |
-| 23  | "Save and add new" button available during create mode only                                  | After saving, clears the form and keeps the modal open for another entry.                                          |
-| 24  | "Add Expense" / "Update Expense" submit button is disabled while form is invalid             | Controlled by `isValid` form state.                                                                                |
-| 25  | On successful create: Mantine notification `'Expense created successfully'` (green)          | Modal closes automatically.                                                                                        |
-| 26  | On successful update: Mantine notification `'Expense updated successfully'` (green)          | Modal closes automatically.                                                                                        |
+| #   | Logic                                                                                        | Explanation                                                                         |
+| --- | -------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------- |
+| 13  | "Add Expense" opens the form in create mode                                                  | `editingExpense = null`. Clothing modal title: `'Add Clothing Operations Expense'`. |
+| 14  | "Edit" row action pre-fills the form with the selected record                                | Modal title: `'Edit Expense'`; subtitle: `'Update the expense details below'`.      |
+| 15  | Date (required): DateInput with standard date input props                                    | Cannot be empty.                                                                    |
+| 16  | Category (required): Select from `expenseCategoryOptions`; searchable; dropdown height 400px | Must select a category from the list.                                               |
+| 17  | Amount (required): NumberInput with ₱ prefix, 2 decimal scale, minimum 0                     | Must be > 0.                                                                        |
+| 18  | Description (required): TextInput                                                            | Cannot be empty.                                                                    |
+| 19  | Notes (optional): Textarea, minimum 3 rows                                                   | Free-form notes.                                                                    |
+| 20  | Receipt (optional): FileButton accepting `image/*` and `application/pdf`                     | Stored as a data URL in component state.                                            |
+| 21  | Account (optional): Select from `accountOptions` if provided                                 | Associates the expense with a ledger account.                                       |
+| 22  | Trip ID (optional): TextInput shown only when `showTripId = true`                            | Context-specific field for trip-linked expenses.                                    |
+| 23  | "Save and add new" button available during create mode only                                  | After saving, clears the form and keeps the modal open for another entry.           |
+| 24  | "Add Expense" / "Update Expense" submit button is disabled while form is invalid             | Controlled by `isValid` form state.                                                 |
+| 25  | On successful create: Mantine notification `'Expense created successfully'` (green)          | Modal closes automatically.                                                         |
+| 26  | On successful update: Mantine notification `'Expense updated successfully'` (green)          | Modal closes automatically.                                                         |
 
 ---
 

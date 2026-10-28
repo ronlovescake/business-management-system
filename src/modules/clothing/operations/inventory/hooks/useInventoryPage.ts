@@ -1,7 +1,8 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { showNotification } from '@mantine/notifications';
 import { showInfo } from '@/lib/alerts';
 import { logger } from '@/lib/logger';
+import { randomUuid } from '@/lib/utils/randomUuid';
 import {
   calculateTotals,
   extractApiData,
@@ -60,6 +61,10 @@ export const useInventoryPage = (
   >([]);
   const [splitBatches, setSplitBatches] = useState<SplitBatchFromAPI[]>([]);
   const [movements, setMovements] = useState<InventoryMovementFromAPI[]>([]);
+  const pendingMovementRequest = useRef<{
+    payload: string;
+    key: string;
+  } | null>(null);
 
   const fetchInventoryData = useCallback(async () => {
     try {
@@ -266,16 +271,34 @@ export const useInventoryPage = (
       payload: Pick<
         InventoryMovementFromAPI,
         'productCode' | 'quantity' | 'fromBucket' | 'toBucket' | 'postingDate'
-      > & { notes?: string | null }
+      > & {
+        notes?: string | null;
+        transferToProductCode?: string;
+        reverseTransfer?: boolean;
+      }
     ) => {
       setIsSubmittingMovement(true);
+      const requestBody = JSON.stringify(payload);
+      if (
+        !pendingMovementRequest.current ||
+        pendingMovementRequest.current.payload !== requestBody
+      ) {
+        pendingMovementRequest.current = {
+          payload: requestBody,
+          key: randomUuid(),
+        };
+      }
+      const requestId = pendingMovementRequest.current.key;
       try {
         const response = await fetch(
           buildApiPath(apiBasePath, '/inventory/movements'),
           {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload),
+            headers: {
+              'Content-Type': 'application/json',
+              'Idempotency-Key': requestId,
+            },
+            body: requestBody,
           }
         );
 
@@ -285,7 +308,10 @@ export const useInventoryPage = (
           throw new Error(message);
         }
 
-        const body = await response.json().catch(() => ({}));
+        const body = await response.json();
+        if (pendingMovementRequest.current?.key === requestId) {
+          pendingMovementRequest.current = null;
+        }
         await fetchInventoryData();
         return body?.data as InventoryMovementFromAPI;
       } catch (error) {

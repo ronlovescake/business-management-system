@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { Prisma } from '@prisma/client';
 
 const state = vi.hoisted(() => ({
@@ -27,6 +27,7 @@ const state = vi.hoisted(() => ({
   },
   clothingSupplierCreditApplication: { findUnique: vi.fn(), create: vi.fn() },
   clothingProductShipmentTransfer: { findUnique: vi.fn(), create: vi.fn() },
+  $queryRaw: vi.fn(),
   $transaction: vi.fn(),
 }));
 vi.mock('@/lib/db', () => ({ prisma: state }));
@@ -82,6 +83,9 @@ const apply = () => ({
 describe('supplier nonfulfillment, credit funding and shipment transfers', () => {
   beforeEach(() => {
     vi.resetAllMocks();
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date('2026-10-28T04:00:00Z'));
+    state.$queryRaw.mockResolvedValue([]);
     state.user = { id: 'admin', role: 'ADMIN' };
     state.$transaction.mockImplementation(async (operation) =>
       operation(state)
@@ -110,6 +114,131 @@ describe('supplier nonfulfillment, credit funding and shipment transfers', () =>
     );
     state.shipment.findMany.mockResolvedValue([
       { shipmentCode: 'KPC 23930A-240', shipmentStatus: 'In Transit' },
+    ]);
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it.each(['2026-10-27T16:00:00Z', '2026-10-27T16:30:00Z'])(
+    'accepts the Manila default before UTC midnight: %s',
+    async (instant) => {
+      vi.setSystemTime(new Date(instant));
+      const credit = await issueSupplierCredit({
+        ...issue(),
+        postingDate: '2026-10-28',
+      });
+      expect(credit.postingDate).toEqual(new Date('2026-10-28T00:00:00Z'));
+      expect(credit.amount.toString()).toBe('19511.37');
+    }
+  );
+
+  it('enforces the saved clothing cutoff rather than only the environment fallback', async () => {
+    state.$queryRaw.mockResolvedValue([
+      { cutoverDate: new Date('2026-10-27') },
+    ]);
+    await expect(issueSupplierCredit(issue())).rejects.toThrow('2026-10-27');
+    expect(state.clothingSupplierCredit.create).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ['2026-10-27T15:59:59Z', '2026-10-28', '2026-10-27'],
+    ['2026-10-27T16:00:00Z', '2026-10-29', '2026-10-28'],
+  ])(
+    'rejects future dates at %s with the actual Manila limit',
+    async (instant, postingDate, today) => {
+      vi.setSystemTime(new Date(instant));
+      await expect(
+        issueSupplierCredit({ ...issue(), postingDate })
+      ).rejects.toThrow(
+        `Posting date cannot be later than today in Asia/Manila (${today}).`
+      );
+      expect(state.clothingSupplierCredit.create).not.toHaveBeenCalled();
+    }
+  );
+
+  it('accepts the cutoff day and rejects every day when cutoff is still future', async () => {
+    state.$queryRaw.mockResolvedValue([
+      { cutoverDate: new Date('2026-10-27') },
+    ]);
+    await expect(
+      issueSupplierCredit({ ...issue(), postingDate: '2026-10-27' })
+    ).resolves.toHaveProperty('id');
+    state.$queryRaw.mockResolvedValue([
+      { cutoverDate: new Date('2026-10-29') },
+    ]);
+    await expect(
+      issueSupplierCredit({ ...issue(), postingDate: '2026-10-28' })
+    ).rejects.toThrow('clothing cutoff (2026-10-29)');
+    await expect(
+      issueSupplierCredit({ ...issue(), postingDate: '2026-10-29' })
+    ).rejects.toThrow('Asia/Manila (2026-10-28)');
+  });
+
+  it.each([
+    '2026-02-29',
+    '2026-02-30',
+    '2026-13-01',
+    '',
+    'October 27, 2026',
+    '2026-10-27T00:00:00Z',
+  ])('distinguishes invalid calendar input: %s', async (postingDate) => {
+    await expect(
+      issueSupplierCredit({ ...issue(), postingDate })
+    ).rejects.toThrow('Enter a valid posting date in YYYY-MM-DD format.');
+    expect(state.$queryRaw).not.toHaveBeenCalled();
+    expect(state.clothingSupplierCredit.create).not.toHaveBeenCalled();
+  });
+
+  it('accepts a leap day as a calendar date without timezone shifting', async () => {
+    vi.setSystemTime(new Date('2028-02-28T16:00:00Z'));
+    const credit = await issueSupplierCredit({
+      ...issue(),
+      postingDate: '2028-02-29',
+    });
+    expect(credit.postingDate).toEqual(new Date('2028-02-29T00:00:00Z'));
+  });
+
+  it('applies credit on Manila today while preserving purchase and credit chronology', async () => {
+    vi.setSystemTime(new Date('2026-10-27T16:30:00Z'));
+    state.$queryRaw.mockResolvedValue([
+      { cutoverDate: new Date('2026-10-27') },
+    ]);
+    state.product.findUnique.mockResolvedValue({
+      ...product(),
+      id: 43,
+      postingDate: '2026-10-28',
+      grandTotal: 3000,
+    });
+    state.clothingInventoryTransitBuildEntry.findMany.mockResolvedValue([]);
+    state.clothingSupplierCredit.findUnique.mockResolvedValue({
+      id: 'credit-42',
+      sourceProductId: 42,
+      supplierReference: 'supplier a',
+      currency: 'PHP',
+      postingDate: new Date('2026-10-27'),
+    });
+    await expect(
+      applySupplierCredit({ ...apply(), postingDate: '2026-10-27' })
+    ).rejects.toThrow('cannot precede the purchase');
+    expect(state.clothingSupplierCredit.updateMany).not.toHaveBeenCalled();
+    await applySupplierCredit({ ...apply(), postingDate: '2026-10-28' });
+    expect(
+      state.clothingInventoryTransitBuildEntry.create.mock.calls.map(
+        ([call]) => call.data
+      )
+    ).toEqual([
+      expect.objectContaining({
+        postingDate: new Date('2026-10-28'),
+        amount: 2000,
+        creditAccount: 'Credit Card Payable',
+      }),
+      expect.objectContaining({
+        postingDate: new Date('2026-10-28'),
+        amount: 1000,
+        creditAccount: 'Supplier Credits',
+      }),
     ]);
   });
 
@@ -162,6 +291,71 @@ describe('supplier nonfulfillment, credit funding and shipment transfers', () =>
         }),
       })
     );
+  });
+
+  it.each(['issue', 'apply', 'transfer'])(
+    'rejects a partial shortage before %s changes any supplier funding',
+    async (action) => {
+      state.inventoryMovement.findMany.mockResolvedValue([
+        {
+          quantity: 12,
+          toBucket: 'supplier_short',
+          notes: 'Partial missing goods',
+        },
+      ]);
+      state.clothingInventoryTransitBuildEntry.findMany.mockResolvedValue([]);
+      state.clothingSupplierCredit.findUnique.mockResolvedValue(
+        action === 'apply'
+          ? {
+              id: 'credit-42',
+              sourceProductId: 41,
+              supplierReference: 'supplier a',
+              currency: 'PHP',
+              postingDate: new Date('2026-10-20'),
+            }
+          : null
+      );
+      const operation =
+        action === 'issue'
+          ? issueSupplierCredit(issue())
+          : action === 'apply'
+            ? applySupplierCredit(apply())
+            : transferSupplierProduct({
+                productId: 42,
+                shipmentCode: 'KPC 23930A-240',
+                reason: 'Delayed purchase',
+                requestId: 'partial-transfer',
+              });
+      await expect(operation).rejects.toThrow('partial Supplier Short');
+      expect(state.clothingSupplierCredit.create).not.toHaveBeenCalled();
+      expect(state.clothingSupplierCredit.updateMany).not.toHaveBeenCalled();
+      expect(
+        state.clothingInventoryTransitBuildEntry.create
+      ).not.toHaveBeenCalled();
+      expect(
+        state.clothingProductShipmentTransfer.create
+      ).not.toHaveBeenCalled();
+      expect(state.product.update).not.toHaveBeenCalled();
+    }
+  );
+
+  it('allows a completely reversed shortage without treating transfer/additional notes as physical receipt', async () => {
+    state.inventoryMovement.findMany.mockResolvedValue([
+      {
+        quantity: 12,
+        toBucket: 'supplier_short',
+        notes: 'Partial missing goods',
+      },
+      { quantity: 12, toBucket: 'sellable', notes: 'Reverse shortage' },
+      { quantity: 3, toBucket: 'supplier_short', notes: 'Transfer out' },
+    ]);
+    await transferSupplierProduct({
+      productId: 42,
+      shipmentCode: 'KPC 23930A-240',
+      reason: 'Delayed purchase',
+      requestId: 'reversed-transfer',
+    });
+    expect(state.clothingProductShipmentTransfer.create).toHaveBeenCalledOnce();
   });
 
   it('replays an issued credit without creating another asset', async () => {

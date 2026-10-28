@@ -52,6 +52,7 @@ export interface SplitComponentFromAPI {
   componentLabel: string;
   componentSku: string;
   componentPrice: number;
+  acquisitionUnitCost?: number | null;
   includedQuantity: number;
 }
 
