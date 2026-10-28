@@ -31,6 +31,13 @@ scripts/tmp
 docker-compose*.yml
 *.log
 *.md
+!docs/
+docs/*
+!docs/business-logic/
+docs/business-logic/*
+!docs/business-logic/clothing/
+docs/business-logic/clothing/*
+!docs/business-logic/clothing/operations-workflow.md
 *.tmp
 *.swp
 

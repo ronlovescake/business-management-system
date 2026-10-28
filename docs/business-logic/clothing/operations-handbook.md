@@ -24,6 +24,7 @@ the page's technical contract, not another employee manual.
 - `src/components/navigation/navigationItems.ts`
 - `src/core/routePermissions.ts`
 - `next.config.js`
+- `.dockerignore`
 - `Dockerfile`
 
 ## Page And Access Rules
@@ -76,6 +77,11 @@ that exact file for the route, and the Docker runtime explicitly copies it.
 Documentation edits therefore ship with the application release. No second
 hand-maintained TypeScript/JSON content copy or runtime database is required.
 
+The Docker context allowlist reopens each `docs/` parent directory and admits
+only the canonical manual after the general Markdown exclusion. Other documents
+remain excluded. This packaging-only correction fixes the missing builder file;
+it does not change content, access rules or business policy.
+
 DOMPurify remains an external server-component dependency so its Node DOM
 implementation can resolve its runtime assets instead of looking inside a
 Webpack bundle. Development-only previews can set `BMS_DEV_DIST_DIR` to isolate
@@ -105,16 +111,23 @@ tests and 12 hardening tests. Integration used an owned disposable database,
 removed and verified absent afterward. Focused handwritten checks also validate
 the declaration and documentation links.
 
-`guardrails:check` remains blocked by file-size limits: this canonical manual
-exceeds the threshold, and the unchanged reconciliation report is also over the
-limit. No size override or threshold reduction was used. The remaining
-command-drift, generated ACL, module ACL, script-manifest and backup-schema
-subchecks pass. Resolving the oversized documentation requires a separate
-documentation-structure decision, not an unrelated report rewrite in this feature.
+The packaging follow-up passed the six content/packaging tests and a two-stage
+scratch Docker build using the real repository context. Its local export
+contained only the canonical manual, byte-identical to the source. This checks
+the ignore rules and cross-stage copy without installing dependencies or
+accessing a database.
 
-No production build, Docker image build, migration, production operation, commit
-or deployment is authorized by this feature. Packaging declarations are tested;
-this is not evidence that a production image has been rebuilt or deployed.
+The original feature validation failed `guardrails:check` on the oversized
+canonical manual and reconciliation report. The packaging follow-up passed the
+complete command with the default current commit comparison, including the
+command-drift, generated ACL, module ACL, script-manifest and backup-schema
+subchecks; the UI file produced a size warning. No size override or threshold
+reduction was used. This later pass does not mean the oversized documents were
+decomposed; the default gate now compares a different committed change set.
+
+The packaging check exports files from scratch stages only; it does not rebuild
+or load an application image, run a migration or deploy. A full application image
+still needs to be built and verified in the intended environment.
 
 ## Business-Rule Record
 
@@ -137,6 +150,7 @@ this is not evidence that a production image has been rebuilt or deployed.
     "src/components/navigation/navigationItems.ts",
     "src/core/routePermissions.ts",
     "next.config.js",
+    ".dockerignore",
     "Dockerfile"
   ],
   "tests": {
@@ -146,7 +160,7 @@ this is not evidence that a production image has been rebuilt or deployed.
       "src/modules/clothing/operations/handbook/__tests__/HandbookRoute.test.tsx",
       "tests/unit/api/clothing-api-authorization.test.ts"
     ],
-    "results": "Focused content (6), UI (5), route (7) and existing API authorization (22) checks passed. Isolated browser checks passed at 1440, 1024, 390 and 320 pixels. Whole-repository lint, typecheck, 4532 unit tests, 90 integration tests and 12 hardening tests passed. Scratch database cleanup was verified. guardrails:check failed on oversized canonical manual and unchanged reconciliation report; remaining guardrail subchecks passed without overrides."
+    "results": "Original feature validation: focused content (6), UI (5), route (7), existing API authorization (22), four browser viewports, whole-repository lint/typecheck, 4532 unit tests, 90 integration tests and 12 hardening tests passed; scratch database cleanup was verified. The original size guardrail failed on the canonical manual and reconciliation report. Packaging follow-up: all 18 handbook tests, lint, typecheck, formatting, declaration/links, complete guardrails:check and a real-context two-stage scratch Docker export passed. Only the byte-identical canonical manual was exported. The later guardrail pass uses the default changed commit comparison and does not imply the old oversized documents were decomposed. No application image rebuild, migration or deployment was performed by this check."
   },
   "docs": {
     "paths": [

@@ -42,6 +42,10 @@ describe('employee handbook content', () => {
       path.join(process.cwd(), 'Dockerfile'),
       'utf8'
     );
+    const dockerIgnore = readFileSync(
+      path.join(process.cwd(), '.dockerignore'),
+      'utf8'
+    );
     expect(nextConfig).toContain(
       "serverComponentsExternalPackages: ['isomorphic-dompurify']"
     );
@@ -50,6 +54,18 @@ describe('employee handbook content', () => {
     );
     expect(dockerfile).toContain(
       `/app/${HANDBOOK_SOURCE} ./${HANDBOOK_SOURCE}`
+    );
+    expect(dockerIgnore).toContain(
+      [
+        '*.md',
+        '!docs/',
+        'docs/*',
+        '!docs/business-logic/',
+        'docs/business-logic/*',
+        '!docs/business-logic/clothing/',
+        'docs/business-logic/clothing/*',
+        `!${HANDBOOK_SOURCE}`,
+      ].join('\n')
     );
   });
 
