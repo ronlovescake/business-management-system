@@ -3,6 +3,7 @@ import { Prisma } from '@prisma/client';
 import {
   approveOrderCancellation,
   buildCancellationJournalAmounts,
+  evaluateCollectionRefundWindow,
   getOrderCancellationPreview,
   payApprovedCancellationRefund,
 } from '@/lib/accounting/customer-money';
@@ -235,6 +236,221 @@ describe('approved clothing cancellation service', () => {
       approveOrderCancellation(requestId, 1, decision, admin)
     ).rejects.toThrow('already closed');
     expect(client.clothingOrderCancellation.create).not.toHaveBeenCalled();
+  });
+
+  it('requires review for a fully paid legacy order without dated readiness evidence', async () => {
+    client.transactionPayment.findMany.mockResolvedValue([
+      { amount: 1000, paymentDate: '2026-09-15' },
+    ]);
+    await expect(
+      approveOrderCancellation(requestId, 1, decision, admin)
+    ).rejects.toThrow('Dated readiness');
+    expect(client.clothingOrderCancellation.create).not.toHaveBeenCalled();
+    expect(client.transaction.update).not.toHaveBeenCalled();
+    expect(client.inventoryMovement.updateMany).not.toHaveBeenCalled();
+    expect(
+      client.clothingAccountingJournalLine.createMany
+    ).not.toHaveBeenCalled();
+  });
+
+  it('rejects expired ordinary fully paid cancellations without changing money or stock', async () => {
+    client.transaction.findUnique.mockResolvedValue({
+      ...order,
+      invoiceDate: '2026-09-14',
+    });
+    client.transactionPayment.findMany.mockResolvedValue([
+      { amount: 1000, paymentDate: '2026-09-15' },
+    ]);
+    await expect(
+      approveOrderCancellation(
+        requestId,
+        1,
+        {
+          ...decision,
+          collectionEvidence: {
+            readyOn: '2026-09-14',
+            notifiedOn: '2026-09-14',
+            termsAcceptedOn: '2026-09-14',
+          },
+        },
+        admin
+      )
+    ).rejects.toThrow('seven-day discretionary refund window has expired');
+    expect(client.clothingOrderCancellation.create).not.toHaveBeenCalled();
+  });
+
+  it('records an explicit owner-authorized exception in the idempotent audit result', async () => {
+    client.transactionPayment.findMany.mockResolvedValue([
+      { amount: 1000, paymentDate: '2026-09-15' },
+    ]);
+    await expect(
+      approveOrderCancellation(
+        requestId,
+        1,
+        {
+          ...decision,
+          ownerExceptionReason: 'Owner approved documented medical exception',
+        },
+        admin
+      )
+    ).resolves.toMatchObject({
+      refundPolicy: {
+        status: 'REVIEW_REQUIRED',
+        approvedBy: admin.id,
+        ownerExceptionReason: 'Owner approved documented medical exception',
+      },
+    });
+    expect(client.transactionRefund.create).not.toHaveBeenCalled();
+  });
+
+  it('rejects a direct API request for a fully paid cancellation without dated evidence', async () => {
+    client.transactionPayment.findMany.mockResolvedValue([
+      { amount: 1000, paymentDate: '2026-09-15' },
+    ]);
+    const response = await postCancellation(
+      new NextRequest(getTestApiUrl('/api/transactions/1/cancellation'), {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Idempotency-Key': requestId,
+        },
+        body: JSON.stringify(decision),
+      }),
+      { params: { id: '1' } }
+    );
+    expect(response.status).toBe(409);
+    expect(client.clothingOrderCancellation.create).not.toHaveBeenCalled();
+    expect(client.transaction.update).not.toHaveBeenCalled();
+  });
+
+  it('does not allow staff to grant an owner exception or relabel a paid cancellation', async () => {
+    client.transactionPayment.findMany.mockResolvedValue([
+      { amount: 1000, paymentDate: '2026-09-15' },
+    ]);
+    await expect(
+      approveOrderCancellation(
+        requestId,
+        1,
+        { ...decision, ownerExceptionReason: 'Owner authorized exception' },
+        { id: 'staff', role: 'STAFF' }
+      )
+    ).rejects.toMatchObject({ status: 403 });
+    await expect(
+      approveOrderCancellation(
+        requestId,
+        1,
+        { ...decision, refundGround: 'DEFECTIVE_GOODS' },
+        { id: 'staff', role: 'STAFF' }
+      )
+    ).rejects.toMatchObject({ status: 403 });
+    expect(client.clothingOrderCancellation.create).not.toHaveBeenCalled();
+  });
+
+  it('replays the saved policy result without reevaluating dates or creating another obligation', async () => {
+    client.transactionPayment.findMany.mockResolvedValue([
+      { amount: 1000, paymentDate: '2026-09-15' },
+    ]);
+    const details = {
+      ...decision,
+      ownerExceptionReason: 'Owner authorized medical exception',
+    };
+    const first = await approveOrderCancellation(requestId, 1, details, admin);
+    const payloadHash =
+      client.clothingFinancialRequest.create.mock.calls[0][0].data.payloadHash;
+    client.clothingFinancialRequest.findUnique.mockResolvedValue({
+      operation: 'ORDER_CANCELLATION',
+      payloadHash,
+      result: JSON.parse(JSON.stringify(first)),
+    });
+    client.transaction.findUnique.mockClear();
+    await expect(
+      approveOrderCancellation(requestId, 1, details, admin)
+    ).resolves.toEqual(JSON.parse(JSON.stringify(first)));
+    expect(client.transaction.findUnique).not.toHaveBeenCalled();
+    expect(client.clothingOrderCancellation.create).toHaveBeenCalledTimes(1);
+    await expect(
+      approveOrderCancellation(
+        requestId,
+        1,
+        { ...details, ownerExceptionReason: 'Changed exception explanation' },
+        admin
+      )
+    ).rejects.toThrow('different details');
+  });
+
+  it.each(['DEFECTIVE_GOODS', 'INCORRECT_GOODS', 'NON_DELIVERY'] as const)(
+    'does not apply the discretionary deadline to %s',
+    async (refundGround) => {
+      client.transactionPayment.findMany.mockResolvedValue([
+        { amount: 1000, paymentDate: '2026-09-15' },
+      ]);
+      await expect(
+        approveOrderCancellation(
+          requestId,
+          1,
+          { ...decision, refundGround },
+          admin
+        )
+      ).resolves.toMatchObject({ refundPolicy: { ground: refundGround } });
+    }
+  );
+
+  it('preserves supplier-failure refunds without a discretionary window', async () => {
+    client.transactionPayment.findMany.mockResolvedValue([
+      { amount: 1000, paymentDate: '2026-09-15' },
+    ]);
+    await expect(
+      approveOrderCancellation(
+        requestId,
+        1,
+        { ...decision, kind: 'VOIDED', mode: 'REFUND_ALL' },
+        admin
+      )
+    ).resolves.toMatchObject({ approvedRefundAmount: 1000 });
+  });
+
+  it('counts seven Manila calendar days inclusively through the deadline without resetting on overpayment', () => {
+    const input = {
+      grossAmount: 1000,
+      invoiceDate: '2026-09-14',
+      payments: [
+        { amount: 100, paymentDate: '2026-09-14' },
+        { amount: 900, paymentDate: '2026-09-15' },
+        { amount: 1, paymentDate: '2026-09-20' },
+      ],
+      evidence: {
+        readyOn: '2026-09-14',
+        notifiedOn: '2026-09-14',
+        termsAcceptedOn: '2026-09-14',
+      },
+    };
+    expect(
+      evaluateCollectionRefundWindow({ ...input, decisionDate: '2026-09-22' })
+    ).toEqual({ status: 'OPEN', deadline: '2026-09-22' });
+    expect(
+      evaluateCollectionRefundWindow({ ...input, decisionDate: '2026-09-23' })
+    ).toEqual({ status: 'EXPIRED', deadline: '2026-09-22' });
+    expect(
+      evaluateCollectionRefundWindow({
+        ...input,
+        evidence: { ...input.evidence, readyOn: '2026-09-20' },
+        decisionDate: '2026-09-27',
+      })
+    ).toEqual({ status: 'OPEN', deadline: '2026-09-27' });
+    expect(() =>
+      evaluateCollectionRefundWindow({
+        ...input,
+        decisionDate: '2026-09-22',
+        evidence: { ...input.evidence, readyOn: '2026-09-23' },
+      })
+    ).toThrow('future dates');
+    expect(() =>
+      evaluateCollectionRefundWindow({
+        ...input,
+        decisionDate: '2026-09-22',
+        evidence: { ...input.evidence, termsAcceptedOn: '2026-09-16' },
+      })
+    ).toThrow('retroactively');
   });
 
   const payout = {

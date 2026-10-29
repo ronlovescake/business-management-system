@@ -64,6 +64,7 @@ describe('clothing cancellation decision modal', () => {
             kind: 'CANCELLED',
             mode: 'RETAIN_DEPOSIT',
             reason: 'Customer cancellation reviewed',
+            refundGround: 'DISCRETIONARY',
           },
           { headers: { 'Idempotency-Key': expect.any(String) } }
         )
@@ -82,6 +83,68 @@ describe('clothing cancellation decision modal', () => {
     expect(
       screen.getByRole('button', { name: 'Approve cancellation' })
     ).toBeDisabled();
+  });
+
+  it('requires dated evidence for a fully paid discretionary cancellation', () => {
+    open({ collectedAmount: 1000 });
+    fireEvent.click(screen.getByLabelText('Emergency full refund'));
+    fireEvent.change(screen.getByLabelText(/Decision reason/), {
+      target: { value: 'Customer cancellation reviewed' },
+    });
+    expect(
+      screen.getByRole('button', { name: 'Approve cancellation' })
+    ).toBeDisabled();
+    for (const label of [
+      'On-hand and ready date',
+      'Invoice and readiness notification date',
+      'Seven-day terms accepted date',
+    ]) {
+      fireEvent.change(screen.getByLabelText(new RegExp(label)), {
+        target: { value: '2026-10-29' },
+      });
+    }
+    expect(
+      screen.getByRole('button', { name: 'Approve cancellation' })
+    ).toBeEnabled();
+  });
+
+  it('submits a separate explicit owner authorization rather than silently bypassing the deadline', async () => {
+    const post = vi.spyOn(api, 'post').mockResolvedValue({});
+    try {
+      open({ collectedAmount: 1000 });
+      fireEvent.click(screen.getByLabelText('Emergency full refund'));
+      fireEvent.change(screen.getByLabelText(/Decision reason/), {
+        target: { value: 'Medical request reviewed' },
+      });
+      fireEvent.click(
+        screen.getByLabelText(
+          'I confirm explicit business-owner authorization for an exception'
+        )
+      );
+      expect(
+        screen.getByRole('button', { name: 'Approve cancellation' })
+      ).toBeDisabled();
+      fireEvent.change(
+        screen.getByLabelText(/Owner-authorized exception reason/),
+        { target: { value: 'Owner explicitly approved the medical exception' } }
+      );
+      fireEvent.click(
+        screen.getByRole('button', { name: 'Approve cancellation' })
+      );
+      await waitFor(() =>
+        expect(post).toHaveBeenCalledWith(
+          '/api/transactions/1/cancellation',
+          expect.objectContaining({
+            refundGround: 'DISCRETIONARY',
+            ownerExceptionReason:
+              'Owner explicitly approved the medical exception',
+          }),
+          expect.anything()
+        )
+      );
+    } finally {
+      post.mockRestore();
+    }
   });
 
   it('prevents an ordinary user from approving money', () => {

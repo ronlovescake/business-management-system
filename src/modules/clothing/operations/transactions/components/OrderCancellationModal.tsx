@@ -8,10 +8,12 @@ import {
   Group,
   NumberInput,
   Radio,
+  Select,
   SegmentedControl,
   Stack,
   Text,
   Textarea,
+  TextInput,
 } from '@mantine/core';
 import { UniversalModal } from '@/components/modals/UniversalModal';
 import { IconCheck } from '@tabler/icons-react';
@@ -46,6 +48,12 @@ export function OrderCancellationModal({
   const [rate, setRate] = useState('10');
   const [confirmed, setConfirmed] = useState(false);
   const [reason, setReason] = useState('');
+  const [refundGround, setRefundGround] = useState('DISCRETIONARY');
+  const [readyOn, setReadyOn] = useState('');
+  const [notifiedOn, setNotifiedOn] = useState('');
+  const [termsAcceptedOn, setTermsAcceptedOn] = useState('');
+  const [ownerException, setOwnerException] = useState(false);
+  const [ownerExceptionReason, setOwnerExceptionReason] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const request = useRef<{ payload: string; id: string } | null>(null);
@@ -53,6 +61,11 @@ export function OrderCancellationModal({
     session?.user?.role === 'ADMIN' || session?.user?.role === 'SUPER_ADMIN';
   const needsConfirmation =
     mode === 'RETAIN_DEPOSIT' && preview.initialDepositAmount === null;
+  const requiresEvidence =
+    kind === 'CANCELLED' &&
+    refundGround === 'DISCRETIONARY' &&
+    preview.grossAmount > 0 &&
+    preview.collectedAmount >= preview.grossAmount;
   const deposit =
     preview.initialDepositAmount ?? (Number(originalDeposit) || 0);
   const retained = mode === 'RETAIN_DEPOSIT' ? deposit : 0;
@@ -67,6 +80,10 @@ export function OrderCancellationModal({
     reason.trim().length >= 3 &&
     (mode === 'RETAIN_DEPOSIT' || mode === 'REFUND_ALL') &&
     pending >= 0 &&
+    (!requiresEvidence ||
+      (ownerException
+        ? ownerExceptionReason.trim().length >= 10
+        : Boolean(readyOn && notifiedOn && termsAcceptedOn))) &&
     (!needsConfirmation || (confirmed && Number(originalDeposit) > 0));
 
   const save = async () => {
@@ -77,6 +94,13 @@ export function OrderCancellationModal({
       kind,
       mode,
       reason: reason.trim(),
+      refundGround,
+      ...(requiresEvidence && !ownerException
+        ? { collectionEvidence: { readyOn, notifiedOn, termsAcceptedOn } }
+        : {}),
+      ...(requiresEvidence && ownerException
+        ? { ownerExceptionReason: ownerExceptionReason.trim() }
+        : {}),
       ...(needsConfirmation
         ? {
             originalDeposit: {
@@ -148,6 +172,81 @@ export function OrderCancellationModal({
           <Text size="sm">Already repaid</Text>
           <Text fw={600}>{currency.format(preview.priorRefundAmount)}</Text>
         </Group>
+        {kind === 'CANCELLED' && (
+          <Select
+            label="Cancellation ground"
+            value={refundGround}
+            onChange={(value) => setRefundGround(value ?? 'DISCRETIONARY')}
+            allowDeselect={false}
+            disabled={!isAdmin || saving}
+            data={[
+              {
+                value: 'DISCRETIONARY',
+                label: 'Change of mind / financial emergency',
+              },
+              { value: 'DEFECTIVE_GOODS', label: 'Defective goods' },
+              { value: 'INCORRECT_GOODS', label: 'Incorrect goods' },
+              { value: 'NON_DELIVERY', label: 'Non-delivery' },
+            ]}
+          />
+        )}
+        {requiresEvidence && (
+          <Stack gap="xs">
+            <Alert color="orange">
+              Seven-day discretionary refund policy applies.
+            </Alert>
+            <Checkbox
+              label="I confirm explicit business-owner authorization for an exception"
+              checked={ownerException}
+              onChange={(event) =>
+                setOwnerException(event.currentTarget.checked)
+              }
+              disabled={!isAdmin || saving}
+            />
+            {ownerException ? (
+              <Textarea
+                label="Owner-authorized exception reason"
+                required
+                value={ownerExceptionReason}
+                onChange={(event) =>
+                  setOwnerExceptionReason(event.currentTarget.value)
+                }
+                minLength={10}
+                maxLength={1000}
+                disabled={!isAdmin || saving}
+              />
+            ) : (
+              <>
+                <TextInput
+                  label="On-hand and ready date"
+                  type="date"
+                  required
+                  value={readyOn}
+                  onChange={(event) => setReadyOn(event.currentTarget.value)}
+                  disabled={!isAdmin || saving}
+                />
+                <TextInput
+                  label="Invoice and readiness notification date"
+                  type="date"
+                  required
+                  value={notifiedOn}
+                  onChange={(event) => setNotifiedOn(event.currentTarget.value)}
+                  disabled={!isAdmin || saving}
+                />
+                <TextInput
+                  label="Seven-day terms accepted date"
+                  type="date"
+                  required
+                  value={termsAcceptedOn}
+                  onChange={(event) =>
+                    setTermsAcceptedOn(event.currentTarget.value)
+                  }
+                  disabled={!isAdmin || saving}
+                />
+              </>
+            )}
+          </Stack>
+        )}
         {kind === 'CANCELLED' && (
           <Radio.Group label="Money decision" value={mode} onChange={setMode}>
             <Stack gap="xs" mt="xs">

@@ -15,6 +15,38 @@ export const cancellationDecisionSchema = z
     kind: z.enum(['CANCELLED', 'VOIDED']),
     mode: z.enum(['RETAIN_DEPOSIT', 'REFUND_ALL']),
     reason: z.string().trim().min(3).max(1000),
+    refundGround: z
+      .enum([
+        'DISCRETIONARY',
+        'DEFECTIVE_GOODS',
+        'INCORRECT_GOODS',
+        'NON_DELIVERY',
+      ])
+      .optional(),
+    collectionEvidence: z
+      .object({
+        readyOn: z
+          .string()
+          .refine(
+            (date) =>
+              /^\d{4}-\d{2}-\d{2}$/.test(date) && toISODate(date) === date
+          ),
+        notifiedOn: z
+          .string()
+          .refine(
+            (date) =>
+              /^\d{4}-\d{2}-\d{2}$/.test(date) && toISODate(date) === date
+          ),
+        termsAcceptedOn: z
+          .string()
+          .refine(
+            (date) =>
+              /^\d{4}-\d{2}-\d{2}$/.test(date) && toISODate(date) === date
+          ),
+      })
+      .strict()
+      .optional(),
+    ownerExceptionReason: z.string().trim().min(10).max(1000).optional(),
     originalDeposit: z
       .object({
         amount: z.number().finite().positive(),
@@ -42,6 +74,76 @@ export const cancellationPayoutSchema = z
   .strict();
 
 type FinancialActor = { id: string; role: string };
+
+export function evaluateCollectionRefundWindow(input: {
+  grossAmount: number;
+  payments: { amount: number; paymentDate: string }[];
+  invoiceDate: string | null | undefined;
+  decisionDate: string;
+  evidence?: z.infer<typeof cancellationDecisionSchema>['collectionEvidence'];
+}) {
+  const validPayments = input.payments.filter(
+    (payment) => Number.isFinite(payment.amount) && payment.amount > 0
+  );
+  const collected = validPayments.reduce(
+    (sum, payment) => sum.plus(payment.amount),
+    new Prisma.Decimal(0)
+  );
+  if (input.grossAmount <= 0 || collected.lessThan(input.grossAmount)) {
+    return { status: 'NOT_APPLICABLE' as const, deadline: null };
+  }
+  const invoiceDate = toISODate(input.invoiceDate);
+  if (
+    !input.evidence ||
+    !invoiceDate ||
+    validPayments.some((payment) => !toISODate(payment.paymentDate))
+  ) {
+    return { status: 'REVIEW_REQUIRED' as const, deadline: null };
+  }
+  const dates = [
+    invoiceDate,
+    ...Object.values(input.evidence),
+    ...validPayments.map((payment) => toISODate(payment.paymentDate)),
+  ];
+  if (dates.some((date) => date > input.decisionDate)) {
+    throw new FinancialOperationError(
+      'Collection evidence cannot use future dates.'
+    );
+  }
+  const ordered = validPayments
+    .slice()
+    .sort((left, right) =>
+      toISODate(left.paymentDate).localeCompare(toISODate(right.paymentDate))
+    );
+  let running = new Prisma.Decimal(0);
+  let fullyPaidOn = '';
+  for (const payment of ordered) {
+    running = running.plus(payment.amount);
+    if (running.greaterThanOrEqualTo(input.grossAmount)) {
+      fullyPaidOn = toISODate(payment.paymentDate);
+      break;
+    }
+  }
+  const start = [
+    invoiceDate,
+    fullyPaidOn,
+    input.evidence.readyOn,
+    input.evidence.notifiedOn,
+  ].reduce((latest, date) => (date > latest ? date : latest), invoiceDate);
+  if (input.evidence.termsAcceptedOn > start) {
+    throw new FinancialOperationError(
+      'Terms accepted after readiness cannot retroactively start a refund deadline.'
+    );
+  }
+  const deadlineDate = new Date(`${start}T00:00:00Z`);
+  deadlineDate.setUTCDate(deadlineDate.getUTCDate() + 7);
+  const deadline = deadlineDate.toISOString().slice(0, 10);
+  return {
+    status:
+      input.decisionDate > deadline ? ('EXPIRED' as const) : ('OPEN' as const),
+    deadline,
+  };
+}
 
 export async function getOrderCancellationPreview(transactionId: number) {
   return runFinancialTransaction(async (client) => {
@@ -298,6 +400,37 @@ export async function approveOrderCancellation(
         );
       }
 
+      const refundWindow = evaluateCollectionRefundWindow({
+        grossAmount: new Prisma.Decimal(order.quantity ?? 0)
+          .times(order.unitPrice ?? 0)
+          .toNumber(),
+        payments,
+        invoiceDate: order.invoiceDate,
+        decisionDate,
+        evidence: decision.collectionEvidence,
+      });
+      const requiresWindow =
+        decision.kind === 'CANCELLED' &&
+        (decision.refundGround ?? 'DISCRETIONARY') === 'DISCRETIONARY';
+      if (decision.ownerExceptionReason && !isAdmin) {
+        throw new FinancialOperationError(
+          'Only an administrator can record an owner-authorized exception.',
+          403
+        );
+      }
+      if (
+        requiresWindow &&
+        !decision.ownerExceptionReason &&
+        (refundWindow.status === 'EXPIRED' ||
+          refundWindow.status === 'REVIEW_REQUIRED')
+      ) {
+        throw new FinancialOperationError(
+          refundWindow.status === 'EXPIRED'
+            ? 'The seven-day discretionary refund window has expired. An explicit owner-authorized exception is required.'
+            : 'Dated readiness, notification and accepted terms need review before a fully paid cancellation.'
+        );
+      }
+
       const confirmedDeposit =
         order.initialDepositAmount?.toNumber() ??
         decision.originalDeposit?.amount ??
@@ -411,6 +544,14 @@ export async function approveOrderCancellation(
         kind: decision.kind,
         decisionDate,
         reason: decision.reason,
+        refundPolicy: {
+          version: '2026-10-29',
+          ground: decision.refundGround ?? 'DISCRETIONARY',
+          ...refundWindow,
+          evidence: decision.collectionEvidence ?? null,
+          ownerExceptionReason: decision.ownerExceptionReason ?? null,
+          approvedBy: actor.id,
+        },
         ...amounts,
       };
     }

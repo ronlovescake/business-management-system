@@ -14,6 +14,40 @@ refunds do not restock. Returns to reserved or assembly WIP are not sellable.
 Manual scrap-to-sellable reversals carry `movementSource: inventory_adjustment`;
 unmarked legacy scrap-origin receipts are not assumed to reverse write-offs.
 
+### Owner-Confirmed Legacy Receipt Quantity
+
+On October 29, 2026 the Clothing owner confirmed that PSO-101226's complete
+receipt was 740 pieces, not the 700 saved in movement 5225. The scoped operational
+repair corrects that existing receipt to 740; it is not another purchase,
+additional goods, supplier-short reversal or customer return. It retains full
+before/after images in the keyed `RECEIPT_QUANTITY_RECONCILIATION` audit record.
+It changes neither receipt dates nor costs, payments, fulfillment or journals.
+The reconciled ledger is 650 sold, 90 reserved and zero sellable. The 50 and 40
+fully paid pieces awaiting pickup remain reserved, not automatically shipped.
+
+This exact-record attestation does not authorize synchronizing other receipts
+to catalog quantities. The existing receipt writer intentionally does not resize
+a recorded receipt when a product is edited. General Merchandise is unchanged.
+Execution evidence, backup locations and remaining cutover qualifications are in
+[reconciliation log section 31](../../plans/clothing-oct12-cutover-reconciliation-log.md#31-owner-confirmed-pso-receipt-quantity-reconciliation).
+
+### Audited Unsupported Scrap Return Correction
+
+On October 29 the Clothing owner requested correction of Paw Patrol product
+280's seven sellable units and negative seven scrap, against confirmed zero
+physical remaining stock. Its only seven recorded scrap units (5466) were
+already fully returned by movement 5467. The subsequent unlinked seven-unit
+return 5468 had no remaining recorded scrap source. The scoped repair soft-deletes
+only 5468, retaining its original row and full before/after audit evidence.
+It does not invent another disposal, receipt, sale, physical return or cost.
+
+Sellable, reserved and scrap now each equal zero; the eight genuinely shipped
+units and every other movement remain unchanged. The retained supplier-short
+and opening source offsets are not independent physical counts. This corrects
+an unsupported ledger return, not proof of all earlier adjustments' physical
+intent or the saved acquisition valuation. General Merchandise is unchanged.
+See [reconciliation log section 35](../../plans/clothing-oct12-cutover-reconciliation-log.md#35-paw-patrol-unsupported-second-scrap-return-corrected).
+
 ### Approved Free Goods And Transfers
 
 The requesting business owner approved separate, explicitly zero-acquisition-cost

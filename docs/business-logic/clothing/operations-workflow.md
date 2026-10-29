@@ -236,9 +236,78 @@ against the same transaction, not just the initial deposit.
 | Transaction situation                                                       | Intended handling                                                                                                                                                                            |
 | --------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Fully paid, awaiting checkout or pickup                                     | Not subject to the three-day payment deadline and must not be canceled for payment overdue. Delayed checkout or pickup alone does not make payment overdue.                                  |
-| Fully paid, approved medical or other financial-emergency consideration     | May be canceled with an approved refund. This is a discretionary exception, not an automatic refund entitlement or supplier-failure void.                                                    |
+| Fully paid, medical or other financial-emergency request                    | Subject to the seven-day window below; an approved refund is discretionary, not automatic. After the window, only an explicit owner-approved exception may override the ordinary refusal.    |
 | Partially paid, overdue, with additional installments                       | May approve refunding the additional installments while retaining the entire initial required Reservation Deposit, whether 10% or 20%. Do not automatically forfeit every collected payment. |
 | Partially paid, approved medical or other financial-emergency consideration | May approve a full refund of collected funds, including the initial deposit and additional installments.                                                                                     |
+
+#### Seven-Day Collection And Discretionary Refund Policy
+
+**Approved by the requesting Clothing business owner, October 29, 2026.**
+This is the standing policy basis, not an unanswered policy proposal. Do not
+repeatedly ask the owner to choose between full payment and pickup as a refund
+deadline. It supplements the three-day unpaid-order deadline; it does not
+replace it or make fully paid orders payment-overdue.
+
+- The seven-calendar-day window starts once the order is fully paid, physically
+  on hand and Prepared/ready, and the customer has been sent the invoice and
+  ready-for-collection notice. Use the latest of those qualifying dates. An
+  invoice or payment while goods are still in transit does not start the window.
+- The customer has seven calendar days to arrange pickup/checkout. A qualifying
+  start date of September 15 has a deadline of September 22, Manila date, through
+  end of day. Requests within the window may be considered; refunds are not
+  automatically granted.
+- After the window, ordinary change-of-mind and financial-emergency cancellation
+  requests are declined. Only an explicit, recorded business-owner exception
+  can override that ordinary rule. This is not a blanket denial of applicable
+  statutory rights for defective, incorrect or undelivered goods.
+- Expiry does not forfeit another payment, create revenue, transfer ownership,
+  fabricate pickup or mark an order Shipped. Uncollected goods remain Prepared,
+  reserved and unavailable for resale. Long-term safekeeping alone does not
+  restart the window or make another refund automatically available.
+- For reconciliation, held goods without a separately evidenced transfer of
+  control remain business inventory until actual release under the applicable
+  fulfillment terms. Full payment and refund eligibility are distinct from
+  ownership and sale recognition. Record collections once; any customer-advance
+  or opening-accounting correction requires reconciliation before posting.
+- **Order 3399:** the owner explicitly confirms that the September 14 invoice
+  and this fully paid, Prepared order are beyond the seven-day window. Treat
+  ordinary cancellation eligibility as closed, rather than asking the same
+  policy question again. Keep its 60 units reserved; retain PHP 2,404.20 in the
+  opening-inventory worksheet and do not invent a release. Its verified PHP 3,240
+  September receipts are not new October cash. This is an explicit owner decision
+  for this existing order, not proof that identical terms were historically
+  communicated to every other customer.
+
+**Implementation status (development source, October 29):** the existing
+`POST /api/transactions/[id]/cancellation` now enforces the window inside the
+serializable, idempotent `approveOrderCancellation` boundary in
+`src/lib/accounting/customer-money.ts`. A fully paid discretionary cancellation
+requires administrator-attested on-hand/readiness, invoice/notification and
+accepted-terms dates; missing evidence requires review rather than invented
+dates. Full-payment date comes from cumulative dated receipts, not today's
+mutable balance or a later overpayment. The deadline is inclusive through
+Manila end of day. Terms accepted after the qualifying start cannot be applied
+retroactively. Partial-payment rules are unchanged.
+
+An expired or unreviewed discretionary request is blocked before cancellation,
+journal, order or inventory writes. Only an administrator can attest explicit
+owner authorization with a separate exception reason. Defective/incorrect goods,
+non-delivery and supplier-failure voids remain separate grounds, not a blanket
+no-refund denial. The modal exposes these grounds and evidence controls.
+Generic single/bulk status updates already reject direct cancellation transitions.
+Successful decisions save the policy version, status/deadline, evidence,
+approver and exception reason in the existing financial-request result. Identical
+retries return the saved decision without another obligation or payment; changed
+details conflict. There is no new database column, migration or expiry job.
+
+This source change is not a production deployment, historical notice backfill,
+customer-advance reclassification or opening journal posting. No existing order,
+payment or reservation was repaired by implementing the guard. Apply the standing
+terms to new orders with clear customer notice; do not infer acceptance or
+missing readiness dates for other historical orders. General Merchandise and
+other domains are unchanged. Service/API and modal regressions are in
+`tests/unit/accounting/customer-money.service.test.ts` and
+`tests/unit/transactions/transactionCancellationModal.test.tsx`.
 
 For example, on an order totaling 1,000 with an initial 100 deposit and 300 in
 additional installments, an approved split can retain 100 and refund 300. An

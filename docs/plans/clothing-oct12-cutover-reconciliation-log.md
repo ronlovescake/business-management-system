@@ -1334,6 +1334,10 @@ production file, payment, operational status or accounting posting was changed.
 
 ## 26. Paw Patrol: Owner-Confirmed Zero Remaining Physical Stock
 
+**October 29 follow-up:** the seven-unit phantom-stock/negative-scrap issue
+was corrected in development and production; see section 35. The investigation
+below is retained as historical evidence, not the current unresolved status.
+
 On October 29, the owner confirms that Paw Patrol 2-PC Onesie
 `PP2PCO-082026` has zero remaining physical stock: all pieces were disposed
 of or shipped. This resolves the current physical-count question, not the
@@ -1641,3 +1645,329 @@ actual fulfillment dates before changing their reporting periods. Review
 historical purchase/landed-cost evidence for the six products before approving
 any exact-record cost repair. No production write, zero-cost confirmation,
 cost backfill, quantity change or recognition-policy change was performed.
+
+## 31. Owner-Confirmed PSO Receipt Quantity Reconciliation
+
+On October 29, 2026 the requesting Clothing owner confirmed that all 740 ordered
+PSO-101226 pieces were received and that all customers collected their goods
+except Marl Eisler Antonio / Nicole Sacristan (50) and Lyn Domingo / SIERRAS
+THRIFTEES (40), both fully paid. This evidence resolves the physical-quantity
+uncertainty in section 20, not the separate historical receipt-date question.
+
+The live orders are 3471 and 3612, both Prepared. Production payments total
+PHP 3,450 and PHP 2,760 respectively, with zero recorded balance. Development
+has older payment data; no payments were copied or invented there. The accountable
+policy owner is the requesting Clothing business owner. Payment alone remains
+insufficient to invent pickup, sale recognition or a new movement to sold.
+
+### Approved Scope And Enforcement
+
+The one-off [repair runner](../../scripts/tmp/reconcile-pso-receipt.ts) corrected
+only movement 5225's quantity from 700 to 740, plus its update timestamp. It did
+not insert another receipt or append a fictitious purchase/stock adjustment.
+The exact original row remains in the audit before-image and verified backup.
+This is an owner-supported historical data correction, not a change to the
+application's receipt, fulfillment or accounting policies.
+
+The owning receipt writer is `ensureReceiptMovementForProduct` in
+`src/modules/products/api/service.ts`. It intentionally preserves an existing
+receipt instead of resizing it after catalog edits. The Inventory UI already
+derived 740 from catalog data and floored negative availability; the underlying
+ledger still had 700 received and negative 40 sellable. The original cause of
+the stale 700 capture is not established by this investigation. Do not remove
+the writer's duplicate-receipt protection or generalize this repair to partial
+receipts or other products.
+
+The runner defaults to read-only inspection. Explicit `--apply` creates a fresh
+owner-only custom PostgreSQL backup, fully validates it with pg_restore without
+restoring, and stores its SHA-256 and before-state. The serializable correction
+locks affected tables, checks the exact product/receipt, one original receipt,
+held orders, production payments and pre-repair bucket totals. It atomically
+records immutable before/after evidence under request
+`b0d0c026-1029-4000-8000-000000000740`, operation
+`RECEIPT_QUANTITY_RECONCILIATION`. Same-key retries check the saved payload and
+receipt image; they cannot add another 40 units. Unexpected scope or failed
+postconditions abort the transaction.
+
+Whole-table fingerprints verify unchanged products, orders, payments, accounting
+journal lines and every other movement. Only quantity and updatedAt may differ
+on the corrected row. Its cost fields, original timestamps, postingDate, links
+and notes are preserved. No other UI/API/job/bulk/import path is modified;
+General Merchandise remains independent. The canonical contract is
+[Clothing inventory](../business-logic/clothing/operations-inventory.md#owner-confirmed-legacy-receipt-quantity).
+
+### Execution And Verification
+
+- Development applied successfully at approximately 11:39 UTC, then an identical
+  retry returned the existing result without another stock change.
+- Production applied successfully at approximately 11:40 UTC. An independent
+  read-only query confirmed the corrected row and saved audit record.
+- Both databases: 740 received, 650 sold, 90 reserved, zero sellable. All protected
+  table fingerprints matched before/after within each repair transaction.
+- First development backup:
+  `backups/2026-10-29T11-39-23-021Z-development-pso-receipt/`.
+- Development retry backup:
+  `backups/2026-10-29T11-39-39-988Z-development-pso-receipt/`.
+- Production backup:
+  `backups/2026-10-29T11-40-05-458Z-production-pso-receipt/`.
+- Each directory retains `before.dump`, `before.json` (including SHA-256) and
+  `after.json`. No database restore was performed.
+- Focused receipt/accounting and COGS tests: 86 passed. Script lint and repository
+  typecheck passed. Guardrails, repository lint (existing warnings), the full
+  unit suite and all 12 hardening tests passed. Integration failed with P2022
+  missing-column errors for `inventory_movements.costBasis` and
+  `split_batch_components.acquisitionUnitCost` in the test database. No schema
+  changes or test bypasses were made. Guardrails' unrelated generated LIV-1
+  completion-date change was removed from this repair's diff.
+- Ledger controls initially could not start without DATABASE_URL. Both constituent
+  checks were rerun with the explicit development connection. Healthcheck and
+  drift each exited 2, reporting other negative-sellable balances and catalog/net
+  ledger differences. These are not certification of the rest of inventory;
+  catalog purchase quantities and remaining stock also have distinct meanings.
+  No unrelated stock was changed to force these controls to pass.
+
+### Remaining Qualifications
+
+Receipt 5225 still has postingDate October 12 and its original creation time;
+the earlier owner-reported physical arrival was October 13. This quantity-only
+repair neither backdates nor certifies historical physical location, ownership,
+landed-charge timing or opening accounting recognition. The separate Paw Patrol,
+held-order recognition and damaged-stock questions also remain open. Accordingly,
+PHP 196,960.33 remains provisional; no opening valuation or balancing journal was
+posted. Genuine investor funding, sales, payments and historical cost evidence
+are untouched. No commit, push, production source edit, deployment or build was
+performed for this repair.
+
+## 32. PSO Shipment Timeline And Pricing-Only Packaging Clarification
+
+**Final owner-agreed reconciliation basis:** October 12 Inventory in Transit
+is PHP 30,636.64 supplier cost. KPC PHP 1,530 and Lalamove PHP 950 are treated
+on October 13; the owner confirms KPC was paid that day, with the Lalamove
+pickup recorded at 1:45 PM. The packaging allowance is a pricing estimate,
+not an actual acquisition cost or expense. This treatment is decided and must
+not remain an outstanding policy question. The conditional KPC-opening scenario
+below is retained as superseded investigation history, not an approved increase
+to PHP 198,490.33. The supplier-only combined worksheet remains PHP 196,960.33,
+subject to its separate remaining opening qualifications. Agreed treatment does
+not assert that opening/reclassification entries or historical cost restatements
+have been posted. Preserve existing genuine cash entries and do not duplicate
+the already paid PHP 2,480 logistics amounts.
+
+On October 29 the Clothing owner clarified that KPC received the goods from
+the supplier on September 15, they remained in transit until October 13, 2026,
+and the supplier was paid around September 10. A fresh enforced read-only
+production query confirmed shipment KPC 23930A-236 has dateCreated 2026-09-15,
+dateDelivered 2026-10-13, status Delivered and fee PHP 1,530. The owner's
+clarification supplies the physical meaning of those shipment dates. The
+October 12 catalog/receipt date is not evidence of physical arrival.
+
+The owner also clarified that packaging is an estimate used for pricing, not
+an evidenced actual acquisition cost. Do not capitalize the saved PHP 1,500
+packaging allowance merely because it appears in the pricing calculation.
+This resolves the earlier request for packaging-incurrence evidence: it is
+not an actual cost to allocate to October 12. Actual future packaging purchases
+or consumption require their own evidence and accounting classification.
+
+### Superseded Conditional Cost Scenario
+
+- October 12: supplier cost PHP 30,636.64 belongs in Inventory in Transit,
+  not physical Stock on Hand and not another October supplier payment.
+- Attribute the confirmed PHP 1,530 KPC freight to that pre-existing shipment.
+  If incurred by the October 12 cutoff, include it in transit carrying cost,
+  with an accrued payable if still unpaid. This gives PHP 32,166.64 for PSO's
+  opening transit value. Shipment dates and later payment establish neither
+  the exact contractual incurrence date nor a required service allocation by
+  themselves; this is the proposed freight treatment, not a posted approval.
+- October 13: reclassify the received carrying amount from transit to physical
+  inventory. Add the actual PHP 950 courier cost incurred for delivery to the
+  premises. Supplier plus confirmed freight and courier totals PHP 33,116.64,
+  excluding the pricing-only packaging estimate. Do not duplicate the already
+  recorded PHP 2,480 logistics payments/capitalization.
+- The saved PHP 35,166.64 pricing total exceeds those identified actual costs
+  by PHP 2,050: PHP 550 estimated-versus-actual courier difference plus PHP 1,500
+  packaging allowance. It is not automatically an additional expense or cash
+  payment. The earlier approved PHP 47.52 legacy sale-cost evidence is not
+  silently overwritten; any actual-cost restatement needs a separately reviewed
+  dated correction and an allocation between sold and remaining inventory.
+
+This clarification resolves the physical transit timeline and packaging's
+pricing-only purpose. It does not certify the full opening worksheet or post
+an opening balance. If the proposed KPC opening allocation is approved, PSO adds
+PHP 1,530 to section 21's supplier-only opening scenario: PHP 198,490.33 instead
+of PHP 196,960.33, with the other opening qualifications unchanged. These remain
+scenarios, not certified valuations. Only this reconciliation documentation
+changed; no database, cash, cost approval, receipt date or journal was changed.
+
+## 33. Standing Seven-Day Policy And Order 3399 Decision
+
+On October 29 the requesting Clothing owner directed that the discussed
+seven-day collection/refund rule be recorded as the concrete policy basis,
+rather than repeatedly reopening the same question. The canonical rule is
+[the Clothing SOP](../business-logic/clothing/operations-workflow.md#seven-day-collection-and-discretionary-refund-policy).
+The window begins once full payment, physical readiness and invoice/customer
+notification are all satisfied. Ordinary discretionary cancellation requests
+are declined after seven calendar days, with recorded owner exceptions and
+applicable statutory rights kept separate. Expiry is not a shipment or sale.
+
+For order 3399 the owner explicitly identifies the September 14 invoice and
+confirms that the order is beyond seven days. The production read-only review
+verified 60 Onesie units, Prepared status, PHP 324 paid September 14 plus
+PHP 2,916 paid September 15, one 60-unit reservation (movement 5055), and no
+linked sale or refund. Keep the 60 units reserved and PHP 2,404.20 in the
+opening worksheet; do not deduct it merely because full payment or a refund
+deadline has passed. These September receipts do not create October cash.
+
+The policy/worksheet decision is recorded and must not remain listed as an
+unanswered ownership-policy question. Earlier conditional suggestions to
+exclude these held units are superseded by this basis. Accounting verification
+and any required customer-advance/opening posting remain separate execution
+tasks: this does not assert that the full PHP 3,240 has already been correctly
+classified in existing reports or opening entries. No policy-enforcement code,
+order status, movement, payment, opening balance or journal was changed.
+Other historical customers' acceptance/readiness is not inferred, and General
+Merchandise is unchanged. Documentation checks and the seven-day date example
+passed; application suites were not rerun for this documentation-only record.
+
+## 34. Seven-Day Cancellation Policy Enforcement In Development
+
+The Clothing owner subsequently requested implementation where needed. The
+approved invariant and accountable owner remain those in section 33 and the
+canonical Clothing SOP. This change enforces cancellation eligibility, not a
+new ownership transfer, pickup event or accounting recognition rule.
+
+The existing serializable/idempotent `approveOrderCancellation` service in
+`src/lib/accounting/customer-money.ts` now rejects fully paid discretionary
+cancellations after seven calendar days. It derives the full-payment date from
+cumulative actual receipts, uses the latest invoice/readiness/notification date,
+and includes the deadline through Manila end of day. A later overpayment does
+not restart the window. Administrator-attested readiness, notification and
+accepted-terms evidence is required because the current order schema does not
+store those historical notices. Missing or future dates are not fabricated;
+terms accepted later cannot retroactively impose the earlier deadline.
+
+The existing Clothing cancellation modal now records the cancellation ground,
+supporting dates or a separate explicit owner-authorized exception reason.
+Only existing ADMIN/SUPER_ADMIN decision-makers may attest an owner exception.
+Defective goods, incorrect goods, non-delivery and supplier-failure voids remain
+separate from ordinary discretionary cancellation. An exception is not inferred
+merely from an administrator clicking Approve or typing an ordinary reason.
+Existing partial-payment deposit rules and actual refund payout handling remain
+unchanged.
+
+All callers use the same cancellation API/service. Generic single/bulk status
+updates already prohibit direct cancellation transitions; there is no new
+background expiry job or inventory import path. The guard runs before money,
+order or stock mutations. Successful cancellation results save policy version,
+ground, calculated window, supplied evidence, approver and exception reason in
+the existing `ClothingFinancialRequest.result`. Exact retries reuse that result;
+changed details conflict. No Prisma/schema change or historical-data migration
+is needed. General Merchandise has independent operations and is unchanged.
+
+Order 3399 remains Prepared/reserved. No existing receipt, payment, stock,
+opening balance, customer advance or journal was updated by this implementation.
+Missing historical accounting classification is not silently repaired or treated
+as verified. Production source, deployment, builds and git history were not changed.
+
+Validation: 38 focused cancellation service/API and modal tests passed, including
+expiry, deadline boundaries, late readiness, missing/future evidence, retroactive
+terms, statutory grounds, supplier failure, explicit exceptions, authorization,
+direct requests, identical retry and conflicting-key behavior. Guardrails,
+repository lint (existing warnings), strict typecheck, 4,605 unit tests and all
+12 hardening tests passed. Integration: 70 passed / 20 failed with test-database
+P2022 missing columns `inventory_movements.costBasis` and
+`split_batch_components.acquisitionUnitCost`, consistent with the earlier
+unresolved schema limitation. No tests, guardrails or thresholds were bypassed.
+The unrelated guardrail-generated LIV-1 completion date was restored.
+The configured coverage run also executed all 4,605 tests successfully, then
+aborted with exit 134 while generating coverage after exhausting Node's 4 GB
+heap. Coverage thresholds/results are therefore unverified, not passed; no
+coverage exclusions, thresholds or runtime limits were changed to force a pass.
+
+## 35. Paw Patrol Unsupported Second Scrap Return Corrected
+
+The requesting Clothing owner authorized fixing this discrepancy on October 29.
+Accountable owner: the requesting Clothing business owner. Approved invariant:
+reconcile the owner-confirmed zero remaining physical stock without inventing
+another seven-piece write-off, sale, receipt, cost or cash event, while preserving
+the eight genuinely shipped units and full correction evidence.
+
+Fresh enforced read-only snapshots from development and production matched the
+twelve-movement chain in section 26, with no matching deleted movements. After
+movement 5466 recorded seven scrap units, 5467 returned all seven, leaving the
+recorded scrap source empty. Movement 5468 then returned seven more from that
+empty bucket. It had no transaction, source-allocation link, note or saved cost
+provenance. This is the specific unsupported ledger event; the zero physical
+count alone was not used to select an arbitrary reversal. The correction does
+not claim to reconstruct the intent of every earlier supplier-short adjustment.
+
+### Scope And Safety
+
+The one-off [repair runner](../../scripts/tmp/reconcile-paw-patrol-return.ts)
+soft-deletes only movement 5468, changing deletedAt and updatedAt. All original
+quantity, date, product, bucket, source and cost fields remain stored. A keyed
+audit retains the complete original chain, before/after row images, protected
+table fingerprints, owner-attested reason and backup location under request
+`b0d0c026-1029-4000-8000-000000000280`, operation
+`UNSUPPORTED_SCRAP_RETURN_REPAIR`.
+
+The default mode is read-only. Development `--check` executes all guards,
+correction, audit insertion and postconditions, then rolls back. Explicit
+`--apply` first creates an owner-only full custom PostgreSQL dump, consumes it
+through pg_restore validation without restoring, and saves its SHA-256. The
+serializable transaction locks affected tables, requires the exact twelve-event
+chain, verifies the empty preceding scrap balance and two shipped four-unit
+orders, and rejects linked allocation/cost evidence or changed scope. Identical
+request retries check the saved payload and after-image rather than changing
+stock again. No hard delete, replacement purchase or balancing entry occurs.
+
+Whole-table fingerprints verify unchanged products, orders, payments, refunds,
+stored journal lines, opening balances and every movement except 5468. The
+enforcement surface is this exact historical-data repair and the existing
+readers' deletedAt filtering. No UI/API/job/bulk/import behavior, schema,
+authorization or General Merchandise policy is changed. The canonical contract
+is [Clothing inventory](../business-logic/clothing/operations-inventory.md#audited-unsupported-scrap-return-correction).
+
+### Execution And Independent Verification
+
+- Development rollback validation passed before any retained change. Development
+  apply and same-key replay then passed with protected fingerprints unchanged.
+- Production apply and same-key replay passed. An independent read-only query
+  confirmed 5466/5467 active, only 5468 soft-deleted and exactly one audit record.
+- Both databases now show sellable 0, reserved 0, scrap 0 and sold 8. Historical
+  supplier_short 2 and opening_inventory -10 are preserved source offsets, not
+  assertions of remaining physical stock.
+- The actual accounting reader showed production's Paw Patrol October movement
+  Stock on Hand contribution fall from PHP 7.21 to zero. Seed value fell from
+  PHP 14.42 to PHP 7.21; the retained original shrinkage/return pair is unchanged.
+  No new shrinkage charge or stored journal was written. These are scoped derived
+  movement effects, not certification of the full opening/closing balance sheet.
+- Period COGS remains PHP 125,430.17 and the updated reader reports zero valuation
+  warnings before and after the repair. This does not independently certify the
+  saved PHP 1.03 Paw Patrol cost or other historical receipt/catalog differences.
+- Focused inventory-accounting regressions: all 49 passed. Script lint passed.
+- Development backup:
+  `backups/2026-10-29T12-54-55-933Z-development-paw-patrol-return/`.
+- Development replay backup:
+  `backups/2026-10-29T12-55-22-377Z-development-paw-patrol-return/`.
+- Production backup:
+  `backups/2026-10-29T12-56-19-438Z-production-paw-patrol-return/`.
+- Production replay backup:
+  `backups/2026-10-29T12-56-27-896Z-production-paw-patrol-return/`.
+
+Each backup directory retains before.dump, before.json with SHA-256 and after.json.
+The seven-unit phantom-stock discrepancy is resolved, not an outstanding request
+for another physical count or an invented write-off. Wider inventory and opening
+valuation qualifications remain separate. No commit, push, deployment, production
+source edit, application build or database restore was performed.
+
+Post-repair gates: guardrails, repository lint (existing warnings), strict
+typecheck and all 4,605 unit tests passed. Integration again had 70 passing and
+20 failing tests, with P2022 missing `inventory_movements.costBasis` and
+`split_batch_components.acquisitionUnitCost` columns in the test database.
+Read-only development ledger healthcheck and drift checks each exited 2 on
+wider existing diagnostics; Paw Patrol was absent from the negative-sellable
+output. No unrelated quantity, cost, test schema or guardrail was changed to
+force a pass. The guardrail-generated unrelated LIV-1 completion date was
+restored. No application accounting algorithm was changed; the executed rollback,
+exact-scope guards, replay checks and independent live-reader verification are
+the behavior-scoped validation for this historical data repair.
