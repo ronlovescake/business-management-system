@@ -8,7 +8,10 @@ import { hasSupplierSettlementForTransitKeys } from '@/lib/accounting/supplier-s
 import type { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
-import { getAccountingCutoverDate } from '@/lib/accounting/cutover';
+import {
+  getAccountingCutoverDate,
+  getRuntimeAccountingCutoverDate,
+} from '@/lib/accounting/cutover';
 import { pickUnitCostFromProductRow } from '@/lib/accounting/inventoryCogsShared';
 import { parseDate } from '@/lib/accounting/date-utils';
 import {
@@ -32,6 +35,7 @@ const ENABLE_PRODUCT_EXPENSE_POSTING = false;
 const ACCOUNTING_CUTOVER_DATE = getAccountingCutoverDate();
 
 const INVENTORY_IN_TRANSIT_ACCOUNT = 'Inventory in Transit';
+const OPENING_EQUITY_ACCOUNT = 'Opening Equity';
 const LANDED_COST_CLEARING_ACCOUNT = 'Landed Cost Clearing';
 const SUPPLIER_PAYABLE_ACCOUNT = 'Supplier Payable';
 const FORWARDER_PAYABLE_ACCOUNT = 'Forwarder Payable';
@@ -302,6 +306,8 @@ export interface ProductService {
   }>;
   postManualTransitBuildUpByShipmentCode: (params: {
     shipmentCode: string;
+    fundingSource?: 'PAYMENT' | 'OPENING_BALANCE';
+    openingBalanceConfirmed?: boolean;
   }) => Promise<{ created: number; skipped: number; products: number }>;
   softDeleteAll: () => Promise<{ deleted: number; alreadyDeleted: number }>;
 }
@@ -1134,6 +1140,21 @@ export const productService: ProductService = {
   },
 
   async postManualTransitBuildUpByShipmentCode(params) {
+    const fundingSource = params.fundingSource ?? 'PAYMENT';
+    if (fundingSource !== 'PAYMENT' && fundingSource !== 'OPENING_BALANCE') {
+      throw new ProductSupplierSettlementError(
+        'Invalid transit funding source.'
+      );
+    }
+    const isOpeningBalance = fundingSource === 'OPENING_BALANCE';
+    if (isOpeningBalance && params.openingBalanceConfirmed !== true) {
+      throw new ProductSupplierSettlementError(
+        'Confirm that the supplier was paid before cutover and the goods were still in transit at cutover.'
+      );
+    }
+    const openingDate = isOpeningBalance
+      ? await getRuntimeAccountingCutoverDate()
+      : null;
     const shipmentCode = (params.shipmentCode ?? '').toString().trim();
     if (!shipmentCode) {
       return { created: 0, skipped: 0, products: 0 };
@@ -1166,6 +1187,38 @@ export const productService: ProductService = {
           orderBy: { id: 'asc' },
         });
 
+        if (isOpeningBalance) {
+          if (products.length === 0) {
+            throw new ProductSupplierSettlementError(
+              'No products are linked to this shipment.'
+            );
+          }
+          const existingOpening =
+            await tx.clothingAccountingOpeningBalance.findFirst({
+              where: {
+                deletedAt: null,
+                account: INVENTORY_IN_TRANSIT_ACCOUNT,
+              },
+              select: { id: true },
+            });
+          const existingManualTransit =
+            await tx.clothingAccountingJournalLine.findFirst({
+              where: {
+                deletedAt: null,
+                sourceType: 'MANUAL',
+                account: INVENTORY_IN_TRANSIT_ACCOUNT,
+                debit: { gt: 0 },
+              },
+              select: { id: true },
+            });
+          if (existingOpening || existingManualTransit) {
+            throw new ProductSupplierSettlementError(
+              'Inventory in Transit already has a standalone opening or manual debit. Reconcile that entry before posting opening transit funding.',
+              409
+            );
+          }
+        }
+
         const existingBuildKeys =
           await tx.clothingInventoryTransitBuildEntry.findMany({
             where: {
@@ -1175,7 +1228,7 @@ export const productService: ProductService = {
                 mode: 'insensitive',
               },
             },
-            select: { idempotencyKey: true },
+            select: { idempotencyKey: true, creditAccount: true },
           });
 
         if (
@@ -1184,6 +1237,17 @@ export const productService: ProductService = {
           )
         ) {
           throw new ProductShipmentAccountingConflictError(shipmentCode);
+        }
+        if (
+          isOpeningBalance &&
+          existingBuildKeys.some(
+            (row) => row.creditAccount !== OPENING_EQUITY_ACCOUNT
+          )
+        ) {
+          throw new ProductSupplierSettlementError(
+            'This shipment already has payment-funded transit entries. Opening funding cannot replace or duplicate them.',
+            409
+          );
         }
 
         const alreadyPostedProductIds = new Set<number>();
@@ -1221,6 +1285,9 @@ export const productService: ProductService = {
             params.productName ? `Name: ${params.productName}` : null,
             `Component: ${params.componentLabel}`,
             `Payment: ${params.payment}`,
+            isOpeningBalance
+              ? `Funding: Opening Balance | Cutover: ${openingDate?.toISOString().slice(0, 10)} | Confirmed paid before cutover and in transit at cutover`
+              : null,
           ].filter(Boolean);
 
           entries.push({
@@ -1238,6 +1305,22 @@ export const productService: ProductService = {
         let skippedProducts = 0;
 
         for (const product of products) {
+          if (openingDate) {
+            const orderDate = parseDate(product.orderDate);
+            if (
+              !isPaid(product.payment) ||
+              !orderDate ||
+              normalizeToUtcMidnight(orderDate) >= openingDate ||
+              product.supplierFulfillmentStatus === 'CREDIT_ISSUED' ||
+              Number(product.supplierCreditAppliedAmount ?? 0) > 0 ||
+              !Number.isFinite(toAmount(product.grandTotal)) ||
+              toAmount(product.grandTotal) <= 0
+            ) {
+              throw new ProductSupplierSettlementError(
+                `Opening transit requires every linked product to be a paid, positive-cost purchase ordered before cutover without supplier credit. Check ${product.productCode || product.id}.`
+              );
+            }
+          }
           if (
             alreadyPostedProductIds.has(product.id) ||
             product.supplierFulfillmentStatus === 'CREDIT_ISSUED' ||
@@ -1252,23 +1335,27 @@ export const productService: ProductService = {
             continue;
           }
 
-          const paymentCreditAccount = isPaid(payment)
-            ? getPaymentAccountForMethod(product.paymentMethod)
-            : SUPPLIER_PAYABLE_ACCOUNT;
+          const paymentCreditAccount = isOpeningBalance
+            ? OPENING_EQUITY_ACCOUNT
+            : isPaid(payment)
+              ? getPaymentAccountForMethod(product.paymentMethod)
+              : SUPPLIER_PAYABLE_ACCOUNT;
           if (!paymentCreditAccount) {
             skippedProducts += 1;
             continue;
           }
 
-          const postingDate = resolvePostingDateFromProduct({
-            postingDate: product.postingDate,
-            orderDate: product.orderDate,
-          });
+          const postingDate =
+            openingDate ??
+            resolvePostingDateFromProduct({
+              postingDate: product.postingDate,
+              orderDate: product.orderDate,
+            });
           if (!postingDate) {
             continue;
           }
 
-          if (!isOnOrAfterAccountingCutover(postingDate)) {
+          if (!isOpeningBalance && !isOnOrAfterAccountingCutover(postingDate)) {
             continue;
           }
 
@@ -1293,7 +1380,7 @@ export const productService: ProductService = {
             amount: toAmount(product.grandTotal),
           });
 
-          if (ENABLE_TRANSIT_BUILD_LOGISTICS_COMPONENTS) {
+          if (!isOpeningBalance && ENABLE_TRANSIT_BUILD_LOGISTICS_COMPONENTS) {
             addEntry({
               productId: product.id,
               productCode: product.productCode,
@@ -1347,6 +1434,28 @@ export const productService: ProductService = {
           )
         ) {
           throw new ProductShipmentAccountingConflictError(shipmentCode);
+        }
+
+        if (
+          await tx.clothingInventoryTransitBuildEntry.findFirst({
+            where: {
+              deletedAt: { not: null },
+              idempotencyKey: {
+                in: entries.map((entry) => entry.idempotencyKey),
+              },
+              ...(!isOpeningBalance
+                ? { creditAccount: OPENING_EQUITY_ACCOUNT }
+                : {}),
+            },
+            select: { id: true },
+          })
+        ) {
+          throw new ProductSupplierSettlementError(
+            isOpeningBalance
+              ? 'Deleted transit funding already owns these posting keys. Resolve its history before posting an opening.'
+              : 'Deleted opening funding cannot be restored as a purchase payment. Resolve its history first.',
+            409
+          );
         }
 
         let restored = 0;

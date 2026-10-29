@@ -420,6 +420,30 @@ and `tests/e2e/handsontable-grid.interactions.spec.ts`.
 | 107 | Already-posted entries are idempotent                                     | The API uses a transactional approach: soft-deleted rows for the shipment are purged before `createMany`, wrapped in a Prisma `$transaction`, ensuring safe re-posting. Previously posted and then deleted entries can be re-created.                                                                                                                                                                                 |
 | 108 | Missing payment/date products are not posted                              | Products with no payment or date set, or whose date precedes the cutover threshold, are excluded from posting by the API.                                                                                                                                                                                                                                                                                             |
 
+### Opening-Funded Legacy Purchases
+
+Approved October 29, 2026 by the requesting Clothing business owner. The
+enforcement boundary is `productService.postManualTransitBuildUpByShipmentCode`
+in `src/modules/products/api/service.ts`, called by
+`POST /api/products/transit-build`. This is an explicit opening workflow, not
+permission to date another purchase payment at cutover.
+
+| #   | Rule                                                        | Enforcement                                                                                                                                                                                                                                                                                                                                       |
+| --- | ----------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| OB1 | Clothing offers Purchase Payment or Opening Balance         | Purchase Payment remains the default. General Merchandise retains its existing purchase-funded dialog and separate service.                                                                                                                                                                                                                       |
+| OB2 | Opening funding requires historical confirmation            | The operator confirms supplier payment before cutover and goods still in transit at cutover. Every linked product must be Paid, ordered before cutover, have a positive finite Grand Total, and have neither issued nor applied supplier credit. Missing dates or one ineligible product abort the entire opening request.                        |
+| OB3 | Opening entry uses supplier cost only                       | Dr Inventory in Transit / Cr Opening Equity for each eligible product's saved Grand Total, on the runtime Clothing cutover date. The preview loads that configured date. No Cash/Bank/Card/Payable posting, logistics, packaging, inventory movement, product edit or new receipt is created. The historical paying account need not be invented. |
+| OB4 | Duplicate and conflicting history must be resolved first    | An active standalone Inventory in Transit opening or manual transit debit blocks opening funding conservatively. Payment-funded or shipment-origin build-up, active downstream reclass/settlement, and deleted funding keys cannot be replaced by an opening. Existing unrelated physical-stock openings remain untouched.                        |
+| OB5 | Retry and concurrent submission reuse existing funding keys | Opening rows retain `PRODUCT_TRANSIT_BUILD:<id>:GRAND_TOTAL`, with explicit confirmation and cutover notes. The existing serializable transaction and unique key prevent duplicate funding. Identical retries skip existing active opening rows; a serialization conflict requires retry after refresh. No history is purged.                     |
+| OB6 | Arrival reclassifies the same saved supplier amount         | Existing Delivered-shipment Reclass posts Dr Stock on Hand / Cr Inventory in Transit, without a second equity or payment entry and without adding later cost estimates. Actual logistics remain in the separate Logistics Costs workflow.                                                                                                         |
+
+Only the existing Products UI/API invokes the new optional mode; no automatic
+backfill, generator, job, import or bulk action creates opening funding. Existing
+identity, supplier-credit and settlement guards remain in force. General
+Merchandise, trucking and household rules are intentionally unchanged: the owner
+approved a Clothing cutover workflow, not a shared policy change. No historical
+record or running production application is changed by publishing this contract.
+
 ---
 
 ## M — Reclass to Stock on Hand Workflow

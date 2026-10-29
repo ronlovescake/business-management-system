@@ -2,24 +2,39 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { NextRequest } from 'next/server';
 import { getTestApiUrl } from '@/core/testing/test-helpers';
 
-const { mockProductService } = vi.hoisted(() => ({
+const { mockProductService, mockGetCurrentUser } = vi.hoisted(() => ({
+  mockGetCurrentUser: vi.fn(),
   mockProductService: {
     findActive: vi.fn(),
     createSingle: vi.fn(),
     bulkImport: vi.fn(),
     bulkUpdate: vi.fn(),
+    postManualTransitBuildUpByShipmentCode: vi.fn(),
     softDeleteAll: vi.fn(),
   },
 }));
 
+vi.mock('@/lib/auth/session', () => ({ getCurrentUser: mockGetCurrentUser }));
+
 vi.mock('@/modules/products/api/service', () => ({
   productService: mockProductService,
   ProductShipmentAccountingConflictError: class extends Error {},
-  ProductSupplierSettlementError: class extends Error {},
+  ProductSupplierSettlementError: class extends Error {
+    constructor(
+      message: string,
+      public readonly status = 400
+    ) {
+      super(message);
+    }
+  },
 }));
 
 import { GET, POST, PUT, DELETE } from '@/app/api/products/route';
-import { ProductShipmentAccountingConflictError } from '@/modules/products/api/service';
+import { POST as postTransitBuild } from '@/app/api/products/transit-build/route';
+import {
+  ProductShipmentAccountingConflictError,
+  ProductSupplierSettlementError,
+} from '@/modules/products/api/service';
 
 type NextRequestInit = ConstructorParameters<typeof NextRequest>[1];
 
@@ -68,7 +83,126 @@ const sampleProduct = {
 describe('Products API Routes', () => {
   beforeEach(() => {
     process.env.DATABASE_URL = 'postgresql://user:pass@localhost:5432/db';
+    mockGetCurrentUser.mockResolvedValue({ id: 'admin-test', role: 'ADMIN' });
     Object.values(mockProductService).forEach((fn) => fn.mockReset());
+  });
+
+  describe('POST /api/products/transit-build', () => {
+    const request = (body: object) =>
+      buildRequest('/api/products/transit-build', {
+        method: 'POST',
+        body: JSON.stringify(body),
+      });
+
+    it.each([
+      { user: null, status: 401 },
+      { user: { id: 'employee-test', role: 'EMPLOYEE' }, status: 403 },
+    ])(
+      'preserves the administrator boundary: $status',
+      async ({ user, status }) => {
+        mockGetCurrentUser.mockResolvedValue(user);
+        const response = await postTransitBuild(
+          request({
+            shipmentCode: 'KPC-OPENING',
+            fundingSource: 'OPENING_BALANCE',
+            openingBalanceConfirmed: true,
+          })
+        );
+        expect(response.status).toBe(status);
+        expect(
+          mockProductService.postManualTransitBuildUpByShipmentCode
+        ).not.toHaveBeenCalled();
+      }
+    );
+
+    it('forwards only explicitly confirmed opening funding to the owning service', async () => {
+      mockProductService.postManualTransitBuildUpByShipmentCode.mockResolvedValue(
+        { created: 1, skipped: 0, products: 1 }
+      );
+      const response = await postTransitBuild(
+        request({
+          shipmentCode: ' KPC-OPENING ',
+          fundingSource: 'OPENING_BALANCE',
+          openingBalanceConfirmed: true,
+        })
+      );
+      expect(response.status).toBe(200);
+      expect(
+        mockProductService.postManualTransitBuildUpByShipmentCode
+      ).toHaveBeenCalledWith({
+        shipmentCode: 'KPC-OPENING',
+        fundingSource: 'OPENING_BALANCE',
+        openingBalanceConfirmed: true,
+      });
+    });
+
+    it.each([undefined, false, 'true', 1])(
+      'rejects opening funding without a boolean confirmation: %s',
+      async (openingBalanceConfirmed) => {
+        const response = await postTransitBuild(
+          request({
+            shipmentCode: 'KPC-OPENING',
+            fundingSource: 'OPENING_BALANCE',
+            openingBalanceConfirmed,
+          })
+        );
+        expect(response.status).toBe(400);
+        expect(
+          mockProductService.postManualTransitBuildUpByShipmentCode
+        ).not.toHaveBeenCalled();
+      }
+    );
+
+    it('rejects an unsupported funding source', async () => {
+      const response = await postTransitBuild(
+        request({
+          shipmentCode: 'KPC-OPENING',
+          fundingSource: 'Cash',
+        })
+      );
+      expect(response.status).toBe(400);
+      expect(
+        mockProductService.postManualTransitBuildUpByShipmentCode
+      ).not.toHaveBeenCalled();
+    });
+
+    it('preserves the default purchase-funded request', async () => {
+      mockProductService.postManualTransitBuildUpByShipmentCode.mockResolvedValue(
+        { created: 1, skipped: 0, products: 1 }
+      );
+      expect(
+        (await postTransitBuild(request({ shipmentCode: 'KPC-001' }))).status
+      ).toBe(200);
+      expect(
+        mockProductService.postManualTransitBuildUpByShipmentCode
+      ).toHaveBeenCalledWith({ shipmentCode: 'KPC-001' });
+    });
+
+    it('returns an existing shipment funding conflict as 409', async () => {
+      mockProductService.postManualTransitBuildUpByShipmentCode.mockRejectedValue(
+        new ProductShipmentAccountingConflictError('Conflicting funding')
+      );
+      const response = await postTransitBuild(
+        request({ shipmentCode: 'KPC-OPENING' })
+      );
+      expect(response.status).toBe(409);
+      expect((await response.json()).error).toBe('Conflicting funding');
+    });
+
+    it('returns the service conflict instead of replacing existing opening funding', async () => {
+      mockProductService.postManualTransitBuildUpByShipmentCode.mockRejectedValue(
+        new ProductSupplierSettlementError('Existing transit opening', 409)
+      );
+      const response = await postTransitBuild(
+        request({
+          shipmentCode: 'KPC-OPENING',
+          fundingSource: 'OPENING_BALANCE',
+          openingBalanceConfirmed: true,
+        })
+      );
+      expect(response.status).toBe(409);
+      expect((await response.json()).error).toBe('Existing transit opening');
+    });
   });
 
   describe('GET /api/products', () => {

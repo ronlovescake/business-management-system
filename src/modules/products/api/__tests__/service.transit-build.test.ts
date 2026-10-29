@@ -17,13 +17,16 @@ const mockPrisma = vi.hoisted(() => {
       findMany: vi.fn(),
     },
     clothingInventoryReclassEntry: { findFirst: vi.fn() },
-    clothingAccountingJournalLine: { count: vi.fn() },
+    clothingAccountingOpeningBalance: { findFirst: vi.fn() },
+    clothingAccountingJournalLine: { count: vi.fn(), findFirst: vi.fn() },
     clothingInventoryTransitBuildEntry: {
+      findFirst: vi.fn(),
       findMany: vi.fn(),
       createMany: clothingCreateMany,
       updateMany: clothingUpdateMany,
       deleteMany: vi.fn(),
     },
+    $queryRaw: vi.fn(),
     $transaction: vi.fn(),
   };
 });
@@ -41,6 +44,7 @@ vi.mock('@/modules/clothing/ledger/api/service', () => ({
 describe('productService manual transit build-up (by shipment code)', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockPrisma.$queryRaw.mockResolvedValue([]);
     mockPrisma.$transaction.mockImplementation(
       async (operation: (client: typeof mockPrisma) => Promise<unknown>) =>
         operation(mockPrisma)
@@ -55,7 +59,56 @@ describe('productService manual transit build-up (by shipment code)', () => {
       count: 0,
     });
     mockPrisma.clothingInventoryReclassEntry.findFirst.mockResolvedValue(null);
+    mockPrisma.clothingAccountingOpeningBalance.findFirst.mockResolvedValue(
+      null
+    );
+    mockPrisma.clothingAccountingJournalLine.findFirst.mockResolvedValue(null);
+    mockPrisma.clothingInventoryTransitBuildEntry.findFirst.mockResolvedValue(
+      null
+    );
     mockPrisma.clothingAccountingJournalLine.count.mockResolvedValue(0);
+  });
+
+  it('funds a pre-cutover paid purchase from Opening Equity without posting logistics or another payment', async () => {
+    vi.resetModules();
+    const { productService } = await import('../service');
+    mockPrisma.product.findMany.mockResolvedValue([
+      {
+        id: 290,
+        productCode: 'PSO-101226',
+        product: 'Premium Shortsleeves Onesie',
+        payment: 'Paid',
+        paymentMethod: 'CASH',
+        postingDate: '2026-01-18',
+        orderDate: '2025-09-01',
+        grandTotal: 30636.64,
+        forwardersFee: 1530,
+        lalamove: 950,
+      },
+    ]);
+    const input = {
+      shipmentCode: 'KPC-OPENING',
+      fundingSource: 'OPENING_BALANCE' as const,
+      openingBalanceConfirmed: true,
+    };
+
+    await productService.postManualTransitBuildUpByShipmentCode(input);
+
+    expect(
+      mockPrisma.clothingInventoryTransitBuildEntry.createMany
+    ).toHaveBeenCalledWith({
+      data: [
+        expect.objectContaining({
+          idempotencyKey: 'PRODUCT_TRANSIT_BUILD:290:GRAND_TOTAL',
+          postingDate: new Date('2026-01-17T00:00:00.000Z'),
+          debitAccount: 'Inventory in Transit',
+          creditAccount: 'Opening Equity',
+          amount: 30636.64,
+          notes: expect.stringContaining('Funding: Opening Balance'),
+        }),
+      ],
+      skipDuplicates: true,
+    });
   });
 
   it('posts Grand Total to Inventory in Transit, but Forwarder/Lalamove to Landed Cost Clearing (Paid)', async () => {
@@ -327,4 +380,221 @@ describe('productService manual transit build-up (by shipment code)', () => {
       ).not.toHaveBeenCalled();
     }
   );
+
+  describe('opening-balance safeguards', () => {
+    const request = {
+      shipmentCode: 'KPC-OPENING',
+      fundingSource: 'OPENING_BALANCE' as const,
+      openingBalanceConfirmed: true,
+    };
+    const product = {
+      id: 290,
+      productCode: 'PSO-101226',
+      payment: 'Paid',
+      paymentMethod: 'CASH',
+      orderDate: '2025-09-01',
+      postingDate: '2026-01-18',
+      grandTotal: 30636.64,
+      supplierFulfillmentStatus: 'ACTIVE',
+      supplierCreditAppliedAmount: 0,
+    };
+
+    beforeEach(() => {
+      mockPrisma.product.findMany.mockResolvedValue([product]);
+    });
+
+    it('requires explicit historical payment and transit confirmation', async () => {
+      const { productService } = await import('../service');
+      await expect(
+        productService.postManualTransitBuildUpByShipmentCode({
+          ...request,
+          openingBalanceConfirmed: false,
+        })
+      ).rejects.toThrow('Confirm that the supplier was paid before cutover');
+      expect(mockPrisma.$transaction).not.toHaveBeenCalled();
+    });
+
+    it.each([
+      { payment: 'Unpaid' },
+      { payment: '' },
+      { orderDate: null },
+      { orderDate: 'not-a-date' },
+      { orderDate: '2026-01-17' },
+      { orderDate: '2026-02-01' },
+      { grandTotal: 0 },
+      { grandTotal: -1 },
+      { grandTotal: Number.NaN },
+      { supplierFulfillmentStatus: 'CREDIT_ISSUED' },
+      { supplierCreditAppliedAmount: 100 },
+    ])('rejects an ineligible purchase atomically: %j', async (changes) => {
+      const { productService } = await import('../service');
+      mockPrisma.product.findMany.mockResolvedValue([
+        product,
+        { ...product, id: 291, ...changes },
+      ]);
+      await expect(
+        productService.postManualTransitBuildUpByShipmentCode(request)
+      ).rejects.toThrow('Opening transit requires every linked product');
+      expect(
+        mockPrisma.clothingInventoryTransitBuildEntry.createMany
+      ).not.toHaveBeenCalled();
+      expect(
+        mockPrisma.clothingInventoryTransitBuildEntry.updateMany
+      ).not.toHaveBeenCalled();
+    });
+
+    it.each(['opening', 'manual'])(
+      'blocks existing standalone %s transit funding',
+      async (source) => {
+        const { productService } = await import('../service');
+        const model =
+          source === 'opening'
+            ? mockPrisma.clothingAccountingOpeningBalance
+            : mockPrisma.clothingAccountingJournalLine;
+        model.findFirst.mockResolvedValue({ id: 'existing-transit' });
+        await expect(
+          productService.postManualTransitBuildUpByShipmentCode(request)
+        ).rejects.toMatchObject({ status: 409 });
+        expect(
+          mockPrisma.clothingInventoryTransitBuildEntry.createMany
+        ).not.toHaveBeenCalled();
+      }
+    );
+
+    it('uses the database-configured cutover rather than the product date or environment fallback', async () => {
+      const { productService } = await import('../service');
+      mockPrisma.$queryRaw.mockResolvedValue([
+        { cutoverDate: new Date('2026-10-12T00:00:00.000Z') },
+      ]);
+      await productService.postManualTransitBuildUpByShipmentCode(request);
+      expect(
+        mockPrisma.clothingInventoryTransitBuildEntry.createMany
+      ).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: [
+            expect.objectContaining({
+              postingDate: new Date('2026-10-12T00:00:00.000Z'),
+              creditAccount: 'Opening Equity',
+              amount: 30636.64,
+            }),
+          ],
+        })
+      );
+      expect(mockPrisma.$transaction).toHaveBeenCalledWith(
+        expect.any(Function),
+        { isolationLevel: 'Serializable' }
+      );
+    });
+
+    it('does not need to invent a historical paying account', async () => {
+      const { productService } = await import('../service');
+      mockPrisma.product.findMany.mockResolvedValue([
+        { ...product, paymentMethod: null },
+      ]);
+      await productService.postManualTransitBuildUpByShipmentCode(request);
+      expect(
+        mockPrisma.clothingInventoryTransitBuildEntry.createMany
+      ).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: [expect.objectContaining({ creditAccount: 'Opening Equity' })],
+        })
+      );
+    });
+
+    it('reuses an existing opening-funded product key without another entry', async () => {
+      const { productService } = await import('../service');
+      mockPrisma.clothingInventoryTransitBuildEntry.findMany.mockResolvedValue([
+        {
+          idempotencyKey: 'PRODUCT_TRANSIT_BUILD:290:GRAND_TOTAL',
+          creditAccount: 'Opening Equity',
+        },
+      ]);
+      await expect(
+        productService.postManualTransitBuildUpByShipmentCode(request)
+      ).resolves.toEqual({ created: 0, skipped: 1, products: 1 });
+      expect(
+        mockPrisma.clothingInventoryTransitBuildEntry.createMany
+      ).not.toHaveBeenCalled();
+    });
+
+    it('does not convert an existing payment-funded key into opening equity', async () => {
+      const { productService } = await import('../service');
+      mockPrisma.clothingInventoryTransitBuildEntry.findMany.mockResolvedValue([
+        {
+          idempotencyKey: 'PRODUCT_TRANSIT_BUILD:290:GRAND_TOTAL',
+          creditAccount: 'Cash',
+        },
+      ]);
+      await expect(
+        productService.postManualTransitBuildUpByShipmentCode(request)
+      ).rejects.toMatchObject({ status: 409 });
+      expect(
+        mockPrisma.clothingInventoryTransitBuildEntry.updateMany
+      ).not.toHaveBeenCalled();
+    });
+
+    it('does not overwrite a deleted funding source', async () => {
+      const { productService } = await import('../service');
+      mockPrisma.clothingInventoryTransitBuildEntry.findFirst.mockResolvedValue(
+        {
+          id: 'deleted-source',
+        }
+      );
+      await expect(
+        productService.postManualTransitBuildUpByShipmentCode(request)
+      ).rejects.toThrow(
+        'Deleted transit funding already owns these posting keys'
+      );
+      expect(
+        mockPrisma.clothingInventoryTransitBuildEntry.updateMany
+      ).not.toHaveBeenCalled();
+    });
+
+    it('does not restore deleted opening funding as a new Cash purchase', async () => {
+      const { productService } = await import('../service');
+      mockPrisma.clothingInventoryTransitBuildEntry.findFirst.mockResolvedValue(
+        { id: 'deleted-opening' }
+      );
+      await expect(
+        productService.postManualTransitBuildUpByShipmentCode({
+          shipmentCode: request.shipmentCode,
+        })
+      ).rejects.toThrow(
+        'Deleted opening funding cannot be restored as a purchase payment'
+      );
+      expect(
+        mockPrisma.clothingInventoryTransitBuildEntry.findFirst
+      ).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({ creditAccount: 'Opening Equity' }),
+        })
+      );
+      expect(
+        mockPrisma.clothingInventoryTransitBuildEntry.updateMany
+      ).not.toHaveBeenCalled();
+      expect(
+        mockPrisma.clothingInventoryTransitBuildEntry.createMany
+      ).not.toHaveBeenCalled();
+    });
+
+    it.each(['reclass', 'settlement'])(
+      'retains the downstream %s guard',
+      async (dependency) => {
+        const { productService } = await import('../service');
+        if (dependency === 'reclass') {
+          mockPrisma.clothingInventoryReclassEntry.findFirst.mockResolvedValue({
+            id: 'reclass-1',
+          });
+        } else {
+          mockPrisma.clothingAccountingJournalLine.count.mockResolvedValue(1);
+        }
+        await expect(
+          productService.postManualTransitBuildUpByShipmentCode(request)
+        ).rejects.toThrow('active transit-build');
+        expect(
+          mockPrisma.clothingInventoryTransitBuildEntry.createMany
+        ).not.toHaveBeenCalled();
+      }
+    );
+  });
 });

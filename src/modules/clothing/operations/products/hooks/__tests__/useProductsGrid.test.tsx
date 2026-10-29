@@ -2,6 +2,8 @@ import React from 'react';
 import { act, render, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { showCustomAlert } from '@/lib/alerts';
+import { api } from '@/lib/api/client';
 import { useProductsGrid } from '../useProductsGrid';
 import { ProductService } from '../../services/ProductService';
 import { PRODUCT_COLUMN_KEYS } from '../../lib/gridRenderers';
@@ -10,7 +12,10 @@ import type { ProductData } from '../../types/product.types';
 vi.mock('@mantine/notifications', () => ({ showNotification: vi.fn() }));
 vi.mock('@/lib/alerts', () => ({ showCustomAlert: vi.fn() }));
 
-function setup(scope?: string) {
+function setup(
+  scope?: string,
+  firstProductOverrides: Partial<ProductData> = {}
+) {
   const base = ProductService.formToProductData(
     ProductService.createEmptyForm(),
     false
@@ -27,6 +32,7 @@ function setup(scope?: string) {
       'Unit Price': 2,
       'Exchange Rates': 1,
       'Transaction Fee': 0,
+      ...firstProductOverrides,
     },
     {
       ...base,
@@ -230,5 +236,179 @@ describe('product grid inline saves', () => {
       result.current.openCreateProductModal();
     });
     expect(result.current.addProductOpen).toBe(true);
+  });
+});
+
+describe('product grid transit funding', () => {
+  const confirmed = (value?: string | number) => ({
+    isConfirmed: true,
+    isDenied: false,
+    isDismissed: false,
+    value,
+  });
+  const dismissed = {
+    isConfirmed: false,
+    isDenied: false,
+    isDismissed: true,
+  };
+
+  async function selectedProduct(scope?: string) {
+    const state = setup(scope, {
+      Payment: 'Paid',
+      'Order Date': '2026-09-01',
+      'Posting Date': '2026-10-12',
+      'Grand Total': 30636.64,
+      "Forwarder's Fee": 1530,
+      Lalamove: 950,
+      'Packaging Cost': 1500,
+    });
+    await waitFor(() => expect(state.result.current.products).toHaveLength(2));
+    act(() => {
+      state.result.current.handleCellClick(new MouseEvent('click'), {
+        row: 0,
+        col: 0,
+      });
+    });
+    vi.mocked(showCustomAlert).mockReset();
+    return state;
+  }
+
+  it('previews and posts a confirmed supplier-only opening against Opening Equity', async () => {
+    const { result } = await selectedProduct();
+    const get = vi
+      .spyOn(api, 'get')
+      .mockResolvedValue({ cutoverDate: '2026-10-12T00:00:00.000Z' });
+    const post = vi
+      .spyOn(api, 'post')
+      .mockResolvedValue({ created: 1, skipped: 0, products: 1 });
+    vi.mocked(showCustomAlert)
+      .mockResolvedValueOnce(confirmed('OPENING_BALANCE'))
+      .mockResolvedValueOnce(confirmed(1));
+
+    await act(async () => {
+      await result.current.handleTransitBuildUp();
+    });
+
+    expect(get).toHaveBeenCalledWith('/api/accounting/opening-balance');
+    expect(showCustomAlert).toHaveBeenNthCalledWith(
+      1,
+      expect.objectContaining({
+        input: 'radio',
+        inputValue: 'PAYMENT',
+        inputOptions: {
+          PAYMENT: 'Purchase Payment',
+          OPENING_BALANCE: 'Opening Balance',
+        },
+      })
+    );
+    const preview = vi.mocked(showCustomAlert).mock.calls[1][0];
+    expect(preview.input).toBe('checkbox');
+    expect(preview.html).toContain(
+      'Dr Inventory in Transit / Cr Opening Equity'
+    );
+    expect(preview.html).toContain('2026-10-12');
+    expect(preview.html).toContain('30,636.64');
+    expect(preview.html).toContain("Forwarder's Fee (excluded)");
+    expect(preview.html).toContain('Lalamove (excluded)');
+    expect(preview.html).not.toContain('33,116.64');
+    if (preview.input !== 'checkbox') {
+      throw new Error('Missing opening confirmation checkbox');
+    }
+    expect(preview.inputValidator?.('0')).toBe('Confirmation is required.');
+    expect(preview.inputValidator?.('1')).toBeUndefined();
+    expect(post).toHaveBeenCalledWith('/api/products/transit-build', {
+      shipmentCode: 'SHIP-1',
+      fundingSource: 'OPENING_BALANCE',
+      openingBalanceConfirmed: true,
+    });
+  });
+
+  it.each([dismissed, confirmed(0)])(
+    'does not post a cancelled or unconfirmed opening: %j',
+    async (outcome) => {
+      const { result } = await selectedProduct();
+      vi.spyOn(api, 'get').mockResolvedValue({ cutoverDate: '2026-10-12' });
+      const post = vi.spyOn(api, 'post');
+      vi.mocked(showCustomAlert)
+        .mockResolvedValueOnce(confirmed('OPENING_BALANCE'))
+        .mockResolvedValueOnce(outcome);
+      await act(async () => {
+        await result.current.handleTransitBuildUp();
+      });
+      expect(post).not.toHaveBeenCalled();
+    }
+  );
+
+  it('does not post when the funding choice is cancelled', async () => {
+    const { result } = await selectedProduct();
+    const post = vi.spyOn(api, 'post');
+    vi.mocked(showCustomAlert).mockResolvedValueOnce(dismissed);
+    await act(async () => {
+      await result.current.handleTransitBuildUp();
+    });
+    expect(post).not.toHaveBeenCalled();
+  });
+
+  it('fails closed when the cutover date is unavailable', async () => {
+    const { result } = await selectedProduct();
+    vi.spyOn(api, 'get').mockResolvedValue({ entries: [] });
+    const post = vi.spyOn(api, 'post');
+    vi.mocked(showCustomAlert).mockResolvedValueOnce(
+      confirmed('OPENING_BALANCE')
+    );
+    await act(async () => {
+      await result.current.handleTransitBuildUp();
+    });
+    expect(showCustomAlert).toHaveBeenCalledTimes(1);
+    expect(post).not.toHaveBeenCalled();
+  });
+
+  it('retains the purchase-funded request without opening confirmation', async () => {
+    const { result } = await selectedProduct();
+    const post = vi
+      .spyOn(api, 'post')
+      .mockResolvedValue({ created: 1, skipped: 0, products: 1 });
+    vi.mocked(showCustomAlert)
+      .mockResolvedValueOnce(confirmed('PAYMENT'))
+      .mockResolvedValueOnce(confirmed());
+    await act(async () => {
+      await result.current.handleTransitBuildUp();
+    });
+    expect(post).toHaveBeenCalledWith('/api/products/transit-build', {
+      shipmentCode: 'SHIP-1',
+    });
+  });
+
+  it('keeps General Merchandise on its original purchase-funded dialog', async () => {
+    const { result } = await selectedProduct('/api/general-merchandise');
+    const post = vi
+      .spyOn(api, 'post')
+      .mockResolvedValue({ created: 1, skipped: 0, products: 1 });
+    vi.mocked(showCustomAlert).mockResolvedValueOnce(confirmed());
+    await act(async () => {
+      await result.current.handleTransitBuildUp();
+    });
+    expect(showCustomAlert).toHaveBeenCalledTimes(1);
+    expect(
+      vi.mocked(showCustomAlert).mock.calls[0][0].inputOptions
+    ).toBeUndefined();
+    expect(post).toHaveBeenCalledWith(
+      '/api/general-merchandise/products/transit-build',
+      { shipmentCode: 'SHIP-1' }
+    );
+  });
+
+  it('rejects a direct opening-funded request through the shared General Merchandise client', async () => {
+    const post = vi.spyOn(api, 'post');
+    const result = await ProductService.postTransitBuildUpByShipmentCode(
+      'SHIP-1',
+      '/api/general-merchandise',
+      {
+        fundingSource: 'OPENING_BALANCE',
+        openingBalanceConfirmed: true,
+      }
+    );
+    expect(result.success).toBe(false);
+    expect(post).not.toHaveBeenCalled();
   });
 });

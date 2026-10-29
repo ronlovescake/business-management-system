@@ -374,6 +374,26 @@ The current Transit Build-Up function requires a KPC Shipment Code and posts eve
 
 After the shipment is marked **Delivered**, **Reclass to Stock on Hand** transfers the same amount previously posted for that product from **Inventory in Transit** to **Stock on Hand**. It does not recalculate the amount using corrected shipping costs. The separate logistics costs are capitalized to Stock on Hand through the Logistics Costs workflow.
 
+### Legacy Purchases Already Paid Before Cutover
+
+For goods already paid before the accounting cutover but still in transit on
+that date, select **Opening Balance** after clicking **Transit Build-Up**.
+Review the configured cutover date, supplier-only amount and **Dr Inventory in
+Transit / Cr Opening Equity** entry. Confirm the historical payment and transit
+condition before posting. Every product linked to that shipment must qualify;
+do not change a payment flag or purchase date merely to make it eligible.
+
+Do not also create a standalone Inventory in Transit opening. An existing
+opening/manual transit debit, conflicting funding or deleted posting history
+requires accounting review; the button does not replace those records. Keep any
+already-saved physical Stock on Hand opening unchanged.
+
+On actual arrival, mark the shipment Delivered and use **Reclass to Stock on
+Hand** with the correct arrival posting date. This moves the same supplier
+amount from transit to stock, without another equity credit or payment. Do not
+post logistics charges again if the Logistics Costs workflow already records
+them. Ordinary new purchases continue to use **Purchase Payment**.
+
 <!-- handbook: {"id":"S05","modules":["shipments"],"kind":"workflow"} -->
 
 ## **Step 5: Track Shipments from China to the Philippines**

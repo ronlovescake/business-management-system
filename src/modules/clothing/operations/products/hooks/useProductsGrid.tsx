@@ -715,6 +715,53 @@ export function useProductsGrid({
       return;
     }
 
+    let fundingSource: 'PAYMENT' | 'OPENING_BALANCE' = 'PAYMENT';
+    let openingDate: string | null = null;
+    if (
+      buildApiPath(apiBasePath, '/products/transit-build') ===
+      '/api/products/transit-build'
+    ) {
+      const fundingResult = await showCustomAlert({
+        title: 'Transit Funding',
+        input: 'radio',
+        inputOptions: {
+          PAYMENT: 'Purchase Payment',
+          OPENING_BALANCE: 'Opening Balance',
+        },
+        inputValue: 'PAYMENT',
+        showCancelButton: true,
+        confirmButtonText: 'Review Entries',
+        cancelButtonText: 'Cancel',
+        focusCancel: true,
+      });
+      if (
+        !fundingResult.isConfirmed ||
+        (fundingResult.value !== 'PAYMENT' &&
+          fundingResult.value !== 'OPENING_BALANCE')
+      ) {
+        return;
+      }
+      fundingSource = fundingResult.value;
+      if (fundingSource === 'OPENING_BALANCE') {
+        try {
+          openingDate = await ProductService.getTransitOpeningDate(apiBasePath);
+        } catch (error) {
+          showNotification({
+            title: 'Opening Balance Unavailable',
+            message:
+              error instanceof Error
+                ? error.message
+                : 'Unable to load the accounting cutover date.',
+            color: 'red',
+          });
+          return;
+        }
+      }
+      if (blockPendingAction()) {
+        return;
+      }
+    }
+
     const toAmount = (value: unknown) => Number(value ?? 0);
     const formatPhp = (amount: number) =>
       new Intl.NumberFormat('en-PH', {
@@ -750,8 +797,11 @@ export function useProductsGrid({
         const forwardersFee = toAmount(product["Forwarder's Fee"]);
         const lalamove = toAmount(product.Lalamove);
         const packaging = toAmount(product['Packaging Cost']);
-        const sum = grandTotal + forwardersFee + lalamove;
+        const sum = openingDate
+          ? grandTotal
+          : grandTotal + forwardersFee + lalamove;
         const postingDate =
+          openingDate ||
           (product['Posting Date'] ?? '').toString().trim() ||
           (product['Order Date'] ?? '').toString().trim() ||
           '—';
@@ -778,6 +828,7 @@ export function useProductsGrid({
 
     const detailHtml = `
       <div style="text-align: left;">
+        ${openingDate ? `<p><strong>${escapeHtml(openingDate)}</strong> &middot; Dr Inventory in Transit / Cr Opening Equity &middot; <strong>${escapeHtml(formatPhp(shipmentProducts.reduce((total, product) => total + toAmount(product['Grand Total']), 0)))}</strong></p>` : ''}
         <div style="max-height: 360px; overflow: auto; border: 1px solid #dee2e6; border-radius: 8px;">
           <table style="min-width: 980px; width: 100%; border-collapse: collapse; font-size: 13px;">
             <thead>
@@ -786,8 +837,8 @@ export function useProductsGrid({
                 <th style="padding: 8px;">Payment</th>
                 <th style="padding: 8px;">Posting Date</th>
                 <th style="padding: 8px; text-align: right;">Grand Total</th>
-                <th style="padding: 8px; text-align: right;">Forwarder's Fee</th>
-                <th style="padding: 8px; text-align: right;">Lalamove</th>
+                <th style="padding: 8px; text-align: right;">Forwarder's Fee${openingDate ? ' (excluded)' : ''}</th>
+                <th style="padding: 8px; text-align: right;">Lalamove${openingDate ? ' (excluded)' : ''}</th>
                 <th style="padding: 8px; text-align: right;">Total</th>
                 <th style="padding: 8px; text-align: right;">Packaging (excluded)</th>
               </tr>
@@ -807,17 +858,32 @@ export function useProductsGrid({
     `;
 
     const modalResult = await showCustomAlert({
-      title: `Post Transit Build-Up • ${selectedShipmentCode}`,
+      title: openingDate
+        ? `Post Opening Transit • ${selectedShipmentCode}`
+        : `Post Transit Build-Up • ${selectedShipmentCode}`,
       html: detailHtml,
       icon: 'question',
       width: '54vw',
+      ...(openingDate
+        ? {
+            input: 'checkbox' as const,
+            inputValue: 0,
+            inputPlaceholder: `Supplier paid before ${openingDate}; goods still in transit on ${openingDate}.`,
+            inputValidator: (value: string) =>
+              Number(value) === 1 ? undefined : 'Confirmation is required.',
+          }
+        : {}),
       showCancelButton: true,
-      confirmButtonText: 'Post Transit Build-Up',
+      confirmButtonText: openingDate
+        ? 'Post Opening Transit'
+        : 'Post Transit Build-Up',
       cancelButtonText: 'Cancel',
       focusCancel: true,
     });
 
-    const shouldConfirm = modalResult.isConfirmed;
+    const shouldConfirm =
+      modalResult.isConfirmed &&
+      (!openingDate || Number(modalResult.value) === 1);
 
     if (!shouldConfirm) {
       return;
@@ -826,10 +892,10 @@ export function useProductsGrid({
       return;
     }
 
-    const { ProductService } = await import('../services/ProductService');
     const result = await ProductService.postTransitBuildUpByShipmentCode(
       selectedShipmentCode,
-      apiBasePath
+      apiBasePath,
+      openingDate ? { fundingSource, openingBalanceConfirmed: true } : undefined
     );
 
     if (result.success) {

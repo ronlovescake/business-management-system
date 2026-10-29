@@ -57,6 +57,16 @@ an earlier receipt into this window or count a future receipt early. Missing
 or invalid payment dates do not receive an invented date; their positive rows
 still suppress fallback and require source review.
 
+Active finite positive ordinary (non-reservation) payment events also suppress
+legacy adjustment-based revenue, even when every receipt falls before cutover
+or after as-of. Only eligible in-window ordinary receipts contribute payment
+revenue; a later packed, completion or paid-status date cannot recognize an
+earlier ordinary receipt again. This follows the existing
+[Journal receipt/fallback contract](accounting-journal.md#dated-customer-money-and-card-events).
+Reservation-deposit application and genuine invoice/A/R shipment recognition
+retain their separate existing treatment; historical reservations are not
+silently treated as ordinary payments or replaced with invented opening deposits.
+
 Explicit legacy compatibility: orders without active finite positive payment
 rows retain the existing normalized collection amount and existing recognition
 date fallback. Zero, negative and non-finite rows are non-posting and do not
@@ -64,12 +74,18 @@ suppress it, matching Journal/Ledger. This preserves legacy collections, but
 the fallback is an estimate, not evidence of an actual receipt date. Historical
 legacy receipt dates require separate evidence and approved reconciliation.
 
-The enforcement boundary is this read-only Clothing report projection. Existing
-revenue, receivable, deposit recognition and movement-based COGS calculations
-are unchanged. Removing false cash can expose a nonzero statement equation;
-do not hide it with Owner Draw, a balancing journal or a new recognition rule.
-Fully paid, Prepared, In Transit and On-Hold do not acquire new workflow or
-recognition semantics from this cash fix.
+The enforcement boundary is this read-only Clothing report projection. The
+ordinary-payment fallback correction implements the approved receipt-based
+contract; it does not introduce another revenue policy to force a balance.
+Receivable shipment recognition, deposit application and movement-based COGS
+are unchanged. Do not hide a genuine nonzero statement equation with Owner Draw,
+a balancing journal, rewritten history or fabricated Cash/Customer Deposits.
+Fully paid, Prepared, In Transit and On-Hold acquire no new workflow semantics.
+
+The signed whole-statement equation is returned at currency precision (two
+decimal places). Floating-point residue below a cent must not leave the card's
+exact-zero check flagged; genuine positive and negative one-cent differences
+remain nonzero. This changes neither account balances nor stored entries.
 
 Impact: the Clothing balance-sheet UI and its cash breakdown/CSV, plus report
 consumers such as the accounting dashboard, receive the corrected projection.
@@ -87,7 +103,12 @@ PHP 4,331 example with original receipt dates, early/transit/held receipts,
 split reporting windows, future receipts, same-window fulfillment, reservation
 and CARD assets, repeated reads, preserved source inputs/COGS, and rowless or
 non-posting legacy rows. Shared fixtures compare Cash with Journal and Ledger;
-unchanged recognition can still differ from their equity projections.
+the seven-order example also requires no duplicate current revenue and a
+balanced statement, rather than preserving the historical defect. Precision
+regressions require exact zero without hiding either sign of a one-cent error.
+These are development corrections, not evidence of a production deployment;
+see the [reconciliation log](../../plans/clothing-oct12-cutover-reconciliation-log.md)
+for the read-only production replay and release status.
 
 ### Customer Money, Refund Obligations And CARD
 

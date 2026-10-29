@@ -3,7 +3,11 @@ import { ApiResponse } from '@/core/api/response';
 import { withErrorHandler } from '@/core/api/middleware';
 import { HTTP_STATUS } from '@/shared/constants/api';
 import { getDatabaseUrl } from '@/lib/env';
-import { productService } from '@/modules/products/api/service';
+import {
+  productService,
+  ProductShipmentAccountingConflictError,
+  ProductSupplierSettlementError,
+} from '@/modules/products/api/service';
 
 function dbNotConfigured(): string | null {
   try {
@@ -31,6 +35,8 @@ export const POST = withErrorHandler(async (request: NextRequest) => {
 
   const body = (await request.json().catch(() => null)) as {
     shipmentCode?: unknown;
+    fundingSource?: unknown;
+    openingBalanceConfirmed?: unknown;
   } | null;
 
   const shipmentCode = (body?.shipmentCode ?? '').toString().trim();
@@ -40,9 +46,34 @@ export const POST = withErrorHandler(async (request: NextRequest) => {
     });
   }
 
-  const result = await productService.postManualTransitBuildUpByShipmentCode({
-    shipmentCode,
-  });
+  const fundingSource = body?.fundingSource ?? 'PAYMENT';
+  if (fundingSource !== 'PAYMENT' && fundingSource !== 'OPENING_BALANCE') {
+    return ApiResponse.badRequest('Invalid transit funding source');
+  }
+  if (
+    fundingSource === 'OPENING_BALANCE' &&
+    body?.openingBalanceConfirmed !== true
+  ) {
+    return ApiResponse.badRequest(
+      'Confirm the pre-cutover supplier payment and in-transit opening balance.'
+    );
+  }
 
-  return ApiResponse.success(result, 'Transit build-up posted');
+  try {
+    const result = await productService.postManualTransitBuildUpByShipmentCode({
+      shipmentCode,
+      ...(fundingSource === 'OPENING_BALANCE'
+        ? { fundingSource, openingBalanceConfirmed: true }
+        : {}),
+    });
+    return ApiResponse.success(result, 'Transit build-up posted');
+  } catch (error) {
+    if (error instanceof ProductShipmentAccountingConflictError) {
+      return ApiResponse.error(error.message, HTTP_STATUS.CONFLICT);
+    }
+    if (error instanceof ProductSupplierSettlementError) {
+      return ApiResponse.error(error.message, error.status);
+    }
+    throw error;
+  }
 });

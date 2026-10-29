@@ -188,6 +188,7 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
   // Track any payment activity so we can prefer payment events over legacy adjustment fields.
   const paymentEventTxIds = new Set<number>();
   const recordedPaymentTxIds = new Set<number>();
+  const recordedNonReservationPaymentTxIds = new Set<number>();
   for (const payment of payments) {
     const isReservation =
       Reflect.get(payment as object, 'isReservation') === true;
@@ -197,6 +198,9 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
       continue;
     }
     recordedPaymentTxIds.add(payment.transactionId);
+    if (!isReservation) {
+      recordedNonReservationPaymentTxIds.add(payment.transactionId);
+    }
 
     const paymentAt = parseDate(payment.paymentDate);
     if (!isWithinDateRange(paymentAt, cutover, asOf)) {
@@ -579,8 +583,9 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
 
       // If we have explicit payment events, prefer them for cash received for
       // non-paid statuses to avoid missing cash on the balance sheet.
-      const hasPaymentEvents = paymentEventTxIds.has(tx.id);
-      const usePaymentEvents = hasPaymentEvents;
+      const usePaymentEvents =
+        paymentEventTxIds.has(tx.id) ||
+        recordedNonReservationPaymentTxIds.has(tx.id);
 
       const paymentReceived = usePaymentEvents
         ? Math.max(paymentTotalsByTxId.get(tx.id) ?? 0, 0)
@@ -1067,6 +1072,8 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
   });
 
   const totals = aggregateBalancesFromRows(rows);
+  const equation = totals.Asset + totals.Liability + totals.Equity;
+  const balance = Math.round(equation * 100) / 100 || 0;
 
   return ApiResponse.success({
     rows: rowsWithDetails,
@@ -1076,7 +1083,7 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
       equity: totals.Equity,
       // Accounting equation (with signed balances): Assets + Liabilities + Equity = 0.
       // This endpoint uses signed balances where debits are positive and credits are negative.
-      balance: totals.Asset + totals.Liability + totals.Equity,
+      balance,
       asOf: asOf.toISOString(),
     },
   });

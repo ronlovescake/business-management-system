@@ -993,6 +993,11 @@ database correction, physical shortage declaration or opening posting occurred.
 
 ## 21. Working October 12 Opening Inventory Valuation
 
+**Historical worksheet:** [section 36](#36-refreshed-opening-stock-valuation-after-repairs)
+supersedes this section's amounts and resolved-issue qualifications with a fresh
+read-only calculation after the PSO and Paw Patrol repairs. Retain the original
+bridge below as evidence, not the current valuation or posting authority.
+
 The owner requested proceeding with valuation and subsequent reconciliation.
 Use the following as a provisional worksheet basis, not an approved or posted
 opening balance. This carries forward section 17's corrected bridge while
@@ -1971,3 +1976,645 @@ force a pass. The guardrail-generated unrelated LIV-1 completion date was
 restored. No application accounting algorithm was changed; the executed rollback,
 exact-scope guards, replay checks and independent live-reader verification are
 the behavior-scoped validation for this historical data repair.
+
+## 36. Refreshed Opening Stock Valuation After Repairs
+
+On October 29 the requesting Clothing owner directed proceeding to opening-stock
+valuation after the completed repairs. This section refreshes the worksheet at
+recorded cost; it does not authorize or execute opening postings, a write-down,
+another historical repair or a change to accounting recognition rules.
+
+### Current Evidence And Calculation
+
+A fresh production snapshot at `2026-10-29T13:28:56.309005Z` used repeatable-read,
+read-only isolation. The existing inventory projection and cost selector first
+reproduced the retained worksheet's PHP 76,065.53 selected ending-stock basis,
+then reproduced that same amount for the same 36 rows from current production
+data. None of those selected item values changed. Receipt 5225 is 740 units and
+Paw Patrol movement 5468 is soft-deleted, independently confirming both repairs.
+The captured snapshot output SHA-256 is
+`32e5de9acf02010334a3964674ca49eafe0160f704de50f026498420ca3d8961`.
+
+The reviewed development accounting reader was run against production data with
+PostgreSQL connection-level read-only mode enforced. This is not a claim that
+production application source was deployed. Its configured report boundary was
+`2026-10-12T00:00:00Z`, through `2026-10-29T15:59:59.999Z`. It returned period
+COGS PHP 125,430.17, including PSO PHP 30,888.00, seed additions PHP 7.21,
+shrinkage PHP 7.21 and zero sale-movement valuation warnings.
+
+| Reverse-rollforward component                       |            PHP |
+| --------------------------------------------------- | -------------: |
+| Selected ending stock, including PSO                |      76,065.53 |
+| Add period COGS                                     |     125,430.17 |
+| Add recorded shrinkage                              |           7.21 |
+| Deduct post-cutover additions                       |         (7.21) |
+| Remove PSO period COGS from physical opening        |    (30,888.00) |
+| Remove PSO remaining stock from physical opening    |     (4,276.80) |
+| Working physical Stock on Hand opening              | **166,330.90** |
+| Add supplier-cost-only PSO Inventory in Transit     |      30,636.64 |
+| Working combined opening inventory at recorded cost | **196,967.54** |
+
+The result is PHP 7.21 above section 21's PHP 196,960.33, not below it. Removing
+the unsupported Paw Patrol return reduced the accounting reader's additions
+from PHP 14.42 to PHP 7.21, but the selected ending-stock projection did not
+change. Deducting the removed return from opening stock again would therefore
+apply the correction in the wrong direction. The remaining genuine shrinkage
+and return are equal and net to zero in this bridge.
+
+### Settled Treatment Carried Forward
+
+- PSO uses the agreed October 12 supplier-only transit value PHP 30,636.64.
+  KPC PHP 1,530 and courier PHP 950 belong to the agreed October 13 treatment;
+  the pricing-only packaging allowance is not added. No logistics cash payment
+  is duplicated, and the historical PHP 47.52 sale-cost evidence is not restated.
+- Order 3399's 60 held units remain in this worksheet at PHP 2,404.20. The
+  seven-day policy decision is settled; no fictitious dispatch, forfeiture or
+  October receipt is introduced by this valuation.
+- The PSO 40-unit receipt discrepancy, Paw Patrol's unsupported seven-unit
+  return and the historical sale-cost warning approvals are completed matters,
+  not reasons to repeat repairs or reopen the agreed policy.
+
+### Owner Direction: Practical Fresh Start
+
+The Clothing owner clarified that very old items, including Chickpea, come from
+incomplete legacy records and that the objective is to start anew, not reconstruct
+every old purchase before beginning the new period. Carry the PHP 196,967.54
+recorded-cost worksheet forward as the practical opening baseline with disclosed
+legacy exceptions. Missing Chickpea acquisition cost is not a prerequisite to
+starting the new period and must not repeatedly reopen the settled stock count.
+
+Keep the four already-paid Chickpea Tops pieces assigned to Prepared order 2199.
+Their PHP 0.00 worksheet contribution remains a missing historical-cost exception,
+not confirmation of genuinely free goods or a reason to invent a purchase,
+receipt, expense or customer debt. Starting anew does not mean deleting earlier
+orders, payments, movements or cost approvals. Runtime cost-review and correction
+rules are unchanged; no FREE_GOODS or zero-cost confirmation is created.
+
+This direction does not establish recoverable value for the separate 74 damaged
+units or authorize their removal. It changes no worksheet amount, counterpart
+account, existing opening entry or database record. Exact posting scope and
+duplicate-opening checks remain separate from accepting this legacy exception.
+Only this Clothing reconciliation record changes; application UI/API/job/import
+behavior, shared consumers and other domains are unaffected.
+
+### Specific Remaining Valuation Evidence
+
+The original undated catalog rows have pre-cutover opening-movement evidence:
+Baby Socks product 46, movement 26 dated October 17, 2025; Chickpea Tops product
+67, movement 8 dated October 29, 2025; and Organic Cotton Willow + Whimsy product
+93, movement 9 dated October 17, 2025. Their blank catalog dates alone do not
+make them October 2026 acquisitions. This supports historical inclusion, not a
+new physical-count certification or an approval of every saved unit cost.
+
+The practical opening baseline retains these disclosed valuation exceptions:
+
+- The selected basis still carries 74 damaged-hold units across 11 products at
+  PHP 3,971.19. Recoverable value or an approved write-down must be evidenced;
+  do not silently assume either full recoverability or a zero value. This is
+  separate from the completed six-unit Premium Short disposal. No Chickpea
+  product is part of this 74-unit damaged-stock population.
+- Four reserved Chickpea Tops units currently have zero saved unit cost and
+  contribute PHP 0.00. The owner identifies these as legacy Google Sheets goods,
+  with a product row added to support the historical order, as clarified below.
+  Retain the unrecorded acquisition amount as a documented legacy-cost exception,
+  not a blocker to starting anew, proof of free inventory or an unpaid customer.
+  Zero sale-movement warnings do not validate this remaining-stock cost.
+
+### Owner Clarification: Chickpea Tops Availability And Payment
+
+The owner confirms that the only remaining Chickpea stock is the four Chickpea
+Tops units held for already-paid Prepared order 2199. No other Chickpea stock
+is available for new orders or remains damaged. This settles the current
+Chickpea physical-quantity question, not the historical dates or causes of stock
+clearance. Do not backdate this current confirmation to October 12 or treat it
+as a count of the 11 other damaged-stock products.
+
+Do not describe these four goods as missing or infer an unpaid customer
+obligation from the zero inventory valuation. Order 2199 still has no packed
+date recorded. Continued physical custody and customer payment are separate
+from the business's original acquisition cost; neither supplies a missing
+supplier-cost amount.
+
+The owner further explains that Chickpea Tops dates from the Google Sheets
+period. The product row was added so the old customer order could be recorded;
+the historical payment was not fully logged in this app. This explains the
+incomplete legacy records, rather than identifying a new purchase, unpaid
+customer or missing October receipt. The saved catalog quantity of 1,000 and
+the corresponding opening movement must not, by themselves, be treated as
+independent proof of an actual 1,000-piece acquisition. The owner's confirmed
+physical availability of the four held units remains separate evidence.
+
+A read-only production check found order 2199 has four units at saved unit price
+PHP 75 and payment 381 for PHP 250 dated February 18, 2026. Given the owner's
+explanation that earlier payment history was not fully entered, the nominal
+PHP 50 difference from PHP 300 must not be used to infer an outstanding debt.
+Preserve the existing receipt; do not invent another receipt, demand another
+payment or change shipment status to close that difference. Both saved product
+cogs and landedUnitCost remain zero because the historical acquisition amount
+is unrecorded, not because the owner confirmed genuinely free goods. This
+clarification supplies no replacement cost and changes no worksheet amount;
+the working combined opening remains PHP 196,967.54, not a certified final value.
+
+### Worker Check: No Remaining Damaged Chickpea
+
+The owner subsequently reports that the worker found no remaining damaged
+Chickpea. A discounted sale or an erroneous adjustment to zero stock were
+suggested as possible explanations, not confirmed historical events. This
+confirms the reported current condition, not the date or cause of a disposal,
+sale, receipt or data-entry error. Do not invent a discounted sale, cash receipt,
+write-off or reversal, and do not backdate the worker's check to October 12.
+
+A fresh enforced read-only production query found Chickpea Tops product 67 has
+damaged_hold 0 and four sellable ledger units; those four units remain assigned
+to the previously checked Prepared order 2199 in the operational projection.
+Chickpea Non-Footed Frogsuit product 85 and Chickpea Onesie product 274 also have
+no positive damaged-hold balance. The Onesie's existing 65 scrap units are the
+completed section 16 disposal, not a new correction to repeat.
+
+Accordingly, the worker's report is consistent with the current damaged buckets.
+No damaged Chickpea value is included in the separate 74 units / PHP 3,971.19,
+so this confirmation does not reduce that amount or resolve the other products'
+recoverability. No Chickpea quantity, cost, order, payment or journal was changed.
+The missing legacy Chickpea Tops acquisition cost remains a separate documented
+exception, and the working combined opening remains PHP 196,967.54.
+
+Accordingly, PHP 196,967.54 is the refreshed working valuation at recorded cost,
+not an approved net recoverable value or posted opening. Quantity diagnostics
+outside this selected population and wider cash, debt and accounting-opening
+reconciliation are not repaired by this calculation. Obtain approval for exact
+opening records and independently supported counterpart accounts before posting;
+do not use Owner Draw, cash or duplicate investor funding as a balancing plug.
+
+Validation: the retained selected-stock total was reproduced before comparing
+the fresh snapshot, and exact-decimal assertions passed for the refreshed
+physical and combined openings and the PHP 7.21 change. A separate read-only
+reader check covered `2026-10-11T16:00:00Z` through
+`2026-10-11T23:59:59.999Z` (October 12, 00:00-07:59:59 Manila). It returned zero
+COGS, additions, shrinkage and valuation warnings, so including Manila midnight
+does not change this bridge. Documentation command-drift and whitespace checks
+passed. Full application gates were not rerun for this read-only analysis and
+documentation-only change; no application behavior changed.
+
+Only this development documentation changed. No source algorithm, schema,
+inventory, payment, opening record, journal, production source, deployment,
+commit or push was changed or performed for this valuation refresh.
+
+## 37. Verified Physical Opening And PSO Transfer Guidance
+
+Historical UI review: section 38 records the subsequently authorized development
+implementation of the proposed opening-funded Products option. This section's
+snapshot and withdrawn manual-dropdown guidance remain as evidence.
+
+An enforced repeatable-read, read-only production check at
+`2026-10-29T14:11:38.497842Z` found the physical opening already saved correctly:
+one active October 12 pair debits Stock on Hand PHP 166,330.90 and credits
+Opening Equity PHP 166,330.90, reference OPENING. This is verification of existing
+records, not an opening created by this assistant. Do not save that pair again.
+
+At that snapshot there was no active Inventory in Transit opening, no PSO
+transit build-up and no PSO shipment reclassification. The reviewed post-cutover
+Stock on Hand / Inventory in Transit journal lines contained only the existing
+October 13 shipment 236 logistics debits: KPC PHP 1,530 and courier PHP 950.
+Those costs are already recorded and must not be added again.
+
+The accounting sequence for the owner's fresh-start baseline is below. The
+subsequent UI review establishes that this is not currently an available
+manual-entry workflow; do not treat the table as instructions to use missing
+dropdown options.
+
+| Date       | Entry Type     | Debit                | Credit               |       PHP |
+| ---------- | -------------- | -------------------- | -------------------- | --------: |
+| October 12 | Opening        | Inventory in Transit | Opening Equity       | 30,636.64 |
+| October 13 | Manual Journal | Stock on Hand        | Inventory in Transit | 30,636.64 |
+
+The second pair reclassifies the September-paid PSO supplier cost upon its
+owner-confirmed October 13 arrival. It does not involve Opening Equity again,
+create another supplier payment or change total assets. Suggested reference:
+`PSO-101226 / KPC 23930A-236`; describe it as the transfer of opening transit
+inventory on arrival. The two October 12 inventory openings together total
+PHP 196,967.54; do not enter that combined amount again as a third opening.
+
+The shipment-specific Reclass action requires recorded transit build-up entries
+and does not consume opening balances. The owner points out that the relevant
+accounts are absent from the manual dropdown because the Products page provides
+Transit Build-Up and Reclass to Stock on Hand. The earlier recommendation to
+complete this transfer through that manual dropdown is therefore withdrawn.
+
+The Products-page build-up writer derives its date from the product's Posting
+Date before Order Date. For a Paid product, it credits the saved payment-method
+account; an unpaid product credits Supplier Payable. Neither the button nor its
+API accepts an Opening Equity funding option. With PSO's October 12 Posting Date,
+the normal Paid build-up would record another supplier payment in the new period,
+despite the already-confirmed September payment. Do not use it to manufacture
+Cash/Payables entries or duplicate an Inventory in Transit opening.
+
+Proposed follow-up, not implemented by this review: give the same Products-page
+flow an explicit opening-funded option, posting the October 12 supplier-only
+PHP 30,636.64 as Dr Inventory in Transit / Cr Opening Equity, then using the
+existing Reclass flow for the October 13 transfer. An existing standalone
+transit opening must not also be counted. Any implementation needs separately
+reviewed scope and must preserve payment/settlement, retry and duplicate guards,
+as well as the already-posted logistics costs. No normal purchase, cost-review,
+shared-consumer or other-domain rule is changed here.
+
+The existing Products transit-build and shipment-reclass test files passed all
+18 tests. These validate the current flow, not an opening-funded option. No new
+browser verification, runtime rule change or full application gate was performed.
+
+This guidance does not claim that either pending pair has been saved. Check for
+an existing pair before each save. Only this development documentation changed;
+no database write, payment, inventory movement, application edit, deployment,
+commit or push was performed during this follow-up.
+
+## 38. Opening-Funded Products Transit Implemented In Development
+
+On October 29 the requesting Clothing business owner answered "Yes, proceed"
+to adding the explicit opening-balance option. Approved invariant: represent
+already-paid pre-cutover transit inventory through the existing Products
+workflow without another payment, duplicate opening, repeated logistics or
+fabricated physical receipt. This authorizes development implementation, not
+financial posting, production deployment, commit or push.
+
+The Clothing Transit Build-Up dialog now offers Purchase Payment (default) or
+Opening Balance. Opening mode previews the configured runtime cutover date,
+supplier Grand Total and Dr Inventory in Transit / Cr Opening Equity. It requires
+an explicit confirmation of payment before cutover and goods still in transit
+at cutover. The server independently enforces the mode, confirmation, Paid state,
+pre-cutover Order Date, positive supplier cost and absence of supplier credit.
+One ineligible linked product aborts the whole opening request.
+
+The existing serializable Products writer owns enforcement. Opening mode reuses
+the per-product funding key and records its confirmation in notes. Standalone
+transit openings/manual debits, incompatible funding, active reclass/settlement
+and deleted funding history cannot be silently replaced or duplicated. An exact
+active opening retry is a no-op; racing transactions cannot both create it.
+Existing normal purchase, supplier settlement, identity and credit guards remain.
+
+After a separately approved release and a fresh exact-record duplicate check,
+the intended PSO sequence is:
+
+| Date       | Products Action                   | Debit                | Credit               |       PHP |
+| ---------- | --------------------------------- | -------------------- | -------------------- | --------: |
+| October 12 | Transit Build-Up: Opening Balance | Inventory in Transit | Opening Equity       | 30,636.64 |
+| October 13 | Reclass to Stock on Hand          | Stock on Hand        | Inventory in Transit | 30,636.64 |
+
+This substitutes for a standalone PSO transit opening; it is not additional to
+one. Preserve the already-verified PHP 166,330.90 physical opening and PHP 2,480
+actual logistics. Do not change the product payment flag, historical receipt,
+approved sale costs or pricing-only packaging allowance. The working combined
+opening baseline remains PHP 196,967.54.
+
+Entry points affected: Clothing Products confirmation dialog and API, the
+owning product transit-build service, and existing report/reclass consumers.
+No schema, opening-balance API, import, bulk writer, background job, automatic
+backfill or production record changed. General Merchandise shares the Products
+client/hook but retains its original dialog, request and separate service;
+opening funding is rejected by that shared client outside Clothing. Trucking
+and household do not use this Clothing service. This deliberate domain difference
+is approved by the requesting Clothing owner for the cutover workflow.
+
+Canonical contracts: [Clothing Products](../business-logic/clothing/operations-products.md#opening-funded-legacy-purchases)
+and [employee SOP](../business-logic/clothing/operations-workflow.md#legacy-purchases-already-paid-before-cutover).
+
+Focused validation: 114 unit/API/grid/report/reclass tests passed, including
+the exact supplier-only amount, no duplicate Cash or Opening Equity, unchanged
+normal purchase/General Merchandise requests, authorization, confirmation,
+eligibility failures and duplicate-source guards. Three new isolated-database
+integration tests passed for persisted values and exact replay, injected-failure
+rollback, and a real serializable submission race. The localhost:5433 test
+target and baseline were verified read-only first; no schema reset or migration
+was performed. Strict typecheck and focused source guardrails passed. Deleted
+opening funding also cannot be restored as a normal Cash purchase, and funding
+conflicts return HTTP 409 rather than replacing source history.
+
+Final quality gates: guardrails, repository lint (existing warnings), strict
+typecheck, all 4,650 unit tests and all 12 hardening tests passed. Integration
+finished with 73 passed / 20 failed: the same test-database P2022 missing columns
+`inventory_movements.costBasis` and `split_batch_components.acquisitionUnitCost`
+remain. The three new opening integration cases passed within that full run.
+No schema, test, threshold or guardrail was bypassed to force a pass. The
+unrelated guardrail-generated LIV-1 completion-date change was restored.
+
+Existing accounting and inventory controls ran against the explicit development
+port 5435 with connection-level read-only mode. Accounting sanity completed
+with existing issues, not a clean-data certification. Inventory ledger controls
+and the separately executed drift check each exited 2 on wider existing negative
+balances/catalog drift. No unrelated data was repaired. Coverage was not rerun.
+
+The existing development server remains available at
+`http://localhost:5001/clothing/operations/products`. The browser reached login;
+the later local-session attempt did not yield a verifiable result and the page
+was no longer available. Authenticated visual/mobile verification is therefore
+incomplete, not a pass. Hook/dialog tests cover selection, preview, confirmation,
+cancellation and unavailable cutover; no live financial action was submitted.
+
+No PSO entry, payment, inventory movement, owner database, production source,
+deployment, build, commit or push was changed by this implementation. Only owned
+integration fixtures were written and cleaned in the isolated test database.
+
+### Business-Rule Change Record
+
+The declaration below is retained for the eventual PR; no PR, commit or push
+is created by this record. Impact and remaining release risks are described
+above, including the failing integration gate and incomplete browser review.
+
+<!-- business-rule-change -->
+
+```json
+{
+  "businessRuleChange": true,
+  "rationale": "Allow explicit opening-funded legacy Clothing transit without treating an earlier supplier payment as new-period cash or duplicating an existing opening.",
+  "owner": "Requesting Clothing business owner; enforced by productService.postManualTransitBuildUpByShipmentCode in src/modules/products/api/service.ts.",
+  "invariant": "Confirmed paid pre-cutover purchases still in transit at cutover post supplier Grand Total once as Dr Inventory in Transit / Cr Opening Equity; arrival transfers the same amount to Stock on Hand without another payment, equity credit, logistics charge or inventory receipt.",
+  "domains": ["clothing"],
+  "policyPaths": [
+    "docs/business-logic/clothing/operations-products.md",
+    "docs/business-logic/clothing/operations-workflow.md"
+  ],
+  "affectedPaths": [
+    "src/modules/products/api/service.ts",
+    "src/app/api/products/transit-build/route.ts",
+    "src/modules/clothing/operations/products/hooks/useProductsGrid.tsx",
+    "src/modules/clothing/operations/products/services/ProductService.ts"
+  ],
+  "tests": {
+    "paths": [
+      "src/modules/products/api/__tests__/service.transit-build.test.ts",
+      "tests/unit/api/products.api.test.ts",
+      "src/modules/clothing/operations/products/hooks/__tests__/useProductsGrid.test.tsx",
+      "src/app/api/shipments/[id]/transit-reclass/__tests__/transit-reclass.route.test.ts",
+      "tests/unit/api/accounting-balance-sheet.api.test.ts",
+      "tests/integration/clothing-logistics.integration.test.ts"
+    ],
+    "results": "114 focused tests, all 4650 unit tests, 12 hardening tests, guardrails, lint and typecheck passed. Integration: 73 passed including all 3 new opening persistence/rollback/race cases; 20 failed on pre-existing missing test-database costBasis/acquisitionUnitCost columns. Read-only domain controls retain existing diagnostics; authenticated visual review and coverage remain unverified. No schema reset, bypass or production posting."
+  },
+  "docs": {
+    "paths": [
+      "docs/business-logic/clothing/operations-products.md",
+      "docs/business-logic/clothing/operations-workflow.md",
+      "docs/business-logic/clothing/accounting-ledger.md",
+      "docs/plans/clothing-oct12-cutover-reconciliation-log.md"
+    ]
+  },
+  "divergence": {
+    "status": "intentional",
+    "reason": "Only Clothing gains opening-funded transit. General Merchandise shares the hook/client but retains its original dialog, request and separate service; the client rejects opening mode outside Clothing. Trucking and household do not use the Clothing service. No import, bulk writer, background job, schema or other-domain policy changed.",
+    "approvedBy": "Requesting Clothing business owner, October 29, 2026: Yes, proceed with the explicit opening-balance Products option."
+  }
+}
+```
+
+<!-- /business-rule-change -->
+
+## 39. Owner-Approved PSO Opening And Reclass Posted In Production
+
+After the development implementation in section 38, the requesting Clothing
+business owner explicitly authorized the exact two financial entries directly
+in production: "just plug this directly into the production db" after HTTP 409.
+This is a new, single-use authorization for this accounting pair, not permission
+to deploy, alter other records, commit or push.
+
+A fresh production read-only snapshot at `2026-10-29T15:15:18.785586Z` confirmed
+that PSO product 290 had supplier Grand Total PHP 30,636.64, Paid status,
+September 1 Order Date and no supplier credit or settlement. Its shipment code
+is `KPC 23930A-236`, but its actual shipment database ID is **223**, not 236.
+The shipment was Delivered with October 13 delivery date. There was no PSO
+transit build-up, reclass, October transit opening or matching manual posting.
+The existing PHP 166,330.90 physical opening was still present once.
+
+The reviewed opening guard rejects any active manual Inventory in Transit debit,
+including older pre-cutover history; production contained five such older rows.
+Those historical rows were preserved. This one-off correction implements the
+owner-approved PSO treatment without weakening or changing the application guard.
+
+The following source records were committed together in one serializable
+production transaction on October 29 and independently verified read-only at
+`2026-10-29T15:24:45.980277Z`:
+
+| Posting Date | Debit                | Credit               |       PHP |
+| ------------ | -------------------- | -------------------- | --------: |
+| October 12   | Inventory in Transit | Opening Equity       | 30,636.64 |
+| October 13   | Stock on Hand        | Inventory in Transit | 30,636.64 |
+
+The entry dates are accounting dates in 2026; creation timestamps record the
+actual October 29 operation. The app-native source records use these keys:
+
+- Opening: `PRODUCT_TRANSIT_BUILD:290:GRAND_TOTAL`, row
+  `pso-opening-transit-20261012-product-290`.
+- Arrival: `SHIPMENT_TRANSIT_RECLASS:KPC 23930A-236:PRODUCT:290`, row
+  `pso-opening-reclass-20261013-product-290`.
+- Approval/audit request: `c012c013-1029-4000-8000-000000000290`, operation
+  `PSO_OPENING_TRANSIT_RECLASS` in `clothing_financial_requests`.
+
+No additional standalone opening or manual journal lines were inserted. Reports
+read the existing transit/reclass source tables. Cash and Supplier Payable change
+by zero. Existing products, shipments, orders, payments, refunds, inventory
+movements, manual/logistics journal rows, physical openings, accounting settings,
+supplier credits/applications and all unrelated source/audit rows were preserved.
+Fourteen protected-table fingerprints matched before/after inside the transaction
+and again in the independent verification. The existing PHP 2,480 actual logistics
+was not repeated; pricing-only packaging and approved sale costs were unchanged.
+
+The October 12 combined inventory opening and Opening Equity are PHP 196,967.54:
+PHP 166,330.90 physical stock plus PHP 30,636.64 PSO transit. After the October 13
+reclass, this PSO source has zero transit balance and PHP 30,636.64 transferred
+to Stock on Hand. This does not certify unrelated legacy valuation exceptions.
+Both requested entries are now saved: **do not submit either entry again**.
+
+### Backup, Rehearsal And Evidence
+
+Private evidence is retained in the development checkout under
+`backups/2026-10-29T15-18-28-842Z-production-pso-opening-transit/`:
+
+- `before.dump`: fresh full production custom-format backup, 53,546,441 bytes;
+  SHA-256 `aea1618f337951862575d0e7ebe0c4e71e3173c4b395554b1d30dd94e69befed`.
+- `executed-repair.sql`: exact executed SQL archived from the temporary runner;
+  SHA-256 `bbff1c959ab27dcdf35644e44223d452e8e2f98cf2e52f2d882c3d0d04060602`.
+- `manifest.json`, `rehearsal.json`, `rehearsal-cleanup.json`,
+  `production-apply.json` and `production-verified.json`: backup/script hashes,
+  exact saved images, authorization, preservation hashes and verification.
+
+Before production execution, the full backup was restored into a separate
+network-isolated PostgreSQL 16 container. The exact SQL passed complete rollback,
+injected failure after its first insert, changed-product rejection, exact
+persisted accounts/amounts/dates, identical no-op replay and changed-after-image
+replay rejection. Initial archive-list and memory-backed restore attempts did
+not complete; the subsequent full archive read and disk-backed restore passed.
+All rehearsal containers and the owned leftover volume were removed and checked.
+
+The repair defaults to rollback and fails closed on changed preconditions,
+existing/deleted PSO funding, supplier settlement or duplicate reclassification.
+Its source and audit keys make an identical replay a no-op, not another payment.
+The temporary runnable copy was removed after archiving. Do not restore the full
+backup over later business activity; any reversal requires separate approval and
+an exact-record plan.
+
+Only production data received this approved pair. The development database was
+not synchronized. No schema, runtime business rule, production source file,
+application build, deployment, commit or push changed. No unrelated ledger
+diagnostic was repaired or newly certified; full application gates and browser
+E2E were not rerun for this operational data correction. Validation is the
+isolated rehearsal and fresh independent production verification described above.
+
+## 40. Pre-Cutover Ordinary Payments: Balance-Sheet Correction In Development
+
+The requesting Clothing business owner asked to correct the separate PHP 4,331
+statement imbalance before logging Owner Draw, and explicitly accepted
+**PHP 106,413.75 as Owner Draw** for the practical November fresh start. This
+supersedes earlier wording that this particular draw amount was not approved.
+It does not establish historical withdrawal dates, authorize automatic posting
+of the draw/purchases, or authorize a production code release.
+
+### Cause, Approved Invariant And Scope
+
+Seven active Shipped orders have ordinary Cash receipts before the October 12
+cutover, not Reservation Deposits:
+
+| Order | Pre-Cutover Receipt PHP |
+| ----- | ----------------------: |
+| 3201  |                   96.00 |
+| 3212  |                  315.00 |
+| 3258  |                  450.00 |
+| 3259  |                  390.00 |
+| 3373  |                  950.00 |
+| 3386  |                1,080.00 |
+| 3387  |                1,050.00 |
+| Total |            **4,331.00** |
+
+The existing balance-sheet Cash guard already suppresses another receipt for
+these orders. Its revenue path, however, selected payment events only when a
+receipt fell inside the report window; with no such receipt, it reused the
+legacy order adjustment on a later completion date. The result was PHP 4,331
+of repeated revenue/Retained Earnings without a corresponding current asset.
+An existing defect-reproduction test expected that imbalance; it now requires
+the approved no-duplicate-revenue outcome and a balanced statement.
+
+The accountable owner is the requesting Clothing business owner. The approved
+invariant is the existing Journal ordinary-receipt contract: active finite
+positive non-reservation payments replace inferred legacy cash/revenue across
+report periods. Their actual dates control eligibility; later fulfillment does
+not repeat earlier ordinary revenue. The owning correction is
+`src/app/api/accounting/balance-sheet/route.ts`, which records ordinary payment
+presence before the cutover/as-of filter. An initial broader change failed two
+reservation regressions and was narrowed before completion. Existing deposit
+application, genuine invoice/A/R shipment recognition, non-posting/rowless legacy
+fallback, cancellation/refund treatment and movement-based COGS remain unchanged.
+
+The returned signed equation is rounded to cents, with exact zero for a balanced
+statement. Real positive and negative one-cent differences remain visible. This
+prevents binary floating-point residue from leaving the card's exact-zero check
+flagged; it does not round or alter account rows or stored records.
+
+Only the read-only Clothing report projection changes. Its UI, breakdown/CSV
+and other report consumers receive the corrected result. No receipt, order,
+reservation flag, date, journal, opening, cost, physical stock, API authorization,
+schema or payment write service changes. Bulk/import/jobs/retries remain source
+producers using the same read path. General Merchandise has its own report
+route/fetchers and was checked but not changed under this Clothing-only request;
+no shared helper, trucking or household rule changes or inferred policy alignment.
+
+### Final Read-Only Production Replay And Release Boundary
+
+The HEAD baseline and final development handler ran against the same production
+RepeatableRead snapshot at `2026-10-29T16:14:45.917Z` (October 30 Manila), with
+`transaction_read_only=on`, for the October 29 Manila end-of-day report. Only
+signed Retained Earnings changed, from PHP 91,164.30 to PHP 95,495.30; this debit
+balance is not additional profit. Every other account row and its details
+matched the baseline. The final API equation is exactly PHP 0.00 rather than
+the baseline negative PHP 4,331.00.
+
+| Preserved Account / Decision                                        |          PHP |
+| ------------------------------------------------------------------- | -----------: |
+| Cash                                                                | 1,075,228.87 |
+| Stock on Hand                                                       |    74,017.37 |
+| Signed Opening Equity, including the existing genuine PHP 7.21 seed |  -196,974.75 |
+| Agreed practical recorded-cost opening baseline                     |   196,967.54 |
+
+No balancing journal, invented opening Customer Deposits, new Cash receipt,
+re-dated payment or cost restatement was used. The existing physical opening,
+PSO pair/logistics and disclosed legacy exceptions are preserved. No production
+data was written and no production code/build/deployment, commit or push was
+performed. **The live application is not corrected by this development-only
+change; an explicitly approved release and live verification are still needed
+before the owner logs the draw.** The previous PSO posting authorization is
+consumed and is not reused for deployment or other writes.
+
+Private development evidence is retained under
+`backups/2026-10-29T16-02-25-882Z-precutover-report-validation/`:
+`result-final.json` contains both report images, unchanged-row assertions,
+read-only context and source hashes; `quality-gates-final.json` contains the
+final commands, exit codes and complete outputs. Earlier evidence in this
+directory records the first replay/check run, not the final precision change.
+
+### Accepted Draw And Still-Unposted Purchases
+
+All 20 confirmed Paid/CASH supplier purchases, product IDs 291-310, total
+PHP 379,635.12 and still lack purchase ledger postings. The owner's accepted
+reconciliation is:
+
+`1,075,228.87 - 379,635.12 - 106,413.75 = 589,180.00`.
+
+PHP 589,180.00 is the owner's reported actual combined cash/bank/GCash balance.
+The draw is approved as a practical reconciliation amount, not newly proved
+historical spending. Neither it nor these purchases was posted in this report
+correction. Logging only the draw will not reach that Cash balance while the
+purchases remain unposted. Estimated freight/courier/packaging is not substituted
+for paid supplier totals or independently posted as actual logistics.
+
+### Validation And Business-Rule Record
+
+- Final focused Balance Sheet suite: **41 passed**. It covers the seven-order
+  no-revenue/no-Cash replay, past/future/split receipt windows, ordinary and CARD
+  receipts, reservations, A/R, legacy rows, unchanged inputs/COGS, repeated reads,
+  exact zero and both signs of a genuine one-cent imbalance.
+- Final focused Balance Sheet/Journal/Ledger/recognition batch: **81 passed**.
+- `npm run guardrails:check`, `npm run lint` (existing warnings) and
+  `npm run typecheck`: **passed**.
+- `npm run test:unit`: **373 files / 4,653 passed**.
+- `npm run test:hardening`: **4 files / 12 passed**.
+- `npm run test:integration`: **73 passed / 20 failed** across 12 files, the
+  same existing test-database `P2022` missing-column failures for
+  `inventory_movements.costBasis` and
+  `split_batch_components.acquisitionUnitCost`. No reset, migration, bypass or
+  unrelated schema repair was performed; the full gate is not green.
+- Coverage and authenticated browser E2E were not rerun. This changes a
+  read-only projection, not inventory or accounting transaction writes. Prior
+  independent inventory/control diagnostics are not newly certified. The
+  unrelated generated LIV-1 completion-date delta was restored.
+
+```json
+{
+  "businessRuleChange": true,
+  "owner": "Requesting Clothing business owner, current conversation approval to correct the PHP 4,331 imbalance before logging the accepted draw",
+  "invariant": "Positive ordinary payment events remain authoritative across the cutover/as-of boundary; later completion cannot repeat pre-cutover ordinary revenue or Cash. The signed statement equation reports currency precision without hiding a genuine one-cent imbalance.",
+  "domains": ["clothing"],
+  "policyPaths": [
+    "docs/business-logic/clothing/accounting-journal.md",
+    "docs/business-logic/clothing/accounting-balance-sheet.md"
+  ],
+  "affectedPaths": [
+    "src/app/api/accounting/balance-sheet/route.ts",
+    "src/app/clothing/accounting/balance-sheet/hooks/useBalanceSheet.ts",
+    "src/app/clothing/accounting/balance-sheet/components/BalanceSheetStatsCards.tsx"
+  ],
+  "tests": {
+    "paths": [
+      "tests/unit/api/accounting-balance-sheet.api.test.ts",
+      "tests/unit/api/accounting-journal.api.test.ts",
+      "tests/unit/api/accounting-ledger.api.test.ts",
+      "src/lib/accounting/__tests__/transaction-recognition.test.ts"
+    ],
+    "results": "Final 41 balance-sheet and 81 focused accounting tests passed; guardrails/lint/typecheck passed; 4653 unit and 12 hardening tests passed. Integration: 73 passed, 20 existing P2022 missing-column failures. Final enforced read-only production replay changes only signed Retained Earnings by PHP 4331 and returns exactly zero balance; no data write or deployment. Coverage/browser E2E not rerun."
+  },
+  "docs": {
+    "paths": [
+      "docs/business-logic/clothing/accounting-balance-sheet.md",
+      "docs/plans/clothing-oct12-cutover-reconciliation-log.md"
+    ]
+  },
+  "divergence": {
+    "status": "none",
+    "reason": "Clothing ordinary-payment fallback follows its existing Journal contract. Reservation and A/R treatment are preserved. GM's independent report and all shared helpers, trucking and household behavior remain unchanged; this patch does not infer a cross-domain revenue policy."
+  }
+}
+```

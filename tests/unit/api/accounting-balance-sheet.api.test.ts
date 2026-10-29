@@ -198,7 +198,7 @@ describe('Accounting Balance Sheet API - GET /api/accounting/balance-sheet', () 
     });
   });
 
-  it('does not collect the seven prepaid legacy orders again on completion', async () => {
+  it('does not recognize the seven prepaid legacy orders again after cutover', async () => {
     mockFetchers.getRuntimeAccountingCutoverDate.mockResolvedValue(
       new Date('2026-10-12')
     );
@@ -245,11 +245,51 @@ describe('Accounting Balance Sheet API - GET /api/accounting/balance-sheet', () 
         (row) => row.account === account
       )?.amount ?? 0;
     expect(amount('Cash')).toBe(0);
-    expect(amount('Retained Earnings')).toBe(-4331 + 100 + 25);
-    expect(payload.data.stats.balance).toBe(-4331);
+    expect(amount('Retained Earnings')).toBe(100 + 25);
+    expect(payload.data.stats.balance).toBe(0);
     await expectCashReports(0, '2026-10-12', '2026-10-29');
     expect(JSON.stringify({ orders, payments })).toBe(before);
   });
+
+  it.each([0, 0.01, -0.01])(
+    'reports the equation in cents without hiding a real %s imbalance',
+    async (imbalance) => {
+      mockInventoryCogs.computeCogsTotal.mockResolvedValue(0);
+      mockInventoryCogs.buildInventorySeedAndShrinkageEntries.mockResolvedValue(
+        {
+          seedTotal: 0,
+          shrinkageTotal: 0,
+          entries: [],
+        }
+      );
+      const balances = [
+        ['Cash', 1075228.87],
+        ['Stock on Hand', 74017.37],
+        ['Inventory Shrinkage', 7.21],
+        ['Customer Deposits', -47774],
+        ['Loan Payable', -1000000],
+        ['Opening Equity', -196974.75],
+        ['Retained Earnings', 95495.3 + imbalance],
+      ] as const;
+      mockPrisma.clothingAccountingOpeningBalance.findMany.mockResolvedValue(
+        balances.map(([account, amount]) => ({
+          id: account,
+          date: new Date('2026-01-17'),
+          ref: 'OPENING',
+          account,
+          debit: Math.max(amount, 0),
+          credit: Math.max(-amount, 0),
+        }))
+      );
+
+      const response = await GET(
+        buildRequest('/api/accounting/balance-sheet?asOf=2026-01-31')
+      );
+      expect(response.status).toBe(200);
+      const payload = await response.json();
+      expect(payload.data.stats.balance).toBe(imbalance);
+    }
+  );
 
   it.each([
     { status: 'Shipped', dates: ['2026-10-11'], amounts: [1000], cash: 0 },
@@ -323,6 +363,10 @@ describe('Accounting Balance Sheet API - GET /api/accounting/balance-sheet', () 
         expect(
           rows.find((row) => row.account === 'Stock on Hand')?.amount
         ).toBe(500 - 100 - 25);
+        expect(
+          rows.find((row) => row.account === 'Retained Earnings')?.amount
+        ).toBe(100 + 25 - scenario.cash);
+        expect(payload.data.stats.balance).toBe(0);
         expect(mockInventoryCogs.computeCogsTotal).toHaveBeenLastCalledWith({
           from: new Date('2026-10-12'),
           to: new Date('2026-10-29T15:59:59.999Z'),
@@ -704,6 +748,94 @@ describe('Accounting Balance Sheet API - GET /api/accounting/balance-sheet', () 
       expect(amount('Accounts Receivable')).toBe(0);
       expect(amount('Retained Earnings')).toBe(-100);
       expect(payload.data.stats.balance).toBe(0);
+    }
+  );
+
+  it.each(['2026-10-12', '2026-10-13'])(
+    'reports opening-funded transit without duplicate cash or equity as of %s',
+    async (asOf) => {
+      mockFetchers.getRuntimeAccountingCutoverDate.mockResolvedValue(
+        new Date('2026-10-12')
+      );
+      mockInventoryCogs.computeCogsTotal.mockResolvedValue(0);
+      mockInventoryCogs.buildInventorySeedAndShrinkageEntries.mockResolvedValue(
+        { seedTotal: 0, shrinkageTotal: 0, entries: [] }
+      );
+      mockPrisma.clothingAccountingOpeningBalance.findMany.mockResolvedValue([
+        {
+          id: 'physical-stock',
+          date: new Date('2026-10-12'),
+          ref: 'OPENING',
+          account: 'Stock on Hand',
+          debit: 166330.9,
+          credit: 0,
+        },
+        {
+          id: 'physical-equity',
+          date: new Date('2026-10-12'),
+          ref: 'OPENING',
+          account: 'Opening Equity',
+          debit: 0,
+          credit: 166330.9,
+        },
+      ]);
+      mockPrisma.clothingInventoryTransitBuildEntry.findMany.mockResolvedValue([
+        {
+          id: 'pso-opening',
+          postingDate: new Date('2026-10-12'),
+          shipmentId: null,
+          shipmentCode: 'KPC 23930A-236',
+          amount: 30636.64,
+          debitAccount: 'Inventory in Transit',
+          creditAccount: 'Opening Equity',
+          idempotencyKey: 'PRODUCT_TRANSIT_BUILD:290:GRAND_TOTAL',
+          notes: 'Funding: Opening Balance',
+        },
+      ]);
+      const received = asOf === '2026-10-13';
+      mockPrisma.clothingInventoryReclassEntry.findMany.mockResolvedValue(
+        received
+          ? [
+              {
+                id: 'pso-reclass',
+                postingDate: new Date('2026-10-13'),
+                shipmentId: 236,
+                shipmentCode: 'KPC 23930A-236',
+                productId: 290,
+                productCode: 'PSO-101226',
+                amount: 30636.64,
+                fromAccount: 'Inventory in Transit',
+                toAccount: 'Stock on Hand',
+                idempotencyKey: 'TRANSIT_RECLASS:236:290',
+              },
+            ]
+          : []
+      );
+
+      const response = await GET(
+        buildRequest(`/api/accounting/balance-sheet?asOf=${asOf}`)
+      );
+      expect(response.status).toBe(200);
+      const payload = await response.json();
+      const rows = payload.data.rows as Array<{
+        account: string;
+        amount: number;
+      }>;
+      const amount = (account: string) =>
+        rows.find((row) => row.account === account)?.amount ?? 0;
+      expect(amount('Cash')).toBe(0);
+      expect(amount('Supplier Payable')).toBe(0);
+      expect(amount('Opening Equity')).toBeCloseTo(-196967.54, 2);
+      expect(amount('Inventory in Transit')).toBeCloseTo(
+        received ? 0 : 30636.64,
+        2
+      );
+      expect(amount('Stock on Hand')).toBeCloseTo(
+        received ? 196967.54 : 166330.9,
+        2
+      );
+      expect(payload.data.stats.balance).toBeCloseTo(0, 2);
+      await expectCashReports(0, '2026-10-12', asOf);
     }
   );
 

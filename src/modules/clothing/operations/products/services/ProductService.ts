@@ -953,9 +953,24 @@ export class ProductService {
     return { skippedDetails: skipped };
   }
 
+  static async getTransitOpeningDate(apiBasePath?: string): Promise<string> {
+    const data = await api.get<{ cutoverDate?: string }>(
+      buildApiPath(apiBasePath, '/accounting/opening-balance')
+    );
+    const date = data?.cutoverDate?.slice(0, 10);
+    if (!date || !/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+      throw new Error('The accounting cutover date is unavailable.');
+    }
+    return date;
+  }
+
   static async postTransitBuildUpByShipmentCode(
     shipmentCode: string,
-    apiBasePath?: string
+    apiBasePath?: string,
+    options: {
+      fundingSource?: 'PAYMENT' | 'OPENING_BALANCE';
+      openingBalanceConfirmed?: boolean;
+    } = {}
   ): Promise<
     | {
         success: true;
@@ -967,6 +982,16 @@ export class ProductService {
     if (!normalized) {
       return { success: false, error: 'Shipment Code is required' };
     }
+    if (
+      options.fundingSource === 'OPENING_BALANCE' &&
+      buildApiPath(apiBasePath, '/products/transit-build') !==
+        '/api/products/transit-build'
+    ) {
+      return {
+        success: false,
+        error: 'Opening transit funding is Clothing-only.',
+      };
+    }
 
     try {
       const data = await api.post<{
@@ -975,6 +1000,7 @@ export class ProductService {
         products: number;
       }>(buildApiPath(apiBasePath, '/products/transit-build'), {
         shipmentCode: normalized,
+        ...options,
       });
       return { success: true, data };
     } catch (error) {

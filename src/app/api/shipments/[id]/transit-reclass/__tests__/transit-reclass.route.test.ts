@@ -35,6 +35,71 @@ describe('POST /api/shipments/[id]/transit-reclass', () => {
     );
   });
 
+  it('reclasses opening-funded supplier cost without adding fees or another equity or payment entry', async () => {
+    mockPrisma.shipment.findUnique.mockResolvedValue({
+      id: 236,
+      shipmentCode: 'KPC 23930A-236',
+      shipmentStatus: 'Delivered',
+    });
+    mockPrisma.clothingInventoryTransitBuildEntry.findMany.mockResolvedValue([
+      {
+        id: 'opening-pso',
+        idempotencyKey: 'PRODUCT_TRANSIT_BUILD:290:GRAND_TOTAL',
+        amount: 30636.64,
+        postingDate: new Date('2026-10-12T00:00:00.000Z'),
+        debitAccount: 'Inventory in Transit',
+        creditAccount: 'Opening Equity',
+      },
+    ]);
+    mockPrisma.product.findMany.mockResolvedValue([
+      {
+        id: 290,
+        productCode: 'PSO-101226',
+        grandTotal: 30636.64,
+        cogs: 35166.64,
+        forwardersFee: 1530,
+        lalamove: 1500,
+        packagingCost: 1500,
+      },
+    ]);
+    mockPrisma.clothingInventoryReclassEntry.findMany.mockResolvedValue([]);
+    mockPrisma.clothingInventoryReclassEntry.createMany.mockResolvedValue({
+      count: 1,
+    });
+
+    const response = await POST(
+      mockNextRequest({
+        method: 'POST',
+        url: getTestApiUrl('/api/shipments/236/transit-reclass'),
+        body: {
+          postingDate: '2026-10-13',
+          selectedIdempotencyKeys: ['PRODUCT_TRANSIT_BUILD:290:GRAND_TOTAL'],
+        },
+      }),
+      { params: { id: '236' } }
+    );
+
+    expect(response.status).toBe(200);
+    expect((await response.json()).data.selectedTransitTotalAmount).toBe(
+      30636.64
+    );
+    expect(
+      mockPrisma.clothingInventoryReclassEntry.createMany
+    ).toHaveBeenCalledWith({
+      data: [
+        expect.objectContaining({
+          productId: 290,
+          productCode: 'PSO-101226',
+          amount: 30636.64,
+          postingDate: new Date('2026-10-13T00:00:00.000Z'),
+          fromAccount: 'Inventory in Transit',
+          toAccount: 'Stock on Hand',
+        }),
+      ],
+      skipDuplicates: true,
+    });
+  });
+
   it('creates reclass entries when transit build-up totals match product valuation totals', async () => {
     mockPrisma.shipment.findUnique.mockResolvedValue({
       id: 1,
