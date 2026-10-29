@@ -701,24 +701,36 @@ export class ProductService {
         totalValue: 0,
         avgValue: 0,
         totalProfit: 0,
+        grandTotal: 0,
+        cogs: 0,
+        forwardersFee: 0,
+        lalamove: 0,
+        packagingCost: 0,
+        totalQuantity: 0,
       };
     }
 
-    const totalValue = products.reduce(
-      (sum, product) => sum + (product['Projected Sales'] || 0),
-      0
-    );
-
-    const totalProfit = products.reduce(
-      (sum, product) => sum + (product['Projected Profit'] || 0),
-      0
-    );
+    const sumField = (field: keyof ProductData) =>
+      products.reduce((sum, product) => {
+        const value = product[field];
+        return (
+          sum +
+          (typeof value === 'number' && Number.isFinite(value) ? value : 0)
+        );
+      }, 0);
+    const totalValue = sumField('Projected Sales');
 
     return {
       total: products.length,
       totalValue,
       avgValue: totalValue / products.length,
-      totalProfit,
+      totalProfit: sumField('Projected Profit'),
+      grandTotal: sumField('Grand Total'),
+      cogs: sumField('COGS'),
+      forwardersFee: sumField("Forwarder's Fee"),
+      lalamove: sumField('Lalamove'),
+      packagingCost: sumField('Packaging Cost'),
+      totalQuantity: sumField('Quantity'),
     };
   }
 

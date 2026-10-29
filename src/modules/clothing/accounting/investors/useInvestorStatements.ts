@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { showNotification } from '@mantine/notifications';
+import { copyTextToClipboard } from '@/modules/clothing/operations/checkout-links/lib/clipboard';
 
 async function downloadInvestorStatements(month: string) {
   const response = await fetch('/api/clothing/investors/generate-statements', {
@@ -133,18 +134,12 @@ export function useInvestorStatements() {
   };
 
   const copyEmail = async (input: Parameters<typeof buildPayoutEmail>[0]) => {
-    try {
-      await navigator.clipboard.writeText(buildPayoutEmail(input));
-      showNotification({
-        message: 'Payout email copied to clipboard',
-        color: 'green',
-      });
-    } catch {
-      showNotification({
-        message: 'Unable to copy the payout email',
-        color: 'red',
-      });
-    }
+    const copied = await copyTextToClipboard(buildPayoutEmail(input));
+    showNotification(
+      copied
+        ? { message: 'Payout email copied to clipboard', color: 'green' }
+        : { message: 'Unable to copy the payout email', color: 'red' }
+    );
   };
 
   return { isGenerating, generate, downloadedMonth, copyEmail };

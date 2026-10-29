@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { showNotification } from '@mantine/notifications';
+import { copyTextToClipboard } from '@/modules/clothing/operations/checkout-links/lib/clipboard';
 
 async function downloadAgreementStatement(
   agreementId: string,
@@ -56,20 +57,14 @@ export function useAgreementStatement() {
   >(null);
 
   const copyEmail = async (investorName: string, reference: string) => {
-    try {
-      await navigator.clipboard.writeText(
-        buildStatementEmail(investorName, reference)
-      );
-      showNotification({
-        message: 'Email message copied to clipboard',
-        color: 'green',
-      });
-    } catch {
-      showNotification({
-        message: 'Unable to copy the email message',
-        color: 'red',
-      });
-    }
+    const copied = await copyTextToClipboard(
+      buildStatementEmail(investorName, reference)
+    );
+    showNotification(
+      copied
+        ? { message: 'Email message copied to clipboard', color: 'green' }
+        : { message: 'Unable to copy the email message', color: 'red' }
+    );
   };
 
   const download = async (

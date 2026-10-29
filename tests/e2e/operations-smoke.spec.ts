@@ -174,14 +174,20 @@ test.describe('Operations — Products', () => {
     await expect(page.locator('body')).toBeVisible();
   });
 
-  test('four stat cards are rendered [rule: Total Products, Total Value, Average Value, Total Profit]', async ({
+  test('product summary cards show filtered purchase and sales totals', async ({
     page,
   }) => {
     await gotoOperationsPage(page, URL);
     await expectTextVisibleWithReload(page, 'Total Products', 30_000);
-    await expectTextVisibleWithReload(page, 'Total Value');
-    await expectTextVisibleWithReload(page, 'Average Value');
-    await expectTextVisibleWithReload(page, 'Total Profit');
+    await expectTextVisibleWithReload(page, 'Grand Total');
+    await expectTextVisibleWithReload(page, 'Projected Sales');
+    await expectTextVisibleWithReload(page, 'Projected Profit');
+    await expectTextVisibleWithReload(page, 'COGS');
+    await expectTextVisibleWithReload(page, "Forwarder's Fee");
+    await expectTextVisibleWithReload(page, 'Lalamove');
+    await expectTextVisibleWithReload(page, 'Packaging Cost');
+    await expectTextVisibleWithReload(page, 'Total Quantity');
+    await expectTextVisibleWithReload(page, 'Average Projected Sales');
   });
 
   test('four product tabs are present [rule: Products, Bundles, Mix & Match, Shipping Calculator]', async ({

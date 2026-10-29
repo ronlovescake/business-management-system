@@ -9,6 +9,7 @@ import {
   Button,
   Checkbox,
   Group,
+  Paper,
   SimpleGrid,
   Stack,
   Text,
@@ -80,6 +81,16 @@ export function InvestorAccounting({
       formatDateOnly(agreement.schedule.principalRepaymentDeadline),
     ],
   ];
+  const entryLines =
+    action === 'repayment'
+      ? [
+          ['Debit', 'Investor Funding Payable'],
+          ['Credit', 'Cash'],
+        ]
+      : [
+          ['Debit', 'Cash'],
+          ['Credit', 'Investor Funding Payable'],
+        ];
   const open = (kind: 'funding' | 'repayment') => {
     mutation.reset();
     setDate(getCurrentDateISO());
@@ -151,16 +162,50 @@ export function InvestorAccounting({
             ? 'Record funding received'
             : 'Record Investment Repayment'
         }
+        size="xl"
+        centered
       >
-        <Stack>
-          <Text fw={600}>
-            {agreement.reference}: {money}
-          </Text>
-          <Text>
-            {action === 'funding'
-              ? 'Debit Cash / Credit Investor Funding Payable'
-              : 'Debit Investor Funding Payable / Credit Cash'}
-          </Text>
+        <Stack gap="lg">
+          <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="md">
+            <Paper withBorder radius="md" p="md">
+              <Text size="sm" c="dimmed">
+                Agreement
+              </Text>
+              <Text fw={700} size="lg">
+                {agreement.reference}
+              </Text>
+            </Paper>
+            <Paper withBorder radius="md" p="md">
+              <Text size="sm" c="dimmed">
+                Amount
+              </Text>
+              <Text fw={700} size="lg">
+                {money}
+              </Text>
+            </Paper>
+          </SimpleGrid>
+          <Paper withBorder radius="md" p="md">
+            <Text fw={600} mb="sm">
+              Journal entry
+            </Text>
+            <Stack gap="xs">
+              {entryLines.map(([side, account]) => (
+                <Group key={side} justify="space-between" wrap="nowrap">
+                  <Group gap="sm" wrap="nowrap">
+                    <Badge
+                      variant="light"
+                      color={side === 'Debit' ? 'blue' : 'grape'}
+                      w={72}
+                    >
+                      {side}
+                    </Badge>
+                    <Text>{account}</Text>
+                  </Group>
+                  <Text fw={600}>{money}</Text>
+                </Group>
+              ))}
+            </Stack>
+          </Paper>
           <TextInput
             label={action === 'funding' ? 'Date received' : 'Date repaid'}
             type="date"
@@ -169,21 +214,32 @@ export function InvestorAccounting({
             onChange={(event) => setDate(event.currentTarget.value)}
             required
           />
-          <Checkbox
-            label="I confirm the funds moved and this movement is not already included in opening balances or another journal entry."
-            checked={confirmed}
-            onChange={(event) => setConfirmed(event.currentTarget.checked)}
-          />
+          <Paper withBorder radius="md" p="md" bg="gray.0">
+            <Checkbox
+              label="I confirm the funds moved and this movement is not already included in opening balances or another journal entry."
+              checked={confirmed}
+              onChange={(event) => setConfirmed(event.currentTarget.checked)}
+            />
+          </Paper>
           {mutation.isError && (
             <Alert color="red">{mutation.error.message}</Alert>
           )}
-          <Button
-            loading={mutation.isPending}
-            disabled={!confirmed || !date}
-            onClick={() => mutation.mutate()}
-          >
-            Confirm and post
-          </Button>
+          <Group justify="flex-end" gap="sm">
+            <Button
+              variant="default"
+              disabled={mutation.isPending}
+              onClick={() => setAction(null)}
+            >
+              Cancel
+            </Button>
+            <Button
+              loading={mutation.isPending}
+              disabled={!confirmed || !date}
+              onClick={() => mutation.mutate()}
+            >
+              Confirm and post
+            </Button>
+          </Group>
         </Stack>
       </UniversalModal>
     </Stack>

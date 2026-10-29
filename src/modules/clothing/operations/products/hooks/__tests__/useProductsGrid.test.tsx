@@ -28,7 +28,20 @@ function setup(scope?: string) {
       'Exchange Rates': 1,
       'Transaction Fee': 0,
     },
-    { ...base, id: 2, Product: 'Second', 'Product Code': 'P-2' },
+    {
+      ...base,
+      id: 2,
+      Product: 'Second',
+      'Product Code': 'P-2',
+      Quantity: 20,
+      'Grand Total': 200,
+      COGS: 230,
+      "Forwarder's Fee": 20,
+      Lalamove: 4,
+      'Packaging Cost': 6,
+      'Projected Sales': 600,
+      'Projected Profit': 370,
+    },
   ];
   const load = vi
     .spyOn(ProductService, 'loadProducts')
@@ -140,6 +153,18 @@ describe('product grid inline saves', () => {
     await waitFor(() =>
       expect(result.current.filteredProducts).toHaveLength(1)
     );
+    expect(result.current.statistics).toMatchObject({
+      total: 1,
+      totalValue: 600,
+      avgValue: 600,
+      totalProfit: 370,
+      grandTotal: 200,
+      cogs: 230,
+      forwardersFee: 20,
+      lalamove: 4,
+      packagingCost: 6,
+      totalQuantity: 20,
+    });
     const column = PRODUCT_COLUMN_KEYS.indexOf('Product');
     await act(async () => {
       result.current.handleAfterChange(

@@ -12,6 +12,7 @@ import { PageLayout } from '@/components/layout/PageLayout';
 import { TableSkeleton } from '@/components/ui/TableSkeleton';
 import { useProductsData } from '../hooks/useProductsData';
 import { ProductStatsCards } from './ProductStatsCards';
+import type { ProductStatistics } from '../types/product.types';
 
 const TabLoader = () => (
   <Center py="xl">
@@ -60,7 +61,10 @@ interface ProductsPageProps {
 export function ProductsPage({ apiBasePath }: ProductsPageProps) {
   const [activeTab, setActiveTab] = useState<string | null>('products');
   const [hasPendingChanges, setHasPendingChanges] = useState(false);
-  const { isLoading, statistics } = useProductsData(apiBasePath);
+  const { isLoading, statistics, searchQuery, debouncedSearch, handleSearch } =
+    useProductsData(apiBasePath);
+  const [gridStatistics, setGridStatistics] =
+    useState<ProductStatistics | null>(null);
 
   return (
     <PageLayout fluid withPadding>
@@ -69,7 +73,7 @@ export function ProductsPage({ apiBasePath }: ProductsPageProps) {
       ) : (
         <Stack gap="md">
           {/* Stats cards */}
-          <ProductStatsCards statistics={statistics} />
+          <ProductStatsCards statistics={gridStatistics ?? statistics} />
 
           <Tabs
             value={activeTab}
@@ -103,6 +107,10 @@ export function ProductsPage({ apiBasePath }: ProductsPageProps) {
                 key={apiBasePath ?? 'default'}
                 apiBasePath={apiBasePath}
                 onPendingChanges={setHasPendingChanges}
+                searchQuery={searchQuery}
+                debouncedSearch={debouncedSearch}
+                onSearchChange={handleSearch}
+                onStatisticsChange={setGridStatistics}
               />
             </Tabs.Panel>
 

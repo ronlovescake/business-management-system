@@ -6,6 +6,7 @@ import { fireEvent, screen, waitFor } from '@testing-library/dom';
 import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
 import { ProductsPage } from '../ProductsPage';
 import { ProductsGridControls } from '../ProductsGridControls';
+import type { ProductStatistics } from '../../types/product.types';
 
 const auth = vi.hoisted(() => ({ useSession: vi.fn() }));
 vi.mock('next-auth/react', () => auth);
@@ -34,14 +35,46 @@ vi.mock('@/components/ui/TableSkeleton', () => ({
 }));
 
 vi.mock('../ProductStatsCards', () => ({
-  ProductStatsCards: () => <div>stats-cards</div>,
+  ProductStatsCards: ({ statistics }: { statistics: ProductStatistics }) => (
+    <div data-testid="stats-cards">
+      {statistics.total}:{statistics.totalValue}
+    </div>
+  ),
 }));
 
-vi.mock('../ProductsGrid', () => ({
-  __esModule: true,
-  default: () => <div>products-grid</div>,
-  ProductsGrid: () => <div>products-grid</div>,
-}));
+vi.mock('../ProductsGrid', () => {
+  const Grid = ({
+    searchQuery,
+    onStatisticsChange,
+  }: {
+    searchQuery?: string;
+    onStatisticsChange?: (statistics: ProductStatistics) => void;
+  }) => (
+    <div>
+      <div>products-grid</div>
+      <div data-testid="grid-search">{searchQuery}</div>
+      <button
+        onClick={() =>
+          onStatisticsChange?.({
+            total: 1,
+            totalValue: 600,
+            avgValue: 600,
+            totalProfit: 370,
+            grandTotal: 200,
+            cogs: 230,
+            forwardersFee: 20,
+            lalamove: 4,
+            packagingCost: 6,
+            totalQuantity: 20,
+          })
+        }
+      >
+        update filtered stats
+      </button>
+    </div>
+  );
+  return { __esModule: true, default: Grid, ProductsGrid: Grid };
+});
 
 vi.mock('../ShippingFeeCalculator', () => ({
   __esModule: true,
@@ -92,7 +125,7 @@ describe('ProductsPage', () => {
     renderProductsPage();
 
     expect(screen.getByTestId('table-skeleton')).toBeInTheDocument();
-    expect(screen.queryByText('stats-cards')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('stats-cards')).not.toBeInTheDocument();
   });
 
   it('renders stats and switches tabs between products, mix & match, and shipping calculator', async () => {
@@ -108,7 +141,7 @@ describe('ProductsPage', () => {
       expect(screen.getByText('products-grid')).toBeVisible();
     });
 
-    expect(screen.getByText('stats-cards')).toBeInTheDocument();
+    expect(screen.getByTestId('stats-cards')).toBeInTheDocument();
     expect(screen.getByText('shipping-calculator')).not.toBeVisible();
 
     const mixAndMatchTab = screen.getByRole('tab', {
@@ -126,6 +159,40 @@ describe('ProductsPage', () => {
 
     expect(screen.getByText('shipping-calculator')).toBeVisible();
     expect(screen.getByText('products-grid')).not.toBeVisible();
+  });
+
+  it('shares search and grid-filtered draft statistics with the top cards', async () => {
+    const filteredStatistics: ProductStatistics = {
+      total: 2,
+      totalValue: 300,
+      avgValue: 150,
+      totalProfit: 80,
+      grandTotal: 160,
+      cogs: 220,
+      forwardersFee: 10,
+      lalamove: 20,
+      packagingCost: 30,
+      totalQuantity: 5,
+    };
+    const handleSearch = vi.fn();
+    mockUseProductsData.mockReturnValue({
+      isLoading: false,
+      statistics: filteredStatistics,
+      searchQuery: 'P-2',
+      debouncedSearch: 'P-2',
+      handleSearch,
+    });
+
+    renderProductsPage();
+
+    await waitFor(() =>
+      expect(screen.getByTestId('grid-search')).toHaveTextContent('P-2')
+    );
+    expect(screen.getByTestId('stats-cards')).toHaveTextContent('2:300');
+    fireEvent.click(
+      screen.getByRole('button', { name: 'update filtered stats' })
+    );
+    expect(screen.getByTestId('stats-cards')).toHaveTextContent('1:600');
   });
 });
 

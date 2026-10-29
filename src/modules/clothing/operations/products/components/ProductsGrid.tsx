@@ -1,6 +1,6 @@
 'use client';
 
-import { memo, useEffect, useRef } from 'react';
+import { memo, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import dynamic from 'next/dynamic';
 import { Alert, Button, Group, Stack, Text } from '@mantine/core';
 import { IconRefresh, IconTrash } from '@tabler/icons-react';
@@ -13,6 +13,8 @@ import { TransitReclassModal } from '@/modules/clothing/operations/shipments/com
 import { useProductsGrid } from '../hooks';
 import { ProductsGridControls } from './ProductsGridControls';
 import { ProductsGridFooter } from './ProductsGridFooter';
+import type { ProductStatistics } from '../types/product.types';
+import { calculateProductGridHeight } from '../lib/productGridSizing';
 
 registerAllModules();
 
@@ -30,13 +32,24 @@ const AddProductModal = dynamic(
 interface ProductsGridProps {
   apiBasePath?: string;
   onPendingChanges?: (pending: boolean) => void;
+  searchQuery?: string;
+  debouncedSearch?: string;
+  onSearchChange?: (query: string) => void;
+  onStatisticsChange?: (statistics: ProductStatistics) => void;
 }
 
 export const ProductsGrid = memo(function ProductsGrid({
   apiBasePath,
   onPendingChanges,
+  searchQuery: controlledSearchQuery,
+  debouncedSearch,
+  onSearchChange,
+  onStatisticsChange,
 }: ProductsGridProps) {
   const hotRef = useRef<HotTableClass>(null);
+  const gridContainerRef = useRef<HTMLDivElement>(null);
+  const footerRef = useRef<HTMLDivElement>(null);
+  const [gridHeight, setGridHeight] = useState(320);
   const {
     saveQueue,
     searchQuery,
@@ -46,7 +59,6 @@ export const ProductsGrid = memo(function ProductsGrid({
     addProductOpen,
     openCreateProductModal,
     closeProductModal,
-    gridHeight,
     tableData,
     columns,
     handleAfterChange,
@@ -66,11 +78,64 @@ export const ProductsGrid = memo(function ProductsGrid({
     transitReclassShipment,
     closeTransitReclassModal,
     handleSubmitTransitReclass,
-  } = useProductsGrid({ apiBasePath });
+  } = useProductsGrid({
+    apiBasePath,
+    searchQuery: controlledSearchQuery,
+    debouncedSearch,
+    onSearchChange,
+  });
 
   useEffect(() => {
     onPendingChanges?.(saveQueue.hasPendingChanges);
   }, [onPendingChanges, saveQueue.hasPendingChanges]);
+
+  useEffect(() => {
+    onStatisticsChange?.(statistics);
+  }, [onStatisticsChange, statistics]);
+
+  useLayoutEffect(() => {
+    const updateGridHeight = () => {
+      const gridTop = gridContainerRef.current?.getBoundingClientRect().top;
+      if (gridTop === undefined) {
+        return;
+      }
+
+      const footerHeight =
+        footerRef.current?.getBoundingClientRect().height ?? 0;
+      const stack = gridContainerRef.current?.parentElement;
+      const stackGap = stack
+        ? Number.parseFloat(window.getComputedStyle(stack).rowGap) || 0
+        : 0;
+      const nextHeight = calculateProductGridHeight({
+        viewportHeight: window.innerHeight,
+        gridTop,
+        footerHeight,
+        stackGap,
+        bottomInset: 16,
+      });
+
+      setGridHeight((currentHeight) =>
+        currentHeight === nextHeight ? currentHeight : nextHeight
+      );
+    };
+
+    updateGridHeight();
+    window.addEventListener('resize', updateGridHeight);
+
+    const stack = gridContainerRef.current?.parentElement;
+    const resizeObserver =
+      stack && typeof ResizeObserver !== 'undefined'
+        ? new ResizeObserver(updateGridHeight)
+        : null;
+    if (stack) {
+      resizeObserver?.observe(stack);
+    }
+
+    return () => {
+      window.removeEventListener('resize', updateGridHeight);
+      resizeObserver?.disconnect();
+    };
+  }, []);
 
   return (
     <>
@@ -252,6 +317,7 @@ export const ProductsGrid = memo(function ProductsGrid({
         />
 
         <div
+          ref={gridContainerRef}
           style={{
             height: gridHeight,
             width: '100%',
@@ -317,12 +383,14 @@ export const ProductsGrid = memo(function ProductsGrid({
           />
         </div>
 
-        <ProductsGridFooter
-          filteredCount={filteredProducts.length}
-          totalCount={products.length}
-          totalValue={statistics.totalValue}
-          totalProfit={statistics.totalProfit}
-        />
+        <div ref={footerRef}>
+          <ProductsGridFooter
+            filteredCount={filteredProducts.length}
+            totalCount={products.length}
+            totalValue={statistics.totalValue}
+            totalProfit={statistics.totalProfit}
+          />
+        </div>
       </Stack>
     </>
   );

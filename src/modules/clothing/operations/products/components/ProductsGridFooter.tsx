@@ -20,7 +20,7 @@ export function ProductsGridFooter({
         Showing {filteredCount} of {totalCount} products
       </Text>
       <Text size="sm" c="dimmed">
-        Total Value: ₱{formatNumber(totalValue)} | Total Profit: ₱
+        Projected Sales: ₱{formatNumber(totalValue)} | Projected Profit: ₱
         {formatNumber(totalProfit)}
       </Text>
     </Group>

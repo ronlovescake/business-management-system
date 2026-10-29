@@ -1,13 +1,6 @@
 'use client';
 
-import {
-  createElement,
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from 'react';
+import { createElement, useCallback, useMemo, useRef, useState } from 'react';
 import { showNotification } from '@mantine/notifications';
 import { IconCheck } from '@tabler/icons-react';
 import type { CellChange, ChangeSource } from 'handsontable/common';
@@ -20,7 +13,7 @@ import { useProductsData } from './useProductsData';
 import { useProductGridSaveQueue } from './useProductGridSaveQueue';
 import { useProductForm } from './useProductForm';
 import { ProductService } from '../services/ProductService';
-import type { ProductData } from '../types/product.types';
+import type { ProductData, ProductStatistics } from '../types/product.types';
 import {
   PRODUCT_COLUMN_KEYS,
   clippedTextRenderer,
@@ -68,7 +61,6 @@ interface UseProductsGridResult {
   addProductOpen: boolean;
   openCreateProductModal: () => void;
   closeProductModal: () => void;
-  gridHeight: number;
   tableData: Array<(string | number | null)[]>;
   columns: Array<Record<string, unknown>>;
   handleAfterChange: (
@@ -83,10 +75,7 @@ interface UseProductsGridResult {
   handleSupplierResolved: () => Promise<void>;
   filteredProducts: ProductData[];
   products: ProductData[];
-  statistics: {
-    totalValue: number;
-    totalProfit: number;
-  };
+  statistics: ProductStatistics;
   productForm: ReturnType<typeof useProductForm>;
   isLoading: boolean;
   selectedShipmentCode: string | null;
@@ -106,23 +95,32 @@ interface UseProductsGridResult {
 
 interface UseProductsGridParams {
   apiBasePath?: string;
+  searchQuery?: string;
+  debouncedSearch?: string;
+  onSearchChange?: (query: string) => void;
 }
 
 export function useProductsGrid({
   apiBasePath,
+  searchQuery: controlledSearchQuery,
+  debouncedSearch: controlledDebouncedSearch,
+  onSearchChange,
 }: UseProductsGridParams = {}): UseProductsGridResult {
   const {
     products: serverProducts,
-    searchQuery,
-    debouncedSearch,
+    searchQuery: localSearchQuery,
+    debouncedSearch: localDebouncedSearch,
     isLoading,
-    handleSearch,
+    handleSearch: handleLocalSearch,
     addProduct,
     updateProduct,
     bulkUpdateProducts,
     refreshProducts,
     reconcileProducts,
   } = useProductsData(apiBasePath);
+  const searchQuery = controlledSearchQuery ?? localSearchQuery;
+  const debouncedSearch = controlledDebouncedSearch ?? localDebouncedSearch;
+  const handleSearch = onSearchChange ?? handleLocalSearch;
 
   const saveQueue = useProductGridSaveQueue({
     scope: apiBasePath,
@@ -183,7 +181,6 @@ export function useProductsGrid({
   }, [splitBatches]);
 
   const [addProductOpen, setAddProductOpen] = useState(false);
-  const [gridHeight, setGridHeight] = useState(600);
   const [isEditMode, setIsEditMode] = useState(false);
   const [selectedRow, setSelectedRow] = useState<number | null>(null);
   const [transitReclassOpened, setTransitReclassOpened] = useState(false);
@@ -230,12 +227,6 @@ export function useProductsGrid({
 
     return undefined;
   }, [selectedShipmentCode, selectedShipmentStatus]);
-
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      setGridHeight(window.innerHeight * 0.8);
-    }
-  }, []);
 
   useCtrlFFocus('[data-ctrlf-target="products-search-input"]', !isLoading);
 
@@ -1092,7 +1083,6 @@ export function useProductsGrid({
     addProductOpen,
     openCreateProductModal,
     closeProductModal,
-    gridHeight,
     tableData,
     columns,
     handleAfterChange,

@@ -101,6 +101,12 @@ export interface ProductStatistics {
   totalValue: number;
   avgValue: number;
   totalProfit: number;
+  grandTotal: number;
+  cogs: number;
+  forwardersFee: number;
+  lalamove: number;
+  packagingCost: number;
+  totalQuantity: number;
 }
 
 /**
