@@ -2,6 +2,7 @@
 
 > **Source files:**
 >
+> - `src/app/api/accounting/balance-sheet/route.ts`
 > - `src/app/clothing/accounting/balance-sheet/hooks/useBalanceSheet.ts`
 > - `src/app/clothing/accounting/balance-sheet/components/BalanceSheetStatsCards.tsx`
 > - `src/app/clothing/accounting/balance-sheet/components/BalanceSheetCashTable.tsx`
@@ -40,6 +41,53 @@ picker. The API accepts a date-only as-of scope subject to the runtime cutover.
 ---
 
 ## C - Balance Sheet Data Model
+
+### Receipt Dates And Legacy Collections
+
+Approved invariant (requesting Clothing business owner): an active, finite,
+positive payment contributes its receipt asset once by its recorded payment
+date within cutover through as-of, independently of order status, packing,
+checkout, dispatch or release. Cash methods contribute Cash; incoming CARD
+contributes Card Collections Clearing, not Cash. Refunds and actual CARD
+settlements retain their separate existing report effects.
+
+Any active finite positive payment row, including one before cutover or after
+as-of, suppresses inferred legacy cash for that order. Completion cannot move
+an earlier receipt into this window or count a future receipt early. Missing
+or invalid payment dates do not receive an invented date; their positive rows
+still suppress fallback and require source review.
+
+Explicit legacy compatibility: orders without active finite positive payment
+rows retain the existing normalized collection amount and existing recognition
+date fallback. Zero, negative and non-finite rows are non-posting and do not
+suppress it, matching Journal/Ledger. This preserves legacy collections, but
+the fallback is an estimate, not evidence of an actual receipt date. Historical
+legacy receipt dates require separate evidence and approved reconciliation.
+
+The enforcement boundary is this read-only Clothing report projection. Existing
+revenue, receivable, deposit recognition and movement-based COGS calculations
+are unchanged. Removing false cash can expose a nonzero statement equation;
+do not hide it with Owner Draw, a balancing journal or a new recognition rule.
+Fully paid, Prepared, In Transit and On-Hold do not acquire new workflow or
+recognition semantics from this cash fix.
+
+Impact: the Clothing balance-sheet UI and its cash breakdown/CSV, plus report
+consumers such as the accounting dashboard, receive the corrected projection.
+Journal/Ledger already suppress legacy cash across payment dates and are not
+changed. Payment/order UI, API, bulk, import, jobs and retry/write services are
+unchanged: all existing producers feed the same active-payment read path; no
+stored payment, status or history is rewritten. General Merchandise has its own
+report route and fetchers and is intentionally unchanged under this Clothing-only
+approval; shared normalization/fetchers, trucking and household rules are also
+unchanged. No cross-domain recognition policy is inferred.
+
+Regression evidence:
+`tests/unit/api/accounting-balance-sheet.api.test.ts` covers the seven-order
+PHP 4,331 example with original receipt dates, early/transit/held receipts,
+split reporting windows, future receipts, same-window fulfillment, reservation
+and CARD assets, repeated reads, preserved source inputs/COGS, and rowless or
+non-posting legacy rows. Shared fixtures compare Cash with Journal and Ledger;
+unchanged recognition can still differ from their equity projections.
 
 ### Customer Money, Refund Obligations And CARD
 

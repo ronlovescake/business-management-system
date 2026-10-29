@@ -12,14 +12,19 @@ const { mockFetchers, mockPrisma, mockInventoryCogs } = vi.hoisted(() => {
   return {
     mockFetchers: {
       fetchRecognizedTransactions: vi.fn(),
+      fetchPaidTransactions: vi.fn(),
+      fetchAccountsReceivableTransactions: vi.fn(),
       fetchTransactionPayments: vi.fn(),
       fetchApprovedExpenses: vi.fn(),
       fetchManualJournalLines: vi.fn(),
       fetchTransactionRefunds: vi.fn(),
+      getRuntimeAccountingCutoverDate: vi.fn(),
       getPaidAtDate: vi.fn(),
       isWithinDateRange: vi.fn(),
     },
     mockPrisma: {
+      clothingInventoryReclassEntry: { findMany: vi.fn() },
+      clothingInventoryTransitBuildEntry: { findMany: vi.fn() },
       clothingAccountingOpeningBalance: {
         findMany: vi.fn(),
       },
@@ -34,6 +39,7 @@ const { mockFetchers, mockPrisma, mockInventoryCogs } = vi.hoisted(() => {
       },
     },
     mockInventoryCogs: {
+      buildCogsAndInventoryEntries: vi.fn(),
       computeCogsTotal: vi.fn(),
       buildInventorySeedAndShrinkageEntries: vi.fn(),
     },
@@ -46,6 +52,9 @@ vi.mock('@/lib/accounting/data-fetchers', async (importOriginal) => {
   return {
     ...actual,
     fetchRecognizedTransactions: mockFetchers.fetchRecognizedTransactions,
+    fetchPaidTransactions: mockFetchers.fetchPaidTransactions,
+    fetchAccountsReceivableTransactions:
+      mockFetchers.fetchAccountsReceivableTransactions,
     fetchTransactionPayments: mockFetchers.fetchTransactionPayments,
     fetchApprovedExpenses: mockFetchers.fetchApprovedExpenses,
     fetchManualJournalLines: mockFetchers.fetchManualJournalLines,
@@ -70,27 +79,63 @@ vi.mock('@/lib/accounting/inventory-cogs', async (importOriginal) => {
   return {
     ...actual,
     computeCogsTotal: mockInventoryCogs.computeCogsTotal,
+    buildCogsAndInventoryEntries:
+      mockInventoryCogs.buildCogsAndInventoryEntries,
     buildInventorySeedAndShrinkageEntries:
       mockInventoryCogs.buildInventorySeedAndShrinkageEntries,
   };
 });
 
 import { GET } from '@/app/api/accounting/balance-sheet/route';
+import { GET as getJournal } from '@/app/api/accounting/journal/route';
+import { GET as getLedger } from '@/app/api/accounting/ledger/route';
+
+vi.mock('@/lib/accounting/cutover', () => ({
+  getRuntimeAccountingCutoverDate: mockFetchers.getRuntimeAccountingCutoverDate,
+}));
 
 type NextRequestInit = ConstructorParameters<typeof NextRequest>[1];
 
 const buildRequest = (path: string, init?: NextRequestInit) =>
   new NextRequest(getTestApiUrl(path), init);
 
+async function expectCashReports(expected: number, from: string, to: string) {
+  for (const [report, handler] of [
+    ['journal', getJournal],
+    ['ledger', getLedger],
+  ] as const) {
+    const response = await handler(
+      buildRequest(`/api/accounting/${report}?from=${from}&to=${to}`)
+    );
+    expect(response.status).toBe(200);
+    const payload = await response.json();
+    const entries = payload.data.entries as Array<{
+      account: string;
+      debit: number;
+      credit: number;
+    }>;
+    expect(
+      entries
+        .filter((row) => row.account === 'Cash')
+        .reduce((sum, row) => sum + row.debit - row.credit, 0)
+    ).toBe(expected);
+  }
+}
+
 describe('Accounting Balance Sheet API - GET /api/accounting/balance-sheet', () => {
   beforeEach(() => {
     vi.clearAllMocks();
 
     mockFetchers.fetchRecognizedTransactions.mockResolvedValue([]);
+    mockFetchers.fetchPaidTransactions.mockResolvedValue([]);
+    mockFetchers.fetchAccountsReceivableTransactions.mockResolvedValue([]);
     mockFetchers.fetchTransactionPayments.mockResolvedValue([]);
     mockFetchers.fetchApprovedExpenses.mockResolvedValue([]);
     mockFetchers.fetchManualJournalLines.mockResolvedValue([]);
     mockFetchers.fetchTransactionRefunds.mockResolvedValue([]);
+    mockFetchers.getRuntimeAccountingCutoverDate.mockResolvedValue(
+      new Date('2026-01-17')
+    );
 
     // Date helpers: route uses isWithinDateRange for various flows; keep it permissive.
     mockFetchers.isWithinDateRange.mockReturnValue(true);
@@ -100,7 +145,14 @@ describe('Accounting Balance Sheet API - GET /api/accounting/balance-sheet', () 
     mockPrisma.transaction.findMany.mockResolvedValue([]);
     mockPrisma.product.findMany.mockResolvedValue([]);
     mockPrisma.shipment.findMany.mockResolvedValue([]);
+    mockPrisma.clothingInventoryReclassEntry.findMany.mockResolvedValue([]);
+    mockPrisma.clothingInventoryTransitBuildEntry.findMany.mockResolvedValue(
+      []
+    );
 
+    mockInventoryCogs.buildCogsAndInventoryEntries.mockResolvedValue({
+      entries: [],
+    });
     mockInventoryCogs.computeCogsTotal.mockResolvedValue(100);
     mockInventoryCogs.buildInventorySeedAndShrinkageEntries.mockResolvedValue({
       seedTotal: 500,
@@ -145,6 +197,227 @@ describe('Accounting Balance Sheet API - GET /api/accounting/balance-sheet', () 
       ],
     });
   });
+
+  it('does not collect the seven prepaid legacy orders again on completion', async () => {
+    mockFetchers.getRuntimeAccountingCutoverDate.mockResolvedValue(
+      new Date('2026-10-12')
+    );
+    mockFetchers.isWithinDateRange.mockImplementation((date, from, to) =>
+      Boolean(date && (!from || date >= from) && (!to || date <= to))
+    );
+    mockFetchers.getPaidAtDate.mockReturnValue(new Date('2026-10-20'));
+    const examples = [
+      [3201, 96, '2026-07-29'],
+      [3258, 450, '2026-08-21'],
+      [3259, 390, '2026-08-21'],
+      [3212, 315, '2026-08-21'],
+      [3373, 950, '2026-09-04'],
+      [3387, 1050, '2026-09-22'],
+      [3386, 1080, '2026-09-22'],
+    ] as const;
+    const orders = examples.map(([id, amount]) => ({
+      id,
+      quantity: 1,
+      unitPrice: amount,
+      adjustment: amount,
+      lineTotal: 0,
+      orderDate: '2026-07-01',
+      orderStatus: 'Shipped',
+    }));
+    const payments = examples.map(([transactionId, amount, paymentDate]) => ({
+      transactionId,
+      amount,
+      paymentDate,
+      method: 'Cash',
+      isReservation: false,
+    }));
+    const before = JSON.stringify({ orders, payments });
+    mockFetchers.fetchRecognizedTransactions.mockResolvedValue(orders);
+    mockFetchers.fetchPaidTransactions.mockResolvedValue(orders);
+    mockFetchers.fetchTransactionPayments.mockResolvedValue(payments);
+    const response = await GET(
+      buildRequest('/api/accounting/balance-sheet?asOf=2026-10-29')
+    );
+    expect(response.status).toBe(200);
+    const payload = await response.json();
+    const amount = (account: string) =>
+      (payload.data.rows as Array<{ account: string; amount: number }>).find(
+        (row) => row.account === account
+      )?.amount ?? 0;
+    expect(amount('Cash')).toBe(0);
+    expect(amount('Retained Earnings')).toBe(-4331 + 100 + 25);
+    expect(payload.data.stats.balance).toBe(-4331);
+    await expectCashReports(0, '2026-10-12', '2026-10-29');
+    expect(JSON.stringify({ orders, payments })).toBe(before);
+  });
+
+  it.each([
+    { status: 'Shipped', dates: ['2026-10-11'], amounts: [1000], cash: 0 },
+    { status: 'Shipped', dates: ['2026-10-30'], amounts: [1000], cash: 0 },
+    {
+      status: 'In Transit',
+      dates: ['2026-10-14'],
+      amounts: [1000],
+      cash: 1000,
+    },
+    { status: 'Prepared', dates: ['2026-10-14'], amounts: [1000], cash: 1000 },
+    { status: 'On-Hold', dates: ['2026-10-14'], amounts: [1000], cash: 1000 },
+    { status: 'Shipped', dates: ['2026-10-20'], amounts: [1000], cash: 1000 },
+    {
+      status: 'Shipped',
+      dates: ['2026-10-11', '2026-10-14', '2026-10-30'],
+      amounts: [200, 300, 500],
+      cash: 300,
+    },
+    { status: 'Shipped', dates: [], amounts: [], cash: 1000 },
+  ])(
+    'counts receipts once independently of fulfillment: %j',
+    async (scenario) => {
+      mockFetchers.getRuntimeAccountingCutoverDate.mockResolvedValue(
+        new Date('2026-10-12')
+      );
+      mockFetchers.isWithinDateRange.mockImplementation((date, from, to) =>
+        Boolean(date && (!from || date >= from) && (!to || date <= to))
+      );
+      mockFetchers.getPaidAtDate.mockReturnValue(new Date('2026-10-20'));
+      const order = {
+        id: 1,
+        quantity: 1,
+        unitPrice: 1000,
+        adjustment: 1000,
+        lineTotal: 0,
+        orderDate: '2026-10-13',
+        orderStatus: scenario.status,
+      };
+      const payments = scenario.dates.map((paymentDate, index) => ({
+        id: index + 1,
+        transactionId: order.id,
+        paymentDate,
+        amount: scenario.amounts[index],
+        isReservation: false,
+        method: 'Cash',
+        transaction: order,
+      }));
+      mockFetchers.fetchRecognizedTransactions.mockResolvedValue([order]);
+      mockFetchers.fetchTransactionPayments.mockResolvedValue(payments);
+      mockFetchers.fetchPaidTransactions.mockResolvedValue(
+        scenario.status === 'Shipped' ? [order] : []
+      );
+      const before = JSON.stringify({ order, payments });
+      for (let attempt = 0; attempt < 2; attempt += 1) {
+        const response = await GET(
+          buildRequest('/api/accounting/balance-sheet?asOf=2026-10-29')
+        );
+        expect(response.status).toBe(200);
+        const payload = await response.json();
+        const rows = payload.data.rows as Array<{
+          account: string;
+          amount: number;
+          details?: Array<{ amount: number }>;
+        }>;
+        const cash = rows.find((row) => row.account === 'Cash');
+        expect(cash?.amount ?? 0).toBe(scenario.cash);
+        expect(
+          cash?.details?.reduce((sum, row) => sum + row.amount, 0) ?? 0
+        ).toBe(scenario.cash);
+        expect(
+          rows.find((row) => row.account === 'Stock on Hand')?.amount
+        ).toBe(500 - 100 - 25);
+        expect(mockInventoryCogs.computeCogsTotal).toHaveBeenLastCalledWith({
+          from: new Date('2026-10-12'),
+          to: new Date('2026-10-29T15:59:59.999Z'),
+        });
+        expect(JSON.stringify({ order, payments })).toBe(before);
+      }
+      await expectCashReports(scenario.cash, '2026-10-12', '2026-10-29');
+    }
+  );
+
+  it.each([
+    { method: 'Cash', paymentDate: '2026-01-20', cash: 1000, card: 0 },
+    { method: 'CARD', paymentDate: '2026-01-20', cash: 0, card: 1000 },
+    { method: 'Cash', paymentDate: '2026-01-16', cash: 0, card: 0 },
+    { method: 'CARD', paymentDate: '2026-01-16', cash: 0, card: 0 },
+  ])(
+    'does not re-receive reservation assets on completion: %j',
+    async (scenario) => {
+      mockFetchers.isWithinDateRange.mockImplementation((date, from, to) =>
+        Boolean(date && (!from || date >= from) && (!to || date <= to))
+      );
+      mockFetchers.getPaidAtDate.mockReturnValue(new Date('2026-01-22'));
+      const order = {
+        id: 1,
+        quantity: 1,
+        unitPrice: 1000,
+        adjustment: 1000,
+        lineTotal: 0,
+        orderDate: '2026-01-18',
+        orderStatus: 'Shipped',
+        statusChanges: [],
+      };
+      mockFetchers.fetchRecognizedTransactions.mockResolvedValue([order]);
+      mockFetchers.fetchPaidTransactions.mockResolvedValue([order]);
+      mockPrisma.transaction.findMany.mockResolvedValue([order]);
+      mockFetchers.fetchTransactionPayments.mockResolvedValue([
+        {
+          id: 1,
+          transactionId: 1,
+          amount: 1000,
+          isReservation: true,
+          paymentDate: scenario.paymentDate,
+          method: scenario.method,
+          transaction: order,
+        },
+      ]);
+      const response = await GET(
+        buildRequest('/api/accounting/balance-sheet?asOf=2026-01-31')
+      );
+      expect(response.status).toBe(200);
+      const payload = await response.json();
+      const amount = (account: string) =>
+        (payload.data.rows as Array<{ account: string; amount: number }>).find(
+          (row) => row.account === account
+        )?.amount ?? 0;
+      expect(amount('Cash')).toBe(scenario.cash);
+      expect(amount('Card Collections Clearing')).toBe(scenario.card);
+      expect(amount('Customer Deposits')).toBe(0);
+      expect(amount('Retained Earnings')).toBe(-1000 + 100 + 25);
+      await expectCashReports(scenario.cash, '2026-01-17', '2026-01-31');
+    }
+  );
+
+  it.each([0, -100, Number.NaN, Number.POSITIVE_INFINITY])(
+    'retains legacy collections when payment rows are non-posting (%s)',
+    async (paymentAmount) => {
+      mockFetchers.getPaidAtDate.mockReturnValue(new Date('2026-01-20'));
+      mockFetchers.fetchRecognizedTransactions.mockResolvedValue([
+        {
+          id: 1,
+          quantity: 1,
+          unitPrice: 1000,
+          adjustment: 1000,
+          lineTotal: 0,
+          orderDate: '2026-01-20',
+          orderStatus: 'Shipped',
+        },
+      ]);
+      mockFetchers.fetchTransactionPayments.mockResolvedValue([
+        {
+          transactionId: 1,
+          amount: paymentAmount,
+          paymentDate: '2026-01-20',
+        },
+      ]);
+      const response = await GET(
+        buildRequest('/api/accounting/balance-sheet?asOf=2026-01-31')
+      );
+      expect(response.status).toBe(200);
+      const payload = await response.json();
+      expect(payload.data.rows).toContainEqual(
+        expect.objectContaining({ account: 'Cash', amount: 1000 })
+      );
+    }
+  );
 
   it.each([
     {

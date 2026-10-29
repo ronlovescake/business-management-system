@@ -187,17 +187,19 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
 
   // Track any payment activity so we can prefer payment events over legacy adjustment fields.
   const paymentEventTxIds = new Set<number>();
+  const recordedPaymentTxIds = new Set<number>();
   for (const payment of payments) {
     const isReservation =
       Reflect.get(payment as object, 'isReservation') === true;
 
-    const paymentAt = parseDate(payment.paymentDate);
-    if (!isWithinDateRange(paymentAt, cutover, asOf)) {
-      continue;
-    }
-
     const amt = Number(payment.amount ?? 0);
     if (!Number.isFinite(amt) || amt <= 0) {
+      continue;
+    }
+    recordedPaymentTxIds.add(payment.transactionId);
+
+    const paymentAt = parseDate(payment.paymentDate);
+    if (!isWithinDateRange(paymentAt, cutover, asOf)) {
       continue;
     }
 
@@ -538,6 +540,27 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
     return parseDate(tx.orderDate) ?? null;
   };
 
+  const receiptEntries: BalanceRow[] = payments.flatMap((payment) => {
+    const amount = Number(payment.amount ?? 0);
+    const paymentAt = parseDate(payment.paymentDate);
+    if (
+      !Number.isFinite(amount) ||
+      amount <= 0 ||
+      !isWithinDateRange(paymentAt, cutover, asOf)
+    ) {
+      return [];
+    }
+    const account = getTransactionPaymentDebitAccount(payment);
+    addCashDetail(
+      payment.isReservation
+        ? 'Reservation Deposits (received)'
+        : 'Sales (cash received)',
+      account,
+      amount
+    );
+    return [{ account, amount }];
+  });
+
   const txEntries = transactions
     .map((tx) => {
       const normalized = normalizeTransactionAmountsForAccounting(tx);
@@ -602,7 +625,9 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
             : (cardReservationTotalsByTxId.get(tx.id) ?? 0)),
         0
       );
-      const cash = Math.max(receipts - cardCollections, 0);
+      const cash = recordedPaymentTxIds.has(tx.id)
+        ? 0
+        : Math.max(receipts - cardCollections, 0);
 
       const receivableBalances = recognizesReceivable
         ? calculateAccountsReceivableBalances(
@@ -629,9 +654,6 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
 
       return [
         ...(cash > 0 ? [{ account: CASH_ACCOUNT, amount: cash }] : []),
-        ...(cardCollections > 0
-          ? [{ account: 'Card Collections Clearing', amount: cardCollections }]
-          : []),
         ...(ar > 0 ? [{ account: 'Accounts Receivable', amount: ar }] : []),
         // Revenue flows into Equity on the balance sheet.
         { account: 'Retained Earnings', amount: -saleAmount },
@@ -716,37 +738,22 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
       ) {
         continue;
       }
-      const cardDeposit = cardReservationTotalsByTxId.get(txId) ?? 0;
-
       const cancelledAt = isDepositForfeitureOrderStatus(tx.orderStatus)
         ? getCancelledAtDate(tx)
         : null;
 
       if (cancelledAt && isWithinDateRange(cancelledAt, cutover, asOf)) {
-        addCashDetail(
-          'Reservation Deposits (forfeited)',
-          CASH_ACCOUNT,
-          depositTotal - cardDeposit
-        );
-        reservationEntries.push(
-          { account: CASH_ACCOUNT, amount: depositTotal - cardDeposit },
-          { account: 'Card Collections Clearing', amount: cardDeposit },
-          { account: 'Retained Earnings', amount: -depositTotal }
-        );
+        reservationEntries.push({
+          account: 'Retained Earnings',
+          amount: -depositTotal,
+        });
         continue;
       }
 
-      addCashDetail(
-        'Reservation Deposits (open)',
-        CASH_ACCOUNT,
-        depositTotal - cardDeposit
-      );
-
-      reservationEntries.push(
-        { account: CASH_ACCOUNT, amount: depositTotal - cardDeposit },
-        { account: 'Card Collections Clearing', amount: cardDeposit },
-        { account: 'Customer Deposits', amount: -depositTotal }
-      );
+      reservationEntries.push({
+        account: 'Customer Deposits',
+        amount: -depositTotal,
+      });
     }
   }
 
@@ -946,6 +953,7 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
     ...openingEntries,
     ...reclassEntries,
     ...transitBuildEntries,
+    ...receiptEntries,
     ...txEntries,
     ...reservationEntries,
     ...expenseEntries,
