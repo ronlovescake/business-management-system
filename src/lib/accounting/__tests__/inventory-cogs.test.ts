@@ -38,9 +38,192 @@ import {
 } from '../inventory-cogs';
 import {
   calculateCostCorrection,
+  confirmLegacyMovementCosts,
   confirmZeroCostMovement,
   recordDatedCostCorrection,
 } from '../inventory-valuation';
+
+describe('approved legacy movement costs', () => {
+  const actor = { id: 'owner-approved-operator', role: 'ADMIN' };
+  const details = {
+    productCode: 'SKU',
+    unitCost: 40.07,
+    reason: 'Owner confirmed original all-in batch acquisition cost',
+    movements: [{ id: 42, quantity: 3, transactionId: 123 }],
+  };
+  beforeEach(() => {
+    vi.clearAllMocks();
+    prismaMock.$transaction.mockImplementation(async (work) =>
+      work(prismaMock)
+    );
+    prismaMock.clothingFinancialRequest.findUnique.mockResolvedValue(null);
+    prismaMock.clothingFinancialRequest.findMany.mockResolvedValue([]);
+    prismaMock.product.findMany.mockResolvedValue([{ landedUnitCost: 40.07 }]);
+    prismaMock.inventoryMovement.findMany.mockResolvedValue([
+      {
+        id: 42,
+        productCode: 'SKU',
+        quantity: 3,
+        unitCost: null,
+        costBasis: null,
+        fromBucket: 'reserved',
+        toBucket: 'sold',
+        sourceTransactionId: 123,
+        movementSource: 'transaction',
+        movementType: 'sale',
+      },
+    ]);
+  });
+  it('records approval without changing products or journals', async () => {
+    const result = await confirmLegacyMovementCosts(
+      'legacy-key',
+      details,
+      actor
+    );
+    expect(result.resolvedMovementIds).toEqual([42]);
+    expect(result.movementCosts).toEqual([{ movementId: 42, unitCost: 40.07 }]);
+    expect(result.beforeImages).toHaveLength(1);
+    expect(prismaMock.product.update).not.toHaveBeenCalled();
+    expect(
+      prismaMock.clothingAccountingJournalLine.createMany
+    ).not.toHaveBeenCalled();
+    expect(prismaMock.clothingFinancialRequest.update).toHaveBeenCalledOnce();
+  });
+  it.each([
+    { quantity: 4 },
+    { unitCost: 40.07 },
+    { costBasis: 'FREE_GOODS' },
+    { productCode: 'OTHER' },
+    { sourceTransactionId: 124 },
+    { toBucket: 'reserved' },
+    { movementSource: 'manual' },
+  ])('rejects changed evidence %j', async (changes) => {
+    const original = await prismaMock.inventoryMovement.findMany();
+    prismaMock.inventoryMovement.findMany.mockResolvedValue([
+      { ...original[0], ...changes },
+    ]);
+    await expect(
+      confirmLegacyMovementCosts('legacy-key', details, actor)
+    ).rejects.toThrow('Movement evidence changed');
+    expect(prismaMock.clothingFinancialRequest.update).not.toHaveBeenCalled();
+  });
+  it('rejects changed catalog cost', async () => {
+    prismaMock.product.findMany.mockResolvedValue([{ landedUnitCost: 41 }]);
+    await expect(
+      confirmLegacyMovementCosts('legacy-key', details, actor)
+    ).rejects.toThrow('approved product cost changed');
+  });
+  it('rejects another approval for the same movement', async () => {
+    prismaMock.clothingFinancialRequest.findMany.mockResolvedValue([
+      { result: { resolvedMovementIds: [42] } },
+    ]);
+    await expect(
+      confirmLegacyMovementCosts('legacy-key', details, actor)
+    ).rejects.toThrow('already has approved');
+  });
+  it('rejects staff and duplicate movement IDs', async () => {
+    await expect(
+      confirmLegacyMovementCosts('legacy-key', details, {
+        ...actor,
+        role: 'STAFF',
+      })
+    ).rejects.toThrow('administrator');
+    await expect(
+      confirmLegacyMovementCosts(
+        'legacy-key',
+        { ...details, movements: [...details.movements, ...details.movements] },
+        actor
+      )
+    ).rejects.toThrow('Duplicate');
+  });
+  it('rejects zero-cost approval and missing movements', async () => {
+    await expect(
+      confirmLegacyMovementCosts(
+        'legacy-key',
+        { ...details, unitCost: 0 },
+        actor
+      )
+    ).rejects.toThrow();
+    prismaMock.inventoryMovement.findMany.mockResolvedValue([]);
+    await expect(
+      confirmLegacyMovementCosts('legacy-key', details, actor)
+    ).rejects.toThrow('Movement evidence changed');
+  });
+  it('replays the same request without repeating work and rejects changed payloads', async () => {
+    await confirmLegacyMovementCosts('legacy-key', details, actor);
+    const saved =
+      prismaMock.clothingFinancialRequest.create.mock.calls[0][0].data;
+    prismaMock.clothingFinancialRequest.findUnique.mockResolvedValue({
+      ...saved,
+      result: { approved: true },
+    });
+    prismaMock.inventoryMovement.findMany.mockClear();
+    await expect(
+      confirmLegacyMovementCosts('legacy-key', details, actor)
+    ).resolves.toEqual({ approved: true });
+    expect(prismaMock.inventoryMovement.findMany).not.toHaveBeenCalled();
+    await expect(
+      confirmLegacyMovementCosts(
+        'legacy-key',
+        { ...details, unitCost: 41 },
+        actor
+      )
+    ).rejects.toThrow('different details');
+  });
+  it('projects positive approval only as confirmed on or after its date without changing COGS', async () => {
+    prismaMock.inventoryMovement.findMany.mockResolvedValue([
+      {
+        id: 42,
+        productCode: 'SKU',
+        quantity: 3,
+        unitCost: null,
+        costBasis: null,
+        fromBucket: 'reserved',
+        toBucket: 'sold',
+        sourceTransactionId: 123,
+        movementSource: 'transaction',
+        movementType: 'sale',
+        createdAt: new Date('2026-10-20T01:00:00Z'),
+        postingDate: '2026-10-20',
+      },
+    ]);
+    prismaMock.transaction.findMany.mockResolvedValue([
+      { id: 123, packedDate: null },
+    ]);
+    prismaMock.product.findMany.mockResolvedValue([
+      { productCode: 'SKU', landedUnitCost: 40.07 },
+    ]);
+    prismaMock.clothingFinancialRequest.findMany.mockImplementation(
+      async ({ where }) =>
+        where.operation?.in?.includes('LEGACY_COST_CONFIRMATION')
+          ? [
+              {
+                result: {
+                  productCode: 'SKU',
+                  date: '2026-10-29',
+                  newUnitCost: 40.07,
+                  resolvedMovementIds: [42],
+                  movementCosts: [{ movementId: 42, unitCost: 40.07 }],
+                },
+              },
+            ]
+          : []
+    );
+    const from = new Date('2026-10-12T00:00:00Z');
+    const before = await buildCogsAndInventoryEntries({
+      from,
+      to: new Date('2026-10-28T00:00:00Z'),
+    });
+    const after = await buildCogsAndInventoryEntries({
+      from,
+      to: new Date('2026-10-29T12:00:00Z'),
+    });
+    expect(before.valuationIssues).toHaveLength(1);
+    expect(after.valuationIssues).toEqual([]);
+    expect(after.totalCogs).toBe(before.totalCogs);
+    expect(after.entries).toEqual(before.entries);
+  });
+});
 
 describe('dated cost correction allocation', () => {
   const details = {
@@ -492,51 +675,122 @@ describe('buildCogsAndInventoryEntries', () => {
     expect(inv?.debit).toBe(0);
   });
 
-  it('prefers explicit auto-sale movement fields over legacy notes', async () => {
-    prismaMock.inventoryMovement.findMany.mockResolvedValue([
-      {
-        id: 1,
-        createdAt: new Date('2026-01-20T01:00:00.000Z'),
-        postingDate: '2026-01-01',
-        productCode: 'SKU-1',
-        quantity: 1,
-        fromBucket: 'sellable',
-        toBucket: 'sold',
-        notes: 'manual correction, not a durable relation',
-        sourceTransactionId: 456,
-        movementSource: 'transaction',
-        movementType: 'sale',
-      },
-    ]);
+  it.each(['legacy', 'shippedAt', 'statusHistory'])(
+    'does not redate existing direct-pickup movements from later status metadata: %s',
+    async (dateSource) => {
+      prismaMock.inventoryMovement.findMany.mockResolvedValue([
+        {
+          id: 1,
+          createdAt: new Date('2026-01-20T01:00:00.000Z'),
+          postingDate: '2026-01-01',
+          productCode: 'SKU-1',
+          quantity: 1,
+          fromBucket: 'sellable',
+          toBucket: 'sold',
+          notes: 'manual correction, not a durable relation',
+          sourceTransactionId: 456,
+          movementSource: 'transaction',
+          movementType: 'sale',
+        },
+      ]);
 
-    prismaMock.product.findMany.mockResolvedValue([
-      {
-        productCode: 'SKU-1',
-        landedUnitCost: 100,
-        updatedAt: new Date('2026-01-01T00:00:00.000Z'),
-        createdAt: new Date('2026-01-01T00:00:00.000Z'),
-      },
-    ]);
+      prismaMock.product.findMany.mockResolvedValue([
+        {
+          productCode: 'SKU-1',
+          landedUnitCost: 100,
+          updatedAt: new Date('2026-01-01T00:00:00.000Z'),
+          createdAt: new Date('2026-01-01T00:00:00.000Z'),
+        },
+      ]);
 
-    prismaMock.transaction.findMany.mockResolvedValue([
-      {
-        id: 456,
-        customers: 'Explicit Customer',
-        packedDate: null,
-      },
-    ]);
+      prismaMock.transaction.findMany.mockResolvedValue([
+        {
+          id: 456,
+          customers: 'Explicit Customer',
+          packedDate: null,
+          shippedAt:
+            dateSource === 'shippedAt'
+              ? new Date('2026-01-18T12:00:00Z')
+              : null,
+          statusChanges:
+            dateSource === 'statusHistory'
+              ? [{ changedAt: new Date('2026-01-19T12:00:00Z') }]
+              : [],
+        },
+      ]);
 
-    const result = await buildCogsAndInventoryEntries({
-      from: new Date('2026-01-17T00:00:00.000Z'),
-      to: null,
-    });
+      const result = await buildCogsAndInventoryEntries({
+        from: new Date('2026-01-17T00:00:00.000Z'),
+        to: null,
+      });
 
-    expect(result.totalCogs).toBe(100);
-    expect(result.entries).toHaveLength(2);
-    expect(prismaMock.transaction.findMany).toHaveBeenCalledWith(
-      expect.objectContaining({ where: { id: { in: [456] } } })
-    );
-  });
+      expect(result.totalCogs).toBe(100);
+      expect(result.entries).toHaveLength(2);
+      expect(result.entries[0].date.slice(0, 10)).toBe('2026-01-20');
+      expect(prismaMock.transaction.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { id: { in: [456] } } })
+      );
+    }
+  );
+
+  it.each([
+    ['Delivered', 'Stock on Hand'],
+    ['In Transit', 'Inventory in Transit'],
+  ])(
+    'labels scrap returns accurately without changing accounting for %s stock',
+    async (shipmentStatus, account) => {
+      prismaMock.inventoryMovement.findMany.mockResolvedValue([
+        {
+          id: 60,
+          createdAt: new Date('2026-01-25T01:00:00.000Z'),
+          postingDate: '2026-01-25',
+          productCode: 'SKU-1',
+          quantity: 2,
+          unitCost: 100,
+          fromBucket: 'scrap',
+          toBucket: 'sellable',
+        },
+      ]);
+      prismaMock.product.findMany.mockResolvedValue([
+        {
+          productCode: 'SKU-1',
+          shipmentStatus,
+          landedUnitCost: 100,
+          quantity: 2,
+        },
+      ]);
+
+      const result = await buildInventorySeedAndShrinkageEntries({
+        from: new Date('2026-01-01T00:00:00.000Z'),
+        to: null,
+      });
+
+      expect(result).toEqual({
+        seedTotal: 200,
+        shrinkageTotal: 0,
+        entries: [
+          {
+            id: expect.any(String),
+            date: '2026-01-25T00:00:00.000Z',
+            ref: 'INV-SEED-2026-01-25 SKU-1 x2',
+            account,
+            debit: 200,
+            credit: 0,
+            description: 'SKU-1 x2 • scrap→sellable',
+          },
+          {
+            id: expect.any(String),
+            date: '2026-01-25T00:00:00.000Z',
+            ref: 'INV-SEED-2026-01-25 SKU-1 x2',
+            account: 'Opening Equity',
+            debit: 0,
+            credit: 200,
+            description: 'SKU-1 x2 • scrap→sellable • Offset',
+          },
+        ],
+      });
+    }
+  );
 
   it('posts inventory shrinkage as an expense instead of directly to equity', async () => {
     prismaMock.inventoryMovement.findMany.mockResolvedValue([

@@ -59,6 +59,128 @@ export const zeroCostConfirmationSchema = z
   })
   .strict();
 
+export const legacyCostConfirmationSchema = z
+  .object({
+    productCode: z.string().trim().min(1),
+    unitCost: z.number().finite().positive(),
+    reason: z.string().trim().min(10).max(1000),
+    movements: z
+      .array(
+        z
+          .object({
+            id: z.number().int().positive(),
+            quantity: z.number().finite().positive(),
+            transactionId: z.number().int().positive(),
+          })
+          .strict()
+      )
+      .min(1),
+  })
+  .strict();
+
+export async function confirmLegacyMovementCosts(
+  requestId: string,
+  input: z.infer<typeof legacyCostConfirmationSchema>,
+  actor: { id: string; role: string }
+) {
+  if (!['ADMIN', 'SUPER_ADMIN'].includes(actor.role)) {
+    throw new FinancialOperationError(
+      'Only an administrator can confirm historical costs.',
+      403
+    );
+  }
+  const details = legacyCostConfirmationSchema.parse(input);
+  const ids = details.movements.map((movement) => movement.id);
+  if (new Set(ids).size !== ids.length) {
+    throw new FinancialOperationError(
+      'Duplicate movement approvals are not allowed.',
+      400
+    );
+  }
+  return runFinancialRequest(
+    requestId,
+    'LEGACY_COST_CONFIRMATION',
+    { ...details, actorId: actor.id },
+    async (client) => {
+      const products = await client.product.findMany({
+        where: { productCode: details.productCode, deletedAt: null },
+      });
+      if (
+        products.length !== 1 ||
+        pickUnitCostFromProductRow(products[0]) !== details.unitCost
+      ) {
+        throw new FinancialOperationError(
+          'The approved product cost changed or its lot is ambiguous.'
+        );
+      }
+      const movements = await client.inventoryMovement.findMany({
+        where: { id: { in: ids }, deletedAt: null },
+      });
+      if (
+        movements.length !== ids.length ||
+        movements.some((movement) => {
+          const approved = details.movements.find(
+            (item) => item.id === movement.id
+          );
+          return (
+            !approved ||
+            movement.productCode !== details.productCode ||
+            movement.quantity !== approved.quantity ||
+            movement.toBucket !== 'sold' ||
+            !INVENTORY_ASSET_BUCKETS.has(movement.fromBucket) ||
+            movement.unitCost !== null ||
+            movement.costBasis !== null ||
+            movement.sourceTransactionId !== approved.transactionId ||
+            movement.movementSource !== 'transaction' ||
+            movement.movementType !== 'sale'
+          );
+        })
+      ) {
+        throw new FinancialOperationError(
+          'Movement evidence changed; no costs were confirmed.'
+        );
+      }
+      const existing = await client.clothingFinancialRequest.findMany({
+        where: {
+          operation: {
+            in: ['LEGACY_COST_CONFIRMATION', 'INVENTORY_COST_CORRECTION'],
+          },
+        },
+        select: { result: true },
+      });
+      if (
+        existing.some(
+          ({ result }) =>
+            result &&
+            typeof result === 'object' &&
+            !Array.isArray(result) &&
+            Array.isArray(result.resolvedMovementIds) &&
+            result.resolvedMovementIds.some(
+              (id) => typeof id === 'number' && ids.includes(id)
+            )
+        )
+      ) {
+        throw new FinancialOperationError(
+          'A movement already has approved cost evidence.'
+        );
+      }
+      return {
+        ...details,
+        date: getCurrentDateISO(),
+        newUnitCost: details.unitCost,
+        resolvedMovementIds: ids,
+        movementCosts: ids.map((movementId) => ({
+          movementId,
+          unitCost: details.unitCost,
+        })),
+        beforeImages: movements,
+        approvedBy: actor.id,
+        approvedAt: new Date().toISOString(),
+      };
+    }
+  );
+}
+
 export const costCorrectionSchema = z
   .object({
     productId: z.number().int().positive(),

@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { Stack } from '@mantine/core';
+import { Alert, Anchor, Stack } from '@mantine/core';
 import { PageLayout } from '@/components/layout/PageLayout';
 import { ProfitLossStatsCards } from '@/app/clothing/accounting/profit-loss/components/ProfitLossStatsCards';
 import { ProfitLossControls } from '@/app/clothing/accounting/profit-loss/components/ProfitLossControls';
@@ -10,8 +10,6 @@ import { ProfitLossDetailsTable } from '@/app/clothing/accounting/profit-loss/co
 import { ProfitLossBreakdownsPanel } from '@/app/clothing/accounting/profit-loss/components/ProfitLossBreakdownsPanel';
 import { useProfitLoss } from '@/app/clothing/accounting/profit-loss/hooks/useProfitLoss';
 import { AccountingLoadErrorAlert } from '@/app/accounting/_shared/AccountingLoadErrorAlert';
-import { InventoryValuationNotice } from '@/components/accounting/InventoryValuationNotice';
-import { InventoryCostCorrections } from '@/components/accounting/InventoryCostCorrections';
 
 type ProfitLossRoutePageProps = {
   apiBasePath?: string;
@@ -22,7 +20,6 @@ export function ProfitLossRoutePage(props: ProfitLossRoutePageProps) {
   const { apiBasePath, showBreakdownsTab = true } = props;
   const {
     rows,
-    refresh,
     filteredRows,
     detailRows,
     filteredDetailRows,
@@ -39,19 +36,12 @@ export function ProfitLossRoutePage(props: ProfitLossRoutePageProps) {
     handleExportDetailsCSV,
     handleDownloadTemplate,
   } = useProfitLoss({ apiBasePath });
+  const isClothing = apiBasePath !== '/api/general-merchandise';
 
   return (
     <PageLayout fluid withPadding>
       <Stack gap="lg">
         <AccountingLoadErrorAlert message={loadError} />
-        {apiBasePath !== '/api/general-merchandise' && (
-          <InventoryCostCorrections onSaved={refresh} />
-        )}
-        <InventoryValuationNotice
-          valuation={stats.valuation}
-          canConfirm={apiBasePath !== '/api/general-merchandise'}
-          onConfirmed={refresh}
-        />
 
         <ProfitLossStatsCards
           revenueTotal={stats.revenueTotal}
@@ -74,6 +64,17 @@ export function ProfitLossRoutePage(props: ProfitLossRoutePageProps) {
           onExportDetailsCSV={handleExportDetailsCSV}
           onDownloadTemplate={handleDownloadTemplate}
         />
+
+        {stats.valuation && !stats.valuation.complete && (
+          <Alert color="orange">
+            Profit is provisional: inventory costs need review.{' '}
+            <Anchor
+              href={`/${isClothing ? 'clothing' : 'general-merchandise'}/operations/inventory?tab=cost-review`}
+            >
+              Review inventory costs
+            </Anchor>
+          </Alert>
+        )}
 
         {activeTab === 'details' ? (
           <ProfitLossDetailsTable

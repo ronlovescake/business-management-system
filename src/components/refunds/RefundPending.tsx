@@ -9,6 +9,7 @@ import {
   Group,
   Indicator,
   Loader,
+  Paper,
   Stack,
   Table,
   Text,
@@ -22,7 +23,7 @@ import { api } from '@/lib/api/client';
 import type { RefundObligations } from '@/lib/accounting/refund-obligations';
 
 type Props = {
-  variant?: 'card' | 'icon';
+  variant?: 'card' | 'icon' | 'stat';
   asOf?: string;
   from?: string;
   showPaid?: boolean;
@@ -190,6 +191,59 @@ export function RefundPending({
             </ActionIcon>
           </Indicator>
         </Tooltip>
+      ) : variant === 'stat' ? (
+        <UnstyledButton
+          aria-label="Refund Pending"
+          onClick={() => setOpened(true)}
+          h="100%"
+        >
+          <Paper
+            radius="md"
+            p="md"
+            withBorder
+            h="100%"
+            style={{
+              borderColor: 'var(--mantine-color-gray-2)',
+              boxShadow: '0 1px 2px rgba(16, 24, 40, 0.04)',
+            }}
+          >
+            <Group justify="space-between" wrap="nowrap" gap="xs">
+              <Text
+                size="xs"
+                c="dimmed"
+                tt="uppercase"
+                fw={500}
+                style={{ letterSpacing: '0.3px' }}
+                truncate
+              >
+                Refund pending
+              </Text>
+              <IconCashBanknote size={16} color="var(--mantine-color-dimmed)" />
+            </Group>
+            {query.isLoading ? (
+              <Loader size="xs" mt={14} />
+            ) : query.error ? (
+              <Text size="sm" c="red" mt={10}>
+                Unavailable
+              </Text>
+            ) : (
+              <>
+                <Text
+                  fw={600}
+                  c="dark.7"
+                  mt={10}
+                  style={{ fontSize: 22, lineHeight: 1.2 }}
+                >
+                  {currency.format(data?.pendingAmount ?? 0)}
+                </Text>
+                <Text size="xs" c="dimmed" mt={6}>
+                  {data?.transactionCount ?? 0} orders | Oldest{' '}
+                  {data?.oldestAgeDays ?? 0}d
+                </Text>
+              </>
+            )}
+          </Paper>
+        </UnstyledButton>
       ) : (
         <Group align="stretch" gap="md" mb="md">
           <UnstyledButton

@@ -7,6 +7,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { api } from '@/lib/api/client';
 import { RefundPending } from '@/components/refunds/RefundPending';
 import { CustomerRefundPayouts } from '@/components/refunds/CustomerRefundPayouts';
+import { RefundsPanel } from '@/app/clothing/operations/business-intelligence/components/panels/RefundsPanel';
 import { InventoryValuationNotice } from '@/components/accounting/InventoryValuationNotice';
 import { InventoryCostCorrections } from '@/components/accounting/InventoryCostCorrections';
 import { OrdersAndTransactions } from '@/app/clothing/operations/customers/[id]/components/OrdersAndTransactions';
@@ -82,6 +83,7 @@ describe('shared refund pending reminders', () => {
           }}
           canConfirm
           onConfirmed={refresh}
+          defaultDetailsOpened
         />
       );
       expect(screen.getByText('Profit Incomplete')).toBeInTheDocument();
@@ -171,7 +173,7 @@ describe('shared refund pending reminders', () => {
     }
   });
 
-  it.each(['card', 'icon'] as const)(
+  it.each(['card', 'icon', 'stat'] as const)(
     '%s opens the same pending list and customer execution link',
     async (variant) => {
       const get = vi.spyOn(api, 'get').mockResolvedValue(summary);
@@ -248,6 +250,33 @@ describe('shared refund pending reminders', () => {
       expect(screen.getByText('1 orders | Oldest 5d')).toBeInTheDocument();
     } finally {
       get.mockRestore();
+    }
+  });
+
+  it('shows the BI refunds panel with pending, paid and retained totals', async () => {
+    const get = vi.spyOn(api, 'get').mockResolvedValue(summary);
+    vi.stubGlobal('React', React);
+    try {
+      open(
+        <RefundsPanel
+          asOf="2026-10-26"
+          from="2026-01-01"
+          formatCurrency={(value) => `PHP ${value}`}
+        />
+      );
+      expect(await screen.findByText('PHP 200')).toBeInTheDocument();
+      expect(screen.getByText('1 | Oldest 5d')).toBeInTheDocument();
+      expect(screen.getByText('Approved refunds paid')).toBeInTheDocument();
+      expect(
+        screen.getByText('Approved retained deposits')
+      ).toBeInTheDocument();
+      expect(
+        screen.getByText('No approved refund payouts in this period.')
+      ).toBeInTheDocument();
+      expect(get).toHaveBeenCalledTimes(1);
+    } finally {
+      get.mockRestore();
+      vi.unstubAllGlobals();
     }
   });
 

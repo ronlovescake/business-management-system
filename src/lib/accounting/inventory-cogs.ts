@@ -37,7 +37,11 @@ const INVENTORY_SHRINKAGE_ACCOUNT = 'Inventory Shrinkage';
 
 async function loadDatedInventoryCostCorrections() {
   const requests = await prisma.clothingFinancialRequest.findMany({
-    where: { operation: 'INVENTORY_COST_CORRECTION' },
+    where: {
+      operation: {
+        in: ['INVENTORY_COST_CORRECTION', 'LEGACY_COST_CONFIRMATION'],
+      },
+    },
     select: { result: true },
   });
   const schema = z.object({
@@ -463,11 +467,7 @@ export async function buildInventorySeedAndShrinkageEntries(params: {
       const idBase = `INV-SEED-${dateKey}-${normalizeIdSegment(productCode)}-${normalizeIdSegment(label)}`;
 
       const seedAccount = account || INVENTORY_ACCOUNT;
-      const displayLabel = label.startsWith('scrap→')
-        ? `opening→${label.slice('scrap→'.length)}`
-        : label;
-
-      const description = `${productCode}${qtyLabel} • ${displayLabel}`;
+      const description = `${productCode}${qtyLabel} • ${label}`;
 
       return [
         {

@@ -1123,3 +1123,521 @@ snapshot integrity and an independent integer-cent cross-check. The dues and
 payroll are previously reviewed amounts, not newly verified production postings.
 Only documentation changed; no application/database change, payment, posting,
 stock resync or production query was performed for this calculation.
+
+## 23. Cash Difference Investigation: PHP 1,335.67 Explained
+
+An enforced repeatable-read, read-only production query at October 29, 2026,
+13:58:23 Asia/Manila reproduced the owner's reported Cash PHP 581,326.92.
+This is a later check than section 22's snapshot, not a rewrite of that history.
+
+Two differences explain the PHP 1,335.67 exactly:
+
+- Esquire 2's October 29 draft `cmvt2h9sp09zaegnqi00mcz7r` is now APPROVED,
+  with approval timestamp 13:35:08 Asia/Manila and a PHP 5,666.67 Cash credit
+  dated October 29. Section 22 excluded this then-unconfirmed payment. The
+  database posting is verified; actual payment still requires owner/payment
+  evidence, and must not be inferred solely from approval status.
+- The balance-sheet legacy paid-order fallback adds PHP 4,331 as period Cash
+  although the seven orders have no October 12-29 payment events and their
+  recorded receipts predate cutover. Section 22 deliberately excluded it.
+  This is the existing reporting issue, not another genuine cash collection.
+
+| Legacy fallback order                               | Pre-cutover receipt date |          PHP |
+| --------------------------------------------------- | ------------------------ | -----------: |
+| 3201                                                | July 29, 2026            |        96.00 |
+| 3258                                                | August 21, 2026          |       450.00 |
+| 3259                                                | August 21, 2026          |       390.00 |
+| 3212                                                | August 21, 2026          |       315.00 |
+| 3373                                                | September 4, 2026        |       950.00 |
+| 3387                                                | September 22, 2026       |     1,050.00 |
+| 3386                                                | September 22, 2026       |     1,080.00 |
+| Total inferred by fallback, not new period receipts |                          | **4,331.00** |
+
+The owning report path is
+[the balance-sheet transaction projection](../../src/app/api/accounting/balance-sheet/route.ts#L557).
+It uses in-window payment events when present, otherwise falls back to normalized
+paid-order amounts and a completion/recognition date. These orders completed
+after cutover despite having been paid earlier; completion must not be mistaken
+for another cash receipt. This investigation does not change recognition policy,
+opening cash or historical receipts, and does not implement a runtime fix.
+
+### Reproduction And Revised Conditional Cash Difference
+
+| Current report cash reproduction                                      |            PHP |
+| --------------------------------------------------------------------- | -------------: |
+| Investor funding                                                      |    +500,000.00 |
+| Active dated customer receipts, 171 Cash payments                     |    +176,066.00 |
+| Legacy fallback, not genuine period receipts                          |      +4,331.00 |
+| Eleven recurring payment Cash credits, including October 29 Esquire 2 |     -89,090.08 |
+| Paid payroll expense 800                                              |      -7,500.00 |
+| Paid PSO forwarder and courier                                        |      -2,480.00 |
+| Reproduced reported Cash                                              | **581,326.92** |
+
+PHP 5,666.67 additional posted payment minus PHP 4,331 fallback = PHP 1,335.67.
+Thus section 22's PHP 203,027.47 minus PHP 5,666.67 plus PHP 4,331 equals the
+earlier report-based PHP 201,691.80 after the conditional purchase deduction.
+The difference is not evidence of an additional owner withdrawal.
+
+Removing the fallback rather than treating it as available cash gives:
+
+| Revised conditional reconciliation                                    |            PHP |
+| --------------------------------------------------------------------- | -------------: |
+| Reported Cash less PHP 4,331 fallback                                 |     576,995.92 |
+| Less twenty purchase payments, assuming paid and not already deducted |    -379,635.12 |
+| Working expected Cash before withdrawals and other missing movements  | **197,360.80** |
+| Owner-reported funds: PHP 82,783 plus other e-wallet PHP 8,535.40     |     -91,318.40 |
+| Unexplained difference, not confirmed Owner Draw                      | **106,042.40** |
+
+This supersedes PHP 110,373.40 as the report-based unexplained-difference scenario:
+that earlier number still included the PHP 4,331 fallback. It also updates the
+PHP 111,709.07 earlier-worksheet scenario for the newly posted PHP 5,666.67.
+Neither is an approved Owner Draw. PHP 106,042.40 assumes zero opening cash,
+actual payment of all twenty purchases and the October 29 Esquire installment,
+complete comparable cash/bank/e-wallet balances, and no other missing cash events.
+If the installment was approved without actual payment, review that exact posting
+separately rather than silently counting it as paid or creating another entry.
+
+Validation: the live read-only query cross-footed receipts, cash journal sources,
+payroll and seven legacy fallback orders, reproducing the reported Cash exactly.
+Focused Decimal and independent integer-cent checks validate both the PHP 1,335.67
+explanation and revised conditional arithmetic. No database rows, application
+behavior, production files, opening balances or Owner Draw postings were changed.
+
+### Subsequent Owner Confirmation: October 29 Esquire 2 Paid
+
+The owner confirms that the October 29 Esquire 2 installment of PHP 5,666.67
+was already paid. This resolves section 23's actual-payment uncertainty for
+that installment; the existing approved draft and Cash credit already record
+it. Do not approve another draft, create another payment or deduct it again.
+The confirmation does not supply an exact payment timestamp, paying account
+or payment reference, and does not resolve the future February due-date rule.
+
+The eleven paid installments total PHP 89,090.08. Working expected Cash remains
+PHP 197,360.80 and the unexplained difference against owner-reported funds of
+PHP 91,318.40 remains PHP 106,042.40. These calculations already include the
+October 29 payment. Unknown opening cash, purchase-settlement evidence, balance
+completeness and other missing cash events remain unresolved; the difference
+is not a confirmed or approved Owner Draw. Only documentation was updated;
+no database posting or money transfer was made for this confirmation.
+
+## 24. Planned Follow-Up: Early Payments And On-Hold Orders
+
+Status: documented backlog and proposed implementation sequence, not an
+implemented fix or authorization for production changes. The requesting
+Clothing business owner confirms that the seven orders in section 23 were
+paid well before pickup/checkout. Customers may pay while goods are still
+in transit, after invoicing, or months before collection. They may also ask
+for received goods to be held in safekeeping while away. These are legitimate
+workflows, not evidence that another payment occurred at checkout.
+
+### Existing Gaps And Workflow To Reuse
+
+- Section 19 already records the payment-versus-fulfillment and recognition
+  policy gap. Keep ownership, revenue recognition, customer-advance treatment
+  and matching inventory/COGS decisions in that separate policy review.
+- Section 20 already records the separate PSO 740-versus-700 receipt and
+  effective-date discrepancy. Neither the cash fix nor hold controls resolve
+  that quantity issue or certify section 21's opening inventory worksheet.
+- The Transactions page at `/clothing/operations/transactions` already offers
+  `On-Hold`. [Inventory status rules](../../src/lib/inventory/statuses.ts)
+  classify it as reserved, not fulfilled. Reuse this operational status rather
+  than introducing another status merely to represent full payment.
+- [Packing-list selection](../../src/modules/clothing/operations/transactions/hooks/useTransactionsDerivedData.ts)
+  can include an On-Hold order when the same customer has an eligible Prepared
+  order. Review whether that is intentional combined packing or needs an
+  explicit release control; selection alone does not prove automatic dispatch.
+
+### Proposed Sequence And Acceptance Criteria
+
+1. **Fix duplicate-cash reporting first.** The owning balance-sheet projection
+   is linked in section 23. Recorded receipts must contribute by their actual
+   payment dates, once, independently of packing, checkout, dispatch or release.
+   An explicit receipt outside the reporting window must not become an inferred
+   receipt inside it. Review legacy orders without payment rows separately;
+   do not silently discard genuine legacy collections or invent payment dates.
+   Regression coverage must include the seven-order PHP 4,331 example,
+   pre-cutover payment with later fulfillment, payment while in transit,
+   partial payments across windows, in-window payment before later pickup,
+   same-window payment/fulfillment and legacy records without payment events.
+   Preserve existing revenue/COGS policy and original payment/status history;
+   check report consistency rather than using a balancing journal or Owner Draw.
+2. **Improve payment visibility.** Propose Unpaid, Partially Paid and Fully Paid
+   indicators alongside, not instead of, operational status. An order may be
+   `On-Hold` and Fully Paid, or In Transit and Fully Paid, without being checked
+   out. Derive amounts from the existing canonical financial calculation,
+   including applicable discounts/refunds, rather than a second UI-only rule.
+3. **Review hold/release controls with the owner.** Consider recording the
+   customer's hold request, reason and optional release date. Agree how release
+   is confirmed before changing packing/dispatch eligibility. Do not fabricate
+   pickup, release automatically merely because payment is complete, or assume
+   an optional date proves consent to ship. Test combined-customer packing,
+   individual and bulk transitions, retry and concurrent release paths.
+4. **Approve recognition policy separately.** Resolve section 19's ownership,
+   safekeeping and refund terms before changing revenue, advance liabilities,
+   inventory ownership or COGS. Full payment and On-Hold status alone must not
+   be used as approval for those accounting changes.
+
+Before implementation, update the affected canonical domain contracts, trace
+UI/API/bulk/import/job and report consumers, and explicitly check General
+Merchandise/shared consumers without assuming identical domain policy. The
+accountable policy owner is the requesting Clothing owner. This entry records
+future work only: no runtime rule, schema, payment, operational status,
+production data, opening balance or Owner Draw was changed. The PHP 4,331
+reporting defect remains unfixed in the application.
+
+## 25. Reporting Fix Review And October 12 Maya Credit Posting
+
+This subsequent review updates sections 23-24's historical unfixed status.
+The current development balance-sheet route now records explicit receipts by
+payment date and suppresses legacy inferred cash for orders with positive
+recorded payment activity, including payments outside the reporting window.
+The production checkout's route is byte-identical to development. This checks
+source code, not the running container's compiled route or an authenticated
+report response; deployed runtime behavior is not independently certified here.
+The two focused balance-sheet/journal API test files passed: 45 tests. Full
+quality gates were not rerun for this review. No runtime code was edited in
+this session; payment visibility, hold/release and recognition-policy follow-up
+remain separate from the verified source-level cash fix.
+
+An enforced repeatable-read, read-only production check at October 29, 2026,
+15:06:17 Asia/Manila found one APPROVED Maya Credit draft for PHP 1,767.05,
+effective October 12, approved October 29 at 15:04:01 Asia/Manila. Draft
+`cmvt76cji0067bs7tnutad8oq` has exactly one active balanced pair: debit Monthly
+Dues Expense and credit Cash, PHP 1,767.05 each. No additional Maya expense
+record or duplicate October Maya journal pair was found in the reviewed
+sources. The owner's statement establishes the historical posting; actual
+settlement date/account/reference were not independently verified. Do not
+create another payment or deduct this installment twice. This retains the
+existing provisional full-installment expense treatment, not a newly approved
+principal/interest allocation.
+
+The twelve October recurring Cash credits total PHP 90,857.13. Active dated
+customer receipts remain 171 rows / PHP 176,066.00; investor funding remains
+PHP 500,000 and paid logistics PHP 2,480. Carrying forward the previously
+verified payroll and conditional purchase assumptions gives:
+
+| Updated conditional cash bridge                                           |            PHP |
+| ------------------------------------------------------------------------- | -------------: |
+| Cash from dated receipts and reviewed outflows, excluding legacy fallback |     575,228.87 |
+| Less twenty purchases, assuming cash-paid and not already deducted        |    -379,635.12 |
+| Working expected Cash before withdrawals/other missing movements          | **195,593.75** |
+| Previously owner-reported funds, not a new balance confirmation           |     -91,318.40 |
+| Conditional unexplained difference, not confirmed Owner Draw              | **104,275.35** |
+
+This is section 23's PHP 197,360.80 working cash and PHP 106,042.40 difference,
+each reduced once by PHP 1,767.05. It is not a fresh displayed-report total or
+cash count. Unknown opening cash, purchase-settlement evidence, comparable
+balance completeness and other missing movements remain unresolved. Opening
+inventory remains provisional; this check does not authorize an opening or
+Owner Draw posting. Only this review documentation changed; no database row,
+production file, payment, operational status or accounting posting was changed.
+
+## 26. Paw Patrol: Owner-Confirmed Zero Remaining Physical Stock
+
+On October 29, the owner confirms that Paw Patrol 2-PC Onesie
+`PP2PCO-082026` has zero remaining physical stock: all pieces were disposed
+of or shipped. This resolves the current physical-count question, not the
+quantities/dates attributable to each disposal or shipment. The owner does
+not recall the intent of the earlier adjustments; do not identify a particular
+row as erroneous solely from this zero-stock confirmation.
+
+The October 29, 15:12:38 Asia/Manila read-only production check found these
+active October 23 movements for product 280:
+
+| Movement | From     | To       | Units | Report value at saved PHP 1.03/unit |
+| -------- | -------- | -------- | ----: | ----------------------------------: |
+| 5466     | sellable | scrap    |     7 |                               -7.21 |
+| 5467     | scrap    | sellable |     7 |                               +7.21 |
+| 5468     | scrap    | sellable |     7 |                               +7.21 |
+
+The report groups the two scrap-to-sellable rows as 14 units / PHP 14.42 and
+labels them `opening` to sellable. The underlying movements are returns from
+scrap, not evidence of an October 12 opening receipt. These three adjustments
+alone net to seven additional sellable units; that is not a full ending-stock
+rollforward or proof that either return was a duplicate. The original August
+20 receipt 4890 records ten units, while the current catalog quantity is one,
+with grand total and landed unit cost PHP 1.03. The saved valuation remains
+unverified; do not infer actual acquisition cost from those fields alone.
+
+Next review: reconcile all genuine sales, reservations, transfers and disposals
+against the owner-confirmed zero remaining count before proposing any scoped
+repair. Preserve fulfilled orders and existing history. Do not scrap shipped
+units again, fabricate sales, reverse either return without evidence, backdate
+a count to October 12, or use these values to change cash or Owner Draw.
+Sections 17 and 21's opening valuation remains provisional. Only documentation
+changed for this confirmation; no inventory movement, product quantity, cost,
+order, accounting posting or production data was changed.
+
+### Full Movement Rollforward And Why The Report Still Shows Value
+
+A further enforced read-only production check at October 29, 15:21:00
+Asia/Manila retrieved all twelve matching movements and both active orders.
+No matching soft-deleted movement or order was returned. Orders 3331 and 3378
+are Shipped, four units each; their sale movements 5023 and 5008 are dated
+August 20 and August 27 respectively. Neither is an October COGS movement.
+
+| Effective period / movement                               | Sellable change | Running raw sellable units |
+| --------------------------------------------------------- | --------------: | -------------------------: |
+| August 20 receipt 4890                                    |             +10 |                         10 |
+| August 20 transfer from Mixed Onesie, 4891                |             +15 |                         25 |
+| August reservations subsequently sold, orders 3331 / 3378 |              -8 |                         17 |
+| October 23 supplier-short movement 5463                   |             -17 |                          0 |
+| October 23 supplier-short movement 5464                   |              -7 |                         -7 |
+| October 23 supplier-short return 5465                     |              +7 |                          0 |
+| October 23 scrap movement 5466                            |              -7 |                         -7 |
+| October 23 scrap return 5467                              |              +7 |                          0 |
+| October 23 scrap return 5468                              |              +7 |                          7 |
+
+The final raw buckets are sellable 7, reserved 0, sold 8, scrap -7,
+supplier_short 2 and opening_inventory -10. The last two include source-bucket
+offsets, including the transfer; they are not independent physical counts.
+Negative scrap and seven sellable units disagree with the owner's zero
+remaining physical stock and demonstrate that this history is unreconciled.
+They do not establish which individual adjustment was mistaken.
+
+The [inventory report calculation](../../src/lib/accounting/inventory-cogs.ts)
+selects scrap-related movements for its seed/shrinkage entries; it does not
+include the October supplier-short adjustments in that calculation. The
+[balance-sheet route](../../src/app/api/accounting/balance-sheet/route.ts)
+adds those derived inventory entries and period COGS, rather than replacing
+them with the Inventory page's current available quantity. Consequently,
+Paw Patrol's reviewed October movement component is PHP 14.42 added less
+PHP 7.21 removed = **PHP 7.21 added to Stock on Hand**, using the saved,
+unverified PHP 1.03/unit. Its recorded sale movements are before cutover, so
+they do not offset that addition in October. This identifies the scoped
+movement contribution, not a certified product-level closing balance inclusive
+of all aggregate opening/reclassification entries or a live report response.
+
+The operations projection uses catalog supply, adjustments, order demand and
+clipping at zero instead of a raw sum of receipt movements. Legacy scrap
+returns without `movementSource: inventory_adjustment` are not treated as
+scrap reversals by that projection, although the report includes them as
+inventory seeds. This provides a concrete explanation for inconsistent views;
+the operations display being zero does not repair the raw ledger/report.
+
+Correction requires a reviewed plan for the supplier-short/scrap sequence,
+its classification and cost basis, with the original history and eight shipped
+units preserved. Do not simply hide the report lines, subtract PHP 7.21 from
+cash, or append another scrap movement to force one view to zero. The report's
+`opening` label also requires separate review. No historical correction,
+runtime change or production write was performed by this investigation.
+
+## 27. Compact Unconfirmed-Valuation Warning
+
+The owner reported that the expanded fifteen-movement valuation table displaced
+the main content on the Clothing Accounting, Profit & Loss and Business
+Intelligence pages. All three used the shared InventoryValuationNotice.
+The owner then directed that it be removed from the other pages, so the
+Accounting Dashboard and Business Intelligence no longer render the warning.
+
+After the owner rejected the top-of-page placement on Profit & Loss, that page
+now has a dedicated Cost Review tab with an affected-movement count badge.
+Neither the warning table nor Dated cost corrections appears above the main
+report. Selecting Cost Review opens the exception table immediately, preserving
+the existing confirmation permissions and refresh callbacks. The shared General
+Merchandise P&L page uses the same tab but remains read-only. Complete valuations
+show a completion state; absent valuation data is shown as unavailable, not
+confirmed. The Profit & Loss Cost Review tab is now the only place the warning
+and exception table appear; the underlying valuation data and API responses are
+unchanged.
+
+This is a presentation-only change, not a business-rule change. These warnings
+mean that historical movement cost snapshots are missing and current product
+costs are being used; they do not prove physical stock is missing or that the
+goods had zero cost. Do not confirm zero cost merely to dismiss the warning.
+No costing, accounting, permission, production-data or recognition rule changed.
+The Paw Patrol and opening-valuation exceptions above remain unresolved.
+
+Validation: eight focused component/page tests, TypeScript, lint and all twelve
+hardening tests passed. Lint retains unrelated warnings. Guardrails stopped
+on the existing 1,000-line accounting-balance-sheet API test file; no override
+was used. An authenticated full-page browser check was not completed; the
+development preview requires login. No production deployment was performed.
+
+## 28. Refund Pending Summary Placement
+
+The owner reported that the Refund Pending block (pending amount, orders,
+oldest age, approved refunds paid and approved retained deposits) sat above the
+main content on Clothing Accounting, Transactions and Business Intelligence.
+
+- Accounting Dashboard: the block is gone from the top. Refund Pending is now a
+  stat card in the KPI row (it opens the same pending list), next to an
+  Approved Refunds Paid card whose caption shows retained deposits. Clothing
+  shows eight cards in rows of four; General Merchandise is unchanged.
+- Transactions: the block was removed; the header navigation badge remains the
+  entry point for the pending list.
+- Business Intelligence: the block and its monthly table were removed from the
+  top. A Refunds chart card now sits with the other charts, showing pending,
+  pending orders/oldest age, paid and retained totals plus a monthly paid bar
+  chart. Its icon opens the pending list.
+
+All views use the same refund-obligations API and query keys as before, with
+the same dates and period filters. This is presentation-only; no refund,
+deposit, accounting or permission rule changed.
+
+Validation: 16 focused tests in the refund and Profit & Loss test files,
+TypeScript, ESLint on the changed files and `git diff --check` passed. An
+authenticated browser check was not completed.
+
+## 29. Inventory Owns Cost Review
+
+At the owner's request, Cost Review and Dated cost corrections now reside in
+Inventory's Cost Review tab, not Profit & Loss. The tab includes a review-period
+selector and refreshes the existing valuation data after corrections. Clothing
+retains its existing confirmation controls; General Merchandise remains read-only.
+Profit & Loss shows only a compact provisional-profit warning linking to
+Inventory when costs are unconfirmed. The Accounting Dashboard and Business
+Intelligence do not regain the movement warning.
+
+This is a presentation-only relocation: no API, permission, inventory quantity,
+costing or recognition rules change. Missing snapshots do not establish that
+goods were free; zero-cost confirmation remains only for genuinely free goods.
+The focused relocation and existing refund/valuation interaction suites passed
+(16 tests). Authenticated visual verification remains incomplete.
+
+## 30. Historical Cost Review And Date-Fallback Qualification
+
+### Recorded Cost Reconciliation, October 29
+
+Owner confirmation received October 29, 2026: after being asked whether the six
+listed unit costs were the original all-in costs for these exact batches rather
+than later recalculations, the requesting Clothing owner answered, "yes they are
+all correct". Approved historical unit costs: Onesie (O-091426) PHP 40.07;
+Premium Shortsleeves Onesie (PSO-101226) PHP 47.52; Mixed Onesie (MO-062626)
+PHP 39.01; Baby Shoes (BS-062926) PHP 77.65; MK Shoes (MS-062226) PHP 401.96;
+Organic Undies (OU-042226) PHP 16.47. This supplies owner attestation of the
+historical basis for the listed 15 movements / 2,740 units, valued at PHP
+111,553.57. No further payment proof is needed to establish that approved basis.
+The quantity discrepancies remain separate reconciliation items; this approval
+does not authorize altering receipts, quantities, payment flags, cash, or posting
+logistics charges again. The subsequent explicitly authorized application is
+recorded below; the original approval was documentation-only at that time.
+Earlier uncertainty about whether these unit costs were historical is superseded
+by this attestation; underlying read-only findings below remain as evidence.
+
+#### Approval Applied In Development And Production
+
+The owner selected "Development, then production" for this exact data change.
+`confirmLegacyMovementCosts` in src/lib/accounting/inventory-valuation.ts saved
+six LEGACY_COST_CONFIRMATION request records with stable UUIDs ending 000000000001
+through 000000000006 (prefix b0d0c026-1029-4000-8000). Each contains the original
+movement before-images, approved cost, exact quantities and transaction links,
+owner-attestation reference, operator identity and timestamp. The operational
+runner is scripts/tmp/reconcile-approved-clothing-costs.ts; no route, UI action
+or General Merchandise rule changed.
+
+Fresh full custom-format database dumps were verified with pg_restore to a
+discard file before approval writes, never restored over a live database.
+Production backup: backups/2026-10-29T09-38-49-880Z-production-legacy-cost-approval/
+(before.dump, before.json with SHA-256, after.json). Final development verification:
+backups/2026-10-29T09-32-17-674Z-development-legacy-cost-approval/.
+Development retries exposed a TOC-only stdin pipe closure and JSONB key-order
+comparison issue in the runner; both were fixed before production. Existing
+partial approvals were preserved and resumed under the same idempotency keys.
+
+Both databases now have all six approval records. Replaying each request returned
+the saved result. The updated development reader, run against each database,
+reports zero current valuation issues (formerly 15 movements / 2,740 units).
+Period COGS stayed PHP 125,430.17 before/after, including PHP 111,553.57 for these
+approved movements; the difference is other already-valued period movements.
+Whole-table fingerprints for products, inventory_movements, transactions and
+clothing_accounting_journal_lines were identical before/after in each database.
+The report as of October 28 Manila was identical before/after, retaining its
+historical unconfirmed state. Approval adds evidence, not stock, cash, a new
+expense, a payment or a duplicate logistics journal.
+
+Validation: 49 focused tests, 4,586 full unit tests, 12 hardening tests, lint and
+typecheck passed. Guardrails remains blocked by the pre-existing 1,000-line
+balance-sheet API test. Integration remained 70 passed / 20 failed, including
+missing split_batch_components.acquisitionUnitCost in the test database.
+No schema changes or test bypasses were made. No production code was edited,
+committed, pushed, built or deployed. The running production app still needs a
+separately approved release of the reader change to recognize the saved evidence;
+the zero-issue result is from the updated reader, not a deployed-UI verification.
+
+Read-only production checks reconciled all six saved cost totals exactly to
+Grand Total + Forwarder's Fee + Lalamove + Packaging Cost. Every difference is
+PHP 0.00. This establishes internal arithmetic consistency, not independent
+verification that the current costs were the historical sale costs.
+
+| Product                                  | Saved payment | Product quantity | Original receipt quantity | Recorded total cost PHP | Saved unit cost PHP | Flagged movements / units | Estimated flagged cost PHP |
+| ---------------------------------------- | ------------- | ---------------: | ------------------------: | ----------------------: | ------------------: | ------------------------: | -------------------------: |
+| Onesie (O-091426)                        | Paid          |            5,600 |                     5,600 |              224,371.44 |               40.07 |                 3 / 2,053 |                  82,263.71 |
+| Premium Shortsleeves Onesie (PSO-101226) | Paid          |              740 |                       700 |               35,166.64 |               47.52 |                   6 / 550 |                  26,136.00 |
+| Mixed Onesie (MO-062626)                 | Unpaid        |            9,100 |                    14,412 |              355,036.00 |               39.01 |                    1 / 20 |                     780.20 |
+| Baby Shoes (BS-062926)                   | Paid          |              207 |                       200 |               16,074.03 |               77.65 |                     1 / 1 |                      77.65 |
+| MK Shoes (MS-062226)                     | Paid          |               51 |                        51 |               20,500.00 |              401.96 |                     1 / 1 |                     401.96 |
+| Organic Undies (OU-042226)               | Unpaid        |            3,600 |                     9,977 |               59,293.49 |               16.47 |                   3 / 115 |                   1,894.05 |
+| Total                                    |               |                  |                           |                         |                     |                15 / 2,740 |                 111,553.57 |
+
+The saved unit costs round the recorded total divided by Product quantity to
+two decimal places. Estimates above use that saved rounded basis, not a newly
+invented cost or a new journal expense. Payment flags do not determine cost:
+an unpaid supplier balance does not make received inventory free.
+
+Receipt rollforwards contain real supplier-short adjustments (including Onesie,
+MK Shoes, Mixed Onesie and Organic Undies); preserve them. Do not repair receipt
+differences merely by equating received quantities with catalog quantities.
+The four quantity mismatches above require historical quantity-definition review.
+PSO's previously documented 740/700 and landed-charge qualifications remain open.
+Matching exact product/shipment journal references found PHP 2,480 of Stock on
+Hand logistics capitalization for shipment 236, with matching cash settlement;
+this is not authority to capitalize the whole purchase or book those fees again.
+The reference-scoped query is not proof that no other opening/source records exist.
+
+No database writes, payment-status changes, cost confirmations, receipt changes
+or journals were made. Clearing missing snapshots requires an audited approval
+of the historical basis; payment confirmation alone is not that approval.
+The current dated-correction service rejects unchanged costs and requires an
+actual capitalized delta. It is not a suitable workaround for confirming these
+unchanged legacy estimates. The earlier suggestion to use that tool for every
+missing snapshot was too broad and is withdrawn.
+
+Direct-pickup follow-up: the owner clarified that packing lists are optional;
+single-item pickups can be marked Shipped directly. Clothing COGS briefly preferred
+shipment metadata over existing dates; this was withdrawn after it incorrectly
+pulled 16 older movements / 611 units into October review (31 / 3,351 instead of
+15 / 2,740). COGS retains packed date or, when absent, movement creation date.
+General Merchandise is unchanged. This restores existing recognition, rather
+than claiming that movement creation independently proves physical pickup.
+Read-only production evidence records Roshelle Devanadera (2,000 Onesie) as
+Shipped October 15, Ces Obejas (35 Onesie) October 14, Anne Tionson (50 Premium
+Shortsleeves Onesie) October 15, and Iris Lacastesantos (15 Organic Undies)
+October 15, 2026, Manila time. These prove recorded transitions, not independently
+verified physical pickup dates. No production writes or cost confirmations occurred.
+
+Enforcement: src/lib/accounting/inventory-cogs.ts; contract:
+docs/business-logic/clothing/accounting-profit-loss.md. Focused COGS tests: 35
+passed; full unit suite: 4,572 passed; lint and typecheck passed. Guardrails is
+blocked by the existing 1,000-line accounting-balance-sheet API test. Integration:
+70 passed / 20 failed, including missing split_batch_components.acquisitionUnitCost
+in the test database. Historical cost evidence remains unresolved; no missing
+snapshot is converted into free goods or invented purchase cost.
+
+Read-only checks on October 29 found the same fifteen screenshot movements in
+development and production: 2,740 units, all with null unitCost and costBasis.
+Their six products have positive current catalog costs; neither database has
+ZERO_COST_CONFIRMATION or INVENTORY_COST_CORRECTION requests. A subsequent
+production read-only query found one original opening-inventory-to-sellable
+receipt for each product, also without a positive saved unit cost. Thus the
+movement ledger alone does not establish historical acquisition cost. This is
+not evidence of free goods or authority to confirm zero cost or copy today's
+catalog values into historical snapshots. PSO's cost/quantity qualifications
+in sections 20-21 remain unresolved.
+
+The earlier conversational claim that older posting dates prove an October
+date bug was too strong. The automatic-sale writer in
+src/modules/transactions/api/transactionInventorySync.ts sets postingDate from
+packedDate or orderDate. Without packedDate, an old postingDate can therefore
+be an order date, not fulfillment evidence. Existing Clothing and General
+Merchandise regression tests explicitly preserve creation-time fallback for
+these automatic sales. A trial change to prefer postingDate failed four tests
+and was undone; it is not a delivered reporting fix.
+
+Orders 3212, 3453, 3467 and 3427 have no packedDate. Their sale movements
+5226, 5268, 5270 and 5271 were created October 13-15, but have posting dates
+July 29, September 28, October 14 and September 18 respectively. Establish
+actual fulfillment dates before changing their reporting periods. Review
+historical purchase/landed-cost evidence for the six products before approving
+any exact-record cost repair. No production write, zero-cost confirmation,
+cost backfill, quantity change or recognition-policy change was performed.

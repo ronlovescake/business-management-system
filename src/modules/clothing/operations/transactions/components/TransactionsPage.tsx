@@ -35,7 +35,6 @@ import { IconRefresh, IconTrash } from '@tabler/icons-react';
 import { showNotification } from '@mantine/notifications';
 import { PageLayout } from '@/components/layout/PageLayout';
 import { TableSkeleton } from '@/components/ui/TableSkeleton';
-import { RefundPending } from '@/components/refunds/RefundPending';
 import type {
   CellClickEvent,
   CellEditEvent,
@@ -866,7 +865,6 @@ export function TransactionsPage({ apiBasePath }: TransactionsPageProps) {
               : 'All changes saved'}
           </Text>
         )}
-        {apiBasePath !== '/api/general-merchandise' && <RefundPending />}
         {cancellationModal}
         <TransactionPaymentsModal
           opened={showPaymentsModal}

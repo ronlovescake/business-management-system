@@ -47,8 +47,10 @@ import {
 } from '@/lib/accounting/formatters';
 import { AccountingLoadErrorAlert } from '@/app/accounting/_shared/AccountingLoadErrorAlert';
 import { useAccountingDashboard } from '@/app/accounting/_shared/dashboard/useAccountingDashboard';
-import { RefundPending } from '@/components/refunds/RefundPending';
-import { InventoryValuationNotice } from '@/components/accounting/InventoryValuationNotice';
+import {
+  RefundPending,
+  useRefundObligations,
+} from '@/components/refunds/RefundPending';
 import { getCurrentDateISO, toISODate } from '@/utils/date';
 import { getPeriodRange } from '@/lib/accounting/date-utils';
 
@@ -169,7 +171,6 @@ export function AccountingDashboardRoutePage({
     asOf,
     hasComparison,
     snapshot,
-    valuation,
     deltas,
     monthlyTrend,
     expenseSlices,
@@ -183,6 +184,11 @@ export function AccountingDashboardRoutePage({
   const asOfLabel = formatLongDateUS(asOf);
   const refundPeriod = getPeriodRange(period);
   const refundAsOf = asOf > getCurrentDateISO() ? getCurrentDateISO() : asOf;
+  const showRefunds = businessPathPrefix === '/clothing';
+  const refundFrom = refundPeriod.from
+    ? toISODate(refundPeriod.from)
+    : undefined;
+  const refunds = useRefundObligations(refundAsOf, refundFrom, showRefunds);
   const quickLinks: QuickLink[] = [
     ...(showExpensesLink
       ? [
@@ -275,16 +281,16 @@ export function AccountingDashboardRoutePage({
         </Group>
 
         <AccountingLoadErrorAlert message={loadError} />
-        <InventoryValuationNotice valuation={valuation} />
-        {businessPathPrefix === '/clothing' && (
-          <RefundPending
-            asOf={refundAsOf}
-            from={refundPeriod.from ? toISODate(refundPeriod.from) : undefined}
-            showPaid
-          />
-        )}
 
-        <SimpleGrid cols={{ base: 1, xs: 2, md: 3, xl: 6 }} spacing="md">
+        <SimpleGrid
+          cols={{
+            base: 1,
+            xs: 2,
+            md: showRefunds ? 4 : 3,
+            xl: showRefunds ? 4 : 6,
+          }}
+          spacing="md"
+        >
           {isLoading.profitLoss ? (
             Array.from({ length: 5 }, (_, index) => (
               <Skeleton key={index} h={104} radius="md" />
@@ -336,6 +342,32 @@ export function AccountingDashboardRoutePage({
               caption={`As of ${asOfLabel}`}
             />
           )}
+          {showRefunds ? (
+            <>
+              <RefundPending
+                variant="stat"
+                asOf={refundAsOf}
+                from={refundFrom}
+              />
+              {refunds.isLoading ? (
+                <Skeleton h={104} radius="md" />
+              ) : (
+                <KpiCard
+                  label="Approved refunds paid"
+                  value={
+                    refunds.data
+                      ? formatCurrency(refunds.data.paidApprovedRefundAmount)
+                      : 'Unavailable'
+                  }
+                  caption={
+                    refunds.data
+                      ? `Retained deposits ${formatCurrency(refunds.data.retainedDepositAmount)}`
+                      : 'Refund totals could not be loaded'
+                  }
+                />
+              )}
+            </>
+          ) : null}
         </SimpleGrid>
 
         <Grid gutter="md">

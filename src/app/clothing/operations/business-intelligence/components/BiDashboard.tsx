@@ -45,9 +45,8 @@ import { OrderPipelinePanel } from './panels/OrderPipelinePanel';
 import { CustomerMixPanel } from './panels/CustomerMixPanel';
 import { WeekdaySalesPanel } from './panels/WeekdaySalesPanel';
 import { ProfitSnapshotPanel } from './panels/ProfitSnapshotPanel';
+import { RefundsPanel } from './panels/RefundsPanel';
 import { ChartCard } from '@/components/charts/ChartCard';
-import { RefundPending } from '@/components/refunds/RefundPending';
-import { InventoryValuationNotice } from '@/components/accounting/InventoryValuationNotice';
 import { getFilterStart } from '@/lib/analytics/periodComparison';
 import { getCurrentDateISO, toISODate } from '@/utils/date';
 import { ChartTooltip } from '@/components/charts/ChartTooltip';
@@ -180,17 +179,6 @@ export const BiDashboard = memo(function BiDashboard({
           />
         </Group>
 
-        {apiBasePath !== '/api/general-merchandise' && (
-          <RefundPending
-            showPaid
-            showTrends
-            asOf={getCurrentDateISO()}
-            from={refundStart ? toISODate(refundStart) : undefined}
-          />
-        )}
-        {profit.enabled && (
-          <InventoryValuationNotice valuation={profit.data?.valuation} />
-        )}
         <SimpleGrid cols={{ base: 1, xs: 2, md: 3, xl: 6 }} spacing="md">
           <KpiCard
             label="Revenue"
@@ -643,6 +631,16 @@ export const BiDashboard = memo(function BiDashboard({
                 data={profit.data}
                 isLoading={profit.isLoading}
                 isError={profit.isError}
+                formatCurrency={formatCurrency}
+              />
+            </Grid.Col>
+          ) : null}
+
+          {apiBasePath !== '/api/general-merchandise' ? (
+            <Grid.Col span={12}>
+              <RefundsPanel
+                asOf={getCurrentDateISO()}
+                from={refundStart ? toISODate(refundStart) : undefined}
                 formatCurrency={formatCurrency}
               />
             </Grid.Col>

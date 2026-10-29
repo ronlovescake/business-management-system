@@ -136,6 +136,12 @@ same signed adjustment. Zero net COGS adds no adjustment. This preserves the
 existing inventory movement return treatment; it does not revalue historical
 cost snapshots or change scrap accounting.
 
+Derived scrap-return descriptions show the actual movement buckets, such as
+`scrap→sellable`, not `opening→sellable`. This is a label-only correction:
+existing entry IDs, references, amounts, asset accounts and Opening Equity
+offsets are unchanged. It does not certify opening inventory or resolve any
+historical quantity, cost or adjustment discrepancy.
+
 ---
 
 ## D - Asset Breakdown Tables

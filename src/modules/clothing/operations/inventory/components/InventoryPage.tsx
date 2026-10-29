@@ -1,6 +1,8 @@
 'use client';
 
 import React, { useState } from 'react';
+import { useSearchParams } from 'next/navigation';
+import { InventoryCostReview } from './InventoryCostReview';
 import { useDisclosure } from '@mantine/hooks';
 import {
   ActionIcon,
@@ -79,9 +81,10 @@ export function InventoryPage({
     getSellableOnHand,
   } = useInventoryPage(apiBasePath, { supportsSplitBatches });
 
-  const [activeTab, setActiveTab] = React.useState<'inventory' | 'adjustments'>(
-    'inventory'
-  );
+  const searchParams = useSearchParams();
+  const [activeTab, setActiveTab] = React.useState<
+    'inventory' | 'adjustments' | 'cost-review'
+  >(searchParams?.get('tab') === 'cost-review' ? 'cost-review' : 'inventory');
 
   const [adjustmentModalOpened, adjustmentModalHandlers] = useDisclosure(false);
   const [supplierShortModalOpened, supplierShortModalHandlers] =
@@ -798,6 +801,7 @@ export function InventoryPage({
         <Tabs.List>
           <Tabs.Tab value="inventory">Inventory</Tabs.Tab>
           <Tabs.Tab value="adjustments">Adjustments</Tabs.Tab>
+          <Tabs.Tab value="cost-review">Cost Review</Tabs.Tab>
         </Tabs.List>
 
         <Tabs.Panel value="inventory" pt="md">
@@ -1096,6 +1100,11 @@ export function InventoryPage({
               </StandardDataTable>
             </StandardTableContainer>
           </Stack>
+        </Tabs.Panel>
+        <Tabs.Panel value="cost-review" pt="md">
+          {activeTab === 'cost-review' && (
+            <InventoryCostReview apiBasePath={apiBasePath} />
+          )}
         </Tabs.Panel>
       </Tabs>
     </Stack>

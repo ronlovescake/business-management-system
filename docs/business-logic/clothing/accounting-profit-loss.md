@@ -76,6 +76,43 @@ an approved chart-of-accounts change. It remains open in the
 
 ### Valuation Completeness And Dated Corrections
 
+### Direct Pickup And Sale Dates
+
+Owner clarification: packing lists are optional preparation paperwork; a customer
+may pick up a single item and be marked Shipped without a packed date. Clothing
+COGS retains the packed date when present, otherwise the sale movement creation
+date. Later shipment metadata must not redate existing historical movements.
+`src/lib/accounting/inventory-cogs.ts` owns this projection for accounting and
+Inventory Cost Review; no packing list is required and no historical costs or
+database records are rewritten. General Merchandise remains unchanged.
+Regression coverage ensures later shipment timestamps and status history do not
+override existing direct-pickup movement dates. A status timestamp records the application
+transition, not independent proof of the physical pickup time.
+
+### Cost Evidence
+
+Positive legacy costs can be confirmed through administrator-only
+`confirmLegacyMovementCosts` in `src/lib/accounting/inventory-valuation.ts`.
+The Clothing owner approved the six exact batch costs in reconciliation log
+section 30 on October 29, 2026. A `LEGACY_COST_CONFIRMATION` financial request
+records the product code, positive unit cost, exact movement IDs/quantities and
+transaction links, reason, actor, date and original movement before-images.
+It requires one active product with the approved saved cost, unchanged active
+transaction-sale movements with missing snapshots, and no existing approved
+cost evidence. Serializable transactions and stable request keys protect retries;
+changed payloads and overlapping approvals are rejected.
+
+This is approval of the original cost, not a new purchase or cost delta. The
+dated Clothing projection consumes it without rewriting snapshots, dates,
+stock, payment flags, cash or journals. Reports before the approval date remain
+unconfirmed; approved costs replace mutable catalog fallback for the scoped
+movements. Existing correction/return projection handles linked return costs.
+The operational entry point is
+`npx tsx scripts/tmp/reconcile-approved-clothing-costs.ts development` (read-only
+preflight); `--apply` creates and verifies a fresh backup before writing the
+exact owner-approved scope. Use `production` only with explicit authorization.
+No UI/API route is added or permission relaxed. GM retains its separate reader.
+
 [inventory-valuation](../../../src/lib/accounting/inventory-valuation.ts) owns
 administrator confirmation/correction, with the protected
 [valuation API](../../../src/app/api/accounting/inventory-valuation/route.ts).

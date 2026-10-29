@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useRef, useState } from 'react';
+import React, { useId, useRef, useState } from 'react';
 import {
   Alert,
   Button,
@@ -11,7 +11,12 @@ import {
   Textarea,
 } from '@mantine/core';
 import { UniversalModal } from '@/components/modals/UniversalModal';
-import { IconAlertTriangle, IconCheck } from '@tabler/icons-react';
+import {
+  IconAlertTriangle,
+  IconCheck,
+  IconChevronDown,
+  IconChevronUp,
+} from '@tabler/icons-react';
 import { api } from '@/lib/api/client';
 import { randomUuid } from '@/lib/utils/randomUuid';
 import type {
@@ -23,13 +28,17 @@ type Props = {
   valuation?: InventoryValuationSummary;
   canConfirm?: boolean;
   onConfirmed?: () => void | Promise<unknown>;
+  defaultDetailsOpened?: boolean;
 };
 
 export function InventoryValuationNotice({
   valuation,
   canConfirm = false,
   onConfirmed,
+  defaultDetailsOpened = false,
 }: Props) {
+  const [detailsOpened, setDetailsOpened] = useState(defaultDetailsOpened);
+  const detailsId = useId();
   const [selected, setSelected] = useState<InventoryValuationIssue | null>(
     null
   );
@@ -77,68 +86,89 @@ export function InventoryValuationNotice({
         icon={<IconAlertTriangle size={19} />}
         role="alert"
       >
-        <Text size="sm" mb="sm">
-          Unconfirmed valuation: {valuation.affectedQuantity} units in{' '}
-          {valuation.issues.length}{' '}
-          {valuation.issues.length === 1 ? 'movement' : 'movements'}.
-        </Text>
-        <Table.ScrollContainer minWidth={560}>
-          <Table>
-            <Table.Thead>
-              <Table.Tr>
-                <Table.Th>Product / Movement</Table.Th>
-                <Table.Th>Date</Table.Th>
-                <Table.Th>Quantity</Table.Th>
-                <Table.Th>Cost Status</Table.Th>
-                {canConfirm && <Table.Th>Review</Table.Th>}
-              </Table.Tr>
-            </Table.Thead>
-            <Table.Tbody>
-              {valuation.issues.map((issue) => (
-                <Table.Tr
-                  key={`${issue.movementId ?? `${issue.productCode}:${issue.date}:${issue.direction}`}:${issue.reason}`}
-                >
-                  <Table.Td>
-                    {issue.productCode}
-                    <Text size="xs">
-                      {issue.movementId
-                        ? `Movement #${issue.movementId}`
-                        : 'Legacy movement'}{' '}
-                      | {issue.direction}
-                    </Text>
-                  </Table.Td>
-                  <Table.Td>{issue.date}</Table.Td>
-                  <Table.Td>{issue.quantity}</Table.Td>
-                  <Table.Td>
-                    {issue.reason === 'LEGACY_PRODUCT_COST'
-                      ? 'Current product cost used; snapshot missing'
-                      : issue.reason === 'INVALID_COST'
-                        ? 'Invalid cost'
-                        : 'Cost unknown'}
-                  </Table.Td>
-                  {canConfirm && (
-                    <Table.Td>
-                      {issue.movementId && (
-                        <Button
-                          size="xs"
-                          variant="subtle"
-                          leftSection={<IconCheck size={14} />}
-                          onClick={() => {
-                            setSelected(issue);
-                            setReason('');
-                            setError(null);
-                          }}
-                        >
-                          Confirm zero cost
-                        </Button>
-                      )}
-                    </Table.Td>
-                  )}
+        <Group justify="space-between" gap="xs">
+          <Text size="sm">
+            Unconfirmed valuation: {valuation.affectedQuantity} units in{' '}
+            {valuation.issues.length}{' '}
+            {valuation.issues.length === 1 ? 'movement' : 'movements'}.
+          </Text>
+          <Button
+            size="xs"
+            variant="subtle"
+            color="orange"
+            aria-expanded={detailsOpened}
+            aria-controls={detailsId}
+            leftSection={
+              detailsOpened ? (
+                <IconChevronUp size={14} />
+              ) : (
+                <IconChevronDown size={14} />
+              )
+            }
+            onClick={() => setDetailsOpened((opened) => !opened)}
+          >
+            {detailsOpened ? 'Hide cost details' : 'Review cost details'}
+          </Button>
+        </Group>
+        {detailsOpened && (
+          <Table.ScrollContainer id={detailsId} minWidth={560} mt="sm">
+            <Table>
+              <Table.Thead>
+                <Table.Tr>
+                  <Table.Th>Product / Movement</Table.Th>
+                  <Table.Th>Date</Table.Th>
+                  <Table.Th>Quantity</Table.Th>
+                  <Table.Th>Cost Status</Table.Th>
+                  {canConfirm && <Table.Th>Review</Table.Th>}
                 </Table.Tr>
-              ))}
-            </Table.Tbody>
-          </Table>
-        </Table.ScrollContainer>
+              </Table.Thead>
+              <Table.Tbody>
+                {valuation.issues.map((issue) => (
+                  <Table.Tr
+                    key={`${issue.movementId ?? `${issue.productCode}:${issue.date}:${issue.direction}`}:${issue.reason}`}
+                  >
+                    <Table.Td>
+                      {issue.productCode}
+                      <Text size="xs">
+                        {issue.movementId
+                          ? `Movement #${issue.movementId}`
+                          : 'Legacy movement'}{' '}
+                        | {issue.direction}
+                      </Text>
+                    </Table.Td>
+                    <Table.Td>{issue.date}</Table.Td>
+                    <Table.Td>{issue.quantity}</Table.Td>
+                    <Table.Td>
+                      {issue.reason === 'LEGACY_PRODUCT_COST'
+                        ? 'Current product cost used; snapshot missing'
+                        : issue.reason === 'INVALID_COST'
+                          ? 'Invalid cost'
+                          : 'Cost unknown'}
+                    </Table.Td>
+                    {canConfirm && (
+                      <Table.Td>
+                        {issue.movementId && (
+                          <Button
+                            size="xs"
+                            variant="subtle"
+                            leftSection={<IconCheck size={14} />}
+                            onClick={() => {
+                              setSelected(issue);
+                              setReason('');
+                              setError(null);
+                            }}
+                          >
+                            Confirm zero cost
+                          </Button>
+                        )}
+                      </Table.Td>
+                    )}
+                  </Table.Tr>
+                ))}
+              </Table.Tbody>
+            </Table>
+          </Table.ScrollContainer>
+        )}
       </Alert>
       <UniversalModal
         opened={selected !== null}
