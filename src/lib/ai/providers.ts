@@ -1,7 +1,6 @@
-import dns from 'node:dns';
 import fs from 'node:fs';
-import https from 'node:https';
 import path from 'node:path';
+import { providerFetch } from './provider-http';
 import type {
   AiConnectionTestResult,
   AiGenerationResult,
@@ -10,138 +9,6 @@ import type {
   AiToolDefinition,
   AiToolExecutionContext,
 } from './types';
-
-try {
-  dns.setDefaultResultOrder('ipv4first');
-} catch {
-  // Ignore if unsupported in current runtime
-}
-
-interface SimpleFetchResponse {
-  ok: boolean;
-  status: number;
-  json: () => Promise<unknown>;
-  text: () => Promise<string>;
-}
-
-const ipv4Agent = new https.Agent({
-  keepAlive: true,
-  maxSockets: 16,
-});
-
-const ipv4HostCache = new Map<string, { ip: string; expiresAt: number }>();
-
-async function resolveIpv4Host(hostname: string): Promise<string> {
-  const cached = ipv4HostCache.get(hostname);
-  if (cached && cached.expiresAt > Date.now()) {
-    return cached.ip;
-  }
-  try {
-    const ips = await dns.promises.resolve4(hostname);
-    if (ips[0]) {
-      ipv4HostCache.set(hostname, {
-        ip: ips[0],
-        expiresAt: Date.now() + 10 * 60 * 1000,
-      });
-      return ips[0];
-    }
-  } catch {
-    // Fallback to hostname if resolve4 fails
-  }
-  return hostname;
-}
-
-/**
- * IPv4-first HTTP helper for cloud AI endpoints.
- * Prevents 30s+ undici IPv6/getaddrinfo timeouts on dual-stack Linux networks,
- * while automatically deferring to `globalThis.fetch` for http:// (local Ollama)
- * or when `fetch` is stubbed in unit tests.
- */
-async function providerFetch(
-  url: string,
-  init?: {
-    method?: string;
-    headers?: Record<string, string>;
-    body?: string;
-    signal?: AbortSignal;
-  }
-): Promise<SimpleFetchResponse> {
-  const isMockedFetch =
-    typeof globalThis.fetch === 'function' && 'mock' in globalThis.fetch;
-
-  if (isMockedFetch || !url.startsWith('https://')) {
-    return globalThis.fetch(url, init);
-  }
-
-  const parsedUrl = new URL(url);
-  const resolvedIp = await resolveIpv4Host(parsedUrl.hostname);
-
-  return new Promise<SimpleFetchResponse>((resolve, reject) => {
-    const req = https.request(
-      {
-        protocol: parsedUrl.protocol,
-        hostname: parsedUrl.hostname,
-        port: parsedUrl.port || 443,
-        path: `${parsedUrl.pathname}${parsedUrl.search}`,
-        method: init?.method || 'GET',
-        headers: init?.headers,
-        family: 4,
-        agent: ipv4Agent,
-        lookup: (_host, opts, cb) => {
-          const all = Boolean(
-            opts && typeof opts === 'object' && 'all' in opts && opts.all
-          );
-          if (all) {
-            cb(null, [{ address: resolvedIp, family: 4 }]);
-          } else {
-            cb(null, resolvedIp, 4);
-          }
-        },
-      },
-      (res) => {
-        const chunks: Buffer[] = [];
-        res.on('data', (chunk: Buffer) => chunks.push(chunk));
-        res.on('end', () => {
-          const rawText = Buffer.concat(chunks).toString('utf8');
-          const status = res.statusCode ?? 500;
-          resolve({
-            ok: status >= 200 && status < 300,
-            status,
-            text: async () => rawText,
-            json: async () => {
-              try {
-                return JSON.parse(rawText) as unknown;
-              } catch {
-                return {};
-              }
-            },
-          });
-        });
-      }
-    );
-
-    if (init?.signal) {
-      if (init.signal.aborted) {
-        req.destroy(new Error('Request timed out'));
-        return;
-      }
-      init.signal.addEventListener(
-        'abort',
-        () => {
-          req.destroy(new Error('Request timed out'));
-        },
-        { once: true }
-      );
-    }
-
-    req.on('error', (err) => reject(err));
-
-    if (init?.body) {
-      req.write(init.body);
-    }
-    req.end();
-  });
-}
 
 export const RECOMMENDED_MODELS: Record<AiProviderId, string[]> = {
   ollama: ['qwen3:8b', 'qwen3:14b', 'qwen3:4b', 'qwen3:32b', 'llama3.1:8b'],
@@ -152,6 +19,7 @@ export const RECOMMENDED_MODELS: Record<AiProviderId, string[]> = {
     'gemini-pro-latest',
   ],
   openai: ['gpt-4o-mini', 'gpt-4o', 'o3-mini'],
+  copilot: ['auto'],
 };
 
 const MODEL_PRICING_PER_MILLION: Record<
@@ -174,7 +42,7 @@ export function estimateModelCostUsd(
   inputTokens: number,
   outputTokens: number
 ): number {
-  if (provider === 'ollama') {
+  if (provider === 'ollama' || provider === 'copilot') {
     return 0;
   }
 
@@ -267,6 +135,10 @@ export async function discoverProviderModels(
   const timer = setTimeout(() => controller.abort(), 4500);
 
   try {
+    if (provider === 'copilot') {
+      const { discoverCopilotModels } = await import('./copilot-provider');
+      return await discoverCopilotModels();
+    }
     if (provider === 'ollama') {
       const cleanBase = ollamaBaseUrl.replace(/\/+$/, '').replace(/\/v1$/, '');
       const res = await providerFetch(`${cleanBase}/api/tags`, {
@@ -365,6 +237,7 @@ export async function testProviderConnection(params: {
       ollamaBaseUrl: ollamaBase,
       systemPrompt: 'Reply with the single word READY.',
       userPrompt: 'READY',
+      isSyntheticTest: true,
       tools: [],
       toolContext: {
         userId: null,
@@ -418,11 +291,16 @@ export interface GenerateWithProviderParams {
   toolContext: AiToolExecutionContext;
   timeoutMs?: number;
   maxOutputTokens?: number;
+  isSyntheticTest?: boolean;
 }
 
 export async function generateWithProvider(
   params: GenerateWithProviderParams
 ): Promise<Omit<AiGenerationResult, 'usedFallback'>> {
+  if (params.provider === 'copilot') {
+    const { generateWithCopilot } = await import('./copilot-provider');
+    return generateWithCopilot(params);
+  }
   if (params.provider === 'google') {
     return generateWithGemini(params);
   }
@@ -724,11 +602,19 @@ async function generateWithGemini(
         }
       }
 
-      // If experiencing temporary free-tier demand spike (503/429), wait briefly and retry cleanly (up to 2 times)
+      const rawErrMsg = data?.error?.message || '';
+      const isDailyQuotaExhausted =
+        response.status === 429 &&
+        /exceeded your current quota|requests per day|free_tier_requests/i.test(
+          rawErrMsg
+        );
+
+      // Only retry transient 503 demand spikes (never retry daily quota exhaustion)
       for (
         let backoffAttempt = 0;
         !response.ok &&
-        (response.status === 503 || response.status === 429) &&
+        !isDailyQuotaExhausted &&
+        response.status === 503 &&
         backoffAttempt < 2;
         backoffAttempt += 1
       ) {
@@ -748,6 +634,21 @@ async function generateWithGemini(
       }
 
       if (!response.ok) {
+        if (isDailyQuotaExhausted) {
+          const limitMatch = rawErrMsg.match(/limit:\s*(\d+)/i);
+          const retryMatch = rawErrMsg.match(
+            /Please retry in\s+([^.\n]+(?:\.\d+s)?)/i
+          );
+          const limitInfo = limitMatch
+            ? ` (daily limit: ${limitMatch[1]} requests)`
+            : '';
+          const retryInfo = retryMatch
+            ? ` Retry in ${retryMatch[1].trim()}.`
+            : '';
+          throw new Error(
+            `Gemini Free Tier daily request quota reached for ${effectiveModel}${limitInfo}.${retryInfo} Local deterministic PostgreSQL monitoring remains active.`
+          );
+        }
         throw new Error(
           data?.error?.message ||
             `Gemini request failed with HTTP ${response.status}`

@@ -1,4 +1,5 @@
 import { prisma } from '@/lib/db';
+import type { Prisma } from '@prisma/client';
 
 function genId(): string {
   return globalThis.crypto?.randomUUID
@@ -471,41 +472,36 @@ export async function upsertMonitoringAlertInStore(item: {
   `;
 }
 
-export async function autoResolveStaleAlertsInStore(
-  activeDedupeKeys: string[],
-  now: Date
-): Promise<number> {
-  if (typeof prisma.aiMonitoringAlert?.findMany === 'function') {
-    const staleOpenAlerts = await prisma.aiMonitoringAlert.findMany({
-      where: {
-        status: 'OPEN',
-        ...(activeDedupeKeys.length > 0
-          ? { dedupeKey: { notIn: activeDedupeKeys } }
-          : {}),
-      },
-      select: { id: true },
-    });
-    if (staleOpenAlerts.length === 0) {
-      return 0;
-    }
-    const res = await prisma.aiMonitoringAlert.updateMany({
-      where: { id: { in: staleOpenAlerts.map((a) => a.id) } },
-      data: { status: 'RESOLVED', resolvedAt: now },
-    });
-    return res.count;
-  }
+export type ClothingAlertSnapshot = Pick<
+  MonitoringAlertStoreRow,
+  'id' | 'dedupeKey' | 'evidenceJson'
+> & { updatedAtToken: string };
 
-  if (activeDedupeKeys.length === 0) {
-    return prisma.$executeRaw`
-      UPDATE public.ai_monitoring_alerts
-      SET status = 'RESOLVED', "resolvedAt" = ${now}, "updatedAt" = CURRENT_TIMESTAMP
-      WHERE status = 'OPEN'
-    `;
-  }
-
-  return prisma.$executeRaw`
-    UPDATE public.ai_monitoring_alerts
-    SET status = 'RESOLVED', "resolvedAt" = ${now}, "updatedAt" = CURRENT_TIMESTAMP
-    WHERE status = 'OPEN' AND NOT ("dedupeKey" = ANY(${activeDedupeKeys}::text[]))
+export async function getOpenClothingTransactionAlertsInStore(
+  client: Pick<Prisma.TransactionClient, '$queryRaw'> = prisma
+): Promise<ClothingAlertSnapshot[]> {
+  return client.$queryRaw<ClothingAlertSnapshot[]>`
+    SELECT id, "dedupeKey", extract(epoch FROM "updatedAt")::text AS "updatedAtToken", "evidenceJson"
+    FROM public.ai_monitoring_alerts
+    WHERE status = 'OPEN' AND "businessUnit" = 'clothing'
+      AND category IN ('ACCOUNTING_MISMATCH', 'INVOICE_OVERDUE')
   `;
+}
+
+export async function autoResolveStaleAlertsInStore(
+  candidates: ClothingAlertSnapshot[],
+  now: Date,
+  client: Pick<Prisma.TransactionClient, '$executeRaw'> = prisma
+): Promise<number> {
+  let count = 0;
+  for (const candidate of candidates) {
+    count += await client.$executeRaw`
+        UPDATE public.ai_monitoring_alerts
+        SET status = 'RESOLVED', "resolvedAt" = ${now}, "updatedAt" = CURRENT_TIMESTAMP
+        WHERE id = ${candidate.id} AND status = 'OPEN' AND "businessUnit" = 'clothing'
+          AND "dedupeKey" = ${candidate.dedupeKey}
+          AND extract(epoch FROM "updatedAt") = ${candidate.updatedAtToken}::numeric
+      `;
+  }
+  return count;
 }

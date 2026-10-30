@@ -2,6 +2,8 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mockPrisma = vi.hoisted(() => ({
   $executeRawUnsafe: vi.fn().mockResolvedValue(0),
+  $queryRaw: vi.fn(),
+  $executeRaw: vi.fn(),
   aiAssistantSetting: {
     upsert: vi.fn(),
   },
@@ -52,10 +54,29 @@ import {
   runDeterministicBusinessMonitor,
   updateAiAssistantSettings,
 } from '../index';
+import { collectDeterministicAnomalies } from '../monitors';
+import {
+  autoResolveStaleAlertsInStore,
+  getOpenClothingTransactionAlertsInStore,
+} from '../store';
 
 describe('AI Business Assistant — Safety, RBAC & Deterministic Monitoring', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockPrisma.$queryRaw.mockResolvedValue([]);
+    mockPrisma.$executeRaw.mockResolvedValue(0);
+    for (const model of [
+      mockPrisma.transaction,
+      mockPrisma.generalMerchandiseTransaction,
+      mockPrisma.truckingInvoice,
+      mockPrisma.clothingRecurringPaymentTemplate,
+      mockPrisma.generalMerchandiseRecurringPaymentTemplate,
+      mockPrisma.product,
+      mockPrisma.generalMerchandiseProduct,
+      mockPrisma.aiMonitoringAlert,
+    ]) {
+      model.findMany.mockResolvedValue([]);
+    }
 
     mockPrisma.aiAuditLog.aggregate.mockResolvedValue({
       _sum: { inputTokens: 1200, outputTokens: 400, estimatedCostUsd: 0 },
@@ -135,24 +156,27 @@ describe('AI Business Assistant — Safety, RBAC & Deterministic Monitoring', ()
     ).rejects.toThrow(/Access denied/i);
   });
 
-  it('blocks cloud providers when allowCloudDataSharing is false', async () => {
-    const context = {
-      userId: 'admin-1',
-      userRole: 'SUPER_ADMIN',
-      accessibleModules: [],
-      allowedBusinessUnits: ['clothing' as const],
-    };
+  it.each(['google', 'copilot'] as const)(
+    'blocks %s when allowCloudDataSharing is false',
+    async (provider) => {
+      const context = {
+        userId: 'admin-1',
+        userRole: 'SUPER_ADMIN',
+        accessibleModules: [],
+        allowedBusinessUnits: ['clothing' as const],
+      };
 
-    await expect(
-      runBusinessAiAssistant({
-        userPrompt: 'Show overdue clothing invoices',
-        triggerSource: 'USER_CHAT',
-        toolContext: context,
-        providerOverride: 'google',
-        modelOverride: 'gemini-2.5-flash',
-      })
-    ).rejects.toThrow(/Cloud Data Sharing is disabled/i);
-  });
+      await expect(
+        runBusinessAiAssistant({
+          userPrompt: 'Show overdue clothing invoices',
+          triggerSource: 'USER_CHAT',
+          toolContext: context,
+          providerOverride: provider,
+          modelOverride: 'gemini-2.5-flash',
+        })
+      ).rejects.toThrow(/Cloud Data Sharing is disabled/i);
+    }
+  );
 
   it('prevents configuring a cloud fallback provider while Cloud Data Sharing is disabled', async () => {
     await expect(
@@ -227,6 +251,55 @@ describe('AI Business Assistant — Safety, RBAC & Deterministic Monitoring', ()
     }
   });
 
+  it.each([4, -4, 10, -10])(
+    'uses net clothing prices with discount %s',
+    async (discount) => {
+      mockPrisma.transaction.findMany.mockResolvedValue([
+        {
+          id: 3607,
+          quantity: 30,
+          unitPrice: 22,
+          discount,
+          adjustment: 660,
+          lineTotal: 0,
+          orderStatus: 'Shipped',
+        },
+      ]);
+      expect(await collectDeterministicAnomalies()).toEqual([]);
+    }
+  );
+
+  it.each(['Cancelled', 'Voided', 'Forfeited'])(
+    'checks closed %s balances without open receivables',
+    async (orderStatus) => {
+      mockPrisma.transaction.findMany.mockResolvedValue([
+        {
+          id: 3673,
+          quantity: 10,
+          unitPrice: 290,
+          adjustment: 580,
+          lineTotal: 0,
+          orderStatus,
+        },
+        {
+          id: 3677,
+          quantity: 3,
+          unitPrice: 290,
+          adjustment: 174,
+          lineTotal: 696,
+          orderStatus,
+          accountsReceivableDueAt: new Date('2020-01-01'),
+        },
+      ]);
+      const anomalies = await collectDeterministicAnomalies();
+      expect(anomalies).toHaveLength(1);
+      expect(anomalies[0].dedupeKey).toBe(
+        'clothing:cancelled-nonzero-balance:3677'
+      );
+      expect(anomalies[0].severity).toBe('CRITICAL');
+    }
+  );
+
   it('detects deterministic accounting mismatches across business units and deduplicates alerts', async () => {
     mockPrisma.transaction.findMany.mockResolvedValue([
       {
@@ -259,10 +332,15 @@ describe('AI Business Assistant — Safety, RBAC & Deterministic Monitoring', ()
     );
     mockPrisma.product.findMany.mockResolvedValue([]);
     mockPrisma.generalMerchandiseProduct.findMany.mockResolvedValue([]);
-    mockPrisma.aiMonitoringAlert.findMany.mockResolvedValue([
-      { id: 'stale-alert-1' },
+    mockPrisma.$queryRaw.mockResolvedValue([
+      {
+        id: 'stale-alert-1',
+        dedupeKey: 'clothing:line-formula-mismatch:1042',
+        evidenceJson: { transactionId: 1042 },
+        updatedAtToken: '1790812800.123456',
+      },
     ]);
-    mockPrisma.aiMonitoringAlert.updateMany.mockResolvedValue({ count: 1 });
+    mockPrisma.$executeRaw.mockResolvedValue(1);
 
     const summary = await runDeterministicBusinessMonitor();
 
@@ -271,5 +349,236 @@ describe('AI Business Assistant — Safety, RBAC & Deterministic Monitoring', ()
     expect(summary.byBusinessUnit.trucking).toBe(1);
     expect(summary.autoResolvedCount).toBe(1);
     expect(mockPrisma.aiMonitoringAlert.upsert).toHaveBeenCalledTimes(2);
+  });
+
+  it.each(['clothing', 'general-merchandise'] as const)(
+    'preserves %s pricing in the AI tool',
+    async (businessUnit) => {
+      const row = {
+        id: 1,
+        quantity: 30,
+        unitPrice: 22,
+        discount: -4,
+        adjustment: 660,
+        lineTotal: 0,
+        orderStatus: 'Shipped',
+      };
+      mockPrisma.transaction.findMany.mockResolvedValue([row]);
+      mockPrisma.generalMerchandiseTransaction.findMany.mockResolvedValue([
+        row,
+      ]);
+      const tool = READ_ONLY_BUSINESS_TOOLS.find(
+        (item) => item.name === 'getAccountingDiscrepancies'
+      );
+      if (!tool) {
+        throw new Error('Accounting tool missing');
+      }
+      const result = await tool.execute(
+        { businessUnit },
+        {
+          userId: 'admin',
+          userRole: 'ADMIN',
+          accessibleModules: [],
+          allowedBusinessUnits: [businessUnit],
+        }
+      );
+      expect(result).toMatchObject({
+        anomalyCount: businessUnit === 'clothing' ? 0 : 1,
+      });
+    }
+  );
+
+  it.each(['Cancelled', 'Voided', 'Forfeited'])(
+    'checks %s residual balances in the AI tool',
+    async (orderStatus) => {
+      mockPrisma.transaction.findMany.mockResolvedValue([
+        {
+          id: 1,
+          quantity: 10,
+          unitPrice: 290,
+          adjustment: 580,
+          lineTotal: 0,
+          orderStatus,
+        },
+        {
+          id: 2,
+          quantity: 10,
+          unitPrice: 290,
+          adjustment: 580,
+          lineTotal: 2320,
+          orderStatus,
+        },
+      ]);
+      const tool = READ_ONLY_BUSINESS_TOOLS.find(
+        (item) => item.name === 'getAccountingDiscrepancies'
+      );
+      if (!tool) {
+        throw new Error('Accounting tool missing');
+      }
+      expect(
+        await tool.execute(
+          { businessUnit: 'clothing' },
+          {
+            userId: 'admin',
+            userRole: 'ADMIN',
+            accessibleModules: [],
+            allowedBusinessUnits: ['clothing'],
+          }
+        )
+      ).toMatchObject({ anomalyCount: 1, anomalies: [{ transactionId: 2 }] });
+    }
+  );
+
+  it('preserves the general merchandise discount formula in the monitor', async () => {
+    mockPrisma.generalMerchandiseTransaction.findMany.mockResolvedValue([
+      {
+        id: 1,
+        quantity: 2,
+        unitPrice: 100,
+        discount: 10,
+        adjustment: 0,
+        lineTotal: 190,
+        orderStatus: 'Warehouse',
+      },
+    ]);
+    expect(await collectDeterministicAnomalies()).toEqual([]);
+  });
+
+  it('retains the #3395 critical anomaly and complete pricing evidence', async () => {
+    mockPrisma.transaction.findMany.mockResolvedValue([
+      {
+        id: 3395,
+        quantity: 150,
+        unitPrice: 54,
+        discount: 0,
+        adjustment: 15390,
+        lineTotal: -7290,
+        orderStatus: 'Shipped',
+      },
+    ]);
+    expect(await collectDeterministicAnomalies()).toMatchObject([
+      {
+        dedupeKey: 'clothing:paid-nonzero-balance:3395',
+        severity: 'CRITICAL',
+        evidenceJson: {
+          quantity: 150,
+          unitPrice: 54,
+          discount: 0,
+          orderStatus: 'Shipped',
+          lineTotal: -7290,
+        },
+      },
+    ]);
+  });
+
+  it.each([0, 20])(
+    're-fetches old referenced alerts and resolves only cleared balances (%s)',
+    async (lineTotal) => {
+      const updatedAtToken = '1790812800.123456';
+      mockPrisma.$queryRaw.mockResolvedValue([
+        {
+          id: 'old',
+          dedupeKey: 'clothing:line-formula-mismatch:1',
+          evidenceJson: { transactionId: 1 },
+          updatedAtToken,
+        },
+      ]);
+      mockPrisma.transaction.findMany
+        .mockResolvedValueOnce([])
+        .mockResolvedValueOnce([
+          {
+            id: 1,
+            quantity: 1,
+            unitPrice: 100,
+            adjustment: 100,
+            lineTotal,
+            orderStatus: 'Warehouse',
+          },
+        ]);
+      mockPrisma.$executeRaw.mockResolvedValue(1);
+      const result = await runDeterministicBusinessMonitor();
+      expect(mockPrisma.transaction.findMany).toHaveBeenNthCalledWith(2, {
+        where: { deletedAt: null, id: { in: [1] } },
+      });
+      expect(result.autoResolvedCount).toBe(lineTotal === 0 ? 1 : 0);
+      if (lineTotal === 0) {
+        expect(mockPrisma.$executeRaw.mock.calls[0]).toContain(updatedAtToken);
+      } else {
+        expect(mockPrisma.$executeRaw).not.toHaveBeenCalled();
+      }
+    }
+  );
+
+  it('preserves missing records, unsupported keys and malformed evidence', async () => {
+    mockPrisma.$queryRaw.mockResolvedValue([
+      {
+        id: 'missing',
+        dedupeKey: 'clothing:line-formula-mismatch:1',
+        evidenceJson: { transactionId: 1 },
+      },
+      {
+        id: 'bad',
+        dedupeKey: 'clothing:line-formula-mismatch:2',
+        evidenceJson: {},
+      },
+      {
+        id: 'other',
+        dedupeKey: 'clothing:recurring-due:2',
+        evidenceJson: { transactionId: 2 },
+      },
+    ]);
+    expect((await runDeterministicBusinessMonitor()).autoResolvedCount).toBe(0);
+    expect(mockPrisma.$executeRaw).not.toHaveBeenCalled();
+    expect(mockPrisma.$queryRaw.mock.calls[0][0].join('')).toContain(
+      "status = 'OPEN' AND \"businessUnit\" = 'clothing'"
+    );
+  });
+
+  it('does not resolve anything after a failed scan', async () => {
+    mockPrisma.transaction.findMany.mockRejectedValueOnce(
+      new Error('query failed')
+    );
+    await expect(runDeterministicBusinessMonitor()).rejects.toThrow(
+      'query failed'
+    );
+    expect(mockPrisma.$executeRaw).not.toHaveBeenCalled();
+  });
+
+  it('keeps concurrently refreshed candidates and supports the SQL fallback', async () => {
+    const candidate = {
+      id: 'old',
+      dedupeKey: 'clothing:line-formula-mismatch:1',
+      evidenceJson: { transactionId: 1 },
+      updatedAtToken: '1790812800.123456',
+    };
+    mockPrisma.$executeRaw.mockResolvedValue(0);
+    expect(await autoResolveStaleAlertsInStore([candidate], new Date())).toBe(
+      0
+    );
+    mockPrisma.$executeRaw.mockClear();
+    const findMany = mockPrisma.aiMonitoringAlert.findMany;
+    const updateMany = mockPrisma.aiMonitoringAlert.updateMany;
+    try {
+      Object.assign(mockPrisma.aiMonitoringAlert, {
+        findMany: undefined,
+        updateMany: undefined,
+      });
+      mockPrisma.$queryRaw.mockResolvedValue([candidate]);
+      mockPrisma.$executeRaw.mockResolvedValue(1);
+      expect(await getOpenClothingTransactionAlertsInStore()).toEqual([
+        candidate,
+      ]);
+      expect(await autoResolveStaleAlertsInStore([candidate], new Date())).toBe(
+        1
+      );
+      const [sql, ...values] = mockPrisma.$executeRaw.mock.calls[0];
+      expect(sql.join('')).toContain('extract(epoch FROM "updatedAt") = ');
+      expect(sql.join('')).toContain("status = 'OPEN'");
+      expect(values).toContain(candidate.updatedAtToken);
+      expect(await autoResolveStaleAlertsInStore([], new Date())).toBe(0);
+      expect(mockPrisma.$executeRaw).toHaveBeenCalledTimes(1);
+    } finally {
+      Object.assign(mockPrisma.aiMonitoringAlert, { findMany, updateMany });
+    }
   });
 });

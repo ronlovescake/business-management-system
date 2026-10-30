@@ -19,6 +19,7 @@ import {
 import {
   IconAlertTriangle,
   IconCheck,
+  IconCopy,
   IconExternalLink,
   IconMessageChatbot,
   IconRadar,
@@ -39,7 +40,44 @@ interface MonitoringAlertItem {
   aiExplanation: string | null;
   aiModelUsed: string | null;
   sourceLink: string | null;
+  evidenceJson?: Record<string, unknown> | null;
   lastDetectedAt: string;
+}
+
+function formatSingleAlertForCopy(alert: MonitoringAlertItem): string {
+  const lines = [
+    `[${alert.severity}] [${alert.businessUnit.toUpperCase()}] [${alert.category}] ${alert.title}`,
+    `Summary: ${alert.deterministicSummary}`,
+  ];
+  if (alert.sourceLink) {
+    lines.push(`Source Path: ${alert.sourceLink}`);
+  }
+  if (alert.evidenceJson && Object.keys(alert.evidenceJson).length > 0) {
+    lines.push(`Evidence JSON: ${JSON.stringify(alert.evidenceJson)}`);
+  }
+  if (alert.aiExplanation) {
+    lines.push(`AI Explanation: ${alert.aiExplanation}`);
+  }
+  return lines.join('\n');
+}
+
+function formatAllAlertsForCopy(
+  alerts: MonitoringAlertItem[],
+  unitFilter: string,
+  statusFilter: string
+): string {
+  const header = [
+    `# Deterministic Monitoring & Anomaly Report`,
+    `- Scope: ${unitFilter}`,
+    `- Status Filter: ${statusFilter}`,
+    `- Total Alerts: ${alerts.length}`,
+    `- Exported At: ${new Date().toISOString()}`,
+    '',
+  ];
+  const body = alerts.map(
+    (alert, idx) => `${idx + 1}. ${formatSingleAlertForCopy(alert)}`
+  );
+  return [...header, ...body].join('\n\n');
 }
 
 export function AiAssistantWorkspaceCard() {
@@ -57,6 +95,31 @@ export function AiAssistantWorkspaceCard() {
   const [askingAi, setAskingAi] = useState(false);
   const [chatResult, setChatResult] = useState<AiGenerationResult | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [copiedKey, setCopiedKey] = useState<string | null>(null);
+
+  const handleCopyText = async (key: string, text: string) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopiedKey(key);
+      setTimeout(() => {
+        setCopiedKey((prev) => (prev === key ? null : prev));
+      }, 2000);
+    } catch {
+      // Fallback for non-HTTPS local LAN origins if navigator.clipboard is restricted
+      const textarea = document.createElement('textarea');
+      textarea.value = text;
+      textarea.style.position = 'fixed';
+      textarea.style.opacity = '0';
+      document.body.appendChild(textarea);
+      textarea.select();
+      document.execCommand('copy');
+      document.body.removeChild(textarea);
+      setCopiedKey(key);
+      setTimeout(() => {
+        setCopiedKey((prev) => (prev === key ? null : prev));
+      }, 2000);
+    }
+  };
 
   const fetchAlerts = useCallback(async () => {
     setLoadingAlerts(true);
@@ -248,6 +311,29 @@ export function AiAssistantWorkspaceCard() {
             </div>
 
             <Group gap="sm">
+              {alerts.length > 0 && (
+                <Button
+                  variant="default"
+                  leftSection={
+                    copiedKey === 'all-alerts' ? (
+                      <IconCheck size={16} />
+                    ) : (
+                      <IconCopy size={16} />
+                    )
+                  }
+                  color={copiedKey === 'all-alerts' ? 'teal' : undefined}
+                  onClick={() =>
+                    handleCopyText(
+                      'all-alerts',
+                      formatAllAlertsForCopy(alerts, unitFilter, statusFilter)
+                    )
+                  }
+                >
+                  {copiedKey === 'all-alerts'
+                    ? `Copied ${alerts.length} Alerts!`
+                    : `Copy All Results (${alerts.length})`}
+                </Button>
+              )}
               <Button
                 variant="light"
                 color="teal"
@@ -303,11 +389,28 @@ export function AiAssistantWorkspaceCard() {
                 <Text fw={700} size="sm">
                   Daily Multi-Business Executive Briefing
                 </Text>
-                {briefingNotice && (
-                  <Badge color="orange" variant="light">
-                    Deterministic Fallback ({briefingNotice})
-                  </Badge>
-                )}
+                <Group gap="xs">
+                  {briefingNotice && (
+                    <Badge color="orange" variant="light">
+                      Deterministic Fallback ({briefingNotice})
+                    </Badge>
+                  )}
+                  <Button
+                    size="compact-xs"
+                    variant="white"
+                    color={copiedKey === 'briefing' ? 'teal' : 'dark'}
+                    leftSection={
+                      copiedKey === 'briefing' ? (
+                        <IconCheck size={12} />
+                      ) : (
+                        <IconCopy size={12} />
+                      )
+                    }
+                    onClick={() => handleCopyText('briefing', briefingText)}
+                  >
+                    {copiedKey === 'briefing' ? 'Copied' : 'Copy Briefing'}
+                  </Button>
+                </Group>
               </Group>
               <Code block style={{ whiteSpace: 'pre-wrap' }}>
                 {briefingText}
@@ -360,6 +463,30 @@ export function AiAssistantWorkspaceCard() {
                       </Group>
 
                       <Group gap="xs">
+                        <Button
+                          size="compact-xs"
+                          variant="subtle"
+                          color={
+                            copiedKey === `alert-${alert.id}` ? 'teal' : 'gray'
+                          }
+                          leftSection={
+                            copiedKey === `alert-${alert.id}` ? (
+                              <IconCheck size={12} />
+                            ) : (
+                              <IconCopy size={12} />
+                            )
+                          }
+                          onClick={() =>
+                            handleCopyText(
+                              `alert-${alert.id}`,
+                              formatSingleAlertForCopy(alert)
+                            )
+                          }
+                        >
+                          {copiedKey === `alert-${alert.id}`
+                            ? 'Copied'
+                            : 'Copy'}
+                        </Button>
                         {alert.sourceLink && (
                           <Button
                             component={Link}
@@ -528,6 +655,23 @@ export function AiAssistantWorkspaceCard() {
                       {chatResult.inputTokens + chatResult.outputTokens} tokens
                       (${chatResult.estimatedCostUsd.toFixed(6)})
                     </Badge>
+                    <Button
+                      size="compact-xs"
+                      variant="default"
+                      color={copiedKey === 'chat-result' ? 'teal' : undefined}
+                      leftSection={
+                        copiedKey === 'chat-result' ? (
+                          <IconCheck size={12} />
+                        ) : (
+                          <IconCopy size={12} />
+                        )
+                      }
+                      onClick={() =>
+                        handleCopyText('chat-result', chatResult.text)
+                      }
+                    >
+                      {copiedKey === 'chat-result' ? 'Copied' : 'Copy'}
+                    </Button>
                   </Group>
                   {chatResult.toolsCalled.length > 0 && (
                     <Group gap={4}>

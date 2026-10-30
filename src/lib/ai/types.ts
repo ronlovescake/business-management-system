@@ -1,4 +1,4 @@
-export type AiProviderId = 'ollama' | 'google' | 'openai';
+export type AiProviderId = 'ollama' | 'google' | 'openai' | 'copilot';
 
 export type AiBusinessUnit = 'clothing' | 'trucking' | 'general-merchandise';
 
@@ -24,6 +24,7 @@ export interface AiProviderCredentialStatus {
   ollamaConfigured: boolean;
   hasGeminiKey: boolean;
   hasOpenAiKey: boolean;
+  hasCopilotToken?: boolean;
 }
 
 export interface AiUsageSummary {

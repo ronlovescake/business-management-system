@@ -100,6 +100,7 @@
   },
   "dependencies": {
     "@asteasolutions/zod-to-openapi": "^7.1.0",
+    "@github/copilot-sdk": "^1.0.28",
     "@glideapps/glide-data-grid": "^6.0.3",
     "@glideapps/glide-data-grid-cells": "^6.0.3",
     "@handsontable/react": "^16.1.1",

@@ -12,7 +12,10 @@ const nextConfig = {
       ? process.env.BMS_DEV_DIST_DIR || '.next'
       : '.next',
   experimental: {
-    serverComponentsExternalPackages: ['isomorphic-dompurify'],
+    serverComponentsExternalPackages: [
+      'isomorphic-dompurify',
+      '@github/copilot-sdk',
+    ],
     optimizePackageImports: [
       '@mantine/core',
       '@mantine/hooks',

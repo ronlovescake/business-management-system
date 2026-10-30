@@ -17,10 +17,11 @@ export const AI_PROVIDER_IDS: readonly AiProviderId[] = [
   'ollama',
   'google',
   'openai',
+  'copilot',
 ] as const;
 
 export const updateAiAssistantSettingsSchema = z.object({
-  activeProvider: z.enum(['ollama', 'google', 'openai']),
+  activeProvider: z.enum(['ollama', 'google', 'openai', 'copilot']),
   activeModel: z
     .string()
     .trim()
@@ -40,7 +41,7 @@ export const updateAiAssistantSettingsSchema = z.object({
     .url('Ollama endpoint must be a valid http/https URL')
     .max(500),
   fallbackProvider: z
-    .enum(['ollama', 'google', 'openai'])
+    .enum(['ollama', 'google', 'openai', 'copilot'])
     .nullable()
     .optional(),
   fallbackModel: z
@@ -164,6 +165,7 @@ export function getProviderCredentialStatus(
     ollamaConfigured: Boolean(effectiveOllama),
     hasGeminiKey: Boolean(geminiKey),
     hasOpenAiKey: Boolean(openAiKey),
+    hasCopilotToken: Boolean(readLiveEnvValue(['COPILOT_GITHUB_TOKEN'])),
   };
 }
 

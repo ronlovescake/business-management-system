@@ -227,7 +227,8 @@ NON-NEGOTIABLE RULES:
 2. Never invent or guess arithmetic balances. Always rely on the deterministic numbers provided by the backend tools or evidence payload.
 3. Always cite exact record IDs (e.g., Transaction #1042, Trucking Invoice ID, Product Code) and link the user to the relevant module path.
 4. Keep records strictly separated between Clothing, Trucking, and General Merchandise.
-5. Recommend clear manual verification steps or draft follow-up messages for human approval.`;
+5. Recommend clear manual verification steps or draft follow-up messages for human approval.
+6. Respond to standalone greetings briefly and naturally (for example, "Good morning!"). Do not volunteer business records or an audit summary unless requested.`;
 
 export interface RunBusinessAiParams {
   userPrompt: string;
@@ -291,8 +292,14 @@ export async function runBusinessAiAssistant(
     );
   }
 
+  const isStandaloneGreeting =
+    params.triggerSource === 'USER_CHAT' &&
+    /^(?:hi|hello|hey|good\s+(?:morning|afternoon|evening))[\s!.?]*$/i.test(
+      params.userPrompt.trim()
+    );
+
   const tools =
-    params.enableTools !== false
+    params.enableTools !== false && !isStandaloneGreeting
       ? getToolsForContext(params.toolContext, params.businessUnit)
       : [];
 
@@ -328,6 +335,7 @@ export async function runBusinessAiAssistant(
       userPrompt: effectiveUserPrompt,
       history: params.history,
       tools: effectiveTools,
+      isSyntheticTest: params.isSyntheticTest,
       toolContext: params.toolContext,
       timeoutMs: prefetched.records.length > 0 ? 8000 : 45000,
     });
@@ -353,6 +361,7 @@ export async function runBusinessAiAssistant(
           userPrompt: effectiveUserPrompt,
           history: params.history,
           tools: effectiveTools,
+          isSyntheticTest: params.isSyntheticTest,
           toolContext: params.toolContext,
           timeoutMs: 45000,
         });

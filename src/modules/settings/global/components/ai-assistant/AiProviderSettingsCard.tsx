@@ -322,6 +322,14 @@ export function AiProviderSettingsCard({
               OpenAI API Key:{' '}
               {initialSettings.credentials.hasOpenAiKey ? 'Set' : 'Not Set'}
             </Badge>
+            <Badge
+              color={
+                initialSettings.credentials.hasCopilotToken ? 'teal' : 'gray'
+              }
+            >
+              Copilot Token:{' '}
+              {initialSettings.credentials.hasCopilotToken ? 'Set' : 'Not Set'}
+            </Badge>
           </Group>
         </Group>
 
@@ -347,6 +355,7 @@ export function AiProviderSettingsCard({
               { value: 'ollama', label: 'Ollama (Local LAN — Free / Private)' },
               { value: 'google', label: 'Google Gemini API (Cloud)' },
               { value: 'openai', label: 'OpenAI API / Luna (Cloud)' },
+              { value: 'copilot', label: 'GitHub Copilot (Subscription)' },
             ]}
             value={activeProvider}
             onChange={handleProviderChange}
@@ -392,6 +401,7 @@ export function AiProviderSettingsCard({
                 { value: 'ollama', label: 'Ollama (Local)' },
                 { value: 'google', label: 'Google Gemini' },
                 { value: 'openai', label: 'OpenAI' },
+                { value: 'copilot', label: 'GitHub Copilot' },
               ]}
               value={fallbackProvider}
               onChange={(val) => setFallbackProvider(val || 'none')}

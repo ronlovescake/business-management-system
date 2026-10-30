@@ -8,9 +8,11 @@ import {
   ensureAiAssistantTables,
   explainMonitoringAlertWithAi,
   findMonitoringAlertByIdFromStore,
+  getAiAssistantSettings,
   listMonitoringAlertsFromStore,
   resolveAllowedBusinessUnits,
   runDeterministicBusinessMonitor,
+  runDeterministicBusinessMonitorIfDue,
   updateMonitoringAlertStatusInStore,
   type AiBusinessUnit,
   type AiToolExecutionContext,
@@ -75,6 +77,12 @@ export async function GET(request: NextRequest) {
 
     if (toolContext.allowedBusinessUnits.length === 0) {
       return NextResponse.json({ alerts: [], allowedBusinessUnits: [] });
+    }
+
+    // Automatically run the 100% local deterministic PostgreSQL monitor if enabled and >15m since last scan
+    const settings = await getAiAssistantSettings();
+    if (settings.monitoringEnabled) {
+      await runDeterministicBusinessMonitorIfDue(15 * 60 * 1000);
     }
 
     const searchParams = request.nextUrl.searchParams;

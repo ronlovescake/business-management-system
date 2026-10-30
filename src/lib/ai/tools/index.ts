@@ -1,4 +1,5 @@
 import { prisma } from '@/lib/db';
+import { isCancelledOrderStatus } from '@/lib/transactions/order-status';
 import {
   CLOTHING_ACCOUNTS_RECEIVABLE_STATUSES,
   PAID_STATUSES,
@@ -315,15 +316,28 @@ export const READ_ONLY_BUSINESS_TOOLS: readonly AiToolDefinition[] = [
         const qty = Number(tx.quantity ?? 0);
         const price = Number(tx.unitPrice ?? 0);
         const gross = Number(
-          (qty * price - Number(tx.discount ?? 0)).toFixed(2)
+          (
+            qty * price -
+            (unit === 'general-merchandise' ? Number(tx.discount ?? 0) : 0)
+          ).toFixed(2)
         );
         const adj = Number(tx.adjustment ?? 0);
         const lineTotal = Number(tx.lineTotal ?? 0);
         const expectedLineTotal = Number((gross - adj).toFixed(2));
         const status = (tx.orderStatus || '').trim();
+        const closed = unit === 'clothing' && isCancelledOrderStatus(status);
+        const inputs = {
+          quantity: qty,
+          unitPrice: price,
+          discount: Number(tx.discount ?? 0),
+        };
 
-        if (paidStatuses.includes(status) && Math.abs(lineTotal) > EPS) {
+        if (
+          (closed || paidStatuses.includes(status)) &&
+          Math.abs(lineTotal) > EPS
+        ) {
           anomalies.push({
+            ...inputs,
             transactionId: tx.id,
             customer: tx.customers ?? 'Unknown',
             productCode: tx.productCode ?? '',
@@ -335,8 +349,9 @@ export const READ_ONLY_BUSINESS_TOOLS: readonly AiToolDefinition[] = [
             issue: `Order is marked "${status}" but remaining lineTotal is ₱${lineTotal.toFixed(2)} instead of ₱0.00.`,
             sourceLink: link,
           });
-        } else if (Math.abs(lineTotal - expectedLineTotal) > EPS) {
+        } else if (!closed && Math.abs(lineTotal - expectedLineTotal) > EPS) {
           anomalies.push({
+            ...inputs,
             transactionId: tx.id,
             customer: tx.customers ?? 'Unknown',
             productCode: tx.productCode ?? '',

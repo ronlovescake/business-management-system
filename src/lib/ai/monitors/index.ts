@@ -1,8 +1,10 @@
 import { prisma } from '@/lib/db';
 import { PAID_STATUSES } from '@/lib/accounting/constants';
+import { isCancelledOrderStatus } from '@/lib/transactions/order-status';
 import { ensureAiAssistantTables } from '../settings';
 import {
   autoResolveStaleAlertsInStore,
+  getOpenClothingTransactionAlertsInStore,
   upsertMonitoringAlertInStore,
 } from '../store';
 import type { AiBusinessUnit, DetectedAnomalyInput } from '../types';
@@ -17,9 +19,10 @@ export interface MonitoringRunSummary {
   byBusinessUnit: Record<AiBusinessUnit, number>;
 }
 
-export async function collectDeterministicAnomalies(): Promise<
-  DetectedAnomalyInput[]
-> {
+export async function collectDeterministicAnomalies(
+  referencedClothingIds: number[] = [],
+  evaluatedClothingIds: Set<number> = new Set<number>()
+): Promise<DetectedAnomalyInput[]> {
   const anomalies: DetectedAnomalyInput[] = [];
   const now = new Date();
   const threeDaysFromNow = new Date(now.getTime() + 3 * 24 * 60 * 60 * 1000);
@@ -31,19 +34,43 @@ export async function collectDeterministicAnomalies(): Promise<
     orderBy: { id: 'desc' },
     take: 300,
   });
+  const loadedIds = new Set(clothingTxs.map((tx) => tx.id));
+  const missingIds = Array.from(new Set(referencedClothingIds)).filter(
+    (id) => !loadedIds.has(id)
+  );
+  for (let offset = 0; offset < missingIds.length; offset += 300) {
+    const olderRows = await prisma.transaction.findMany({
+      where: {
+        deletedAt: null,
+        id: { in: missingIds.slice(offset, offset + 300) },
+      },
+    });
+    clothingTxs.push(...olderRows);
+  }
 
   for (const tx of clothingTxs) {
+    evaluatedClothingIds.add(tx.id);
     const qty = Number(tx.quantity ?? 0);
     const price = Number(tx.unitPrice ?? 0);
-    const gross = Number((qty * price - Number(tx.discount ?? 0)).toFixed(2));
+    const gross = Number((qty * price).toFixed(2));
     const adj = Number(tx.adjustment ?? 0);
     const lineTotal = Number(tx.lineTotal ?? 0);
     const expectedLine = Number((gross - adj).toFixed(2));
     const status = (tx.orderStatus || '').trim();
+    const closed = isCancelledOrderStatus(status);
+    const inputs = {
+      quantity: qty,
+      unitPrice: price,
+      discount: Number(tx.discount ?? 0),
+      orderStatus: status,
+    };
 
-    if (paidStatuses.includes(status) && Math.abs(lineTotal) > EPS) {
+    if (
+      (closed || paidStatuses.includes(status)) &&
+      Math.abs(lineTotal) > EPS
+    ) {
       anomalies.push({
-        dedupeKey: `clothing:paid-nonzero-balance:${tx.id}`,
+        dedupeKey: `clothing:${closed ? 'cancelled' : 'paid'}-nonzero-balance:${tx.id}`,
         businessUnit: 'clothing',
         category: 'ACCOUNTING_MISMATCH',
         severity: 'CRITICAL',
@@ -51,16 +78,16 @@ export async function collectDeterministicAnomalies(): Promise<
         deterministicSummary: `Customer "${tx.customers ?? 'Unknown'}" order #${tx.id} (${tx.productCode ?? 'N/A'}) has status "${status}", gross ₱${gross.toFixed(2)}, adjustment ₱${adj.toFixed(2)}, but lineTotal is ₱${lineTotal.toFixed(2)} instead of ₱0.00.`,
         sourceLink: '/clothing/operations/transactions',
         evidenceJson: {
+          ...inputs,
           transactionId: tx.id,
           customer: tx.customers,
           productCode: tx.productCode,
-          orderStatus: status,
           grossSale: gross,
           adjustment: adj,
           lineTotal,
         },
       });
-    } else if (Math.abs(lineTotal - expectedLine) > EPS) {
+    } else if (!closed && Math.abs(lineTotal - expectedLine) > EPS) {
       anomalies.push({
         dedupeKey: `clothing:line-formula-mismatch:${tx.id}`,
         businessUnit: 'clothing',
@@ -70,6 +97,7 @@ export async function collectDeterministicAnomalies(): Promise<
         deterministicSummary: `Order #${tx.id} for "${tx.customers ?? 'Unknown'}" has recorded lineTotal ₱${lineTotal.toFixed(2)}, which differs from gross (₱${gross.toFixed(2)}) minus adjustment (₱${adj.toFixed(2)}) = ₱${expectedLine.toFixed(2)}.`,
         sourceLink: '/clothing/operations/transactions',
         evidenceJson: {
+          ...inputs,
           transactionId: tx.id,
           customer: tx.customers,
           grossSale: gross,
@@ -83,6 +111,7 @@ export async function collectDeterministicAnomalies(): Promise<
     if (
       tx.accountsReceivableDueAt &&
       tx.accountsReceivableDueAt < now &&
+      !closed &&
       !paidStatuses.includes(status) &&
       lineTotal > EPS
     ) {
@@ -96,6 +125,7 @@ export async function collectDeterministicAnomalies(): Promise<
         deterministicSummary: `Order #${tx.id} (${tx.productCode ?? 'N/A'}) for "${tx.customers ?? 'Unknown'}" was due on ${dueStr} with an unpaid balance of ₱${lineTotal.toFixed(2)}.`,
         sourceLink: '/clothing/operations/transactions',
         evidenceJson: {
+          ...inputs,
           transactionId: tx.id,
           customer: tx.customers,
           dueAt: dueStr,
@@ -355,7 +385,36 @@ export async function collectDeterministicAnomalies(): Promise<
 export async function runDeterministicBusinessMonitor(): Promise<MonitoringRunSummary> {
   await ensureAiAssistantTables();
   const now = new Date();
-  const detected = await collectDeterministicAnomalies();
+  const snapshot = await getOpenClothingTransactionAlertsInStore();
+  const candidates = snapshot.flatMap((alert) => {
+    const match =
+      /^clothing:(?:paid-nonzero-balance|cancelled-nonzero-balance|line-formula-mismatch|overdue-receivable):(\d+)$/.exec(
+        alert.dedupeKey
+      );
+    const evidence = alert.evidenceJson;
+    if (
+      !match ||
+      !evidence ||
+      typeof evidence !== 'object' ||
+      !('transactionId' in evidence)
+    ) {
+      return [];
+    }
+    const transactionId = Number(match[1]);
+    if (
+      !Number.isSafeInteger(transactionId) ||
+      transactionId <= 0 ||
+      evidence.transactionId !== transactionId
+    ) {
+      return [];
+    }
+    return [{ alert, transactionId }];
+  });
+  const evaluatedIds = new Set<number>();
+  const detected = await collectDeterministicAnomalies(
+    candidates.map((candidate) => candidate.transactionId),
+    evaluatedIds
+  );
   const activeDedupeKeys = new Set(detected.map((d) => d.dedupeKey));
 
   const byBusinessUnit: Record<AiBusinessUnit, number> = {
@@ -382,7 +441,13 @@ export async function runDeterministicBusinessMonitor(): Promise<MonitoringRunSu
   }
 
   const autoResolvedCount = await autoResolveStaleAlertsInStore(
-    Array.from(activeDedupeKeys),
+    candidates
+      .filter(
+        ({ alert, transactionId }) =>
+          evaluatedIds.has(transactionId) &&
+          !activeDedupeKeys.has(alert.dedupeKey)
+      )
+      .map(({ alert }) => alert),
     now
   );
 
@@ -393,4 +458,22 @@ export async function runDeterministicBusinessMonitor(): Promise<MonitoringRunSu
     autoResolvedCount,
     byBusinessUnit,
   };
+}
+
+let lastLocalMonitorRunMs = 0;
+
+export async function runDeterministicBusinessMonitorIfDue(
+  minIntervalMs = 15 * 60 * 1000
+): Promise<MonitoringRunSummary | null> {
+  const nowMs = Date.now();
+  if (nowMs - lastLocalMonitorRunMs < minIntervalMs) {
+    return null;
+  }
+  lastLocalMonitorRunMs = nowMs;
+  try {
+    return await runDeterministicBusinessMonitor();
+  } catch (err) {
+    lastLocalMonitorRunMs = 0;
+    throw err;
+  }
 }

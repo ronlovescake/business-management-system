@@ -46,8 +46,11 @@ describe('employee handbook content', () => {
       path.join(process.cwd(), '.dockerignore'),
       'utf8'
     );
-    expect(nextConfig).toContain(
-      "serverComponentsExternalPackages: ['isomorphic-dompurify']"
+    expect(nextConfig).toMatch(
+      /serverComponentsExternalPackages:\s*\[[^\]]*'isomorphic-dompurify'/
+    );
+    expect(nextConfig).toMatch(
+      /serverComponentsExternalPackages:\s*\[[^\]]*'@github\/copilot-sdk'/
     );
     expect(nextConfig).toContain(
       `'/clothing/operations/handbook': [\n        '${HANDBOOK_SOURCE}',`

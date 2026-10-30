@@ -38,6 +38,7 @@ export function AiAssistantTab() {
     ollama: ['qwen3:8b', 'qwen3:14b', 'qwen3:4b'],
     google: ['gemini-2.5-flash', 'gemini-2.5-pro'],
     openai: ['gpt-4o-mini', 'gpt-4o'],
+    copilot: ['auto'],
   });
   const [auditLogs, setAuditLogs] = useState<AuditLogRow[]>([]);
   const [loading, setLoading] = useState(true);
