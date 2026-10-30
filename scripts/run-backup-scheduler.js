@@ -28,6 +28,8 @@ const DEFAULT_TRUCKING_EMPLOYEE_AUTOMATION_URL =
   'http://app:5000/api/internal/trucking/employee-automation/run-due';
 const DEFAULT_GM_EMPLOYEE_AUTOMATION_URL =
   'http://app:5000/api/internal/general-merchandise/employee-automation/run-due';
+const DEFAULT_AI_MONITOR_URL =
+  'http://app:5000/api/internal/ai-monitor/run-due';
 const CHECK_INTERVAL_MS = 60 * 1000;
 
 const fullEnabled = parseBooleanFlag(process.env.BACKUP_AUTO_ENABLED, false);
@@ -53,6 +55,10 @@ const truckingEmployeeAutomationEnabled = parseBooleanFlag(
 );
 const generalMerchandiseEmployeeAutomationEnabled = parseBooleanFlag(
   process.env.EMPLOYEE_AUTOMATION_GENERAL_MERCHANDISE_ENABLED,
+  true
+);
+const aiMonitorEnabled = parseBooleanFlag(
+  process.env.AI_MONITOR_AUTO_ENABLED,
   true
 );
 const runUrl = process.env.BACKUP_AUTO_URL || DEFAULT_URL;
@@ -136,6 +142,14 @@ const scheduleConfigs = [
     url:
       process.env.EMPLOYEE_AUTOMATION_GENERAL_MERCHANDISE_URL ||
       DEFAULT_GM_EMPLOYEE_AUTOMATION_URL,
+    periodStrategy: 'minute',
+    payload: {},
+  },
+  {
+    key: 'ai-monitor',
+    label: 'deterministic AI business monitor',
+    enabled: aiMonitorEnabled,
+    url: process.env.AI_MONITOR_AUTO_URL || DEFAULT_AI_MONITOR_URL,
     periodStrategy: 'minute',
     payload: {},
   },

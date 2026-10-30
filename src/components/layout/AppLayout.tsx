@@ -27,6 +27,7 @@ import {
   glideGridAdapter,
 } from '../grid';
 import { DynamicDocumentTitle } from '../seo/DynamicDocumentTitle';
+import { AiChatWidget } from '../ai-chat/AiChatWidget';
 
 interface AppLayoutProps {
   children: React.ReactNode;
@@ -331,6 +332,7 @@ export function AppLayout({ children }: AppLayoutProps) {
                     {children}
                   </AppShell.Main>
                 </AppShell>
+                <AiChatWidget />
               </>
             )}
           </GridLayoutProvider>

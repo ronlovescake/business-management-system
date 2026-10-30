@@ -374,6 +374,9 @@ export const DUMP_ONLY_BACKUP_MODELS = [
   'GeneralMerchandiseShippingFeeCalculatorState',
   'GeneralMerchandiseMessageTemplate',
   'GeneralMerchandisePostTemplateNotice',
+  'AiAssistantSetting',
+  'AiMonitoringAlert',
+  'AiAuditLog',
 ] as const;
 
 export const BACKUP_MODEL_CLASSIFICATION: Record<string, BackupCoverageClass> =

@@ -116,6 +116,7 @@ This index is the shortest path to the domain and workspace logic documents with
 - [Module marketplace and module operations](./business-logic/platform/module-marketplace-and-module-operations.md)
 - [Internal messaging and conversations](./business-logic/platform/internal-messaging-and-conversations.md)
 - [Shared employee automation](./business-logic/platform/shared-employee-automation.md)
+- [Read-Only AI Business Assistant & 24/7 Monitoring](./business-logic/platform/ai-business-assistant.md)
 
 ## Documentation Standards
 

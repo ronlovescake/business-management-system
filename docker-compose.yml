@@ -64,6 +64,11 @@ services:
       PITR_BASE_AUTO_TIME: ${PITR_BASE_AUTO_TIME:-01:00}
       PITR_BASE_BACKUP_RETENTION_DAYS: ${PITR_BASE_BACKUP_RETENTION_DAYS:-90}
       WAL_ARCHIVE_RETENTION_DAYS: ${WAL_ARCHIVE_RETENTION_DAYS:-90}
+      OLLAMA_BASE_URL: ${OLLAMA_BASE_URL:-http://host.docker.internal:11434}
+      GOOGLE_GENERATIVE_AI_API_KEY: ${GOOGLE_GENERATIVE_AI_API_KEY:-}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     ports:
       - "${APP_PORT:-5000}:5000"
     volumes:
@@ -115,6 +120,8 @@ services:
       EMPLOYEE_AUTOMATION_TRUCKING_URL: http://app:5000/api/internal/trucking/employee-automation/run-due
       EMPLOYEE_AUTOMATION_GENERAL_MERCHANDISE_ENABLED: ${EMPLOYEE_AUTOMATION_GENERAL_MERCHANDISE_ENABLED:-true}
       EMPLOYEE_AUTOMATION_GENERAL_MERCHANDISE_URL: http://app:5000/api/internal/general-merchandise/employee-automation/run-due
+      AI_MONITOR_AUTO_ENABLED: ${AI_MONITOR_AUTO_ENABLED:-true}
+      AI_MONITOR_AUTO_URL: http://app:5000/api/internal/ai-monitor/run-due
 
   restore-runner:
     build:

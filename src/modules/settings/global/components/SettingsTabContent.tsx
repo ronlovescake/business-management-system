@@ -6,6 +6,7 @@ import { BackupRestoreTab } from '@/modules/clothing/operations/settings/compone
 import { PitrWalTab } from './pitr/PitrWalTab';
 import { SchedulerTab } from './scheduler/SchedulerTab';
 import { PaymentCardsTab } from './payments/PaymentCardsTab';
+import { AiAssistantTab } from './ai-assistant/AiAssistantTab';
 
 interface SettingsTabContentProps {
   activeTab: GlobalSettingsTab;
@@ -26,6 +27,10 @@ export function SettingsTabContent({ activeTab }: SettingsTabContentProps) {
 
   if (activeTab === 'payments') {
     return <PaymentCardsTab />;
+  }
+
+  if (activeTab === 'ai-assistant') {
+    return <AiAssistantTab />;
   }
 
   return <UserManagementSection />;

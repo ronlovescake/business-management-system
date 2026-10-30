@@ -10,7 +10,7 @@ This repository serves multiple business domains in one app, with domain-parity 
 - General merchandise: operations, ledger/accounting, employees.
 - Trucking: fleet/vehicle assignments, trips, payroll, expenses, invoices, payments.
 - Personal/household: accounts, budgets, expenses, income, recurring payments.
-- Platform/admin: auth, permissions, users, backup/restore, module marketplace, change/version history.
+- Platform/admin: auth, permissions, users, backup/restore, module marketplace, change/version history, read-only AI business assistant & 24/7 deterministic anomaly monitor.
 
 ## Architecture at a Glance
 
@@ -183,6 +183,10 @@ Docker scheduler env knobs:
 - `PITR_BASE_BACKUP_RETENTION_DAYS=7` for PITR base-backup pruning
 - `WAL_ARCHIVE_RETENTION_DAYS=7` for PITR WAL pruning
 - `RESTORE_RUNNER_POLL_MS=5000` for the UI restore-runner poll interval
+- `AI_MONITOR_AUTO_ENABLED=true` to run the 24/7 deterministic business anomaly monitor from the scheduler
+- `OLLAMA_BASE_URL=http://host.docker.internal:11434` for local LAN Ollama inference
+- `GOOGLE_GENERATIVE_AI_API_KEY` (or `GEMINI_API_KEY`) for Google Gemini cloud inference
+- `OPENAI_API_KEY` for OpenAI cloud inference
 
 Optional Playwright browser override:
 

@@ -3413,6 +3413,83 @@ model GeneralMerchandiseRecurringPaymentDraft {
   @@schema("general_merchandise")
 }
 
+model AiAssistantSetting {
+  id                     String   @id @default(cuid())
+  key                    String   @unique @default("default") @db.VarChar(50)
+  createdAt              DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt              DateTime @default(now()) @updatedAt @db.Timestamptz(6)
+  activeProvider         String   @default("ollama") @db.VarChar(30)
+  activeModel            String   @default("qwen3:8b") @db.VarChar(120)
+  accountingModel        String?  @db.VarChar(120)
+  ollamaBaseUrl          String   @default("http://host.docker.internal:11434") @db.VarChar(500)
+  fallbackProvider       String?  @db.VarChar(30)
+  fallbackModel          String?  @db.VarChar(120)
+  allowCloudDataSharing  Boolean  @default(false)
+  dailyTokenLimit        Int      @default(250000)
+  monthlyBudgetUsd       Decimal  @default(15.00) @db.Decimal(10, 2)
+  monitoringEnabled      Boolean  @default(true)
+  morningBriefingEnabled Boolean  @default(true)
+  morningBriefingTime    String   @default("07:00") @db.VarChar(5)
+  timezone               String   @default("Asia/Manila") @db.VarChar(50)
+  updatedByUserId        String?  @db.VarChar(100)
+
+  @@map("ai_assistant_settings")
+  @@schema("public")
+}
+
+model AiMonitoringAlert {
+  id                   String    @id @default(cuid())
+  dedupeKey            String    @unique @db.VarChar(255)
+  createdAt            DateTime  @default(now()) @db.Timestamptz(6)
+  updatedAt            DateTime  @default(now()) @updatedAt @db.Timestamptz(6)
+  lastDetectedAt       DateTime  @default(now()) @db.Timestamptz(6)
+  businessUnit         String    @db.VarChar(50)
+  category             String    @db.VarChar(50)
+  severity             String    @default("WARNING") @db.VarChar(20)
+  status               String    @default("OPEN") @db.VarChar(20)
+  title                String    @db.VarChar(255)
+  deterministicSummary String
+  aiExplanation        String?
+  aiModelUsed          String?   @db.VarChar(120)
+  sourceLink           String?   @db.VarChar(500)
+  evidenceJson         Json?
+  acknowledgedBy       String?   @db.VarChar(100)
+  acknowledgedAt       DateTime? @db.Timestamptz(6)
+  resolvedAt           DateTime? @db.Timestamptz(6)
+
+  @@index([businessUnit, status, severity])
+  @@index([category, status])
+  @@index([lastDetectedAt])
+  @@map("ai_monitoring_alerts")
+  @@schema("public")
+}
+
+model AiAuditLog {
+  id               String   @id @default(cuid())
+  createdAt        DateTime @default(now()) @db.Timestamptz(6)
+  userId           String?  @db.VarChar(100)
+  userName         String?  @db.VarChar(255)
+  triggerSource    String   @db.VarChar(50)
+  businessUnit     String?  @db.VarChar(50)
+  provider         String   @db.VarChar(30)
+  model            String   @db.VarChar(120)
+  toolsCalled      Json?
+  inputTokens      Int      @default(0)
+  outputTokens     Int      @default(0)
+  estimatedCostUsd Decimal  @default(0) @db.Decimal(12, 6)
+  latencyMs        Int      @default(0)
+  status           String   @default("SUCCESS") @db.VarChar(30)
+  errorMessage     String?  @db.VarChar(1000)
+  metadata         Json?
+
+  @@index([createdAt])
+  @@index([provider, createdAt])
+  @@index([businessUnit, createdAt])
+  @@index([userId, createdAt])
+  @@map("ai_audit_logs")
+  @@schema("public")
+}
+
 enum InventoryBucket {
   sellable
   damaged_hold

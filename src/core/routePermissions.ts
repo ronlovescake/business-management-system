@@ -95,6 +95,8 @@ export const ROUTE_PERMISSIONS: Record<string, RouteRole[]> = {
   '/settings': ['SUPER_ADMIN'],
   '/clothing/settings': ['SUPER_ADMIN'],
   '/clothing/users': ['SUPER_ADMIN'],
+  '/api/settings/ai-assistant': ['ADMIN', 'SUPER_ADMIN'],
+  '/api/ai-assistant': ['USER', 'ADMIN', 'SUPER_ADMIN'],
 
   // Personal finance - all authenticated users
   '/personal': ['USER', 'ADMIN', 'SUPER_ADMIN'],

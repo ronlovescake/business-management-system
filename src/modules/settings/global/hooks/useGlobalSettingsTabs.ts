@@ -12,6 +12,7 @@ const VALID_TABS: readonly GlobalSettingsTab[] = [
   'backup',
   'pitr',
   'scheduler',
+  'ai-assistant',
 ];
 
 const DEFAULT_ACTIONS: GlobalSettingsToolbarAction[] = [
@@ -20,6 +21,7 @@ const DEFAULT_ACTIONS: GlobalSettingsToolbarAction[] = [
   { value: 'backup', label: 'Backup & Restore', color: 'grape' },
   { value: 'pitr', label: 'PITR / WAL', color: 'orange' },
   { value: 'scheduler', label: 'Schedulers', color: 'indigo' },
+  { value: 'ai-assistant', label: 'AI Assistant', color: 'cyan' },
 ];
 
 export function useGlobalSettingsTabs(

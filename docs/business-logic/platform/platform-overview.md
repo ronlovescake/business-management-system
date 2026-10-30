@@ -26,17 +26,18 @@ This directory documents the cross-domain **platform**, **admin**, **auth**, and
 
 ## Module Index
 
-| Area | Doc File | Description |
-| --- | --- | --- |
-| Platform overview | [platform-overview.md](./platform-overview.md) | Scope definition and source-root map for cross-domain logic. |
-| Auth and access | [auth-and-access.md](./auth-and-access.md) | Login, session, redirect, password reset, profile, and permission rules. |
-| Admin backup and restore | [admin-backup-restore.md](./admin-backup-restore.md) | Backup creation, inspection, restore-runner, and operator-managed restore behavior. |
-| Settings and configuration | [settings-and-configuration.md](./settings-and-configuration.md) | Global settings, invoice settings, transaction settings, accounting settings, and payment cards. |
-| Change log and version history | [change-log-and-version-history.md](./change-log-and-version-history.md) | Change tracking, change-log redirects, and current version-history persistence limits. |
-| User management and permissions | [user-management-and-permissions.md](./user-management-and-permissions.md) | Users, roles, module permissions, and admin permission workflows. |
-| Module marketplace and module operations | [module-marketplace-and-module-operations.md](./module-marketplace-and-module-operations.md) | Module registry, install/update/reload/config flows, and marketplace download rules. |
-| Internal messaging and conversations | [internal-messaging-and-conversations.md](./internal-messaging-and-conversations.md) | Conversation creation, unread state, and internal user messaging workflows. |
-| Shared employee automation | [shared-employee-automation.md](./shared-employee-automation.md) | Scheduler, automation settings, and internal employee automation flows. |
+| Area                                     | Doc File                                                                                     | Description                                                                                                                                         |
+| ---------------------------------------- | -------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Platform overview                        | [platform-overview.md](./platform-overview.md)                                               | Scope definition and source-root map for cross-domain logic.                                                                                        |
+| Auth and access                          | [auth-and-access.md](./auth-and-access.md)                                                   | Login, session, redirect, password reset, profile, and permission rules.                                                                            |
+| Admin backup and restore                 | [admin-backup-restore.md](./admin-backup-restore.md)                                         | Backup creation, inspection, restore-runner, and operator-managed restore behavior.                                                                 |
+| Settings and configuration               | [settings-and-configuration.md](./settings-and-configuration.md)                             | Global settings, invoice settings, transaction settings, accounting settings, and payment cards.                                                    |
+| Change log and version history           | [change-log-and-version-history.md](./change-log-and-version-history.md)                     | Change tracking, change-log redirects, and current version-history persistence limits.                                                              |
+| User management and permissions          | [user-management-and-permissions.md](./user-management-and-permissions.md)                   | Users, roles, module permissions, and admin permission workflows.                                                                                   |
+| Module marketplace and module operations | [module-marketplace-and-module-operations.md](./module-marketplace-and-module-operations.md) | Module registry, install/update/reload/config flows, and marketplace download rules.                                                                |
+| Internal messaging and conversations     | [internal-messaging-and-conversations.md](./internal-messaging-and-conversations.md)         | Conversation creation, unread state, and internal user messaging workflows.                                                                         |
+| Shared employee automation               | [shared-employee-automation.md](./shared-employee-automation.md)                             | Scheduler, automation settings, and internal employee automation flows.                                                                             |
+| Read-Only AI Business Assistant          | [ai-business-assistant.md](./ai-business-assistant.md)                                       | Plug-and-play AI provider registry (Ollama, Gemini, OpenAI), 24/7 deterministic anomaly monitor, RBAC-scoped read-only tools, and floating chatbot. |
 
 ---
 
