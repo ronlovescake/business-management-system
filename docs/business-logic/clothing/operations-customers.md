@@ -53,16 +53,44 @@
 
 ## D — Duplicate Detection
 
-| #   | Logic                                                           | Explanation                                                                                                                            |
-| --- | --------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
-| 10  | Duplicate check runs before saving a new customer               | `useCustomerDuplicateCheck` queries `/customers/with-all-addresses` and computes similarity scores before the create API call is made. |
-| 11  | Similarity is weighted: 60% address, 25% phone, 15% name        | The composite score formula is `addressScore * 0.6 + phoneScore * 0.25 + nameScore * 0.15`.                                            |
-| 12  | Duplicate threshold is 50% composite similarity                 | Customers with an overall similarity ≥ 50% are surfaced as potential duplicates; those below 50% are ignored.                          |
-| 13  | Additional addresses are included in the address check          | The hook loads each customer's full list of additional addresses and takes the maximum address similarity score across all addresses.  |
-| 14  | Top 5 duplicates are surfaced                                   | Only the five highest-scoring potential duplicates are shown in the dialog, sorted by overall score descending.                        |
-| 15  | Operators can proceed despite a duplicate warning               | The duplicate-check dialog provides a "Proceed Anyway" and "Cancel" option; the system does not hard-block the save.                   |
-| 16  | Duplicate check uses fuzzy matching for addresses               | Address comparison uses `calculateAddressSimilarity` (Levenshtein-based) rather than exact equality to catch minor typos.              |
-| 17  | Name scoring is the least weight because names are often masked | The 15% weight for name reflects that Shopee/online customer names are frequently anonymized or abbreviated.                           |
+| #   | Logic                                                           | Explanation                                                                                                                                                                                                          |
+| --- | --------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 10  | Duplicate check runs before saving a new customer               | `useCustomerDuplicateCheck` awaits a fresh successful `/customers/with-all-addresses` query before the create API call. Missing or malformed data is a failed check, not an empty directory.                         |
+| 11  | Combined similarity remains a secondary warning signal          | The existing weighted formula is retained, but name scores below 70 contribute zero and addresses with fewer than three distinctive terms do not contribute. Weak character overlap is not useful identity evidence. |
+| 12  | Specific address or exact phone matches warn independently      | A qualified address candidate, an exact normalized phone match, or combined score of at least 50 triggers review. Missing name/phone does not suppress a qualified address candidate.                                |
+| 13  | Additional addresses are included in the address check          | The hook loads each customer's full list of additional addresses and takes the maximum address similarity score across all addresses.                                                                                |
+| 14  | Top 5 candidates are surfaced                                   | Rank by number of agreeing signals, then internal ranking score, then customer ID for stable ties. Display evidence rather than identity percentages or high/low-risk claims.                                        |
+| 15  | Operators can proceed despite a duplicate warning               | The duplicate-check dialog provides a "Proceed Anyway" and "Cancel" option; the system does not hard-block the save.                                                                                                 |
+| 16  | Duplicate check uses fuzzy matching for addresses               | Address comparison uses `calculateAddressSimilarity` (Levenshtein-based) rather than exact equality to catch minor typos.                                                                                            |
+| 17  | Name scoring is the least weight because names are often masked | The 15% weight for name reflects that Shopee/online customer names are frequently anonymized or abbreviated.                                                                                                         |
+
+The requesting application owner approved independent address/phone warnings after
+the Jewel Jamora address example scored 77 for address but only 48 overall with
+an unrelated name and missing phone. `compareCustomerAddresses()` in
+`src/lib/utils/customerAddressMatch.ts` is shared with the read-only assistant
+address tool, without importing server/Prisma code into the browser. At least
+three distinctive query terms must match and cover at least 60% of the query;
+case, accents, punctuation, Pk/Brgy abbreviations and parenthetical landmark notes
+are normalized. Primary and alternate addresses are checked, and the best
+qualifying address is shown with shared terms. Generic region-only input is not
+an independent address signal. This is a candidate heuristic, not identity proof.
+
+Phone normalization removes formatting and equates Philippine +63, leading-zero,
+and bare 10-digit mobile forms. Nonempty exact normalized numbers of at least
+seven digits can warn independently; suffix-only or near phone matches still
+need sufficient combined evidence. Names continue using the existing similarity
+utility, with scores below 70 suppressed only in this customer-check boundary;
+dispatch and other shared consumers of the base utility are unchanged.
+
+The dialog escapes customer-provided text, explains matching details and asks
+for review. Cancel prevents the form save; Proceed Anyway permits it. Fetch
+failure retains the explicit operator override dialog, never a false no-match
+success. This advisory UI change does not add a server uniqueness constraint or
+prevent concurrent duplicate creation. It does not merge, delete or modify any
+existing record, including TEST DUPLICATE. API/import/bulk creation paths remain
+unchanged. General Merchandise shares this UI behavior but retains its own API
+base and domain records; Trucking does not use this hook. No automatic AI fallback
+or cloud data sharing is introduced.
 
 ---
 

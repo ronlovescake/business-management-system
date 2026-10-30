@@ -10,7 +10,7 @@ import { isCancelledOrderStatus } from '@/lib/transactions/order-status';
 export const CUSTOMER_HISTORY_TOOL: AiToolDefinition = {
   name: 'queryCustomersAndOrderHistory',
   description:
-    'Read-only customer intelligence tool that looks up customers and their order/payment history for a business unit. Use this to answer questions like "Who is our oldest customer?", "Who are our newest or top-spending customers?", or to inspect a specific customer’s orders and payment records.',
+    'Read-only customer intelligence tool that looks up customers and their order/payment history for a business unit. Use this to answer questions like "Who is our oldest customer?", "Who are our newest or top-spending customers?", or to inspect a specific customer’s orders and payment records. For delivery or waybill address matching use findCustomersByAddress instead; this tool searches customer names, phone and business names, not addresses.',
   businessUnits: ['clothing', 'trucking', 'general-merchandise'],
   readOnly: true,
   parameters: {
@@ -35,6 +35,11 @@ export const CUSTOMER_HISTORY_TOOL: AiToolDefinition = {
       limit: {
         type: 'number',
         description: 'Maximum customers to return (1 to 25, default 10)',
+      },
+      orderLimit: {
+        type: 'number',
+        description:
+          'Maximum matching order rows to return (1 to 100, default 100). Results explicitly report truncation.',
       },
     },
     required: ['businessUnit'],
@@ -179,6 +184,7 @@ export const CUSTOMER_HISTORY_TOOL: AiToolDefinition = {
                 : {}),
             },
             include: {
+              product: { select: { product: true } },
               payments: {
                 where: { deletedAt: null },
                 select: {
@@ -200,6 +206,7 @@ export const CUSTOMER_HISTORY_TOOL: AiToolDefinition = {
                 : {}),
             },
             include: {
+              product: { select: { product: true } },
               payments: {
                 where: { deletedAt: null },
                 select: {
@@ -332,10 +339,16 @@ export const CUSTOMER_HISTORY_TOOL: AiToolDefinition = {
       );
     });
 
+    const requestedOrderLimit = Number(args.orderLimit);
+    const orderLimit = Number.isFinite(requestedOrderLimit)
+      ? Math.min(100, Math.max(1, Math.floor(requestedOrderLimit)))
+      : 100;
     const matchingTransactions = search
-      ? txRows.slice(0, 25).map((tx) => ({
+      ? txRows.slice(0, orderLimit).map((tx) => ({
           transactionId: tx.id,
+          customerId: tx.customerId,
           customer: tx.customers,
+          product: tx.product?.product ?? null,
           productCode: tx.productCode,
           orderDate: tx.orderDate,
           orderStatus: tx.orderStatus,
@@ -369,7 +382,14 @@ export const CUSTOMER_HISTORY_TOOL: AiToolDefinition = {
       customersByOrderHistory: customerOrderStats
         .slice(0, limit)
         .map(({ firstOrderTimestamp: _ts, ...rest }) => rest),
-      ...(matchingTransactions ? { matchingTransactions } : {}),
+      ...(matchingTransactions
+        ? {
+            matchingTransactions,
+            matchingTransactionCount: txRows.length,
+            returnedTransactionCount: matchingTransactions.length,
+            hasMoreTransactions: txRows.length > matchingTransactions.length,
+          }
+        : {}),
       sourceLink:
         unit === 'general-merchandise'
           ? '/general-merchandise/operations/customers'

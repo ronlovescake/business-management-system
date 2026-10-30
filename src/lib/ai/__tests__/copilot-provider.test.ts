@@ -117,6 +117,8 @@ describe('Copilot provider isolation', () => {
       const config = sdk.createSession.mock.calls[0][0];
       expect(config.availableTools).toEqual(['custom:lookup']);
       await config.tools[0].handler({ businessUnit: 'clothing' });
+      await config.tools[0].handler({ businessUnit: 'clothing' });
+      await config.tools[0].handler({ businessUnit: 'clothing', limit: 1 });
       return { data: { content: 'Balance: 200' } };
     });
     const result = await generateWithProvider({
@@ -137,6 +139,56 @@ describe('Copilot provider isolation', () => {
       params.toolContext
     );
     expect(result.toolsCalled[0].toolName).toBe('lookup');
+    expect(execute).toHaveBeenCalledTimes(2);
+    expect(result.toolsCalled[1].cacheHit).toBe(true);
+    expect(result.timings?.sdkStartupMs).toBeGreaterThanOrEqual(0);
+  });
+
+  it('reports an in-flight tool when the runtime times out', async () => {
+    let rejectTool: (error: Error) => void = () => undefined;
+    const execute = vi.fn(
+      () =>
+        new Promise((_resolve, reject) => {
+          rejectTool = reject;
+        })
+    );
+    sdk.sendAndWait.mockImplementationOnce(
+      () =>
+        new Promise((_resolve, reject) => {
+          const config = sdk.createSession.mock.calls[0][0];
+          void config.tools[0]
+            .handler({ businessUnit: 'clothing' })
+            .catch(() => undefined);
+          sdk.forceStop.mockImplementationOnce(async () => {
+            reject(new Error('Stopped'));
+            rejectTool(new Error('Tool interrupted'));
+          });
+        })
+    );
+    await expect(
+      generateWithProvider({
+        ...params,
+        timeoutMs: 20,
+        tools: [
+          {
+            name: 'slow_lookup',
+            description: 'Read-only',
+            readOnly: true,
+            businessUnits: ['clothing'],
+            parameters: { type: 'object', properties: {} },
+            execute,
+          },
+        ],
+      })
+    ).rejects.toMatchObject({
+      message: 'Copilot request timed out.',
+      providerDiagnostics: {
+        phase: 'tool-execution',
+        toolCallsStarted: 1,
+        toolCallsCompleted: 0,
+        activeToolNames: ['slow_lookup'],
+      },
+    });
   });
 
   it('rejects other users and unattended requests before starting the SDK', async () => {
@@ -288,9 +340,58 @@ describe('Copilot provider isolation', () => {
     );
     await expect(
       generateWithProvider({ ...params, timeoutMs: 20 })
-    ).rejects.toThrow('Stopped');
+    ).rejects.toMatchObject({
+      message: 'Copilot request timed out.',
+      providerDiagnostics: {
+        phase: 'model-response',
+        toolCallsStarted: 0,
+        activeToolNames: [],
+      },
+    });
     await expect(
       access(sdk.options.mock.calls[0][0].baseDirectory)
     ).rejects.toThrow();
   });
+});
+
+describe('Copilot timeout stages', () => {
+  it.each(['runtime-start', 'session-setup'] as const)(
+    'reports a timeout during %s without losing isolation cleanup',
+    async (phase) => {
+      vi.stubEnv('COPILOT_GITHUB_TOKEN', 'test-token');
+      vi.stubEnv('COPILOT_ALLOWED_USER_ID', 'owner');
+      vi.clearAllMocks();
+      sdk.forceStop.mockResolvedValue(undefined);
+      sdk.start.mockResolvedValue(undefined);
+      const pending = () =>
+        new Promise<never>((_resolve, reject) => {
+          sdk.forceStop.mockImplementationOnce(async () => {
+            reject(new Error('Stopped'));
+          });
+        });
+      if (phase === 'runtime-start') {
+        sdk.start.mockImplementationOnce(pending);
+      } else {
+        sdk.createSession.mockImplementationOnce(pending);
+      }
+      try {
+        await expect(
+          generateWithProvider({ ...params, timeoutMs: 20 })
+        ).rejects.toMatchObject({
+          message: 'Copilot request timed out.',
+          providerDiagnostics: {
+            phase,
+            toolCallsStarted: 0,
+            toolCallsCompleted: 0,
+            activeToolNames: [],
+          },
+        });
+        await expect(
+          access(sdk.options.mock.calls[0][0].baseDirectory)
+        ).rejects.toThrow();
+      } finally {
+        vi.unstubAllEnvs();
+      }
+    }
+  );
 });

@@ -14,6 +14,24 @@ interface PolicySnippet {
   sourceDoc: string;
 }
 
+export function isDirectKnowledgeQuestion(question: string): boolean {
+  const normalized = question
+    .toLowerCase()
+    .replace(/[?.!]+$/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+  return [
+    'what should i do if the customer did not pay their order on time',
+    'what to do if customer did not pay on time',
+    'when should i use the cancellation, forfeited, and voided',
+    'what is the process to refund the buyer',
+    'what is our cancellation policy',
+    'what is our refund policy',
+    'how do due dates work',
+    'when is an unpaid invoice due',
+  ].includes(normalized);
+}
+
 // In-memory cache for loaded documents
 let cachedHandbook: HandbookProcedure[] | null = null;
 

@@ -1,9 +1,14 @@
 import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
+import { isDeepStrictEqual } from 'node:util';
 import { readLiveEnvValue } from './providers';
 import type { GenerateWithProviderParams } from './providers';
-import type { AiGenerationResult, AiToolCallTrace } from './types';
+import type {
+  AiGenerationResult,
+  AiToolCallTrace,
+  AiProviderFailureDiagnostics,
+} from './types';
 
 async function createClient() {
   const token = readLiveEnvValue(['COPILOT_GITHUB_TOKEN']);
@@ -51,9 +56,7 @@ export async function discoverCopilotModels(): Promise<string[]> {
   }
 }
 
-export async function generateWithCopilot(
-  params: GenerateWithProviderParams
-): Promise<Omit<AiGenerationResult, 'usedFallback'>> {
+export function assertCopilotAccess(params: GenerateWithProviderParams): void {
   const allowed = (readLiveEnvValue(['COPILOT_ALLOWED_USER_ID']) || '').trim();
   const currentUserId = params.toolContext.userId || '';
   const currentUserEmail = (params.toolContext.userEmail || '').toLowerCase();
@@ -72,16 +75,35 @@ export async function generateWithCopilot(
       'Copilot is restricted to the configured COPILOT_ALLOWED_USER_ID.'
     );
   }
+}
+
+export async function generateWithCopilot(
+  params: GenerateWithProviderParams
+): Promise<Omit<AiGenerationResult, 'usedFallback'>> {
+  assertCopilotAccess(params);
   const started = Date.now();
   const { client, token, cleanup } = await createClient();
   const timeoutMs = params.timeoutMs ?? 30000;
-  const timer = setTimeout(() => void client.forceStop(), timeoutMs);
+  let timedOut = false;
+  const timer = setTimeout(() => {
+    timedOut = true;
+    void client.forceStop().catch(() => undefined);
+  }, timeoutMs);
   const toolsCalled: AiToolCallTrace[] = [];
   let inputTokens = 0;
   let outputTokens = 0;
   let toolCalls = 0;
+  let phase: AiProviderFailureDiagnostics['phase'] = 'runtime-start';
+  const activeTools = new Map<number, string>();
+  const completedCalls: Array<{
+    name: string;
+    args: Record<string, unknown>;
+    result: unknown;
+  }> = [];
   try {
     await client.start();
+    const sdkStarted = Date.now();
+    phase = 'session-setup';
     const session = await client.createSession({
       model: params.model,
       gitHubToken: token,
@@ -113,9 +135,32 @@ export async function generateWithCopilot(
           }
           const parsedArgs = args as Record<string, unknown>;
           const callStarted = Date.now();
+          const callId = toolCalls;
+          const cached = completedCalls.find(
+            (call) =>
+              call.name === tool.name &&
+              isDeepStrictEqual(call.args, parsedArgs)
+          );
+          if (cached) {
+            toolsCalled.push({
+              toolName: tool.name,
+              args: parsedArgs,
+              durationMs: 0,
+              cacheHit: true,
+            });
+            return structuredClone(cached.result);
+          }
+          activeTools.set(callId, tool.name);
           try {
-            return await tool.execute(parsedArgs, params.toolContext);
+            const result = await tool.execute(parsedArgs, params.toolContext);
+            completedCalls.push({
+              name: tool.name,
+              args: structuredClone(parsedArgs),
+              result: structuredClone(result),
+            });
+            return result;
           } finally {
+            activeTools.delete(callId);
             toolsCalled.push({
               toolName: tool.name,
               args: parsedArgs,
@@ -125,6 +170,8 @@ export async function generateWithCopilot(
         },
       })),
     });
+    const sessionStarted = Date.now();
+    phase = 'model-response';
     session.on('assistant.usage', (event) => {
       inputTokens += event.data.inputTokens ?? 0;
       outputTokens += event.data.outputTokens ?? 0;
@@ -151,7 +198,31 @@ export async function generateWithCopilot(
       estimatedCostUsd: 0,
       latencyMs: Date.now() - started,
       toolsCalled,
+      timings: {
+        sdkStartupMs: sdkStarted - started,
+        sessionSetupMs: sessionStarted - sdkStarted,
+        modelAndToolsMs: Date.now() - sessionStarted,
+      },
     };
+  } catch (error) {
+    throw Object.assign(
+      new Error(
+        timedOut
+          ? 'Copilot request timed out.'
+          : error instanceof Error
+            ? error.message
+            : 'Copilot request failed.'
+      ),
+      {
+        providerDiagnostics: {
+          phase: activeTools.size > 0 ? 'tool-execution' : phase,
+          elapsedMs: Date.now() - started,
+          toolCallsStarted: toolCalls,
+          toolCallsCompleted: toolsCalled.length,
+          activeToolNames: Array.from(activeTools.values()),
+        } satisfies AiProviderFailureDiagnostics,
+      }
+    );
   } finally {
     clearTimeout(timer);
     await cleanup();

@@ -28,6 +28,8 @@ import {
   IconSparkles,
   IconTrash,
   IconX,
+  IconZoomIn,
+  IconZoomOut,
 } from '@tabler/icons-react';
 import type { AiGenerationResult } from '@/lib/ai/types';
 import { AssistantMessageBody, CopyButton } from './ChatMessageContent';
@@ -54,13 +56,35 @@ interface ChatMessage {
 }
 
 const STORAGE_KEY = 'ai-chat-widget-conversation-v1';
-const SCOPE_STORAGE_KEY = 'ai-chat-widget-scope-v1';
+const SCOPE_STORAGE_KEY = 'ai-chat-widget-scope-v2';
+const LEGACY_SCOPE_STORAGE_KEY = 'ai-chat-widget-scope-v1';
 const HISTORY_TURNS_SENT = 4;
+const ZOOM_STORAGE_KEY = 'ai-chat-widget-zoom-v1';
+const ZOOM_MIN = 0.8;
+const ZOOM_MAX = 1.6;
+const ZOOM_STEP = 0.1;
+
+export function resolveInitialChatScope(
+  savedScope: string | null,
+  legacyScope: string | null
+): string {
+  const scopes = ['ALL', 'clothing', 'trucking', 'general-merchandise'];
+  if (savedScope && scopes.includes(savedScope)) {
+    return savedScope;
+  }
+  if (legacyScope && legacyScope !== 'ALL' && scopes.includes(legacyScope)) {
+    return legacyScope;
+  }
+  return 'clothing';
+}
 
 const SUGGESTIONS = [
-  'Our cash right now is 100,000.00. Can you check if it matches all the records and if not, find why?',
-  'Who is our oldest customer and who are our top buyers?',
+  'How much should our cash onhand at the moment on the balance sheet. Can you check if it matches all the records and if not, find why?',
   'Are there any accounting discrepancies I should check?',
+  'List customers with past due dates',
+  'List customers with due dates coming',
+  'Who is our oldest customer',
+  'who are our top buyers?',
   'What recurring payments are coming due this week?',
 ];
 
@@ -82,8 +106,10 @@ export function AiChatWidget() {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState('');
   const [sending, setSending] = useState(false);
-  const [scope, setScope] = useState<string>('ALL');
+  const [scope, setScope] = useState<string>('clothing');
   const [lastModelLabel, setLastModelLabel] = useState<string | null>(null);
+  const [queue, setQueue] = useState<Array<{ id: string; text: string }>>([]);
+  const [zoom, setZoom] = useState(1);
   const viewportRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const hydratedRef = useRef(false);
@@ -103,8 +129,15 @@ export function AiChatWidget() {
         }
       }
       const savedScope = window.sessionStorage.getItem(SCOPE_STORAGE_KEY);
-      if (savedScope) {
-        setScope(savedScope);
+      setScope(
+        resolveInitialChatScope(
+          savedScope,
+          window.sessionStorage.getItem(LEGACY_SCOPE_STORAGE_KEY)
+        )
+      );
+      const savedZoom = Number(window.localStorage.getItem(ZOOM_STORAGE_KEY));
+      if (savedZoom >= ZOOM_MIN && savedZoom <= ZOOM_MAX) {
+        setZoom(savedZoom);
       }
     } catch {
       // Ignore storage errors
@@ -242,6 +275,49 @@ export function AiChatWidget() {
     [scope, sending]
   );
 
+  // Submit from the composer: send now if idle, otherwise queue it
+  const submitInput = () => {
+    const text = input.trim();
+    if (!text) {
+      return;
+    }
+    if (sending) {
+      setQueue((q) => [...q, { id: newId(), text }]);
+      setInput('');
+    } else {
+      void sendMessage(text, messages);
+    }
+    inputRef.current?.focus();
+  };
+
+  // Drain queued messages one at a time once the AI has responded
+  useEffect(() => {
+    if (sending || queue.length === 0) {
+      return;
+    }
+    const [next, ...rest] = queue;
+    setQueue(rest);
+    void sendMessage(next.text, messages);
+  }, [sending, queue, messages, sendMessage]);
+
+  const changeZoom = (delta: number) => {
+    setZoom((z) => {
+      const next =
+        delta === 0
+          ? 1
+          : Math.min(
+              ZOOM_MAX,
+              Math.max(ZOOM_MIN, Math.round((z + delta) * 10) / 10)
+            );
+      try {
+        window.localStorage.setItem(ZOOM_STORAGE_KEY, String(next));
+      } catch {
+        // Ignore storage errors
+      }
+      return next;
+    });
+  };
+
   const handleRetry = (errorMsgId: string) => {
     const idx = messages.findIndex((m) => m.id === errorMsgId);
     if (idx < 1) {
@@ -257,6 +333,7 @@ export function AiChatWidget() {
 
   const handleClear = () => {
     setMessages([]);
+    setQueue([]);
     setLastModelLabel(null);
   };
 
@@ -418,6 +495,37 @@ export function AiChatWidget() {
                   </>
                 ) : (
                   <>
+                    <Tooltip label="Smaller text" withArrow>
+                      <ActionIcon
+                        variant="subtle"
+                        color="white"
+                        onClick={() => changeZoom(-ZOOM_STEP)}
+                        aria-label="Decrease chat text size"
+                        disabled={zoom <= ZOOM_MIN}
+                      >
+                        <IconZoomOut size={16} />
+                      </ActionIcon>
+                    </Tooltip>
+                    <Tooltip label="Reset text size" withArrow>
+                      <UnstyledButton
+                        onClick={() => changeZoom(0)}
+                        aria-label="Reset chat text size"
+                        style={{ color: 'white', fontSize: 11, minWidth: 34 }}
+                      >
+                        {Math.round(zoom * 100)}%
+                      </UnstyledButton>
+                    </Tooltip>
+                    <Tooltip label="Larger text" withArrow>
+                      <ActionIcon
+                        variant="subtle"
+                        color="white"
+                        onClick={() => changeZoom(ZOOM_STEP)}
+                        aria-label="Increase chat text size"
+                        disabled={zoom >= ZOOM_MAX}
+                      >
+                        <IconZoomIn size={16} />
+                      </ActionIcon>
+                    </Tooltip>
                     <Tooltip label="New conversation" withArrow>
                       <ActionIcon
                         variant="subtle"
@@ -499,7 +607,7 @@ export function AiChatWidget() {
                     },
                   ]}
                   value={scope}
-                  onChange={(v) => setScope(v || 'ALL')}
+                  onChange={(v) => setScope(v || 'clothing')}
                 />
               </Group>
 
@@ -509,7 +617,7 @@ export function AiChatWidget() {
                 style={{ flex: 1, background: '#f8fafc' }}
                 type="auto"
               >
-                <Stack gap="md" p="md">
+                <Stack gap="md" p="md" style={{ zoom }}>
                   {messages.length === 0 && (
                     <Stack gap="sm" align="center" py="lg">
                       <Box
@@ -619,16 +727,6 @@ export function AiChatWidget() {
                                   fallback
                                 </Badge>
                               )}
-                              {m.meta.toolsCalled.map((tc) => (
-                                <Badge
-                                  key={`${m.id}-${tc.toolName}-${tc.durationMs}`}
-                                  size="xs"
-                                  variant="outline"
-                                  color="indigo"
-                                >
-                                  {tc.toolName}
-                                </Badge>
-                              ))}
                             </>
                           )}
                           {!isUser && !m.isError && (
@@ -680,6 +778,43 @@ export function AiChatWidget() {
                       </Text>
                     </Group>
                   )}
+
+                  {queue.map((q) => (
+                    <Stack key={q.id} gap={4} align="flex-end">
+                      <Box
+                        style={{
+                          maxWidth: '88%',
+                          padding: '9px 13px',
+                          borderRadius: '14px 14px 4px 14px',
+                          background: '#e0e7ff',
+                          color: '#3730a3',
+                          border: '1px dashed #818cf8',
+                        }}
+                      >
+                        <Text size="sm" style={{ whiteSpace: 'pre-wrap' }}>
+                          {q.text}
+                        </Text>
+                      </Box>
+                      <Group gap={6} px={4}>
+                        <Text size="10px" c="dimmed">
+                          Queued — sends after the current reply
+                        </Text>
+                        <ActionIcon
+                          size="xs"
+                          variant="subtle"
+                          color="gray"
+                          aria-label="Remove queued message"
+                          onClick={() =>
+                            setQueue((prev) =>
+                              prev.filter((item) => item.id !== q.id)
+                            )
+                          }
+                        >
+                          <IconX size={12} />
+                        </ActionIcon>
+                      </Group>
+                    </Stack>
+                  ))}
                 </Stack>
               </ScrollArea>
 
@@ -692,12 +827,16 @@ export function AiChatWidget() {
                   <Textarea
                     ref={inputRef}
                     style={{ flex: 1 }}
+                    styles={{
+                      input: {
+                        fontSize: `calc(var(--mantine-font-size-sm) * ${zoom})`,
+                      },
+                    }}
                     placeholder="Ask about invoices, payments, schedules…"
                     autosize
                     minRows={1}
                     maxRows={5}
                     value={input}
-                    disabled={sending}
                     onChange={(e) => setInput(e.currentTarget.value)}
                     onKeyDown={(e) => {
                       if (
@@ -706,7 +845,7 @@ export function AiChatWidget() {
                         !e.nativeEvent.isComposing
                       ) {
                         e.preventDefault();
-                        void sendMessage(input, messages);
+                        submitInput();
                       }
                     }}
                   />
@@ -715,11 +854,11 @@ export function AiChatWidget() {
                     radius="md"
                     variant="filled"
                     color="indigo"
-                    aria-label="Send message"
-                    disabled={!input.trim() || sending}
-                    onClick={() => void sendMessage(input, messages)}
+                    aria-label={sending ? 'Queue message' : 'Send message'}
+                    disabled={!input.trim()}
+                    onClick={submitInput}
                   >
-                    {sending ? (
+                    {sending && !input.trim() ? (
                       <Loader size={16} color="white" />
                     ) : (
                       <IconSend size={18} />

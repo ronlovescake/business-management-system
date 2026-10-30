@@ -1,8 +1,24 @@
 import { describe, expect, it } from 'vitest';
-import { KNOWLEDGE_BASE_TOOL } from '@/lib/ai/tools/knowledge-base-tool';
+import {
+  KNOWLEDGE_BASE_TOOL,
+  isDirectKnowledgeQuestion,
+} from '@/lib/ai/tools/knowledge-base-tool';
 import type { AiToolExecutionContext } from '@/lib/ai/types';
 
 describe('KNOWLEDGE_BASE_TOOL (searchKnowledgeBaseAndSOPs)', () => {
+  it.each([
+    ['HOW DO DUE DATES WORK?', true],
+    ['What is the process to refund the buyer?', true],
+    ['How do due dates work for Trucking?', false],
+    ['How do due dates work and who is overdue?', false],
+    ['Can I refund order #624?', false],
+    ['What about their refund?', false],
+  ])(
+    'routes only self-contained supported questions: %s',
+    (question, expected) => {
+      expect(isDirectKnowledgeQuestion(question)).toBe(expected);
+    }
+  );
   const validContext: AiToolExecutionContext = {
     userId: 'usr_test',
     userRole: 'ADMIN',

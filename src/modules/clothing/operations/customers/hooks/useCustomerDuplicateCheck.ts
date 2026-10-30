@@ -15,6 +15,12 @@ import {
   calculateNameSimilarity,
 } from '@/lib/utils/fuzzyMatch';
 import { getSwal } from '@/lib/alerts';
+import {
+  compareCustomerAddresses,
+  customerAddressTerms,
+  normalizeCustomerPhone,
+} from '@/lib/utils/customerAddressMatch';
+import { escapeHtml } from '@/lib/security/sanitize';
 
 interface CustomerData {
   id: number;
@@ -49,6 +55,8 @@ interface PossibleDuplicate {
   phoneScore: number;
   nameScore: number;
   details: string;
+  matchedAddress: string;
+  matchingSignalCount: number;
 }
 
 interface NewCustomerData {
@@ -73,7 +81,10 @@ async function fetchCustomersForDuplicateCheck(
       throw new Error('Invalid response from API');
     }
 
-    const customers = response.data.customers ?? [];
+    const customers = response.data.customers;
+    if (!Array.isArray(customers)) {
+      throw new Error('Invalid customer directory response');
+    }
 
     return customers.map((c) => ({
       id: c.id,
@@ -92,7 +103,7 @@ async function fetchCustomersForDuplicateCheck(
 /**
  * Find possible duplicate customers
  */
-function findPossibleDuplicates(
+export function findPossibleDuplicates(
   newCustomer: NewCustomerData,
   existingCustomers: CustomerData[]
 ): PossibleDuplicate[] {
@@ -110,10 +121,29 @@ function findPossibleDuplicates(
       customer.phoneNumber
     );
 
-    const nameScore = calculateNameSimilarity(
+    const rawNameScore = calculateNameSimilarity(
       newCustomer.customerName,
       customer.customerName
     );
+    const nameScore = rawNameScore >= 70 ? rawNameScore : 0;
+    const newPhone = normalizeCustomerPhone(newCustomer.phoneNumber);
+    const existingPhone = normalizeCustomerPhone(customer.phoneNumber);
+    const exactPhone = newPhone.length >= 7 && newPhone === existingPhone;
+    const addressCandidates = [
+      customer.address,
+      ...(customer.additionalAddresses ?? []),
+    ]
+      .map((address) => ({
+        address,
+        evidence: compareCustomerAddresses(newCustomer.address, address),
+      }))
+      .filter((entry) => entry.evidence !== null)
+      .sort(
+        (left, right) =>
+          (right.evidence?.similarityScore ?? 0) -
+          (left.evidence?.similarityScore ?? 0)
+      );
+    const addressCandidate = addressCandidates[0];
 
     // Check additional addresses if available
     let maxAddressScore = addressScore;
@@ -126,6 +156,9 @@ function findPossibleDuplicates(
       );
       maxAddressScore = Math.max(addressScore, ...additionalAddressScores);
     }
+    if (customerAddressTerms(newCustomer.address).length < 3) {
+      maxAddressScore = 0;
+    }
 
     // Calculate overall similarity (weighted average)
     const overallScore = Math.round(
@@ -135,7 +168,7 @@ function findPossibleDuplicates(
     );
 
     // Only include if overall score is above threshold (50% for duplicates - higher than dispatch)
-    if (overallScore >= 50) {
+    if (overallScore >= 50 || addressCandidate || exactPhone) {
       let matchedField: 'address' | 'phone' | 'name' | 'multiple' = 'address';
       const highScores = [
         { field: 'address' as const, score: maxAddressScore },
@@ -151,31 +184,61 @@ function findPossibleDuplicates(
 
       // Generate details string
       const details = [];
-      if (maxAddressScore >= 60) {
-        details.push(`Address: ${maxAddressScore}%`);
+      if (addressCandidate?.evidence) {
+        details.push(
+          `Similar address: ${addressCandidate.evidence.matchedTerms.join(', ')}`
+        );
+      } else if (maxAddressScore >= 60) {
+        details.push('Similar address text');
       }
-      if (phoneScore >= 60) {
-        details.push(`Phone: ${phoneScore}%`);
+      if (exactPhone) {
+        details.push('Same normalized phone number');
+      } else if (phoneScore >= 60) {
+        details.push('Partially similar phone number');
       }
-      if (nameScore >= 60) {
-        details.push(`Name: ${nameScore}%`);
+      if (nameScore >= 70) {
+        details.push('Similar name');
+      }
+      const matchingSignalCount =
+        Number(Boolean(addressCandidate) || maxAddressScore >= 70) +
+        Number(exactPhone || phoneScore >= 70) +
+        Number(nameScore >= 70);
+      if (addressCandidate && highScores.length === 0) {
+        matchedField = 'address';
+      }
+      if (exactPhone && !addressCandidate && nameScore < 70) {
+        matchedField = 'phone';
+      }
+      if (matchingSignalCount > 1) {
+        matchedField = 'multiple';
       }
 
       matches.push({
         customer,
-        similarityScore: overallScore,
+        similarityScore: Math.max(
+          overallScore,
+          addressCandidate?.evidence?.similarityScore ?? 0,
+          exactPhone ? 100 : 0
+        ),
         matchedField,
         addressScore: maxAddressScore,
         phoneScore,
         nameScore,
         details: details.join(' • '),
+        matchedAddress: addressCandidate?.address ?? customer.address,
+        matchingSignalCount,
       });
     }
   }
 
   // Sort by similarity score (highest first) and return top 5
   return matches
-    .sort((a, b) => b.similarityScore - a.similarityScore)
+    .sort(
+      (a, b) =>
+        b.matchingSignalCount - a.matchingSignalCount ||
+        b.similarityScore - a.similarityScore ||
+        a.customer.id - b.customer.id
+    )
     .slice(0, 5);
 }
 
@@ -190,25 +253,8 @@ export async function showDuplicateCheckDialog(
     return 'proceed';
   }
 
-  const getScoreColor = (score: number): string => {
-    if (score >= 80) {
-      return '#28a745'; // Green
-    }
-    if (score >= 60) {
-      return '#007bff'; // Blue
-    }
-    return '#ffc107'; // Yellow
-  };
-
-  const getScoreBadge = (score: number): string => {
-    if (score >= 80) {
-      return '🔴 High Risk';
-    }
-    if (score >= 60) {
-      return '🟡 Medium Risk';
-    }
-    return '🟢 Low Risk';
-  };
+  const getScoreColor = (count: number): string =>
+    count > 1 ? '#007bff' : '#b7791f';
 
   // Build HTML content
   const duplicatesHTML = duplicates
@@ -217,42 +263,42 @@ export async function showDuplicateCheckDialog(
     <div style="
       margin-bottom: 16px;
       padding: 16px;
-      border-left: 4px solid ${getScoreColor(dup.similarityScore)};
+      border-left: 4px solid ${getScoreColor(dup.matchingSignalCount)};
       background: #f8f9fa;
       border-radius: 8px;
       text-align: left;
     ">
       <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
         <strong style="font-size: 16px; color: #212529;">
-          ${dup.customer.customerName}
-          ${dup.customer.businessName ? `<span style="color: #6c757d; font-weight: normal;"> | ${dup.customer.businessName}</span>` : ''}
+          ${escapeHtml(dup.customer.customerName)}
+          ${dup.customer.businessName ? `<span style="color: #6c757d; font-weight: normal;"> | ${escapeHtml(dup.customer.businessName)}</span>` : ''}
         </strong>
         <span style="
-          background: ${getScoreColor(dup.similarityScore)};
+          background: ${getScoreColor(dup.matchingSignalCount)};
           color: white;
           padding: 4px 12px;
           border-radius: 12px;
           font-size: 14px;
           font-weight: 600;
         ">
-          ${dup.similarityScore}%
+          Review suggested
         </span>
       </div>
       <div style="font-size: 14px; color: #495057; margin-bottom: 4px;">
-        📞 ${dup.customer.phoneNumber || 'No phone'}
+        📞 ${escapeHtml(dup.customer.phoneNumber || 'No phone')}
       </div>
       <div style="font-size: 14px; color: #495057; margin-bottom: 8px;">
-        📍 ${dup.customer.address || 'No address'}
+        📍 ${escapeHtml(dup.matchedAddress || 'No address')}
       </div>
       ${
         dup.details
           ? `<div style="font-size: 13px; color: #6c757d; font-style: italic;">
-          ${dup.details}
+          ${escapeHtml(dup.details)}
         </div>`
           : ''
       }
-      <div style="margin-top: 8px; font-size: 13px; font-weight: 600; color: ${getScoreColor(dup.similarityScore)};">
-        ${getScoreBadge(dup.similarityScore)}
+      <div style="margin-top: 8px; font-size: 13px; font-weight: 600; color: ${getScoreColor(dup.matchingSignalCount)};">
+        ${dup.matchingSignalCount > 1 ? 'Multiple matching details' : 'Possible match; identity not confirmed'}
       </div>
     </div>
   `
@@ -271,7 +317,7 @@ export async function showDuplicateCheckDialog(
           ${duplicatesHTML}
         </div>
         <p style="font-size: 14px; color: #6c757d; margin-top: 20px; font-style: italic;">
-          💡 If this is indeed a duplicate, click "Cancel" and use the existing customer instead.
+          Shared details do not confirm identity. Verify before saving. If this is a duplicate, click "Cancel" and use the existing customer instead.
         </p>
       </div>
     `,
@@ -348,7 +394,7 @@ export async function closeCheckingDialog(): Promise<void> {
  */
 export function useCustomerDuplicateCheck(apiBasePath?: string) {
   // Fetch all customers for duplicate checking
-  const { data: customers = [], isLoading } = useQuery({
+  const { refetch, isLoading } = useQuery({
     queryKey: ['customers-duplicate-check', apiBasePath ?? 'default'],
     queryFn: () => fetchCustomersForDuplicateCheck(apiBasePath),
     staleTime: 2 * 60 * 1000, // 2 minutes
@@ -365,11 +411,13 @@ export function useCustomerDuplicateCheck(apiBasePath?: string) {
       // Show loading dialog
       await showCheckingDialog();
 
-      // Add a small delay to ensure loading dialog is shown
-      await new Promise((resolve) => setTimeout(resolve, 500));
-
-      // Find possible duplicates
-      const duplicates = findPossibleDuplicates(newCustomer, customers);
+      const directory = await refetch({ throwOnError: true });
+      if (!directory.data || directory.isError) {
+        throw new Error(
+          'Could not load the customer directory for duplicate checking'
+        );
+      }
+      const duplicates = findPossibleDuplicates(newCustomer, directory.data);
 
       // Close loading dialog completely
       await closeCheckingDialog();
@@ -382,7 +430,7 @@ export function useCustomerDuplicateCheck(apiBasePath?: string) {
         const Swal = await getSwal();
         await Swal.fire({
           title: 'No Duplicates Found',
-          text: 'This appears to be a new customer. Proceeding with save...',
+          text: 'No likely matches found in the current customer list. Proceeding with save...',
           icon: 'success',
           timer: 1500,
           showConfirmButton: false,

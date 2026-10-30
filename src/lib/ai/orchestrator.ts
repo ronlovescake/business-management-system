@@ -6,6 +6,16 @@ import {
   updateMonitoringAlertExplanationInStore,
 } from './store';
 import { assertBusinessUnitAccess, getToolsForContext } from './tools';
+import { isDirectKnowledgeQuestion } from './tools/knowledge-base-tool';
+import {
+  isCustomerDuplicateAuditQuestion,
+  formatCustomerDuplicateAudit,
+  type CustomerDuplicateAuditResult,
+} from './tools/customer-duplicate-audit-tool';
+import {
+  getDirectCustomerSearch,
+  formatCustomerOrders,
+} from './tools/customer-order-answer';
 import type {
   AiBusinessUnit,
   AiGenerationResult,
@@ -14,12 +24,81 @@ import type {
   AiToolDefinition,
   AiToolExecutionContext,
   AiTriggerSource,
+  AiProviderFailureDiagnostics,
 } from './types';
 
 interface PrefetchedToolRecord {
   toolName: string;
   businessUnit: AiBusinessUnit;
   output: Record<string, unknown>;
+}
+
+function describeProviderFailure(error: unknown): string {
+  const message = error instanceof Error ? error.message : '';
+  if (/timeout|timed out|time out/i.test(message)) {
+    return 'Provider request timed out.';
+  }
+  if (/quota|rate.?limit|429|capacity/i.test(message)) {
+    return 'Provider quota or capacity limit reached.';
+  }
+  if (
+    /auth|credential|invalid.*token|token.*(?:expired|invalid)|restricted|access denied|401|403/i.test(
+      message
+    )
+  ) {
+    return 'Provider authentication or authorization failed.';
+  }
+  if (/not configured|configuration/i.test(message)) {
+    return 'Provider configuration is unavailable or invalid.';
+  }
+  if (/maximum.*tool calls|tool.*limit/i.test(message)) {
+    return 'Provider exceeded the allowed tool-call limit.';
+  }
+  return 'Provider request failed before a usable response was returned.';
+}
+
+function getProviderFailureDiagnostics(
+  error: unknown
+): AiProviderFailureDiagnostics | undefined {
+  if (!(error instanceof Error)) {
+    return undefined;
+  }
+  const raw = Reflect.get(error, 'providerDiagnostics');
+  if (!raw || typeof raw !== 'object') {
+    return undefined;
+  }
+  const data = raw as Record<string, unknown>;
+  const phase = data.phase;
+  if (
+    phase !== 'runtime-start' &&
+    phase !== 'session-setup' &&
+    phase !== 'model-response' &&
+    phase !== 'tool-execution'
+  ) {
+    return undefined;
+  }
+  if (
+    ![data.elapsedMs, data.toolCallsStarted, data.toolCallsCompleted].every(
+      (value) =>
+        typeof value === 'number' && Number.isFinite(value) && value >= 0
+    )
+  ) {
+    return undefined;
+  }
+  return {
+    phase,
+    elapsedMs: Number(data.elapsedMs),
+    toolCallsStarted: Number(data.toolCallsStarted),
+    toolCallsCompleted: Number(data.toolCallsCompleted),
+    activeToolNames: Array.isArray(data.activeToolNames)
+      ? data.activeToolNames
+          .filter(
+            (name): name is string =>
+              typeof name === 'string' && /^[a-zA-Z0-9_]{1,64}$/.test(name)
+          )
+          .slice(0, 12)
+      : [],
+  };
 }
 
 async function prefetchDeterministicToolData(params: {
@@ -36,6 +115,9 @@ async function prefetchDeterministicToolData(params: {
   }
 
   const q = params.userPrompt.toLowerCase();
+  if (isCustomerDuplicateAuditQuestion(q)) {
+    return { records: [], traces: [] };
+  }
   const wantRecurring =
     /recurring|loan|rent|utilit|obligation|due this week|upcoming payment|template|draft/i.test(
       q
@@ -177,14 +259,13 @@ function buildDeterministicFallbackMarkdown(
         sections.push('- No overdue invoices or unpaid receivables found.');
       } else {
         for (const item of items.slice(0, 10)) {
-          const id = item.invoiceId ?? item.transactionId ?? 'N/A';
           const customer = item.customerName ?? item.customer ?? 'Unknown';
           const bal = Number(
             item.remainingBalance ?? item.lineTotal ?? 0
           ).toLocaleString('en-PH', { minimumFractionDigits: 2 });
           const due = item.dueDate ?? 'No due date';
           sections.push(
-            `- **Record #${id}** (${customer}): Balance **₱${bal}** — Status: \`${String(item.status ?? item.orderStatus ?? '')}\` (Due: \`${String(due)}\`)`
+            `- **${customer}**: Balance **₱${bal}** — Status: \`${String(item.status ?? item.orderStatus ?? '')}\` (Due: \`${String(due)}\`)`
           );
         }
       }
@@ -199,9 +280,8 @@ function buildDeterministicFallbackMarkdown(
         );
       } else {
         for (const a of anomalies.slice(0, 10)) {
-          const id = a.transactionId ?? a.invoiceId ?? 'N/A';
           sections.push(
-            `- **Record #${id}** (${String(a.customer ?? '')}): ${String(a.issue ?? '')}`
+            `- **${String(a.customer ?? 'Accounting discrepancy')}**: ${String(a.issue ?? '')}`
           );
         }
       }
@@ -244,7 +324,9 @@ function buildDeterministicFallbackMarkdown(
       if (core.length) {
         sections.push('**Standard Operating Procedures:**');
         for (const c of core) {
-          sections.push(`- **${String(c.topic)}**: ${String(c.rule)}`);
+          sections.push(
+            `- **${String(c.topic)}**: ${String(c.rule)} (Source: ${String(c.id ?? '')}; ${String(c.sourceDoc ?? '')})`
+          );
         }
         sections.push('');
       }
@@ -275,8 +357,14 @@ function buildDeterministicFallbackMarkdown(
 const SYSTEM_PROMPT = `You are a sharp, conversational, strictly READ-ONLY AI Financial Controller and Operations Partner for a multi-business LAN management platform (Clothing Wholesale, Trucking/Logistics, and General Merchandise).
 
 CONVERSATIONAL & INVESTIGATIVE STYLE:
+- Lead with the direct answer and verified customer identity. Use bullets for findings, numbered lists for steps or rankings, and Markdown tables for records. Do not add unrelated analysis.
+- Identify each product as Product Name (FULL-PRODUCT-CODE), for example Premium Shortsleeves Onesie (PSO-101226). Preserve the entire productCode returned by the tool, including every date, variant, or other suffix; never abbreviate it, replace it with a database product ID, or omit it when known. For product/order database queries retrieve both the name and full productCode. If a code is not available, retrieve it through an authorized read-only tool when possible; otherwise say "product code not recorded" rather than inventing one. If only a code is known, show that exact code without guessing a name.
+- When asked how many orders a named customer has, include the count AND the matching order details in the first answer: Date, Product (including a UI-visible code when available), Qty, and Status when statuses differ. State a common status once only if every matching row verifies it. Count transaction records as records; never infer distinct grouped orders. Resolve ambiguous customer matches before combining their histories.
+- Use matchingTransactionCount, returnedTransactionCount, and hasMoreTransactions to disclose incomplete lists. Never say "all" unless all matching rows were returned and belong to the resolved customer. Link to the relevant module for additional records; never invent missing rows or dates.
 - Speak naturally, warmly, and directly like an experienced human business partner—never sound like a rigid FAQ bot or dump unrelated audit sections when the user asks a specific question.
 - Answer the exact question the user asked. If they ask an open-ended question (e.g., "Who is our oldest customer?", "What did Shanna Lim order?", "How much did we spend on freight?"), call the appropriate read-only database tool (\`queryCustomersAndOrderHistory\` or \`queryDatabaseReadOnly\`) to check the live PostgreSQL database before answering.
+- For an unknown recipient, waybill, delivery-address lookup or a possible customer match by location, call \`findCustomersByAddress\` with the address text and authorized business unit. Customer directories have primary, business and additional addresses; never claim address search is unavailable without checking the tool. Present ranked POSSIBLE matches with the matched address and shared details, not a confirmed identity or a confidence percentage. Ask for one independent detail (phone, recipient, or landmark) before linking or dispatching. Respect incomplete-scan warnings; no candidates is not proof the customer does not exist. Do not send an address to the name-only customer-history search.
+- For a Clothing directory-wide request to find possible duplicate customers or re-registrations under different names, use \`auditPossibleCustomerDuplicates\`. Report shared phone/address evidence and existing statuses only; never infer identity or ban evasion. Disclose audit limits. Do not substitute overdue invoices or recurring dues for an incomplete duplicate audit.
 - If the user states their current cash/bank balance or asks whether cash matches the records (e.g., "Our cash right now is 100,000.00. Can you check if it matches all the records and if not, please find why"), call \`reconcileCashAndFindDiscrepancies\` with \`actualCashAmount\` set to their stated number. Walk them through:
   1. What the recorded book cash balance is (and its breakdown: opening balance, customer payments, paid expenses, refunds, manual journal lines).
   2. Whether it matches, and the exact peso variance (surplus or shortage).
@@ -290,7 +378,7 @@ KNOWLEDGE BASE, EMPLOYEE HANDBOOK & POLICY GUIDANCE:
 NON-NEGOTIABLE SAFETY RULES:
 1. You have strictly READ-ONLY access via predefined tools. You cannot create, modify, or delete any transactions, invoices, payments, ledger entries, or inventory records.
 2. Never invent or guess arithmetic balances. Always rely on the deterministic numbers returned by the read-only tools.
-3. Always cite exact record IDs (e.g., Order #3395, Payment #1617, Customer ID, Product Code) and link the user to the relevant module path.
+3. Keep database primary keys internal by default: do not display customer IDs, product IDs, transaction/order row IDs, payment IDs, recurring-template IDs, or a Record ID column. Identify records using names, dates, product descriptions, quantities, statuses, amounts, and UI-visible product/shipment/invoice references. Never relabel a database key as a business reference. Include raw IDs only when the user explicitly requests them or explicitly asks for technical debugging. Link to the relevant module using the returned sourceLink; IDs may remain inside valid link targets without appearing as labels.
 4. Keep records strictly separated between Clothing, Trucking, and General Merchandise. Unless the user specifies otherwise, default to Clothing (or the active businessUnit filter).
 5. Respond to standalone greetings briefly and naturally (for example, "Good morning! How can I help you check the books or operations today?"). Do not volunteer business records or an audit summary on a greeting.`;
 
@@ -369,22 +457,179 @@ export async function runBusinessAiAssistant(
 
   let result: Omit<AiGenerationResult, 'usedFallback'>;
   let usedFallback = false;
+  const providerFailures: Array<{
+    provider: AiProviderId;
+    model: string;
+    reason: string;
+    diagnostics?: AiProviderFailureDiagnostics;
+  }> = [];
+  const started = Date.now();
+  const defaultUnit =
+    params.businessUnit ??
+    (params.toolContext.allowedBusinessUnits.includes('clothing')
+      ? 'clothing'
+      : undefined);
+  const directKnowledgeTool =
+    params.triggerSource === 'USER_CHAT' &&
+    defaultUnit === 'clothing' &&
+    isDirectKnowledgeQuestion(params.userPrompt)
+      ? tools.find((tool) => tool.name === 'searchKnowledgeBaseAndSOPs')
+      : undefined;
+  const customerSearch =
+    params.triggerSource === 'USER_CHAT' && defaultUnit === 'clothing'
+      ? getDirectCustomerSearch(params.userPrompt)
+      : null;
+  const directCustomerTool = customerSearch
+    ? tools.find((tool) => tool.name === 'queryCustomersAndOrderHistory')
+    : undefined;
+  const duplicateAuditQuestion =
+    params.triggerSource === 'USER_CHAT' &&
+    isCustomerDuplicateAuditQuestion(params.userPrompt);
+  const directAuditTool =
+    duplicateAuditQuestion && defaultUnit === 'clothing'
+      ? tools.find((tool) => tool.name === 'auditPossibleCustomerDuplicates')
+      : undefined;
+  if (duplicateAuditQuestion && !directAuditTool) {
+    throw new Error(
+      'Customer duplicate auditing is available only for authorized Clothing requests with tools enabled. Select Clothing to run this audit.'
+    );
+  }
 
-  try {
-    const gen = await generateWithProvider({
+  if (
+    (directKnowledgeTool || directCustomerTool || directAuditTool) &&
+    primaryProvider === 'copilot'
+  ) {
+    const { assertCopilotAccess } = await import('./copilot-provider');
+    assertCopilotAccess({
       provider: primaryProvider,
       model: primaryModel,
-      ollamaBaseUrl: settings.ollamaBaseUrl,
       systemPrompt: SYSTEM_PROMPT,
       userPrompt: params.userPrompt,
-      history: params.history,
       tools,
-      isSyntheticTest: params.isSyntheticTest,
       toolContext: params.toolContext,
-      timeoutMs: 45000,
+      isSyntheticTest: params.isSyntheticTest,
     });
-    result = gen;
+  }
+
+  try {
+    let directCustomerAnswer: {
+      text: string;
+      args: Record<string, unknown>;
+      durationMs: number;
+    } | null = null;
+    if (directCustomerTool) {
+      const args = { businessUnit: 'clothing', search: customerSearch };
+      const output = await directCustomerTool.execute(args, params.toolContext);
+      const text = formatCustomerOrders(output);
+      if (text) {
+        directCustomerAnswer = { text, args, durationMs: Date.now() - started };
+      }
+    }
+    if (directAuditTool) {
+      const args = { businessUnit: 'clothing' };
+      const output = (await directAuditTool.execute(
+        args,
+        params.toolContext
+      )) as CustomerDuplicateAuditResult;
+      result = {
+        text: formatCustomerDuplicateAudit(output),
+        provider: primaryProvider,
+        model: 'deterministic-customer-duplicate-audit',
+        inputTokens: 0,
+        outputTokens: 0,
+        estimatedCostUsd: 0,
+        latencyMs: Date.now() - started,
+        toolsCalled: [
+          {
+            toolName: directAuditTool.name,
+            args,
+            durationMs: Date.now() - started,
+          },
+        ],
+      };
+    } else if (directCustomerAnswer && directCustomerTool) {
+      result = {
+        text: directCustomerAnswer.text,
+        provider: primaryProvider,
+        model: 'deterministic-customer-orders',
+        inputTokens: 0,
+        outputTokens: 0,
+        estimatedCostUsd: 0,
+        latencyMs: Date.now() - started,
+        toolsCalled: [
+          {
+            toolName: directCustomerTool.name,
+            args: directCustomerAnswer.args,
+            durationMs: directCustomerAnswer.durationMs,
+          },
+        ],
+      };
+    } else if (directKnowledgeTool) {
+      const args = { query: params.userPrompt, businessUnit: 'clothing' };
+      const output = (await directKnowledgeTool.execute(
+        args,
+        params.toolContext
+      )) as Record<string, unknown>;
+      result = {
+        text: buildDeterministicFallbackMarkdown([
+          {
+            toolName: directKnowledgeTool.name,
+            businessUnit: 'clothing',
+            output,
+          },
+        ]),
+        provider: primaryProvider,
+        model: 'deterministic-knowledge',
+        inputTokens: 0,
+        outputTokens: 0,
+        estimatedCostUsd: 0,
+        latencyMs: Date.now() - started,
+        toolsCalled: [
+          {
+            toolName: directKnowledgeTool.name,
+            args,
+            durationMs: Date.now() - started,
+          },
+        ],
+      };
+    } else {
+      const gen = await generateWithProvider({
+        provider: primaryProvider,
+        model: primaryModel,
+        ollamaBaseUrl: settings.ollamaBaseUrl,
+        systemPrompt: SYSTEM_PROMPT,
+        userPrompt: params.userPrompt,
+        history: params.history,
+        tools,
+        isSyntheticTest: params.isSyntheticTest,
+        toolContext: params.toolContext,
+        timeoutMs: 45000,
+      });
+      result = gen;
+    }
   } catch (primaryError) {
+    providerFailures.push({
+      provider: primaryProvider,
+      model: primaryModel,
+      reason: describeProviderFailure(primaryError),
+      diagnostics: getProviderFailureDiagnostics(primaryError),
+    });
+    if (duplicateAuditQuestion) {
+      await insertAuditLogToStore({
+        userId: params.userId ?? null,
+        userName: params.userName ?? null,
+        triggerSource: params.triggerSource,
+        businessUnit: 'clothing',
+        provider: primaryProvider,
+        model: 'deterministic-customer-duplicate-audit',
+        status: 'ERROR',
+        latencyMs: Date.now() - started,
+        errorMessage: 'Customer duplicate audit could not be completed.',
+      });
+      throw new Error(
+        'Could not complete the Clothing customer duplicate audit. No records were changed. Please retry; unrelated dues or receivables are not a substitute for this audit.'
+      );
+    }
     const canFallback =
       Boolean(settings.fallbackProvider && settings.fallbackModel) &&
       !params.providerOverride &&
@@ -408,7 +653,13 @@ export async function runBusinessAiAssistant(
         });
         result = fallbackGen;
         usedFallback = true;
-      } catch {
+      } catch (fallbackError) {
+        providerFailures.push({
+          provider: settings.fallbackProvider,
+          model: settings.fallbackModel,
+          reason: describeProviderFailure(fallbackError),
+          diagnostics: getProviderFailureDiagnostics(fallbackError),
+        });
         const prefetched = await prefetchDeterministicToolData({
           userPrompt: params.userPrompt,
           tools,
@@ -431,6 +682,18 @@ export async function runBusinessAiAssistant(
           };
           usedFallback = true;
         } else {
+          await insertAuditLogToStore({
+            userId: params.userId ?? null,
+            userName: params.userName ?? null,
+            triggerSource: params.triggerSource,
+            businessUnit: params.businessUnit ?? null,
+            provider: primaryProvider,
+            model: primaryModel,
+            status: 'ERROR',
+            errorMessage: describeProviderFailure(primaryError),
+            latencyMs: Date.now() - started,
+            metadata: { providerFailures },
+          });
           throw primaryError;
         }
       }
@@ -465,16 +728,21 @@ export async function runBusinessAiAssistant(
           provider: primaryProvider,
           model: primaryModel,
           status: 'ERROR',
-          errorMessage:
-            primaryError instanceof Error
-              ? primaryError.message.slice(0, 950)
-              : 'AI provider request failed',
+          errorMessage: describeProviderFailure(primaryError),
+          latencyMs: Date.now() - started,
+          metadata: { providerFailures },
         });
         throw primaryError;
       }
     }
   }
 
+  result.latencyMs = Date.now() - started;
+  const fallbackReason = usedFallback
+    ? providerFailures
+        .map((failure) => `${failure.provider}: ${failure.reason}`)
+        .join(' ')
+    : undefined;
   await insertAuditLogToStore({
     userId: params.userId ?? null,
     userName: params.userName ?? null,
@@ -488,12 +756,25 @@ export async function runBusinessAiAssistant(
     estimatedCostUsd: result.estimatedCostUsd,
     latencyMs: result.latencyMs,
     status: 'SUCCESS',
-    metadata: { usedFallback },
+    metadata: {
+      usedFallback,
+      executionMode:
+        usedFallback && result.model.endsWith(' (deterministic-fallback)')
+          ? 'local-fallback'
+          : result.model.startsWith('deterministic-')
+            ? result.model
+            : 'provider',
+      orchestrationDurationMs: Date.now() - started,
+      providerTimings: result.timings,
+      providerFailures,
+      fallbackReason,
+    },
   });
 
   return {
     ...result,
     usedFallback,
+    fallbackReason,
   };
 }
 

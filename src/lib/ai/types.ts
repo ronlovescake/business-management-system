@@ -92,6 +92,7 @@ export interface AiToolCallTrace {
   args: Record<string, unknown>;
   recordCount?: number;
   durationMs: number;
+  cacheHit?: boolean;
 }
 
 export interface AiGenerationResult {
@@ -104,6 +105,24 @@ export interface AiGenerationResult {
   latencyMs: number;
   toolsCalled: AiToolCallTrace[];
   usedFallback: boolean;
+  fallbackReason?: string;
+  timings?: {
+    sdkStartupMs: number;
+    sessionSetupMs: number;
+    modelAndToolsMs: number;
+  };
+}
+
+export interface AiProviderFailureDiagnostics {
+  phase:
+    | 'runtime-start'
+    | 'session-setup'
+    | 'model-response'
+    | 'tool-execution';
+  elapsedMs: number;
+  toolCallsStarted: number;
+  toolCallsCompleted: number;
+  activeToolNames: string[];
 }
 
 export interface AiConnectionTestResult {

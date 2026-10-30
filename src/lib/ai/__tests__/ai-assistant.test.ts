@@ -152,6 +152,305 @@ describe('AI Business Assistant — Safety, RBAC & Deterministic Monitoring', ()
     });
   });
 
+  it('answers an explicit Clothing policy question locally without contacting a model', async () => {
+    const fetchSpy = vi
+      .spyOn(globalThis, 'fetch')
+      .mockRejectedValue(new Error('Model must not be called'));
+    try {
+      const result = await runBusinessAiAssistant({
+        userPrompt: 'How do due dates work?',
+        businessUnit: 'clothing',
+        triggerSource: 'USER_CHAT',
+        toolContext: {
+          userId: 'admin',
+          userRole: 'SUPER_ADMIN',
+          accessibleModules: [],
+          allowedBusinessUnits: ['clothing'],
+        },
+      });
+      expect(result.model).toBe('deterministic-knowledge');
+      expect(result.text).toContain('11:59 PM');
+      expect(result.inputTokens + result.outputTokens).toBe(0);
+      expect(result.usedFallback).toBe(false);
+      expect(fetchSpy).not.toHaveBeenCalled();
+    } finally {
+      fetchSpy.mockRestore();
+    }
+  });
+
+  it('returns all 36 customer order records without a provider request', async () => {
+    mockPrisma.transaction.findMany.mockResolvedValue(
+      Array.from({ length: 36 }, (_, index) => ({
+        id: index + 1,
+        customerId: 624,
+        customers: 'Ethan Lopez | Charlene Lopez',
+        product: { product: 'Baby Socks' },
+        productCode: 'BS-101725',
+        quantity: 60,
+        orderDate: '2026-01-01',
+        createdAt: new Date('2026-01-01T00:00:00Z'),
+        orderStatus: 'Shipped',
+        unitPrice: 1,
+        adjustment: 60,
+        lineTotal: 0,
+        payments: [],
+      }))
+    );
+    const fetchSpy = vi
+      .spyOn(globalThis, 'fetch')
+      .mockRejectedValue(new Error('Model must not be called'));
+    try {
+      const result = await runBusinessAiAssistant({
+        userPrompt: 'how many orders does charlene lopez has',
+        triggerSource: 'USER_CHAT',
+        toolContext: {
+          userId: 'admin',
+          userRole: 'SUPER_ADMIN',
+          accessibleModules: [],
+          allowedBusinessUnits: ['clothing'],
+        },
+      });
+      expect(result.model).toBe('deterministic-customer-orders');
+      expect(result.text).toContain('all 36 records');
+      expect(
+        result.text.split('\n').filter((line) => line.startsWith('| '))
+      ).toHaveLength(38);
+      expect(result.text).not.toContain('Customer #624');
+      expect(result.text).not.toContain('| Order |');
+      expect(result.text).toContain('Baby Socks (BS-101725)');
+      expect(result.outputTokens).toBe(0);
+      expect(fetchSpy).not.toHaveBeenCalled();
+    } finally {
+      fetchSpy.mockRestore();
+    }
+  });
+
+  it('does not bypass Copilot authorization through the local policy path', async () => {
+    const settings = await mockPrisma.aiAssistantSetting.upsert();
+    mockPrisma.aiAssistantSetting.upsert.mockResolvedValue({
+      ...settings,
+      activeProvider: 'copilot',
+      allowCloudDataSharing: true,
+    });
+    vi.stubEnv('COPILOT_ALLOWED_USER_ID', 'different-owner');
+    try {
+      await expect(
+        runBusinessAiAssistant({
+          userPrompt: 'How do due dates work?',
+          businessUnit: 'clothing',
+          triggerSource: 'USER_CHAT',
+          toolContext: {
+            userId: 'admin',
+            userRole: 'SUPER_ADMIN',
+            accessibleModules: [],
+            allowedBusinessUnits: ['clothing'],
+          },
+        })
+      ).rejects.toThrow(/COPILOT_ALLOWED_USER_ID/);
+    } finally {
+      vi.unstubAllEnvs();
+    }
+  });
+
+  it('retains a safe failure reason and full provider-wait latency when local fallback succeeds', async () => {
+    const clock = vi.spyOn(Date, 'now').mockReturnValue(1000);
+    const fetchSpy = vi
+      .spyOn(globalThis, 'fetch')
+      .mockImplementation(async () => {
+        clock.mockReturnValue(46000);
+        throw Object.assign(
+          new Error(
+            'Provider request timed out: secret-token-should-not-be-saved'
+          ),
+          {
+            providerDiagnostics: {
+              phase: 'model-response',
+              elapsedMs: 45000,
+              toolCallsStarted: 2,
+              toolCallsCompleted: 2,
+              activeToolNames: [],
+              prompt: 'private-prompt-should-not-be-saved',
+            },
+          }
+        );
+      });
+    try {
+      const result = await runBusinessAiAssistant({
+        userPrompt: 'Show upcoming dues',
+        businessUnit: 'clothing',
+        triggerSource: 'USER_CHAT',
+        toolContext: {
+          userId: 'admin',
+          userRole: 'SUPER_ADMIN',
+          accessibleModules: [],
+          allowedBusinessUnits: ['clothing'],
+        },
+      });
+      expect(result.usedFallback).toBe(true);
+      expect(result.latencyMs).toBe(45000);
+      expect(result.fallbackReason).toBe('ollama: Provider request timed out.');
+      expect(
+        JSON.stringify(mockPrisma.aiAuditLog.create.mock.calls)
+      ).not.toContain('secret-token-should-not-be-saved');
+      expect(
+        JSON.stringify(mockPrisma.aiAuditLog.create.mock.calls)
+      ).not.toContain('private-prompt-should-not-be-saved');
+      expect(mockPrisma.aiAuditLog.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            metadata: expect.objectContaining({
+              providerFailures: [
+                expect.objectContaining({
+                  diagnostics: {
+                    phase: 'model-response',
+                    elapsedMs: 45000,
+                    toolCallsStarted: 2,
+                    toolCallsCompleted: 2,
+                    activeToolNames: [],
+                  },
+                }),
+              ],
+            }),
+          }),
+        })
+      );
+      expect(mockPrisma.aiAuditLog.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            latencyMs: 45000,
+            metadata: expect.objectContaining({
+              fallbackReason: result.fallbackReason,
+            }),
+          }),
+        })
+      );
+    } finally {
+      fetchSpy.mockRestore();
+      clock.mockRestore();
+    }
+  });
+
+  it('audits a sanitized provider error when no fallback evidence is available', async () => {
+    const fetchSpy = vi
+      .spyOn(globalThis, 'fetch')
+      .mockRejectedValue(new Error('Quota exhausted: private-value'));
+    try {
+      await expect(
+        runBusinessAiAssistant({
+          userPrompt: 'Hello',
+          triggerSource: 'USER_CHAT',
+          enableTools: false,
+          toolContext: {
+            userId: 'admin',
+            userRole: 'SUPER_ADMIN',
+            accessibleModules: [],
+            allowedBusinessUnits: ['clothing'],
+          },
+        })
+      ).rejects.toThrow('Quota exhausted');
+      expect(mockPrisma.aiAuditLog.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            status: 'ERROR',
+            errorMessage: 'Provider quota or capacity limit reached.',
+            metadata: expect.objectContaining({
+              providerFailures: [
+                expect.objectContaining({
+                  reason: 'Provider quota or capacity limit reached.',
+                }),
+              ],
+            }),
+          }),
+        })
+      );
+      expect(
+        JSON.stringify(mockPrisma.aiAuditLog.create.mock.calls)
+      ).not.toContain('private-value');
+    } finally {
+      fetchSpy.mockRestore();
+    }
+  });
+
+  it('answers duplicate audits directly without cloud calls or unrelated dues', async () => {
+    mockPrisma.customer.findMany.mockResolvedValue([
+      {
+        id: 1,
+        customerName: 'First',
+        customerStatus: 'Banned',
+        phoneNumber: '09182123110',
+        address: '',
+        businessAddress: '',
+        additionalCustomerInfo: [],
+      },
+      {
+        id: 2,
+        customerName: 'Second',
+        customerStatus: 'Active',
+        phoneNumber: '+639182123110',
+        address: '',
+        businessAddress: '',
+        additionalCustomerInfo: [],
+      },
+    ]);
+    const fetchSpy = vi
+      .spyOn(globalThis, 'fetch')
+      .mockRejectedValue(new Error('Cloud must not run'));
+    try {
+      const result = await runBusinessAiAssistant({
+        userPrompt:
+          'Can you check customers for possible duplicates? Banned customers use different names but the same phone and address.',
+        businessUnit: 'clothing',
+        triggerSource: 'USER_CHAT',
+        toolContext: {
+          userId: 'admin',
+          userRole: 'SUPER_ADMIN',
+          accessibleModules: [],
+          allowedBusinessUnits: ['clothing'],
+        },
+      });
+      expect(result.model).toBe('deterministic-customer-duplicate-audit');
+      expect(result.text).toContain('1 possible pairs');
+      expect(result.text).toContain('Banned');
+      expect(result.text).not.toContain('Recurring');
+      expect(result.inputTokens + result.outputTokens).toBe(0);
+      expect(fetchSpy).not.toHaveBeenCalled();
+    } finally {
+      fetchSpy.mockRestore();
+    }
+  });
+
+  it('does not replace a failed duplicate audit with dues or a provider retry', async () => {
+    mockPrisma.customer.findMany.mockRejectedValue(
+      new Error('Database unavailable')
+    );
+    const fetchSpy = vi
+      .spyOn(globalThis, 'fetch')
+      .mockRejectedValue(new Error('Cloud must not run'));
+    try {
+      await expect(
+        runBusinessAiAssistant({
+          userPrompt: 'Find duplicate customers',
+          businessUnit: 'clothing',
+          triggerSource: 'USER_CHAT',
+          toolContext: {
+            userId: 'admin',
+            userRole: 'SUPER_ADMIN',
+            accessibleModules: [],
+            allowedBusinessUnits: ['clothing'],
+          },
+        })
+      ).rejects.toThrow(
+        'Could not complete the Clothing customer duplicate audit'
+      );
+      expect(fetchSpy).not.toHaveBeenCalled();
+      expect(
+        mockPrisma.clothingRecurringPaymentTemplate.findMany
+      ).not.toHaveBeenCalled();
+    } finally {
+      fetchSpy.mockRestore();
+    }
+  });
+
   it('enforces readOnly=true on all registered business tools', () => {
     expect(READ_ONLY_BUSINESS_TOOLS.length).toBeGreaterThanOrEqual(4);
     for (const tool of READ_ONLY_BUSINESS_TOOLS) {

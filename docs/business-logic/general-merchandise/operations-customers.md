@@ -35,6 +35,15 @@
 
 ## C — GM Customer Service Behavior
 
+The owner-approved [shared duplicate-review rules](../clothing/operations-customers.md#d--duplicate-detection)
+also apply to the shared General Merchandise Add Customer form: specific address
+and exact normalized phone signals can warn independently, weak name overlap is
+ignored, a fresh directory read is awaited, and the operator can Cancel or Proceed
+Anyway. Evidence is advisory, not identity probability. The selected API base and
+customer-domain records remain unchanged; this does not merge Clothing and GM
+identities or introduce duplicate blocking in API/import/bulk paths. No cloud AI
+request or automatic linking is added.
+
 | #   | Logic                                                                                                                 | Explanation                                                                                          |
 | --- | --------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------- |
 | 7   | GM-only customer data is backed by `generalMerchandiseCustomer` extension records                                     | Each GM extension links to the canonical Clothing `Customer` by `clothingCustomerId`.                |
