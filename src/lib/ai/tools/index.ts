@@ -4,11 +4,17 @@ import {
   CLOTHING_ACCOUNTS_RECEIVABLE_STATUSES,
   PAID_STATUSES,
 } from '@/lib/accounting/constants';
+import {
+  INVESTIGATIVE_BUSINESS_TOOLS,
+  validateAndBoundReadOnlySql,
+} from './investigative-tools';
 import type {
   AiBusinessUnit,
   AiToolDefinition,
   AiToolExecutionContext,
 } from '../types';
+
+export { validateAndBoundReadOnlySql };
 
 const EPS = 0.01;
 
@@ -193,10 +199,7 @@ export const READ_ONLY_BUSINESS_TOOLS: readonly AiToolDefinition[] = [
 
       const items = rows.map((tx) => {
         const gross = Number(
-          (
-            (tx.quantity ?? 0) * (tx.unitPrice ?? 0) -
-            (tx.discount ?? 0)
-          ).toFixed(2)
+          ((tx.quantity ?? 0) * (tx.unitPrice ?? 0)).toFixed(2)
         );
         const paid = tx.payments.reduce((s, p) => s + (p.amount ?? 0), 0);
         return {
@@ -577,6 +580,7 @@ export const READ_ONLY_BUSINESS_TOOLS: readonly AiToolDefinition[] = [
       };
     },
   },
+  ...INVESTIGATIVE_BUSINESS_TOOLS,
 ];
 
 export function getToolsForContext(

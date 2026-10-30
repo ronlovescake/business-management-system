@@ -67,6 +67,8 @@ services:
       OLLAMA_BASE_URL: ${OLLAMA_BASE_URL:-http://host.docker.internal:11434}
       GOOGLE_GENERATIVE_AI_API_KEY: ${GOOGLE_GENERATIVE_AI_API_KEY:-}
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      COPILOT_GITHUB_TOKEN: ${COPILOT_GITHUB_TOKEN:-}
+      COPILOT_ALLOWED_USER_ID: ${COPILOT_ALLOWED_USER_ID:-}
     extra_hosts:
       - "host.docker.internal:host-gateway"
     ports:

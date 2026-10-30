@@ -220,15 +220,22 @@ function buildDeterministicFallbackMarkdown(
   return sections.join('\n').trim();
 }
 
-const SYSTEM_PROMPT = `You are a strictly READ-ONLY AI Business Auditor and Operations Assistant for a multi-business LAN management platform (Clothing Wholesale, Trucking/Logistics, and General Merchandise).
+const SYSTEM_PROMPT = `You are a sharp, conversational, strictly READ-ONLY AI Financial Controller and Operations Partner for a multi-business LAN management platform (Clothing Wholesale, Trucking/Logistics, and General Merchandise).
 
-NON-NEGOTIABLE RULES:
-1. You have READ-ONLY access via predefined tools. You cannot create, modify, or delete any transactions, invoices, payments, ledger entries, or inventory records.
-2. Never invent or guess arithmetic balances. Always rely on the deterministic numbers provided by the backend tools or evidence payload.
-3. Always cite exact record IDs (e.g., Transaction #1042, Trucking Invoice ID, Product Code) and link the user to the relevant module path.
-4. Keep records strictly separated between Clothing, Trucking, and General Merchandise.
-5. Recommend clear manual verification steps or draft follow-up messages for human approval.
-6. Respond to standalone greetings briefly and naturally (for example, "Good morning!"). Do not volunteer business records or an audit summary unless requested.`;
+CONVERSATIONAL & INVESTIGATIVE STYLE:
+- Speak naturally, warmly, and directly like an experienced human business partner—never sound like a rigid FAQ bot or dump unrelated audit sections when the user asks a specific question.
+- Answer the exact question the user asked. If they ask an open-ended question (e.g., "Who is our oldest customer?", "What did Shanna Lim order?", "How much did we spend on freight?"), call the appropriate read-only database tool (\`queryCustomersAndOrderHistory\` or \`queryDatabaseReadOnly\`) to check the live PostgreSQL database before answering.
+- If the user states their current cash/bank balance or asks whether cash matches the records (e.g., "Our cash right now is 100,000.00. Can you check if it matches all the records and if not, please find why"), call \`reconcileCashAndFindDiscrepancies\` with \`actualCashAmount\` set to their stated number. Walk them through:
+  1. What the recorded book cash balance is (and its breakdown: opening balance, customer payments, paid expenses, refunds, manual journal lines).
+  2. Whether it matches, and the exact peso variance (surplus or shortage).
+  3. The exact culprit records discovered in the database that explain the difference (such as duplicate customer payments on the same order, overpaid orders with negative lineTotal, unposted recurring loan/expense drafts, pending cancellation refund payouts, or approved-but-unpaid expenses).
+
+NON-NEGOTIABLE SAFETY RULES:
+1. You have strictly READ-ONLY access via predefined tools. You cannot create, modify, or delete any transactions, invoices, payments, ledger entries, or inventory records.
+2. Never invent or guess arithmetic balances. Always rely on the deterministic numbers returned by the read-only tools.
+3. Always cite exact record IDs (e.g., Order #3395, Payment #1617, Customer ID, Product Code) and link the user to the relevant module path.
+4. Keep records strictly separated between Clothing, Trucking, and General Merchandise. Unless the user specifies otherwise, default to Clothing (or the active businessUnit filter).
+5. Respond to standalone greetings briefly and naturally (for example, "Good morning! How can I help you check the books or operations today?"). Do not volunteer business records or an audit summary on a greeting.`;
 
 export interface RunBusinessAiParams {
   userPrompt: string;
@@ -303,26 +310,6 @@ export async function runBusinessAiAssistant(
       ? getToolsForContext(params.toolContext, params.businessUnit)
       : [];
 
-  // Pre-execute deterministic read-only PostgreSQL tools so cloud LLMs only need 1 single round-trip instead of 2+
-  const prefetched = await prefetchDeterministicToolData({
-    userPrompt: params.userPrompt,
-    tools,
-    toolContext: params.toolContext,
-    targetBusinessUnit: params.businessUnit,
-  });
-
-  const effectiveUserPrompt =
-    prefetched.records.length > 0
-      ? [
-          params.userPrompt,
-          '',
-          'DETERMINISTIC READ-ONLY DATABASE SNAPSHOT (already verified from PostgreSQL — answer directly using these exact figures without calling tools):',
-          JSON.stringify(prefetched.records),
-        ].join('\n')
-      : params.userPrompt;
-
-  const effectiveTools = prefetched.records.length > 0 ? [] : tools;
-
   let result: Omit<AiGenerationResult, 'usedFallback'>;
   let usedFallback = false;
 
@@ -332,17 +319,14 @@ export async function runBusinessAiAssistant(
       model: primaryModel,
       ollamaBaseUrl: settings.ollamaBaseUrl,
       systemPrompt: SYSTEM_PROMPT,
-      userPrompt: effectiveUserPrompt,
+      userPrompt: params.userPrompt,
       history: params.history,
-      tools: effectiveTools,
+      tools,
       isSyntheticTest: params.isSyntheticTest,
       toolContext: params.toolContext,
-      timeoutMs: prefetched.records.length > 0 ? 8000 : 45000,
+      timeoutMs: 45000,
     });
-    result = {
-      ...gen,
-      toolsCalled: [...prefetched.traces, ...gen.toolsCalled],
-    };
+    result = gen;
   } catch (primaryError) {
     const canFallback =
       Boolean(settings.fallbackProvider && settings.fallbackModel) &&
@@ -358,19 +342,22 @@ export async function runBusinessAiAssistant(
           model: settings.fallbackModel,
           ollamaBaseUrl: settings.ollamaBaseUrl,
           systemPrompt: SYSTEM_PROMPT,
-          userPrompt: effectiveUserPrompt,
+          userPrompt: params.userPrompt,
           history: params.history,
-          tools: effectiveTools,
+          tools,
           isSyntheticTest: params.isSyntheticTest,
           toolContext: params.toolContext,
           timeoutMs: 45000,
         });
-        result = {
-          ...fallbackGen,
-          toolsCalled: [...prefetched.traces, ...fallbackGen.toolsCalled],
-        };
+        result = fallbackGen;
         usedFallback = true;
       } catch {
+        const prefetched = await prefetchDeterministicToolData({
+          userPrompt: params.userPrompt,
+          tools,
+          toolContext: params.toolContext,
+          targetBusinessUnit: params.businessUnit,
+        });
         if (prefetched.records.length > 0) {
           result = {
             text: buildDeterministicFallbackMarkdown(prefetched.records),
@@ -390,33 +377,44 @@ export async function runBusinessAiAssistant(
           throw primaryError;
         }
       }
-    } else if (prefetched.records.length > 0) {
-      result = {
-        text: buildDeterministicFallbackMarkdown(prefetched.records),
-        provider: primaryProvider,
-        model: `${primaryModel} (deterministic-fallback)`,
-        inputTokens: 0,
-        outputTokens: 0,
-        estimatedCostUsd: 0,
-        latencyMs: prefetched.traces.reduce((sum, t) => sum + t.durationMs, 0),
-        toolsCalled: prefetched.traces,
-      };
-      usedFallback = true;
     } else {
-      await insertAuditLogToStore({
-        userId: params.userId ?? null,
-        userName: params.userName ?? null,
-        triggerSource: params.triggerSource,
-        businessUnit: params.businessUnit ?? null,
-        provider: primaryProvider,
-        model: primaryModel,
-        status: 'ERROR',
-        errorMessage:
-          primaryError instanceof Error
-            ? primaryError.message.slice(0, 950)
-            : 'AI provider request failed',
+      const prefetched = await prefetchDeterministicToolData({
+        userPrompt: params.userPrompt,
+        tools,
+        toolContext: params.toolContext,
+        targetBusinessUnit: params.businessUnit,
       });
-      throw primaryError;
+      if (prefetched.records.length > 0) {
+        result = {
+          text: buildDeterministicFallbackMarkdown(prefetched.records),
+          provider: primaryProvider,
+          model: `${primaryModel} (deterministic-fallback)`,
+          inputTokens: 0,
+          outputTokens: 0,
+          estimatedCostUsd: 0,
+          latencyMs: prefetched.traces.reduce(
+            (sum, t) => sum + t.durationMs,
+            0
+          ),
+          toolsCalled: prefetched.traces,
+        };
+        usedFallback = true;
+      } else {
+        await insertAuditLogToStore({
+          userId: params.userId ?? null,
+          userName: params.userName ?? null,
+          triggerSource: params.triggerSource,
+          businessUnit: params.businessUnit ?? null,
+          provider: primaryProvider,
+          model: primaryModel,
+          status: 'ERROR',
+          errorMessage:
+            primaryError instanceof Error
+              ? primaryError.message.slice(0, 950)
+              : 'AI provider request failed',
+        });
+        throw primaryError;
+      }
     }
   }
 

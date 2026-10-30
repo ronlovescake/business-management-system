@@ -22,9 +22,11 @@ import {
   IconArrowsMaximize,
   IconArrowsMinimize,
   IconCheck,
+  IconChevronUp,
   IconCopy,
   IconLock,
   IconMessageChatbot,
+  IconMinus,
   IconRefresh,
   IconSend,
   IconSparkles,
@@ -56,13 +58,13 @@ interface ChatMessage {
 
 const STORAGE_KEY = 'ai-chat-widget-conversation-v1';
 const SCOPE_STORAGE_KEY = 'ai-chat-widget-scope-v1';
-const HISTORY_TURNS_SENT = 12;
+const HISTORY_TURNS_SENT = 4;
 
 const SUGGESTIONS = [
-  'Which invoices are overdue right now?',
+  'Our cash right now is 100,000.00. Can you check if it matches all the records and if not, find why?',
+  'Who is our oldest customer and who are our top buyers?',
   'Are there any accounting discrepancies I should check?',
   'What recurring payments are coming due this week?',
-  'Summarize upcoming schedules and pending leave requests.',
 ];
 
 const SANITIZE_CONFIG = {
@@ -151,6 +153,7 @@ function CopyButton({ text }: { text: string }) {
 export function AiChatWidget() {
   const [open, setOpen] = useState(false);
   const [expanded, setExpanded] = useState(false);
+  const [minimized, setMinimized] = useState(false);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState('');
   const [sending, setSending] = useState(false);
@@ -241,11 +244,18 @@ export function AiChatWidget() {
       setInput('');
       setSending(true);
 
-      // Only send successful prior turns as context
+      // Only send up to 4 recent successful prior turns as context to keep prompts lean
+      // Truncate long previous assistant markdown messages to max 600 chars to avoid prompt bloat
       const history = priorMessages
         .filter((m) => !m.isError)
         .slice(-HISTORY_TURNS_SENT)
-        .map((m) => ({ role: m.role, content: m.content }));
+        .map((m) => ({
+          role: m.role,
+          content:
+            m.role === 'assistant' && m.content.length > 600
+              ? `${m.content.slice(0, 600)}… [prior response summarized for brevity]`
+              : m.content,
+        }));
 
       try {
         const res = await fetch('/api/ai-assistant/chat', {
@@ -325,12 +335,17 @@ export function AiChatWidget() {
     setLastModelLabel(null);
   };
 
-  const panelWidth = expanded
-    ? 'min(760px, calc(100vw - 32px))'
-    : 'min(420px, calc(100vw - 32px))';
-  const panelHeight = expanded
-    ? 'min(85vh, 900px)'
-    : 'min(620px, calc(100vh - 120px))';
+  const panelWidth = minimized
+    ? 'min(340px, calc(100vw - 32px))'
+    : expanded
+      ? 'min(1520px, calc(100vw - 32px))'
+      : 'min(420px, calc(100vw - 32px))';
+  // Top navbar is 80px tall; subtracting 80px (header) + 16px (top gap) + 16px (bottom offset) = 112px
+  const panelHeight = minimized
+    ? 'auto'
+    : expanded
+      ? 'calc(100vh - 112px)'
+      : 'min(620px, calc(100vh - 120px))';
 
   return (
     <>
@@ -362,7 +377,10 @@ export function AiChatWidget() {
           withArrow
         >
           <ActionIcon
-            onClick={() => setOpen(true)}
+            onClick={() => {
+              setOpen(true);
+              setMinimized(false);
+            }}
             aria-label="Open AI chat"
             size={58}
             radius="xl"
@@ -407,9 +425,12 @@ export function AiChatWidget() {
           <Box
             px="md"
             py="sm"
+            onClick={minimized ? () => setMinimized(false) : undefined}
             style={{
               background: 'linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%)',
               color: 'white',
+              cursor: minimized ? 'pointer' : 'default',
+              userSelect: 'none',
             }}
           >
             <Group justify="space-between" wrap="nowrap">
@@ -433,304 +454,363 @@ export function AiChatWidget() {
                     AI Business Assistant
                   </Text>
                   <Text size="xs" style={{ opacity: 0.85 }} truncate>
-                    {lastModelLabel ?? 'Read-only auditor'}
+                    {minimized
+                      ? 'Click to expand'
+                      : (lastModelLabel ?? 'Read-only auditor')}
                   </Text>
                 </div>
               </Group>
               <Group gap={4} wrap="nowrap">
-                <Tooltip label="New conversation" withArrow>
-                  <ActionIcon
-                    variant="subtle"
-                    color="white"
-                    onClick={handleClear}
-                    aria-label="Clear conversation"
-                    disabled={sending || messages.length === 0}
-                  >
-                    <IconTrash size={16} />
-                  </ActionIcon>
-                </Tooltip>
-                <Tooltip label={expanded ? 'Shrink' : 'Expand'} withArrow>
-                  <ActionIcon
-                    variant="subtle"
-                    color="white"
-                    onClick={() => setExpanded((v) => !v)}
-                    aria-label={expanded ? 'Shrink chat' : 'Expand chat'}
-                  >
-                    {expanded ? (
-                      <IconArrowsMinimize size={16} />
-                    ) : (
-                      <IconArrowsMaximize size={16} />
-                    )}
-                  </ActionIcon>
-                </Tooltip>
-                <Tooltip label="Close (Esc)" withArrow>
-                  <ActionIcon
-                    variant="subtle"
-                    color="white"
-                    onClick={() => setOpen(false)}
-                    aria-label="Close chat"
-                  >
-                    <IconX size={16} />
-                  </ActionIcon>
-                </Tooltip>
+                {minimized ? (
+                  <>
+                    <Tooltip label="Restore" withArrow>
+                      <ActionIcon
+                        variant="subtle"
+                        color="white"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setMinimized(false);
+                        }}
+                        aria-label="Restore chat"
+                      >
+                        <IconChevronUp size={16} />
+                      </ActionIcon>
+                    </Tooltip>
+                    <Tooltip label="Close (Esc)" withArrow>
+                      <ActionIcon
+                        variant="subtle"
+                        color="white"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setOpen(false);
+                          setMinimized(false);
+                        }}
+                        aria-label="Close chat"
+                      >
+                        <IconX size={16} />
+                      </ActionIcon>
+                    </Tooltip>
+                  </>
+                ) : (
+                  <>
+                    <Tooltip label="New conversation" withArrow>
+                      <ActionIcon
+                        variant="subtle"
+                        color="white"
+                        onClick={handleClear}
+                        aria-label="Clear conversation"
+                        disabled={sending || messages.length === 0}
+                      >
+                        <IconTrash size={16} />
+                      </ActionIcon>
+                    </Tooltip>
+                    <Tooltip label="Minimize" withArrow>
+                      <ActionIcon
+                        variant="subtle"
+                        color="white"
+                        onClick={() => setMinimized(true)}
+                        aria-label="Minimize chat"
+                      >
+                        <IconMinus size={16} />
+                      </ActionIcon>
+                    </Tooltip>
+                    <Tooltip label={expanded ? 'Shrink' : 'Expand'} withArrow>
+                      <ActionIcon
+                        variant="subtle"
+                        color="white"
+                        onClick={() => setExpanded((v) => !v)}
+                        aria-label={expanded ? 'Shrink chat' : 'Expand chat'}
+                      >
+                        {expanded ? (
+                          <IconArrowsMinimize size={16} />
+                        ) : (
+                          <IconArrowsMaximize size={16} />
+                        )}
+                      </ActionIcon>
+                    </Tooltip>
+                    <Tooltip label="Close (Esc)" withArrow>
+                      <ActionIcon
+                        variant="subtle"
+                        color="white"
+                        onClick={() => setOpen(false)}
+                        aria-label="Close chat"
+                      >
+                        <IconX size={16} />
+                      </ActionIcon>
+                    </Tooltip>
+                  </>
+                )}
               </Group>
             </Group>
           </Box>
 
-          {/* Scope selector */}
-          <Group
-            px="md"
-            py={6}
-            justify="space-between"
-            style={{ borderBottom: '1px solid #e2e8f0', background: '#f8fafc' }}
-          >
-            <Text size="xs" c="dimmed" fw={500}>
-              Business scope
-            </Text>
-            <Select
-              size="xs"
-              w={210}
-              allowDeselect={false}
-              comboboxProps={{ zIndex: 400 }}
-              data={[
-                { value: 'ALL', label: 'All my businesses' },
-                { value: 'clothing', label: 'Clothing' },
-                { value: 'trucking', label: 'Trucking' },
-                { value: 'general-merchandise', label: 'General Merchandise' },
-              ]}
-              value={scope}
-              onChange={(v) => setScope(v || 'ALL')}
-            />
-          </Group>
+          {!minimized && (
+            <>
+              {/* Scope selector */}
+              <Group
+                px="md"
+                py={6}
+                justify="space-between"
+                style={{
+                  borderBottom: '1px solid #e2e8f0',
+                  background: '#f8fafc',
+                }}
+              >
+                <Text size="xs" c="dimmed" fw={500}>
+                  Business scope
+                </Text>
+                <Select
+                  size="xs"
+                  w={210}
+                  allowDeselect={false}
+                  comboboxProps={{ zIndex: 400 }}
+                  data={[
+                    { value: 'ALL', label: 'All my businesses' },
+                    { value: 'clothing', label: 'Clothing' },
+                    { value: 'trucking', label: 'Trucking' },
+                    {
+                      value: 'general-merchandise',
+                      label: 'General Merchandise',
+                    },
+                  ]}
+                  value={scope}
+                  onChange={(v) => setScope(v || 'ALL')}
+                />
+              </Group>
 
-          {/* Messages */}
-          <ScrollArea
-            viewportRef={viewportRef}
-            style={{ flex: 1, background: '#f8fafc' }}
-            type="auto"
-          >
-            <Stack gap="md" p="md">
-              {messages.length === 0 && (
-                <Stack gap="sm" align="center" py="lg">
-                  <Box
-                    style={{
-                      width: 52,
-                      height: 52,
-                      borderRadius: 16,
-                      background: '#eef2ff',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      color: '#4f46e5',
-                    }}
-                  >
-                    <IconMessageChatbot size={28} />
-                  </Box>
-                  <Text fw={600} size="sm">
-                    How can I help with your business today?
-                  </Text>
-                  <Text size="xs" c="dimmed" ta="center" maw={300}>
-                    I can look up invoices, receivables, discrepancies,
-                    recurring payments, and schedules. I can&apos;t change any
-                    records.
-                  </Text>
-                  <Stack gap={6} w="100%" mt="xs">
-                    {SUGGESTIONS.map((s) => (
-                      <UnstyledButton
-                        key={s}
-                        onClick={() => void sendMessage(s, messages)}
+              {/* Messages */}
+              <ScrollArea
+                viewportRef={viewportRef}
+                style={{ flex: 1, background: '#f8fafc' }}
+                type="auto"
+              >
+                <Stack gap="md" p="md">
+                  {messages.length === 0 && (
+                    <Stack gap="sm" align="center" py="lg">
+                      <Box
                         style={{
-                          border: '1px solid #e0e7ff',
-                          background: 'white',
-                          borderRadius: 10,
-                          padding: '8px 12px',
-                          fontSize: 13,
-                          color: '#3730a3',
-                          textAlign: 'left',
+                          width: 52,
+                          height: 52,
+                          borderRadius: 16,
+                          background: '#eef2ff',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          color: '#4f46e5',
                         }}
                       >
-                        {s}
-                      </UnstyledButton>
-                    ))}
-                  </Stack>
-                </Stack>
-              )}
-
-              {messages.map((m) => {
-                const isUser = m.role === 'user';
-                return (
-                  <Stack
-                    key={m.id}
-                    gap={4}
-                    align={isUser ? 'flex-end' : 'flex-start'}
-                  >
-                    <Box
-                      style={{
-                        maxWidth: '88%',
-                        padding: '9px 13px',
-                        borderRadius: isUser
-                          ? '14px 14px 4px 14px'
-                          : '14px 14px 14px 4px',
-                        background: isUser
-                          ? '#4f46e5'
-                          : m.isError
-                            ? '#fef2f2'
-                            : 'white',
-                        color: isUser
-                          ? 'white'
-                          : m.isError
-                            ? '#991b1b'
-                            : '#0f172a',
-                        border: isUser
-                          ? 'none'
-                          : m.isError
-                            ? '1px solid #fecaca'
-                            : '1px solid #e2e8f0',
-                        boxShadow: '0 1px 2px rgba(0,0,0,0.04)',
-                      }}
-                    >
-                      {isUser ? (
-                        <Text size="sm" style={{ whiteSpace: 'pre-wrap' }}>
-                          {m.content}
-                        </Text>
-                      ) : m.isError ? (
-                        <Text size="sm">{m.content}</Text>
-                      ) : (
-                        <AssistantMessageBody content={m.content} />
-                      )}
-                    </Box>
-
-                    <Group gap={6} px={4} wrap="wrap">
-                      <Text size="10px" c="dimmed">
-                        {formatTime(m.createdAt)}
+                        <IconMessageChatbot size={28} />
+                      </Box>
+                      <Text fw={600} size="sm">
+                        How can I help with your business today?
                       </Text>
-                      {m.meta && (
-                        <>
-                          <Text size="10px" c="dimmed">
-                            · {(m.meta.latencyMs / 1000).toFixed(1)}s ·{' '}
-                            {m.meta.inputTokens + m.meta.outputTokens} tokens
-                            {m.meta.estimatedCostUsd > 0
-                              ? ` · $${m.meta.estimatedCostUsd.toFixed(4)}`
-                              : ''}
-                          </Text>
-                          {m.meta.usedFallback && (
-                            <Badge size="xs" color="orange" variant="light">
-                              fallback
-                            </Badge>
-                          )}
-                          {m.meta.toolsCalled.map((tc) => (
-                            <Badge
-                              key={`${m.id}-${tc.toolName}-${tc.durationMs}`}
-                              size="xs"
-                              variant="outline"
-                              color="indigo"
-                            >
-                              {tc.toolName}
-                            </Badge>
-                          ))}
-                        </>
-                      )}
-                      {!isUser && !m.isError && <CopyButton text={m.content} />}
-                      {m.isError && (
-                        <Tooltip label="Retry" withArrow>
-                          <ActionIcon
-                            size="xs"
-                            variant="subtle"
-                            color="red"
-                            aria-label="Retry message"
-                            onClick={() => handleRetry(m.id)}
-                            disabled={sending}
+                      <Text size="xs" c="dimmed" ta="center" maw={310}>
+                        Ask me anything about your books, cash reconciliation,
+                        customers, orders, inventory, or schedules — I&apos;ll
+                        check the live database (strictly read-only).
+                      </Text>
+                      <Stack gap={6} w="100%" mt="xs">
+                        {SUGGESTIONS.map((s) => (
+                          <UnstyledButton
+                            key={s}
+                            onClick={() => void sendMessage(s, messages)}
+                            style={{
+                              border: '1px solid #e0e7ff',
+                              background: 'white',
+                              borderRadius: 10,
+                              padding: '8px 12px',
+                              fontSize: 13,
+                              color: '#3730a3',
+                              textAlign: 'left',
+                            }}
                           >
-                            <IconRefresh size={12} />
-                          </ActionIcon>
-                        </Tooltip>
-                      )}
-                    </Group>
-                  </Stack>
-                );
-              })}
+                            {s}
+                          </UnstyledButton>
+                        ))}
+                      </Stack>
+                    </Stack>
+                  )}
 
-              {sending && (
-                <Group gap={6} px={4}>
-                  <Box
-                    style={{
-                      background: 'white',
-                      border: '1px solid #e2e8f0',
-                      borderRadius: '14px 14px 14px 4px',
-                      padding: '10px 14px',
-                      display: 'flex',
-                      gap: 5,
+                  {messages.map((m) => {
+                    const isUser = m.role === 'user';
+                    return (
+                      <Stack
+                        key={m.id}
+                        gap={4}
+                        align={isUser ? 'flex-end' : 'flex-start'}
+                      >
+                        <Box
+                          style={{
+                            maxWidth: '88%',
+                            padding: '9px 13px',
+                            borderRadius: isUser
+                              ? '14px 14px 4px 14px'
+                              : '14px 14px 14px 4px',
+                            background: isUser
+                              ? '#4f46e5'
+                              : m.isError
+                                ? '#fef2f2'
+                                : 'white',
+                            color: isUser
+                              ? 'white'
+                              : m.isError
+                                ? '#991b1b'
+                                : '#0f172a',
+                            border: isUser
+                              ? 'none'
+                              : m.isError
+                                ? '1px solid #fecaca'
+                                : '1px solid #e2e8f0',
+                            boxShadow: '0 1px 2px rgba(0,0,0,0.04)',
+                          }}
+                        >
+                          {isUser ? (
+                            <Text size="sm" style={{ whiteSpace: 'pre-wrap' }}>
+                              {m.content}
+                            </Text>
+                          ) : m.isError ? (
+                            <Text size="sm">{m.content}</Text>
+                          ) : (
+                            <AssistantMessageBody content={m.content} />
+                          )}
+                        </Box>
+
+                        <Group gap={6} px={4} wrap="wrap">
+                          <Text size="10px" c="dimmed">
+                            {formatTime(m.createdAt)}
+                          </Text>
+                          {m.meta && (
+                            <>
+                              <Text size="10px" c="dimmed">
+                                · {(m.meta.latencyMs / 1000).toFixed(1)}s ·{' '}
+                                {m.meta.inputTokens + m.meta.outputTokens}{' '}
+                                tokens
+                                {m.meta.estimatedCostUsd > 0
+                                  ? ` · $${m.meta.estimatedCostUsd.toFixed(4)}`
+                                  : ''}
+                              </Text>
+                              {m.meta.usedFallback && (
+                                <Badge size="xs" color="orange" variant="light">
+                                  fallback
+                                </Badge>
+                              )}
+                              {m.meta.toolsCalled.map((tc) => (
+                                <Badge
+                                  key={`${m.id}-${tc.toolName}-${tc.durationMs}`}
+                                  size="xs"
+                                  variant="outline"
+                                  color="indigo"
+                                >
+                                  {tc.toolName}
+                                </Badge>
+                              ))}
+                            </>
+                          )}
+                          {!isUser && !m.isError && (
+                            <CopyButton text={m.content} />
+                          )}
+                          {m.isError && (
+                            <Tooltip label="Retry" withArrow>
+                              <ActionIcon
+                                size="xs"
+                                variant="subtle"
+                                color="red"
+                                aria-label="Retry message"
+                                onClick={() => handleRetry(m.id)}
+                                disabled={sending}
+                              >
+                                <IconRefresh size={12} />
+                              </ActionIcon>
+                            </Tooltip>
+                          )}
+                        </Group>
+                      </Stack>
+                    );
+                  })}
+
+                  {sending && (
+                    <Group gap={6} px={4}>
+                      <Box
+                        style={{
+                          background: 'white',
+                          border: '1px solid #e2e8f0',
+                          borderRadius: '14px 14px 14px 4px',
+                          padding: '10px 14px',
+                          display: 'flex',
+                          gap: 5,
+                        }}
+                      >
+                        <span className="ai-chat-dot" />
+                        <span
+                          className="ai-chat-dot"
+                          style={{ animationDelay: '0.15s' }}
+                        />
+                        <span
+                          className="ai-chat-dot"
+                          style={{ animationDelay: '0.3s' }}
+                        />
+                      </Box>
+                      <Text size="xs" c="dimmed">
+                        Checking your records…
+                      </Text>
+                    </Group>
+                  )}
+                </Stack>
+              </ScrollArea>
+
+              {/* Composer */}
+              <Box
+                p="sm"
+                style={{ borderTop: '1px solid #e2e8f0', background: 'white' }}
+              >
+                <Group gap="xs" align="flex-end" wrap="nowrap">
+                  <Textarea
+                    ref={inputRef}
+                    style={{ flex: 1 }}
+                    placeholder="Ask about invoices, payments, schedules…"
+                    autosize
+                    minRows={1}
+                    maxRows={5}
+                    value={input}
+                    disabled={sending}
+                    onChange={(e) => setInput(e.currentTarget.value)}
+                    onKeyDown={(e) => {
+                      if (
+                        e.key === 'Enter' &&
+                        !e.shiftKey &&
+                        !e.nativeEvent.isComposing
+                      ) {
+                        e.preventDefault();
+                        void sendMessage(input, messages);
+                      }
                     }}
+                  />
+                  <ActionIcon
+                    size={36}
+                    radius="md"
+                    variant="filled"
+                    color="indigo"
+                    aria-label="Send message"
+                    disabled={!input.trim() || sending}
+                    onClick={() => void sendMessage(input, messages)}
                   >
-                    <span className="ai-chat-dot" />
-                    <span
-                      className="ai-chat-dot"
-                      style={{ animationDelay: '0.15s' }}
-                    />
-                    <span
-                      className="ai-chat-dot"
-                      style={{ animationDelay: '0.3s' }}
-                    />
-                  </Box>
-                  <Text size="xs" c="dimmed">
-                    Checking your records…
+                    {sending ? (
+                      <Loader size={16} color="white" />
+                    ) : (
+                      <IconSend size={18} />
+                    )}
+                  </ActionIcon>
+                </Group>
+                <Group gap={4} mt={6} justify="center">
+                  <IconLock size={11} color="#94a3b8" />
+                  <Text size="10px" c="dimmed">
+                    Read-only · Enter to send, Shift+Enter for new line · Verify
+                    figures before acting
                   </Text>
                 </Group>
-              )}
-            </Stack>
-          </ScrollArea>
-
-          {/* Composer */}
-          <Box
-            p="sm"
-            style={{ borderTop: '1px solid #e2e8f0', background: 'white' }}
-          >
-            <Group gap="xs" align="flex-end" wrap="nowrap">
-              <Textarea
-                ref={inputRef}
-                style={{ flex: 1 }}
-                placeholder="Ask about invoices, payments, schedules…"
-                autosize
-                minRows={1}
-                maxRows={5}
-                value={input}
-                disabled={sending}
-                onChange={(e) => setInput(e.currentTarget.value)}
-                onKeyDown={(e) => {
-                  if (
-                    e.key === 'Enter' &&
-                    !e.shiftKey &&
-                    !e.nativeEvent.isComposing
-                  ) {
-                    e.preventDefault();
-                    void sendMessage(input, messages);
-                  }
-                }}
-              />
-              <ActionIcon
-                size={36}
-                radius="md"
-                variant="filled"
-                color="indigo"
-                aria-label="Send message"
-                disabled={!input.trim() || sending}
-                onClick={() => void sendMessage(input, messages)}
-              >
-                {sending ? (
-                  <Loader size={16} color="white" />
-                ) : (
-                  <IconSend size={18} />
-                )}
-              </ActionIcon>
-            </Group>
-            <Group gap={4} mt={6} justify="center">
-              <IconLock size={11} color="#94a3b8" />
-              <Text size="10px" c="dimmed">
-                Read-only · Enter to send, Shift+Enter for new line · Verify
-                figures before acting
-              </Text>
-            </Group>
-          </Box>
+              </Box>
+            </>
+          )}
         </Paper>
       )}
     </>

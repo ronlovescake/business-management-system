@@ -3007,7 +3007,7 @@ Execution mode:
 
 ### Scope / readiness
 
-- [x] **LIV-1:** Track `src/modules/general-merchandise/employees/**` introduction and switch status from N/A to covered when path is created (completed Oct 21, 2026).
+- [x] **LIV-1:** Track `src/modules/general-merchandise/employees/**` introduction and switch status from N/A to covered when path is created (completed Oct 31, 2026).
 
 ### P1 — Highest-priority decomposition
 
