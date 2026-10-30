@@ -16,11 +16,14 @@
 > - `src/lib/ai/tools/customer-history-tool.ts`
 > - `src/lib/ai/tools/customer-address-tool.ts`
 > - `src/lib/ai/tools/customer-duplicate-audit-tool.ts`
+> - `src/lib/ai/tools/clothing-due-invoices.ts`
 > - `src/lib/ai/tools/database-read-only-tool.ts`
 > - `src/lib/ai/tools/knowledge-base-tool.ts`
 > - `src/lib/ai/monitors/index.ts`
 > - `src/lib/ai/orchestrator.ts`
 > - `src/components/ai-chat/AiChatWidget.tsx`
+> - `src/components/ai-chat/AiChatHeader.tsx`
+> - `src/lib/ai/deterministic-fallback.ts`
 > - `src/components/ai-chat/ChatMessageContent.tsx`
 > - `src/components/layout/AppLayout.tsx`
 > - `src/modules/settings/global/components/ai-assistant/AiAssistantTab.tsx`
@@ -129,6 +132,36 @@ individual calculations.
 
 ### Direct Answers And Organized Records
 
+### Clothing Invoice Deadlines Versus Trusted Credit
+
+The requesting application owner confirmed the Due Dates board's calculation:
+unpaid Prepared invoices are due at the end of the third Manila calendar day
+after the invoice date. `getOverdueInvoicesAndReceivables` now selects eligible
+Prepared invoices and uses `DueDateService.calculateDueDate`, filtering overdue
+or upcoming rows before its returned-row limit. It uses the board's positive
+stored line balance rather than inventing a separate gross-minus-payments balance.
+Invalid invoice dates, paid/nonpositive lines and non-Prepared statuses are excluded.
+Scans page through at most 5,000 eligible rows; the tool discloses scan truncation,
+matched count and additional display rows instead of falsely asserting none exist.
+
+The exact chat suggestions "List customers with past due dates" and "List customers
+with due dates coming" return a deterministic table of the matching Clothing
+invoices, preserving authorization and Copilot ownership/role checks. The model
+path uses the same tool and approved policy for other wording. Product display
+codes, Manila deadlines and recorded unpaid amounts are kept intact.
+
+Trusted-customer Clothing A/R, including legacy Pending Payment compatibility,
+has no automatic deadline and is not included in overdue/upcoming lists or
+automatic overdue alerts. Owner discretion governs follow-up. Common payment
+within a week or one to two months is not an automatic term. New A/R transitions,
+bulk updates and imports no longer generate two-month deadlines; existing legacy
+date values and shipment history are not erased. The monitor reuses Prepared
+invoice deadlines while keeping the legacy `clothing:overdue-receivable` key for
+snapshot-safe alert lifecycle compatibility. Re-evaluated obsolete OPEN A/R alerts
+can resolve on the next normal monitor run; no live monitor or repair is run as
+part of this code change. General Merchandise and Trucking rules are unchanged.
+No financial amounts, inventory, customer approvals or schema are changed.
+
 The chat business selector now defaults to Clothing. Scope storage uses version 2:
 legacy implicit `ALL` selections migrate to Clothing once, legacy explicit business
 selections are preserved, and subsequent explicit choices (including All) persist
@@ -227,6 +260,14 @@ Provider HTTP transport lives in `src/lib/ai/provider-http.ts`; provider
 selection, credentials, pricing and generation remain in `providers.ts`.
 This extraction preserves the existing DNS cache, IPv4 HTTPS agent, local
 fetch delegation and abort handling without changing business rules.
+
+Size-gate follow-up: the existing chat-header markup/controls now live in
+`AiChatHeader.tsx`, with state retained in the widget. The deterministic fallback
+renderer and record type moved unchanged to `deterministic-fallback.ts`. The
+existing AI tests were divided into adjacent orchestration/monitoring and
+investigative/customer suites without removing test cases. These mechanical
+splits preserve runtime behavior and make the required guardrail pass without
+exceptions; they are not new financial, permission or deadline rules.
 
 Investigative tools are registered in `investigative-tools.ts`, with separate
 modules for cash reconciliation, customer history, and guarded SQL queries.

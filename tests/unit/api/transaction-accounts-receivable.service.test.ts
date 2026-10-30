@@ -235,11 +235,14 @@ describe('transactionService Accounts Receivable transition', () => {
     expect(mockPrisma.customer.findMany).not.toHaveBeenCalled();
     expect(mockPrisma.transaction.update).toHaveBeenCalledWith({
       where: { id: 51 },
-      data: expect.objectContaining({ orderStatus: 'Accounts Receivable' }),
+      data: expect.objectContaining({
+        orderStatus: 'Accounts Receivable',
+        accountsReceivableDueAt: null,
+      }),
     });
   });
 
-  it('sets shipment and two-month due dates when an order ships on credit', async () => {
+  it('records shipment without inventing a deadline when an order ships on trusted credit', async () => {
     await transactionService.updateTransaction({
       id: 51,
       'Order Status': 'Accounts Receivable',
@@ -250,9 +253,31 @@ describe('transactionService Accounts Receivable transition', () => {
       data: expect.objectContaining({
         orderStatus: 'Accounts Receivable',
         shippedAt: new Date('2026-10-23T12:00:00.000Z'),
-        accountsReceivableDueAt: new Date('2026-12-23T12:00:00.000Z'),
+        accountsReceivableDueAt: null,
       }),
     });
+  });
+
+  it('preserves historical shipment and date metadata without reinterpreting a deadline', async () => {
+    const shippedAt = new Date('2026-09-01T10:00:00Z');
+    const historicalDate = new Date('2026-11-01T10:00:00Z');
+    mockPrisma.transaction.findUnique.mockResolvedValue({
+      ...existingTransaction,
+      shippedAt,
+      accountsReceivableDueAt: historicalDate,
+    });
+    await transactionService.updateTransaction({
+      id: 51,
+      'Order Status': 'Accounts Receivable',
+    });
+    expect(mockPrisma.transaction.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          shippedAt,
+          accountsReceivableDueAt: historicalDate,
+        }),
+      })
+    );
   });
 
   it('rejects a stale revision without writing transaction or movements', async () => {
@@ -304,6 +329,7 @@ describe('transactionService Accounts Receivable transition', () => {
       data: expect.objectContaining({
         orderStatus: 'Accounts Receivable',
         lineTotal: 3105,
+        accountsReceivableDueAt: null,
       }),
     });
     expect(mockPrisma.transaction.createMany).not.toHaveBeenCalled();
@@ -337,7 +363,10 @@ describe('transactionService Accounts Receivable transition', () => {
 
     expect(update).toHaveBeenCalledWith({
       where: { id: 51 },
-      data: expect.objectContaining({ orderStatus: 'Accounts Receivable' }),
+      data: expect.objectContaining({
+        orderStatus: 'Accounts Receivable',
+        accountsReceivableDueAt: null,
+      }),
     });
     expect(mockPrisma.customer.findMany).not.toHaveBeenCalled();
   });

@@ -1,6 +1,7 @@
 import { prisma } from '@/lib/db';
 import { PAID_STATUSES } from '@/lib/accounting/constants';
 import { isCancelledOrderStatus } from '@/lib/transactions/order-status';
+import { DueDateService } from '@/modules/clothing/operations/due-dates/services/DueDateService';
 import { ensureAiAssistantTables } from '../settings';
 import {
   autoResolveStaleAlertsInStore,
@@ -108,22 +109,20 @@ export async function collectDeterministicAnomalies(
       });
     }
 
-    if (
-      tx.accountsReceivableDueAt &&
-      tx.accountsReceivableDueAt < now &&
-      !closed &&
-      !paidStatuses.includes(status) &&
-      lineTotal > EPS
-    ) {
-      const dueStr = tx.accountsReceivableDueAt.toISOString().slice(0, 10);
+    const preparedDueAt =
+      tx.orderStatus === 'Prepared' && tx.invoiceDate && lineTotal > 0
+        ? DueDateService.calculateDueDate(tx.invoiceDate)
+        : '';
+    if (preparedDueAt && new Date(preparedDueAt) < now) {
+      const dueStr = preparedDueAt;
       anomalies.push({
         dedupeKey: `clothing:overdue-receivable:${tx.id}`,
         businessUnit: 'clothing',
         category: 'INVOICE_OVERDUE',
         severity: 'WARNING',
-        title: `Overdue Clothing Receivable #${tx.id} — ${tx.customers ?? 'Unknown'} (₱${lineTotal.toFixed(2)})`,
+        title: `Overdue Clothing Prepared Invoice #${tx.id} — ${tx.customers ?? 'Unknown'} (₱${lineTotal.toFixed(2)})`,
         deterministicSummary: `Order #${tx.id} (${tx.productCode ?? 'N/A'}) for "${tx.customers ?? 'Unknown'}" was due on ${dueStr} with an unpaid balance of ₱${lineTotal.toFixed(2)}.`,
-        sourceLink: '/clothing/operations/transactions',
+        sourceLink: '/clothing/operations/due-dates',
         evidenceJson: {
           ...inputs,
           transactionId: tx.id,

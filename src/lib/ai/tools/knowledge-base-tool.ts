@@ -54,7 +54,7 @@ const CANONICAL_CORE_POLICIES: PolicySnippet[] = [
   {
     id: 'POL-DUE-01',
     topic: 'Due Date Calculation & Cutoff',
-    rule: 'Invoices are due at 11:59 PM Asia/Manila on the third calendar day after the invoice date (e.g. an October 26 invoice is due October 29 at 11:59 PM Manila, not 72 hours from a button click). Late or revised invoices require administrator review before setting new deadlines.',
+    rule: 'Unpaid Prepared invoices are due at 11:59 PM Asia/Manila on the third calendar day after the invoice date (e.g. an October 26 invoice is due October 29 at 11:59 PM Manila, not 72 hours from a button click). This rule does not apply to trusted-customer Accounts Receivable: A/R has no automatic deadline and follow-up is at owner discretion. Late or revised Prepared invoices require administrator review before setting new deadlines.',
     sourceDoc:
       'docs/business-logic/clothing/operations-workflow.md & operations-due-dates.md (F04)',
   },

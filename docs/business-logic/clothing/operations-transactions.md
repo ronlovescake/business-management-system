@@ -88,21 +88,26 @@ dispatched but some payment remains. Ordinary authorized operators can select
 it without a separate customer credit-approval flag. General Merchandise's
 `Pending Payment` retains its independent reservation meaning.
 
-1. Select A/R only for an actual shipment with a positive outstanding balance.
-   New Clothing A/R records store the shipment date and a due date two calendar
-   months later. Early and partial payments are supported; there is no interest,
-   late fee, credit-limit feature or automated collection in this workflow.
+1. Select A/R only for an actual shipment/pickup on owner-approved trusted credit
+   with a positive outstanding balance. The owner clarified on October 31, 2026
+   that Clothing A/R has **no automatic payment deadline**. New A/R records retain
+   shipment timing but do not generate a two-month due date. Customers may pay
+   within a week or commonly one to two months; those patterns are not fixed terms.
+   Follow-up is at the owner's discretion. Early and partial payments are supported;
+   there is no interest, late fee, credit-limit feature or automated collection.
 2. The first shipment records the sale, stock consumption and sold cost once.
    Existing deposits are applied once; they do not remain a duplicate liability.
    Partial A/R collections reduce debt, not create another sale or reservation
    deposit. The exact final collection resolves the saved order to `Shipped`.
-3. Shipment/due dates remain stable through partial payments and final payment.
+3. Shipment dates remain stable through partial payments and final payment.
+   Historical `accountsReceivableDueAt` values are preserved as legacy metadata,
+   not treated as an agreed deadline or used to label trusted credit overdue.
    A zero-value order cannot retain an unpaid receivable. Historical Clothing
    `Pending Payment` compatibility must remain; do not remove its status mapping.
 4. The Transactions Due Dates tab is the separate Prepared-order deadline: end
    of the third Manila calendar day after the invoice date, not exactly 72 hours.
-   It is not a two-month A/R collection list. Review A/R outstanding amounts and
-   recorded due dates separately; no A/R Due Date column is added to the grid.
+   It is not an A/R collection schedule. Review A/R outstanding balances separately;
+   no A/R Due Date column is added to the grid.
 5. Cancellation removes unpaid debt separately from the eligible collected money
    approved for refund. It neither pays the whole order value back nor restores
    sold stock. Preserve recorded payments, costs, shipment and approval history.
@@ -120,7 +125,11 @@ and the Clothing customer-money/payment APIs. Evidence includes
 `tests/unit/api/transaction-accounts-receivable.service.test.ts`,
 `tests/integration/transaction-save-concurrency.integration.test.ts` and C09
 in the reconciliation record. Existing schema/migration and legacy cost
-fallbacks remain required; this consolidation changes no runtime behavior.
+fallbacks remain required. The October 31 owner-approved deadline correction
+changes date generation and AI/monitor classification only; it does not change
+posting, balances, stock consumption, payment settlement, customer-credit approval
+permissions or historical records. General Merchandise and Trucking retain their
+own status and deadline contracts.
 The earlier missing-sequence test-setup blocker is superseded by the recorded
 successful isolated integration runs, not by a business-database repair.
 

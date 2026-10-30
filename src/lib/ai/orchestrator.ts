@@ -1,3 +1,7 @@
+import {
+  buildDeterministicFallbackMarkdown,
+  type PrefetchedToolRecord,
+} from './deterministic-fallback';
 import { generateWithProvider, type AiChatHistoryMessage } from './providers';
 import { ensureAiAssistantTables, getAiAssistantSettings } from './settings';
 import {
@@ -7,6 +11,11 @@ import {
 } from './store';
 import { assertBusinessUnitAccess, getToolsForContext } from './tools';
 import { isDirectKnowledgeQuestion } from './tools/knowledge-base-tool';
+import {
+  getDirectClothingDueMode,
+  formatClothingDueInvoices,
+  type ClothingDueInvoicesResult,
+} from './tools/clothing-due-invoices';
 import {
   isCustomerDuplicateAuditQuestion,
   formatCustomerDuplicateAudit,
@@ -26,12 +35,6 @@ import type {
   AiTriggerSource,
   AiProviderFailureDiagnostics,
 } from './types';
-
-interface PrefetchedToolRecord {
-  toolName: string;
-  businessUnit: AiBusinessUnit;
-  output: Record<string, unknown>;
-}
 
 function describeProviderFailure(error: unknown): string {
   const message = error instanceof Error ? error.message : '';
@@ -210,154 +213,11 @@ async function prefetchDeterministicToolData(params: {
   return { records, traces };
 }
 
-function buildDeterministicFallbackMarkdown(
-  records: PrefetchedToolRecord[]
-): string {
-  const sections: string[] = [
-    '### Read-Only Business Audit Summary',
-    '_Verified directly from live deterministic PostgreSQL records:_',
-    '',
-  ];
-
-  for (const rec of records) {
-    const unitLabel =
-      rec.businessUnit === 'general-merchandise'
-        ? 'General Merchandise'
-        : rec.businessUnit === 'trucking'
-          ? 'Trucking'
-          : 'Clothing';
-
-    if (rec.toolName === 'getUpcomingRecurringObligations') {
-      const items =
-        (rec.output.items as Array<{
-          id: string;
-          name: string;
-          kind: string;
-          amount: number;
-          frequency: string;
-          nextDueDate: string;
-          pendingDraftCount: number;
-          sourceLink: string;
-        }>) ?? [];
-      sections.push(`#### ${unitLabel} — Upcoming Recurring Obligations`);
-      if (!items.length) {
-        sections.push(
-          '- No active recurring payment templates or pending drafts found.'
-        );
-      } else {
-        for (const item of items.slice(0, 10)) {
-          sections.push(
-            `- **${item.name}** (${item.kind}, ${item.frequency}): **₱${Number(item.amount).toLocaleString('en-PH', { minimumFractionDigits: 2 })}** — Next due: \`${item.nextDueDate}\` (${item.pendingDraftCount} pending draft(s)) · [View Accounting](${item.sourceLink})`
-          );
-        }
-      }
-      sections.push('');
-    } else if (rec.toolName === 'getOverdueInvoicesAndReceivables') {
-      const items = (rec.output.items as Array<Record<string, unknown>>) ?? [];
-      sections.push(`#### ${unitLabel} — Overdue Invoices & Receivables`);
-      if (!items.length) {
-        sections.push('- No overdue invoices or unpaid receivables found.');
-      } else {
-        for (const item of items.slice(0, 10)) {
-          const customer = item.customerName ?? item.customer ?? 'Unknown';
-          const bal = Number(
-            item.remainingBalance ?? item.lineTotal ?? 0
-          ).toLocaleString('en-PH', { minimumFractionDigits: 2 });
-          const due = item.dueDate ?? 'No due date';
-          sections.push(
-            `- **${customer}**: Balance **₱${bal}** — Status: \`${String(item.status ?? item.orderStatus ?? '')}\` (Due: \`${String(due)}\`)`
-          );
-        }
-      }
-      sections.push('');
-    } else if (rec.toolName === 'getAccountingDiscrepancies') {
-      const anomalies =
-        (rec.output.anomalies as Array<Record<string, unknown>>) ?? [];
-      sections.push(`#### ${unitLabel} — Accounting Discrepancies`);
-      if (!anomalies.length) {
-        sections.push(
-          '- No payment allocation or line-total discrepancies detected.'
-        );
-      } else {
-        for (const a of anomalies.slice(0, 10)) {
-          sections.push(
-            `- **${String(a.customer ?? 'Accounting discrepancy')}**: ${String(a.issue ?? '')}`
-          );
-        }
-      }
-      sections.push('');
-    } else if (rec.toolName === 'getSchedulesAndEmployeeFollowUps') {
-      const schedules =
-        (rec.output.schedules as Array<Record<string, unknown>>) ?? [];
-      const leaves =
-        (rec.output.pendingLeaves as Array<Record<string, unknown>>) ?? [];
-      sections.push(`#### ${unitLabel} — Employee Schedules & Pending Leaves`);
-      sections.push(
-        `- **Upcoming Schedules:** ${schedules.length} shift(s) scheduled.`
-      );
-      for (const s of schedules.slice(0, 5)) {
-        sections.push(
-          `  - **${String(s.employeeName)}**: \`${String(s.date)}\` (${String(s.shiftType)}, ${String(s.startTime)}–${String(s.endTime)})`
-        );
-      }
-      sections.push(
-        `- **Pending Leave Requests:** ${leaves.length} awaiting review.`
-      );
-      for (const l of leaves.slice(0, 5)) {
-        sections.push(
-          `  - **${String(l.employeeName)}**: ${String(l.leaveType)} (\`${String(l.startDate)}\` to \`${String(l.endDate)}\`)`
-        );
-      }
-      sections.push('');
-    } else if (rec.toolName === 'searchKnowledgeBaseAndSOPs') {
-      const core =
-        (rec.output.corePolicies as Array<Record<string, unknown>>) ?? [];
-      const tpls =
-        (rec.output.preApprovedMessageTemplates as Array<
-          Record<string, unknown>
-        >) ?? [];
-      const procs =
-        (rec.output.handbookProcedures as Array<Record<string, unknown>>) ?? [];
-      sections.push(
-        `#### ${unitLabel} — Official Policies, SOPs & Message Templates`
-      );
-      if (core.length) {
-        sections.push('**Standard Operating Procedures:**');
-        for (const c of core) {
-          sections.push(
-            `- **${String(c.topic)}**: ${String(c.rule)} (Source: ${String(c.id ?? '')}; ${String(c.sourceDoc ?? '')})`
-          );
-        }
-        sections.push('');
-      }
-      if (tpls.length) {
-        sections.push('**Pre-Approved Message Templates:**');
-        for (const t of tpls) {
-          sections.push(
-            `- **${String(t.title)}** (\`${String(t.badge)}\`):\n\`\`\`text\n${String(t.bodyText ?? '')}\n\`\`\``
-          );
-        }
-        sections.push('');
-      }
-      if (procs.length) {
-        sections.push('**Handbook Procedures:**');
-        for (const p of procs) {
-          sections.push(
-            `- [${String(p.title)}](${String(p.handbookLink)}): ${String(p.summary)}`
-          );
-        }
-        sections.push('');
-      }
-    }
-  }
-
-  return sections.join('\n').trim();
-}
-
 const SYSTEM_PROMPT = `You are a sharp, conversational, strictly READ-ONLY AI Financial Controller and Operations Partner for a multi-business LAN management platform (Clothing Wholesale, Trucking/Logistics, and General Merchandise).
 
 CONVERSATIONAL & INVESTIGATIVE STYLE:
 - Lead with the direct answer and verified customer identity. Use bullets for findings, numbered lists for steps or rankings, and Markdown tables for records. Do not add unrelated analysis.
+- Clothing overdue/upcoming customer deadlines follow the Due Dates board: unpaid Prepared invoices only, due at the end of the third Manila calendar day after the invoice date. Use getOverdueInvoicesAndReceivables with dueStatus=overdue or upcoming. Trusted-customer Accounts Receivable (including legacy Pending Payment) has no automatic deadline and must not be called overdue or put on an automatic collection schedule. Owner discretion governs follow-up; customary one-to-two-month payment patterns are not fixed terms. Stored legacy A/R dates do not override this rule. Keep Trucking and General Merchandise rules separate.
 - Identify each product as Product Name (FULL-PRODUCT-CODE), for example Premium Shortsleeves Onesie (PSO-101226). Preserve the entire productCode returned by the tool, including every date, variant, or other suffix; never abbreviate it, replace it with a database product ID, or omit it when known. For product/order database queries retrieve both the name and full productCode. If a code is not available, retrieve it through an authorized read-only tool when possible; otherwise say "product code not recorded" rather than inventing one. If only a code is known, show that exact code without guessing a name.
 - When asked how many orders a named customer has, include the count AND the matching order details in the first answer: Date, Product (including a UI-visible code when available), Qty, and Status when statuses differ. State a common status once only if every matching row verifies it. Count transaction records as records; never infer distinct grouped orders. Resolve ambiguous customer matches before combining their histories.
 - Use matchingTransactionCount, returnedTransactionCount, and hasMoreTransactions to disclose incomplete lists. Never say "all" unless all matching rows were returned and belong to the resolved customer. Link to the relevant module for additional records; never invent missing rows or dates.
@@ -482,6 +342,13 @@ export async function runBusinessAiAssistant(
   const directCustomerTool = customerSearch
     ? tools.find((tool) => tool.name === 'queryCustomersAndOrderHistory')
     : undefined;
+  const dueMode =
+    params.triggerSource === 'USER_CHAT' && defaultUnit === 'clothing'
+      ? getDirectClothingDueMode(params.userPrompt)
+      : null;
+  const directDueTool = dueMode
+    ? tools.find((tool) => tool.name === 'getOverdueInvoicesAndReceivables')
+    : undefined;
   const duplicateAuditQuestion =
     params.triggerSource === 'USER_CHAT' &&
     isCustomerDuplicateAuditQuestion(params.userPrompt);
@@ -496,7 +363,10 @@ export async function runBusinessAiAssistant(
   }
 
   if (
-    (directKnowledgeTool || directCustomerTool || directAuditTool) &&
+    (directKnowledgeTool ||
+      directCustomerTool ||
+      directAuditTool ||
+      directDueTool) &&
     primaryProvider === 'copilot'
   ) {
     const { assertCopilotAccess } = await import('./copilot-provider');
@@ -525,7 +395,29 @@ export async function runBusinessAiAssistant(
         directCustomerAnswer = { text, args, durationMs: Date.now() - started };
       }
     }
-    if (directAuditTool) {
+    if (directDueTool && dueMode) {
+      const args = { businessUnit: 'clothing', dueStatus: dueMode, limit: 30 };
+      const output = (await directDueTool.execute(
+        args,
+        params.toolContext
+      )) as ClothingDueInvoicesResult;
+      result = {
+        text: formatClothingDueInvoices(output),
+        provider: primaryProvider,
+        model: 'deterministic-clothing-due-invoices',
+        inputTokens: 0,
+        outputTokens: 0,
+        estimatedCostUsd: 0,
+        latencyMs: Date.now() - started,
+        toolsCalled: [
+          {
+            toolName: directDueTool.name,
+            args,
+            durationMs: Date.now() - started,
+          },
+        ],
+      };
+    } else if (directAuditTool) {
       const args = { businessUnit: 'clothing' };
       const output = (await directAuditTool.execute(
         args,
@@ -614,20 +506,26 @@ export async function runBusinessAiAssistant(
       reason: describeProviderFailure(primaryError),
       diagnostics: getProviderFailureDiagnostics(primaryError),
     });
-    if (duplicateAuditQuestion) {
+    if (duplicateAuditQuestion || directDueTool) {
       await insertAuditLogToStore({
         userId: params.userId ?? null,
         userName: params.userName ?? null,
         triggerSource: params.triggerSource,
         businessUnit: 'clothing',
         provider: primaryProvider,
-        model: 'deterministic-customer-duplicate-audit',
+        model: duplicateAuditQuestion
+          ? 'deterministic-customer-duplicate-audit'
+          : 'deterministic-clothing-due-invoices',
         status: 'ERROR',
         latencyMs: Date.now() - started,
-        errorMessage: 'Customer duplicate audit could not be completed.',
+        errorMessage: duplicateAuditQuestion
+          ? 'Customer duplicate audit could not be completed.'
+          : 'Clothing invoice due-date lookup could not be completed.',
       });
       throw new Error(
-        'Could not complete the Clothing customer duplicate audit. No records were changed. Please retry; unrelated dues or receivables are not a substitute for this audit.'
+        duplicateAuditQuestion
+          ? 'Could not complete the Clothing customer duplicate audit. No records were changed. Please retry; unrelated dues or receivables are not a substitute for this audit.'
+          : 'Could not complete the Clothing invoice due-date lookup. No records were changed. Please retry; A/R balances and recurring dues are not a substitute for this list.'
       );
     }
     const canFallback =

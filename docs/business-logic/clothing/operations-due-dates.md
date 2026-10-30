@@ -39,6 +39,13 @@
 
 ## C — Due Date Calculation
 
+Owner clarification (October 31, 2026): this board is authoritative for unpaid
+Prepared invoice deadlines. Trusted-customer Accounts Receivable (and legacy
+Clothing Pending Payment compatibility) is excluded: those customers may collect
+goods before paying, and the owner decides when to follow up. A customary one-to-two
+month payment pattern is not a due-date rule. Stored historical A/R date values
+must not override this distinction in AI queries or automated monitoring.
+
 | #   | Logic                                                     | Explanation                                                                                                                                                                                                     |
 | --- | --------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | 10  | Due date is the end of the third calendar day in Manila   | Owner-approved example: October 26 is due October 29 at 11:59 PM Asia/Manila. The stored cutoff includes the final millisecond of that day. Cancellation remains manual; paid orders are excluded.              |

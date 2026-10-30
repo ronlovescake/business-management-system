@@ -30,7 +30,6 @@ import {
   computeRemainingBalance,
   isPaidStatus,
 } from './service-calculations';
-import { calculateAccountsReceivableDueDate } from '@/lib/transactions/accounts-receivable';
 import {
   isCancelledOrderStatus,
   isClothingAccountsReceivableStatus,
@@ -87,7 +86,7 @@ type AccountsReceivableDateSource = {
 
 function getAccountsReceivableDateData(source: AccountsReceivableDateSource): {
   shippedAt: Date;
-  accountsReceivableDueAt: Date;
+  accountsReceivableDueAt: Date | null;
 } {
   const packedDate = source.packedDate ? new Date(source.packedDate) : null;
   const validPackedDate =
@@ -100,9 +99,7 @@ function getAccountsReceivableDateData(source: AccountsReceivableDateSource): {
 
   return {
     shippedAt,
-    accountsReceivableDueAt:
-      source.accountsReceivableDueAt ??
-      calculateAccountsReceivableDueDate(shippedAt),
+    accountsReceivableDueAt: source.accountsReceivableDueAt ?? null,
   };
 }
 

@@ -1,9 +1,7 @@
 import { prisma } from '@/lib/db';
 import { isCancelledOrderStatus } from '@/lib/transactions/order-status';
-import {
-  CLOTHING_ACCOUNTS_RECEIVABLE_STATUSES,
-  PAID_STATUSES,
-} from '@/lib/accounting/constants';
+import { PAID_STATUSES } from '@/lib/accounting/constants';
+import { getClothingDueInvoices } from './clothing-due-invoices';
 import {
   INVESTIGATIVE_BUSINESS_TOOLS,
   KNOWLEDGE_BASE_TOOL,
@@ -64,7 +62,7 @@ export const READ_ONLY_BUSINESS_TOOLS: readonly AiToolDefinition[] = [
   {
     name: 'getOverdueInvoicesAndReceivables',
     description:
-      'Read-only tool that returns overdue invoices, pending-payment orders, and accounts receivable balances with deterministic aging and payment totals for a specific business unit.',
+      'Read-only due-invoice lookup. Clothing follows the Due Dates board: unpaid Prepared invoices, due at the end of the third Manila calendar day after invoice date. Clothing trusted-customer A/R has NO automatic deadline and is NOT overdue. Use dueStatus=upcoming for coming deadlines. Trucking and General Merchandise retain their separate rules.',
     businessUnits: ['clothing', 'trucking', 'general-merchandise'],
     readOnly: true,
     parameters: {
@@ -78,6 +76,12 @@ export const READ_ONLY_BUSINESS_TOOLS: readonly AiToolDefinition[] = [
         limit: {
           type: 'number',
           description: 'Maximum rows to return (1 to 30)',
+        },
+        dueStatus: {
+          type: 'string',
+          description:
+            'Clothing only: overdue (default), upcoming, or all unpaid Prepared invoices.',
+          enum: ['overdue', 'upcoming', 'all'],
         },
       },
       required: ['businessUnit'],
@@ -180,50 +184,13 @@ export const READ_ONLY_BUSINESS_TOOLS: readonly AiToolDefinition[] = [
         };
       }
 
-      const rows = await prisma.transaction.findMany({
-        where: {
-          deletedAt: null,
-          OR: [
-            { orderStatus: { in: [...CLOTHING_ACCOUNTS_RECEIVABLE_STATUSES] } },
-            { accountsReceivableDueAt: { lt: now } },
-          ],
-        },
-        include: {
-          payments: {
-            where: { deletedAt: null },
-            select: { amount: true },
-          },
-        },
-        orderBy: { createdAt: 'desc' },
+      return getClothingDueInvoices(
+        args.dueStatus === 'upcoming' || args.dueStatus === 'all'
+          ? args.dueStatus
+          : 'overdue',
         take,
-      });
-
-      const items = rows.map((tx) => {
-        const gross = Number(
-          ((tx.quantity ?? 0) * (tx.unitPrice ?? 0)).toFixed(2)
-        );
-        const paid = tx.payments.reduce((s, p) => s + (p.amount ?? 0), 0);
-        return {
-          transactionId: tx.id,
-          customer: tx.customers ?? 'Unknown',
-          productCode: tx.productCode ?? '',
-          orderDate: tx.orderDate ?? '',
-          orderStatus: tx.orderStatus ?? '',
-          dueAt: tx.accountsReceivableDueAt
-            ? tx.accountsReceivableDueAt.toISOString().slice(0, 10)
-            : null,
-          grossAmount: gross,
-          recordedPayments: Number(paid.toFixed(2)),
-          outstandingBalance: Number(Math.max(0, gross - paid).toFixed(2)),
-          sourceLink: '/clothing/operations/transactions',
-        };
-      });
-
-      return {
-        businessUnit: 'clothing',
-        count: items.length,
-        items,
-      };
+        now
+      );
     },
   },
   {
