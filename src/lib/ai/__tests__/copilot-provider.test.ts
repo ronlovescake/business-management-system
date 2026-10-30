@@ -151,6 +151,51 @@ describe('Copilot provider isolation', () => {
     expect(sdk.options).not.toHaveBeenCalled();
   });
 
+  it('allows the configured owner email without granting role-based access', async () => {
+    vi.stubEnv('COPILOT_ALLOWED_USER_ID', 'ADMIN@example.com');
+    await expect(
+      generateWithProvider({
+        ...params,
+        toolContext: {
+          ...params.toolContext,
+          userId: 'diff-id',
+          userEmail: 'admin@example.com',
+        },
+      })
+    ).resolves.toBeDefined();
+  });
+
+  it.each(['*', 'ADMIN', 'SUPER_ADMIN', 'owner,other-user', 'OWNER', ''])(
+    'does not expand owner access for configuration %s',
+    async (allowed) => {
+      vi.stubEnv('COPILOT_ALLOWED_USER_ID', allowed);
+      await expect(
+        generateWithProvider({
+          ...params,
+          toolContext: { ...params.toolContext, userRole: 'SUPER_ADMIN' },
+        })
+      ).rejects.toThrow(
+        /^Copilot is restricted to the configured COPILOT_ALLOWED_USER_ID\.$/
+      );
+      expect(sdk.options).not.toHaveBeenCalled();
+    }
+  );
+
+  it('rejects unattended requests even with a matching email', async () => {
+    vi.stubEnv('COPILOT_ALLOWED_USER_ID', 'admin@example.com');
+    await expect(
+      generateWithProvider({
+        ...params,
+        toolContext: {
+          ...params.toolContext,
+          userId: null,
+          userEmail: 'admin@example.com',
+        },
+      })
+    ).rejects.toThrow(/COPILOT_ALLOWED_USER_ID/);
+    expect(sdk.options).not.toHaveBeenCalled();
+  });
+
   it('fails clearly when the server token is missing', async () => {
     vi.stubEnv('COPILOT_GITHUB_TOKEN', '');
     await expect(generateWithProvider(params)).rejects.toThrow(

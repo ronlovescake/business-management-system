@@ -60,6 +60,7 @@ export interface AiAssistantConfig {
 export interface AiToolExecutionContext {
   userId: string | null;
   userRole: string | null;
+  userEmail?: string | null;
   accessibleModules: string[];
   allowedBusinessUnits: AiBusinessUnit[];
 }

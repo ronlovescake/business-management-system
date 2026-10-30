@@ -54,11 +54,18 @@ export async function discoverCopilotModels(): Promise<string[]> {
 export async function generateWithCopilot(
   params: GenerateWithProviderParams
 ): Promise<Omit<AiGenerationResult, 'usedFallback'>> {
-  const allowedUserId = readLiveEnvValue(['COPILOT_ALLOWED_USER_ID']);
-  if (
-    !params.isSyntheticTest &&
-    (!allowedUserId || params.toolContext.userId !== allowedUserId)
-  ) {
+  const allowed = (readLiveEnvValue(['COPILOT_ALLOWED_USER_ID']) || '').trim();
+  const currentUserId = params.toolContext.userId || '';
+  const currentUserEmail = (params.toolContext.userEmail || '').toLowerCase();
+
+  const isAllowed =
+    Boolean(currentUserId) &&
+    Boolean(allowed) &&
+    (currentUserId === allowed ||
+      (Boolean(currentUserEmail) &&
+        currentUserEmail === allowed.toLowerCase()));
+
+  if (!params.isSyntheticTest && !isAllowed) {
     throw new Error(
       'Copilot is restricted to the configured COPILOT_ALLOWED_USER_ID.'
     );

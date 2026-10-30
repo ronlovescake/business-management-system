@@ -6,6 +6,7 @@ import {
 } from '@/lib/accounting/constants';
 import {
   INVESTIGATIVE_BUSINESS_TOOLS,
+  KNOWLEDGE_BASE_TOOL,
   validateAndBoundReadOnlySql,
 } from './investigative-tools';
 import type {
@@ -14,7 +15,7 @@ import type {
   AiToolExecutionContext,
 } from '../types';
 
-export { validateAndBoundReadOnlySql };
+export { validateAndBoundReadOnlySql, KNOWLEDGE_BASE_TOOL };
 
 const EPS = 0.01;
 

@@ -50,9 +50,17 @@ async function prefetchDeterministicToolData(params: {
     );
   const wantSchedule =
     /schedule|shift|leave|employee|staff|driver|attendance|absent/i.test(q);
+  const wantKnowledge =
+    /policy|handbook|sop|procedure|what to do|what should|how to|rule|template|grace period|cancell|forfeit|penalty|guide/i.test(
+      q
+    );
 
   const anySpecificMatch =
-    wantRecurring || wantOverdue || wantDiscrepancy || wantSchedule;
+    wantRecurring ||
+    wantOverdue ||
+    wantDiscrepancy ||
+    wantSchedule ||
+    wantKnowledge;
 
   const selectedTools = params.tools.filter((t) => {
     if (!anySpecificMatch) {
@@ -73,6 +81,9 @@ async function prefetchDeterministicToolData(params: {
     if (t.name === 'getSchedulesAndEmployeeFollowUps' && wantSchedule) {
       return true;
     }
+    if (t.name === 'searchKnowledgeBaseAndSOPs' && wantKnowledge) {
+      return true;
+    }
     return false;
   });
 
@@ -90,13 +101,17 @@ async function prefetchDeterministicToolData(params: {
       }
       const start = Date.now();
       try {
+        const toolArgs =
+          tool.name === 'searchKnowledgeBaseAndSOPs'
+            ? { query: params.userPrompt, businessUnit: unit }
+            : { businessUnit: unit, limit: 15 };
         const output = (await tool.execute(
-          { businessUnit: unit, limit: 15 },
+          toolArgs,
           params.toolContext
         )) as Record<string, unknown>;
         traces.push({
           toolName: tool.name,
-          args: { businessUnit: unit },
+          args: toolArgs,
           durationMs: Date.now() - start,
         });
         records.push({
@@ -214,6 +229,43 @@ function buildDeterministicFallbackMarkdown(
         );
       }
       sections.push('');
+    } else if (rec.toolName === 'searchKnowledgeBaseAndSOPs') {
+      const core =
+        (rec.output.corePolicies as Array<Record<string, unknown>>) ?? [];
+      const tpls =
+        (rec.output.preApprovedMessageTemplates as Array<
+          Record<string, unknown>
+        >) ?? [];
+      const procs =
+        (rec.output.handbookProcedures as Array<Record<string, unknown>>) ?? [];
+      sections.push(
+        `#### ${unitLabel} — Official Policies, SOPs & Message Templates`
+      );
+      if (core.length) {
+        sections.push('**Standard Operating Procedures:**');
+        for (const c of core) {
+          sections.push(`- **${String(c.topic)}**: ${String(c.rule)}`);
+        }
+        sections.push('');
+      }
+      if (tpls.length) {
+        sections.push('**Pre-Approved Message Templates:**');
+        for (const t of tpls) {
+          sections.push(
+            `- **${String(t.title)}** (\`${String(t.badge)}\`):\n\`\`\`text\n${String(t.bodyText ?? '')}\n\`\`\``
+          );
+        }
+        sections.push('');
+      }
+      if (procs.length) {
+        sections.push('**Handbook Procedures:**');
+        for (const p of procs) {
+          sections.push(
+            `- [${String(p.title)}](${String(p.handbookLink)}): ${String(p.summary)}`
+          );
+        }
+        sections.push('');
+      }
     }
   }
 
@@ -229,6 +281,11 @@ CONVERSATIONAL & INVESTIGATIVE STYLE:
   1. What the recorded book cash balance is (and its breakdown: opening balance, customer payments, paid expenses, refunds, manual journal lines).
   2. Whether it matches, and the exact peso variance (surplus or shortage).
   3. The exact culprit records discovered in the database that explain the difference (such as duplicate customer payments on the same order, overpaid orders with negative lineTotal, unposted recurring loan/expense drafts, pending cancellation refund payouts, or approved-but-unpaid expenses).
+
+KNOWLEDGE BASE, EMPLOYEE HANDBOOK & POLICY GUIDANCE:
+- For Clothing procedural or policy questions, use \`searchKnowledgeBaseAndSOPs\` to retrieve Clothing SOPs, handbook procedures, due-date policies, and pre-approved message templates rather than guessing.
+- Cite the returned source policies and module links. Follow their stated review and approval requirements; do not infer automatic cancellation, forfeiture, or refund entitlement.
+- This knowledge base contains Clothing policies only. Never apply them to Trucking or General Merchandise. If no approved policy is available for the requested domain, state that limitation and request the relevant policy from its owner.
 
 NON-NEGOTIABLE SAFETY RULES:
 1. You have strictly READ-ONLY access via predefined tools. You cannot create, modify, or delete any transactions, invoices, payments, ledger entries, or inventory records.

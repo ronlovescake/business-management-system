@@ -56,6 +56,7 @@ async function buildUserToolContext(): Promise<{
       toolContext: {
         userId: 'dev-bypass',
         userRole: 'SUPER_ADMIN',
+        userEmail: 'dev@local',
         accessibleModules: [],
         allowedBusinessUnits: ['clothing', 'trucking', 'general-merchandise'],
       },
@@ -69,6 +70,7 @@ async function buildUserToolContext(): Promise<{
       toolContext: {
         userId: null,
         userRole: null,
+        userEmail: null,
         accessibleModules: [],
         allowedBusinessUnits: [],
       },
@@ -86,6 +88,7 @@ async function buildUserToolContext(): Promise<{
     toolContext: {
       userId: user.id,
       userRole: user.role,
+      userEmail: user.email,
       accessibleModules,
       allowedBusinessUnits,
     },

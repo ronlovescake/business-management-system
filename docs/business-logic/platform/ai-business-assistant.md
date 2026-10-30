@@ -15,6 +15,7 @@
 > - `src/lib/ai/tools/clothing-cash-reconciliation.ts`
 > - `src/lib/ai/tools/customer-history-tool.ts`
 > - `src/lib/ai/tools/database-read-only-tool.ts`
+> - `src/lib/ai/tools/knowledge-base-tool.ts`
 > - `src/lib/ai/monitors/index.ts`
 > - `src/lib/ai/orchestrator.ts`
 > - `src/components/ai-chat/AiChatWidget.tsx`
@@ -64,7 +65,7 @@ not shared subscription access. Configure these server-only values in
 
 ```dotenv
 COPILOT_GITHUB_TOKEN=<GitHub user token with Copilot access>
-COPILOT_ALLOWED_USER_ID=<the subscription owner's application user ID>
+COPILOT_ALLOWED_USER_ID=<the subscription owner's application user ID or email>
 ```
 
 Use a supported fine-grained PAT (`github_pat_`) with the Copilot Requests user
@@ -81,9 +82,13 @@ keeps the SDK external so its bundled platform runtime resolves from
 `node_modules`; the existing Docker image copies production dependencies.
 Node.js must be at least 20.19 (or 22.12 on Node 22).
 
-The provider checks the caller's application user ID against
-`COPILOT_ALLOWED_USER_ID` before starting a non-synthetic request, for both primary
-and fallback usage. Unattended jobs without a user identity cannot use this
+The provider checks the authenticated caller against the single owner configured
+in `COPILOT_ALLOWED_USER_ID` before starting a non-synthetic request, for both
+primary and fallback usage. Application user IDs match exactly; an owner email
+matches case-insensitively against the server-resolved user email. Wildcards,
+comma-separated lists, and role-based grants are not supported. Denial messages
+do not expose the configured or current identity. Unattended jobs without an
+authenticated user ID cannot use this
 personal integration. Admin-only connection and investigation benchmarks use
 synthetic data and do not require the user binding. Per-user GitHub OAuth for
 shared usage is not implemented.
@@ -136,6 +141,23 @@ the widget's existing Markdown allowlist, copy behavior, and controls.
 | 13  | Zero-timeout deterministic Markdown fallback                       | If a cloud provider times out (>8s when prefetched PostgreSQL data is already available) or returns a `503`/`429` capacity error, `buildDeterministicFallbackMarkdown()` immediately formats and returns the verified PostgreSQL audit summary so the user never experiences a failed chat turn.                                                   |
 
 ---
+
+### Clothing Policy Lookup
+
+`searchKnowledgeBaseAndSOPs` retrieves curated Clothing rules, the existing
+employee handbook, and pre-approved message templates. It is registered only for
+Clothing and rejects direct Trucking or General Merchandise calls, including
+administrator calls. Those domains require their own approved policy sources;
+Clothing due dates, cancellation rules, and templates are not shared by inference.
+
+Policy questions trigger deterministic prefetch with the user's question and
+authorized business-unit scope. The model and deterministic fallback cite the
+retrieved policies, templates, and handbook links instead of inventing policy.
+The requesting application owner remains accountable for the canonical Clothing
+workflow contract. This lookup does not change due-date calculations, cancellation
+or refund approval services, financial writes, jobs, imports, or bulk actions.
+Existing Clothing policy and domain differences remain unchanged. Provider-access
+and cross-domain denial regressions cover the new enforcement boundaries.
 
 ## D — 24/7 Deterministic Monitoring & Alert Lifecycle
 
