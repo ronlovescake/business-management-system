@@ -13,6 +13,8 @@
 > - `src/lib/ai/tools/investigative-access.ts`
 > - `src/lib/ai/tools/cash-reconciliation-tool.ts`
 > - `src/lib/ai/tools/clothing-cash-reconciliation.ts`
+> - `src/lib/ai/tools/clothing-purchase-coverage.ts`
+> - `src/lib/ai/tools/clothing-cash-response.ts`
 > - `src/lib/ai/tools/customer-history-tool.ts`
 > - `src/lib/ai/tools/customer-address-tool.ts`
 > - `src/lib/ai/tools/customer-duplicate-audit-tool.ts`
@@ -131,6 +133,73 @@ individual calculations.
 ## C — Floating Chatbot (`AiChatWidget`) & Direct Answers
 
 ### Direct Answers And Organized Records
+
+### Clothing Cash And Purchase Posting Coverage
+
+The requesting application owner approved a read-only posting-completeness audit
+after a cash explanation omitted Paid products awaiting Transit Build-Up. Cash
+means combined physical Cash, Bank and GCash/e-wallet recorded funds; physical-only
+cash is supplementary. The supplied comparison amount is used without repeatedly
+asking whether it is real or hypothetical, but is never claimed to be an
+independently verified count. A variance alone is not proof of missing money.
+
+`reconcileClothingCash()` now includes the signed cash effect of active, dated
+Transit Build-Up and inventory reclassification sources, as the balance sheet
+does. It reports cash components and journal cash totals grouped by source type,
+including operational/generated sources rather than only a few recent manual
+entries. Noncash reclassifications and card/payable/opening funding are not
+invented cash movements. Missing posted-source availability makes the book-cash
+result provisional instead of turning a failed read into a verified zero.
+
+`auditClothingPurchaseCoverage()` scans active Products (including unassigned
+shipment codes), active/deleted Transit Build-Up and product/journal histories,
+standalone transit openings and linked supplier-credit issue/application metadata.
+It uses `PRODUCT_TRANSIT_BUILD:<id>:GRAND_TOTAL`, PRODUCT source IDs and settlement
+line keys. It does not infer posting coverage from description similarity. Each
+source returns checked, partial or not_checked with scanned-row counts. Product
+scans cap at 5,000; other journal/build history scans cap at 20,000 each, in pages
+of 500. Category totals cover scanned records; at most 50 findings are returned,
+with truncation disclosed. Source errors and caps prevent unverified posting
+absence from becoming a missing-cash total.
+
+Current-period Paid Cash/Bank/GCash purchases without a linked build or product
+journal can become conditional unposted-outflow candidates. Pre-cutover purchases,
+opening funding, unpaid purchases, card funding, supplier-credit flags/links,
+deleted history, shipment-level/partial sources and possible same-amount manual
+funding receive separate treatment or review, not a blanket missing-cash claim.
+Amount/account conflicts and payable-funded purchases without a matching settlement
+pair are surfaced. Candidate totals remain separate from unchanged recorded cash;
+conditional balances explicitly assume the payment flags represent actual money
+paid and that no alternate entry covers it. No entry is posted, reconstructed,
+deleted, merged or marked paid by the tool. Existing supplier/logistics/opening
+policy remains authoritative; missing shipment confirmation does not authorize a
+build-up posting.
+
+The result names areas not verified: bank/GCash statements, physical count, truth
+of Paid flags, unlinked combined/manual postings with different amounts, deleted
+product and shipment-transfer/reclassification completeness, operational logistics
+bills versus journal postings, and full supplier-credit lifecycle amounts. Reads
+are bounded and non-atomic in ordinary requests; concurrent edits require review.
+The assistant must report these limits rather than claim it checked everything.
+Product-table follow-ups rerun this approved tool instead of sampling recent rows.
+The exact cash-balance suggestion and explicit Clothing cash-coverage commands
+return `deterministic-clothing-cash-coverage` directly, with zero model tokens.
+They retain the existing cloud-sharing, usage and Copilot ownership/role gates;
+unsupported or ambiguous wording remains on the model path. Cash/product-journal
+fallback prefetch is restricted to cash reconciliation, whose deterministic renderer
+shows the same source coverage and conditional findings instead of unrelated dues.
+Direct-report failures surface an explicit error rather than retrying another
+provider with an unrelated financial summary.
+Generic SQL guidance exposes payment/cost/date/source-key fields but does not widen
+its table allowlist or financial write capability. GM/Trucking reconciliation and
+household behavior are intentionally unchanged; only Clothing adds this diagnostic.
+
+Deleted source history uses fixed parameterized SELECTs against the two reviewed
+Clothing source tables, because the global soft-delete middleware intentionally
+overwrites ordinary Prisma read filters with active-only filtering. That middleware
+is not weakened. Historical transit openings before a later purchase cannot mask
+the new purchase; only dated plausible covering sources trigger opening review.
+These are diagnostic reads, not a financial repair or authorization to repost.
 
 ### Clothing Invoice Deadlines Versus Trusted Credit
 

@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mockPrisma = vi.hoisted(() => ({
+  $queryRaw: vi.fn().mockResolvedValue([]),
   $executeRawUnsafe: vi.fn().mockResolvedValue(0),
   $queryRawUnsafe: vi.fn().mockResolvedValue([]),
   $transaction: vi.fn(),
@@ -11,6 +12,9 @@ const mockPrisma = vi.hoisted(() => ({
     findMany: vi.fn(),
     count: vi.fn(),
   },
+  product: { findMany: vi.fn() },
+  clothingInventoryTransitBuildEntry: { findMany: vi.fn() },
+  clothingInventoryReclassEntry: { findMany: vi.fn() },
   generalMerchandiseCustomer: {
     findMany: vi.fn(),
     count: vi.fn(),
@@ -59,6 +63,9 @@ describe('Investigative business tools', () => {
     vi.clearAllMocks();
     for (const model of [
       mockPrisma.customer,
+      mockPrisma.product,
+      mockPrisma.clothingInventoryTransitBuildEntry,
+      mockPrisma.clothingInventoryReclassEntry,
       mockPrisma.generalMerchandiseCustomer,
       mockPrisma.transactionPayment,
       mockPrisma.transactionRefund,
@@ -91,13 +98,36 @@ describe('Investigative business tools', () => {
   });
 
   it('reconciles stated cash against book cash and identifies duplicate payment culprits (#3395)', async () => {
-    mockPrisma.clothingAccountingOpeningBalance.findMany.mockResolvedValue([
+    mockPrisma.clothingAccountingOpeningBalance.findMany.mockImplementation(
+      async ({ where }) =>
+        where.account === 'Inventory in Transit'
+          ? []
+          : [
+              {
+                account: 'Cash',
+                ref: 'OB-1',
+                description: 'Opening Cash',
+                debit: 100000,
+                credit: 0,
+              },
+            ]
+    );
+    mockPrisma.product.findMany.mockResolvedValue([
       {
-        account: 'Cash',
-        ref: 'OB-1',
-        description: 'Opening Cash',
-        debit: 100000,
-        credit: 0,
+        id: 1,
+        product: 'Premium Onesie',
+        productCode: 'PSO-101226',
+        shipmentCode: 'KPC-1',
+        shipmentStatus: 'In Transit',
+        payment: 'Paid',
+        paymentMethod: 'CASH',
+        postingDate: '2026-09-16',
+        orderDate: '2026-09-16',
+        grandTotal: 300,
+        supplierFulfillmentStatus: 'ACTIVE',
+        supplierCreditAppliedAmount: 0,
+        issuedSupplierCredit: null,
+        supplierCreditApplication: null,
       },
     ]);
     mockPrisma.transactionPayment.findMany.mockResolvedValue([
@@ -169,6 +199,8 @@ describe('Investigative business tools', () => {
       recordedBookCashEquivalents: number;
       actualCashAmount: number;
       varianceVsBookCashEquivalents: number;
+      purchasePostingCoverage: { possibleUnpostedCashOutflows: number };
+      conditionalScenario: { conditionalCombinedBalance: number };
       potentialCulprits: {
         duplicateOrOverpaidOrders: Array<{
           transactionId: number;
@@ -188,6 +220,8 @@ describe('Investigative business tools', () => {
     expect(res.recordedBookCashEquivalents).toBe(114580);
     expect(res.actualCashAmount).toBe(107290);
     expect(res.varianceVsBookCashEquivalents).toBe(-7290);
+    expect(res.purchasePostingCoverage.possibleUnpostedCashOutflows).toBe(300);
+    expect(res.conditionalScenario.conditionalCombinedBalance).toBe(114280);
     expect(res.potentialCulprits.duplicateOrOverpaidOrders).toHaveLength(1);
     expect(
       res.potentialCulprits.duplicateOrOverpaidOrders[0].transactionId
@@ -206,6 +240,71 @@ describe('Investigative business tools', () => {
     expect(
       res.potentialCulprits.exactOrNearVarianceMatches.length
     ).toBeGreaterThanOrEqual(2);
+  });
+
+  it('compares combined physical/bank/GCash funds and includes posted purchase outflows without calling them missing', async () => {
+    mockPrisma.clothingAccountingOpeningBalance.findMany.mockImplementation(
+      async ({ where }) =>
+        where.account === 'Inventory in Transit'
+          ? []
+          : [
+              { account: 'Cash', debit: 100, credit: 0 },
+              { account: 'Bank', debit: 50, credit: 0 },
+              { account: 'GCash', debit: 25, credit: 0 },
+            ]
+    );
+    mockPrisma.clothingInventoryTransitBuildEntry.findMany.mockImplementation(
+      async ({ where }) =>
+        where.deletedAt === null
+          ? [
+              {
+                id: 'cash-build',
+                debitAccount: 'Inventory in Transit',
+                creditAccount: 'Cash',
+                amount: 10,
+              },
+              {
+                id: 'bank-build',
+                debitAccount: 'Inventory in Transit',
+                creditAccount: 'Bank',
+                amount: 20,
+              },
+              {
+                id: 'gcash-build',
+                debitAccount: 'Inventory in Transit',
+                creditAccount: 'GCash',
+                amount: 30,
+              },
+            ]
+          : []
+    );
+    const tool = READ_ONLY_BUSINESS_TOOLS.find(
+      (entry) => entry.name === 'reconcileCashAndFindDiscrepancies'
+    );
+    if (!tool) {
+      throw new Error('Cash tool missing');
+    }
+    const result = await tool.execute(
+      { businessUnit: 'clothing', actualCashAmount: 115 },
+      {
+        userId: 'admin',
+        userRole: 'SUPER_ADMIN',
+        accessibleModules: [],
+        allowedBusinessUnits: ['clothing'],
+      }
+    );
+    expect(result).toMatchObject({
+      recordedBookCashEquivalents: 115,
+      recordedPhysicalCashOnly: 90,
+      varianceVsBookCashEquivalents: 0,
+      cashScope: {
+        combinedRecordedFunds: 115,
+        bankAndWalletsCombined: 25,
+        statementOrCountVerified: false,
+      },
+      purchasePostingCoverage: { possibleUnpostedCashOutflows: 0 },
+      cashComponentsBreakdown: { postedTransitNetCash: -60 },
+    });
   });
 
   it('audits different customer names using shared phone/address evidence and recorded banned status', async () => {

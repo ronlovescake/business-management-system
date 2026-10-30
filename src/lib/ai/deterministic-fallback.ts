@@ -1,4 +1,8 @@
 import type { AiBusinessUnit } from './types';
+import {
+  formatClothingCashCoverage,
+  type ClothingCashResult,
+} from './tools/clothing-cash-response';
 
 export interface PrefetchedToolRecord {
   toolName: string;
@@ -23,7 +27,14 @@ export function buildDeterministicFallbackMarkdown(
           ? 'Trucking'
           : 'Clothing';
 
-    if (rec.toolName === 'getUpcomingRecurringObligations') {
+    if (
+      rec.toolName === 'reconcileCashAndFindDiscrepancies' &&
+      rec.businessUnit === 'clothing'
+    ) {
+      sections.push(
+        formatClothingCashCoverage(rec.output as unknown as ClothingCashResult)
+      );
+    } else if (rec.toolName === 'getUpcomingRecurringObligations') {
       const items =
         (rec.output.items as Array<{
           id: string;

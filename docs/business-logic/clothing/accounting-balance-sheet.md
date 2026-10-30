@@ -42,6 +42,32 @@ picker. The API accepts a date-only as-of scope subject to the runtime cutover.
 
 ## C - Balance Sheet Data Model
 
+### Cash Scope And AI Reconciliation
+
+Owner clarification (October 31, 2026): cash comparison means the combined recorded
+physical Cash, Bank and GCash/e-wallet funds. A supplied amount is used directly
+as a comparison input; it is not automatically described as an independently
+verified physical count. The assistant does not repeatedly ask whether it is real
+or a test. Explicit test/hypothetical amounts retain that framing.
+
+The AI reconciliation projection now includes dated active transit build-up and
+inventory reclassification debit/credit legs, matching their signed source effect
+in this report. Cash/Bank/GCash purchase funding reduces combined cash; card,
+Supplier Payable, supplier-credit and Opening Equity acquisition funding must not
+be treated as an immediate cash purchase. Reclassification from Inventory in
+Transit to Stock on Hand is noncash. Supplier settlements and logistics/loan/
+investor cash journal movements remain in the journal contribution and are not
+deducted again as unposted purchases.
+
+Its separate purchase-coverage diagnostic reports possible omitted Paid purchase
+sources and unresolved funding/history. Conditional omission scenarios do not
+rewrite balances or prove missing funds. Matching uses source keys and identities,
+not matching product names against journal descriptions. This read-only assistant
+improvement does not change this balance-sheet endpoint, posting services, product
+funding eligibility, logistics costs or any persisted financial amount. Review
+the assistant's stated source status and not-verified areas before relying on its
+conclusions; it is not a bank-statement or physical-count certification.
+
 ### Receipt Dates And Legacy Collections
 
 Approved invariant (requesting Clothing business owner): an active, finite,

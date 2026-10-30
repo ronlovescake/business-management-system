@@ -11,7 +11,7 @@ const EPS = 0.01;
 export const CASH_RECONCILIATION_TOOL: AiToolDefinition = {
   name: 'reconcileCashAndFindDiscrepancies',
   description:
-    'Read-only forensic accounting tool that calculates the exact recorded book cash & bank balance for a business unit, compares it against an actual cash amount stated by the user (if provided), computes the exact variance, and automatically scans payments, duplicate receipts, overpaid orders, unposted recurring payment drafts, pending cancellation refunds, and approved-but-unpaid expenses to explain why actual cash does not match book records.',
+    'Read-only scoped cash reconciliation. Cash means physical cash + bank + GCash/e-wallet recorded balances, not physical notes alone. Uses a supplied amount directly as a comparison input, without claiming it was independently counted. Clothing includes dated posted transit funding and a Products/build-up/journal-source completeness audit: missing Paid cash/bank/GCash purchase candidates, funding/settlement/credit/history conflicts, and explicit checked/not-verified coverage. Inspect purchasePostingCoverage before saying no explanation exists. Do not equate every inventory posting with cash or automatically adjust the ledger. Other domains retain their own supported scope.',
   businessUnits: ['clothing', 'trucking', 'general-merchandise'],
   readOnly: true,
   parameters: {
@@ -25,7 +25,7 @@ export const CASH_RECONCILIATION_TOOL: AiToolDefinition = {
       actualCashAmount: {
         type: 'number',
         description:
-          'Optional actual cash/bank balance stated by the user (e.g., 100000) to compare against the recorded book balance.',
+          'Optional user-supplied combined physical cash + bank + GCash/e-wallet amount to compare with recorded funds. Use directly; no repeated real-versus-test confirmation. This is not proof of an independently verified count.',
       },
     },
     required: ['businessUnit'],

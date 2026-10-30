@@ -1,4 +1,8 @@
 import {
+  describeProviderFailure,
+  getProviderFailureDiagnostics,
+} from './provider-failure';
+import {
   buildDeterministicFallbackMarkdown,
   type PrefetchedToolRecord,
 } from './deterministic-fallback';
@@ -11,6 +15,11 @@ import {
 } from './store';
 import { assertBusinessUnitAccess, getToolsForContext } from './tools';
 import { isDirectKnowledgeQuestion } from './tools/knowledge-base-tool';
+import {
+  isDirectClothingCashQuestion,
+  formatClothingCashCoverage,
+  type ClothingCashResult,
+} from './tools/clothing-cash-response';
 import {
   getDirectClothingDueMode,
   formatClothingDueInvoices,
@@ -36,74 +45,6 @@ import type {
   AiProviderFailureDiagnostics,
 } from './types';
 
-function describeProviderFailure(error: unknown): string {
-  const message = error instanceof Error ? error.message : '';
-  if (/timeout|timed out|time out/i.test(message)) {
-    return 'Provider request timed out.';
-  }
-  if (/quota|rate.?limit|429|capacity/i.test(message)) {
-    return 'Provider quota or capacity limit reached.';
-  }
-  if (
-    /auth|credential|invalid.*token|token.*(?:expired|invalid)|restricted|access denied|401|403/i.test(
-      message
-    )
-  ) {
-    return 'Provider authentication or authorization failed.';
-  }
-  if (/not configured|configuration/i.test(message)) {
-    return 'Provider configuration is unavailable or invalid.';
-  }
-  if (/maximum.*tool calls|tool.*limit/i.test(message)) {
-    return 'Provider exceeded the allowed tool-call limit.';
-  }
-  return 'Provider request failed before a usable response was returned.';
-}
-
-function getProviderFailureDiagnostics(
-  error: unknown
-): AiProviderFailureDiagnostics | undefined {
-  if (!(error instanceof Error)) {
-    return undefined;
-  }
-  const raw = Reflect.get(error, 'providerDiagnostics');
-  if (!raw || typeof raw !== 'object') {
-    return undefined;
-  }
-  const data = raw as Record<string, unknown>;
-  const phase = data.phase;
-  if (
-    phase !== 'runtime-start' &&
-    phase !== 'session-setup' &&
-    phase !== 'model-response' &&
-    phase !== 'tool-execution'
-  ) {
-    return undefined;
-  }
-  if (
-    ![data.elapsedMs, data.toolCallsStarted, data.toolCallsCompleted].every(
-      (value) =>
-        typeof value === 'number' && Number.isFinite(value) && value >= 0
-    )
-  ) {
-    return undefined;
-  }
-  return {
-    phase,
-    elapsedMs: Number(data.elapsedMs),
-    toolCallsStarted: Number(data.toolCallsStarted),
-    toolCallsCompleted: Number(data.toolCallsCompleted),
-    activeToolNames: Array.isArray(data.activeToolNames)
-      ? data.activeToolNames
-          .filter(
-            (name): name is string =>
-              typeof name === 'string' && /^[a-zA-Z0-9_]{1,64}$/.test(name)
-          )
-          .slice(0, 12)
-      : [],
-  };
-}
-
 async function prefetchDeterministicToolData(params: {
   userPrompt: string;
   tools: AiToolDefinition[];
@@ -118,6 +59,8 @@ async function prefetchDeterministicToolData(params: {
   }
 
   const q = params.userPrompt.toLowerCase();
+  const wantCashCoverage =
+    /\bcash\b|\bfunds\b|transit build|unjournal|products?.*journal/i.test(q);
   if (isCustomerDuplicateAuditQuestion(q)) {
     return { records: [], traces: [] };
   }
@@ -148,6 +91,9 @@ async function prefetchDeterministicToolData(params: {
     wantKnowledge;
 
   const selectedTools = params.tools.filter((t) => {
+    if (wantCashCoverage) {
+      return t.name === 'reconcileCashAndFindDiscrepancies';
+    }
     if (!anySpecificMatch) {
       return true;
     }
@@ -216,6 +162,8 @@ async function prefetchDeterministicToolData(params: {
 const SYSTEM_PROMPT = `You are a sharp, conversational, strictly READ-ONLY AI Financial Controller and Operations Partner for a multi-business LAN management platform (Clothing Wholesale, Trucking/Logistics, and General Merchandise).
 
 CONVERSATIONAL & INVESTIGATIVE STYLE:
+- Cash means the owner's combined physical cash, bank and GCash/e-wallet funds. Default to recordedBookCashEquivalents, not physical cash alone. Use any supplied amount directly as the comparison amount; do not repeatedly ask whether it is real or a test. Say "compared with the amount you provided" and never claim it was independently counted or that a variance proves missing money. If the user explicitly calls it hypothetical, retain that framing.
+- Every Clothing cash explanation must inspect purchasePostingCoverage and coverageSummary from reconcileCashAndFindDiscrepancies. Report checked sources, possible missing purchase postings and not-verified areas. Products marked Paid can reduce cash via Transit Build-Up (Dr Inventory in Transit / Cr Cash, Bank or GCash); card, payable, supplier-credit and opening-equity funding are different. Do not dismiss inventory entries as unrelated to cash. Use stable build/source keys, funding method and dates, not journal-description similarity. Conditional scenarios must remain separate from unchanged recorded book cash. Never say "checked everything" or "no explanation" when required checks are incomplete. If asked about unjournaled products or in-transit build-up, rerun this tool and explain its source-linked findings rather than just sampling recent products.
 - Lead with the direct answer and verified customer identity. Use bullets for findings, numbered lists for steps or rankings, and Markdown tables for records. Do not add unrelated analysis.
 - Clothing overdue/upcoming customer deadlines follow the Due Dates board: unpaid Prepared invoices only, due at the end of the third Manila calendar day after the invoice date. Use getOverdueInvoicesAndReceivables with dueStatus=overdue or upcoming. Trusted-customer Accounts Receivable (including legacy Pending Payment) has no automatic deadline and must not be called overdue or put on an automatic collection schedule. Owner discretion governs follow-up; customary one-to-two-month payment patterns are not fixed terms. Stored legacy A/R dates do not override this rule. Keep Trucking and General Merchandise rules separate.
 - Identify each product as Product Name (FULL-PRODUCT-CODE), for example Premium Shortsleeves Onesie (PSO-101226). Preserve the entire productCode returned by the tool, including every date, variant, or other suffix; never abbreviate it, replace it with a database product ID, or omit it when known. For product/order database queries retrieve both the name and full productCode. If a code is not available, retrieve it through an authorized read-only tool when possible; otherwise say "product code not recorded" rather than inventing one. If only a code is known, show that exact code without guessing a name.
@@ -342,6 +290,12 @@ export async function runBusinessAiAssistant(
   const directCustomerTool = customerSearch
     ? tools.find((tool) => tool.name === 'queryCustomersAndOrderHistory')
     : undefined;
+  const directCashTool =
+    params.triggerSource === 'USER_CHAT' &&
+    defaultUnit === 'clothing' &&
+    isDirectClothingCashQuestion(params.userPrompt)
+      ? tools.find((tool) => tool.name === 'reconcileCashAndFindDiscrepancies')
+      : undefined;
   const dueMode =
     params.triggerSource === 'USER_CHAT' && defaultUnit === 'clothing'
       ? getDirectClothingDueMode(params.userPrompt)
@@ -366,7 +320,8 @@ export async function runBusinessAiAssistant(
     (directKnowledgeTool ||
       directCustomerTool ||
       directAuditTool ||
-      directDueTool) &&
+      directDueTool ||
+      directCashTool) &&
     primaryProvider === 'copilot'
   ) {
     const { assertCopilotAccess } = await import('./copilot-provider');
@@ -395,7 +350,29 @@ export async function runBusinessAiAssistant(
         directCustomerAnswer = { text, args, durationMs: Date.now() - started };
       }
     }
-    if (directDueTool && dueMode) {
+    if (directCashTool) {
+      const args = { businessUnit: 'clothing' };
+      const output = (await directCashTool.execute(
+        args,
+        params.toolContext
+      )) as ClothingCashResult;
+      result = {
+        text: formatClothingCashCoverage(output),
+        provider: primaryProvider,
+        model: 'deterministic-clothing-cash-coverage',
+        inputTokens: 0,
+        outputTokens: 0,
+        estimatedCostUsd: 0,
+        latencyMs: Date.now() - started,
+        toolsCalled: [
+          {
+            toolName: directCashTool.name,
+            args,
+            durationMs: Date.now() - started,
+          },
+        ],
+      };
+    } else if (directDueTool && dueMode) {
       const args = { businessUnit: 'clothing', dueStatus: dueMode, limit: 30 };
       const output = (await directDueTool.execute(
         args,
@@ -506,26 +483,30 @@ export async function runBusinessAiAssistant(
       reason: describeProviderFailure(primaryError),
       diagnostics: getProviderFailureDiagnostics(primaryError),
     });
-    if (duplicateAuditQuestion || directDueTool) {
+    if (duplicateAuditQuestion || directDueTool || directCashTool) {
+      const failedModel = duplicateAuditQuestion
+        ? 'deterministic-customer-duplicate-audit'
+        : directDueTool
+          ? 'deterministic-clothing-due-invoices'
+          : 'deterministic-clothing-cash-coverage';
+      const failedTask = duplicateAuditQuestion
+        ? 'Clothing customer duplicate audit'
+        : directDueTool
+          ? 'Clothing invoice due-date lookup'
+          : 'Clothing cash coverage report';
       await insertAuditLogToStore({
         userId: params.userId ?? null,
         userName: params.userName ?? null,
         triggerSource: params.triggerSource,
         businessUnit: 'clothing',
         provider: primaryProvider,
-        model: duplicateAuditQuestion
-          ? 'deterministic-customer-duplicate-audit'
-          : 'deterministic-clothing-due-invoices',
+        model: failedModel,
         status: 'ERROR',
         latencyMs: Date.now() - started,
-        errorMessage: duplicateAuditQuestion
-          ? 'Customer duplicate audit could not be completed.'
-          : 'Clothing invoice due-date lookup could not be completed.',
+        errorMessage: `${failedTask} could not be completed.`,
       });
       throw new Error(
-        duplicateAuditQuestion
-          ? 'Could not complete the Clothing customer duplicate audit. No records were changed. Please retry; unrelated dues or receivables are not a substitute for this audit.'
-          : 'Could not complete the Clothing invoice due-date lookup. No records were changed. Please retry; A/R balances and recurring dues are not a substitute for this list.'
+        `Could not complete the ${failedTask}. No records were changed. Please retry; unrelated dues or receivables are not a substitute for this report.`
       );
     }
     const canFallback =

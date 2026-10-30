@@ -20,6 +20,11 @@ import {
   hasAccountsReceivableShipment,
 } from '@/lib/accounting/transaction-recognition';
 import { isCancelledOrderStatus } from '@/lib/transactions/order-status';
+import {
+  readPostedTransitCash,
+  readPostedReclassificationCash,
+  auditClothingPurchaseCoverage,
+} from './clothing-purchase-coverage';
 
 const EPS = 0.01;
 
@@ -51,6 +56,9 @@ export async function reconcileClothingCash(actualCashAmount: number | null) {
     recurringTemplates,
     pendingCancellations,
     recentTransactions,
+    postedTransit,
+    purchasePostingCoverage,
+    postedReclassification,
   ] = await Promise.all([
     fetchRecognizedTransactions(),
     fetchTransactionPayments(),
@@ -98,6 +106,9 @@ export async function reconcileClothingCash(actualCashAmount: number | null) {
       orderBy: { id: 'desc' },
       take: 400,
     }),
+    readPostedTransitCash(cutover, asOf),
+    auditClothingPurchaseCoverage(cutover, asOf),
+    readPostedReclassificationCash(cutover, asOf),
   ]);
 
   // 1. Opening Balances mapped to Cash
@@ -360,6 +371,10 @@ export async function reconcileClothingCash(actualCashAmount: number | null) {
   // 6. Manual Journal Lines affecting Cash/Bank/GCash
   let manualJournalNetCashEquivalents = 0;
   let manualJournalNetPhysicalCashOnly = 0;
+  const journalCashBySource: Record<
+    string,
+    { rows: number; netCashImpact: number }
+  > = {};
   const manualCashLines: Array<{
     id: string;
     date: string;
@@ -379,6 +394,14 @@ export async function reconcileClothingCash(actualCashAmount: number | null) {
     }
     if (normalizeAccountForReporting(account) === 'Cash') {
       manualJournalNetCashEquivalents += net;
+      const sourceType = line.sourceType || 'UNSPECIFIED';
+      const summary = journalCashBySource[sourceType] ?? {
+        rows: 0,
+        netCashImpact: 0,
+      };
+      summary.rows += 1;
+      summary.netCashImpact = Number((summary.netCashImpact + net).toFixed(2));
+      journalCashBySource[sourceType] = summary;
       if (account.toLowerCase() === 'cash') {
         manualJournalNetPhysicalCashOnly += net;
       }
@@ -405,7 +428,9 @@ export async function reconcileClothingCash(actualCashAmount: number | null) {
       legacyAdjustmentsCash -
       paidExpensesCashEquivalents -
       refundsPaidCash +
-      manualJournalNetCashEquivalents
+      manualJournalNetCashEquivalents +
+      postedTransit.cashImpact +
+      postedReclassification.cashImpact
     ).toFixed(2)
   );
 
@@ -416,7 +441,9 @@ export async function reconcileClothingCash(actualCashAmount: number | null) {
       legacyAdjustmentsCash -
       paidExpensesPhysicalCashOnly -
       refundsPaidCash +
-      manualJournalNetPhysicalCashOnly
+      manualJournalNetPhysicalCashOnly +
+      postedTransit.physicalCashImpact +
+      postedReclassification.physicalCashImpact
     ).toFixed(2)
   );
 
@@ -558,6 +585,63 @@ export async function reconcileClothingCash(actualCashAmount: number | null) {
     actualCashAmount,
     varianceVsBookCashEquivalents,
     varianceVsPhysicalCashOnly,
+    postedTransitCashCheck: postedTransit,
+    postedReclassificationCashCheck: postedReclassification,
+    cashScope: {
+      definition:
+        'Combined physical cash + bank + GCash/e-wallet recorded funds.',
+      combinedRecordedFunds: recordedBookCashEquivalents,
+      physicalCashOnlySupplement: recordedPhysicalCashOnly,
+      bankAndWalletsCombined: Number(
+        (recordedBookCashEquivalents - recordedPhysicalCashOnly).toFixed(2)
+      ),
+      statementOrCountVerified: false,
+    },
+    purchasePostingCoverage,
+    coverageSummary: {
+      queried: [
+        'Opening rows, customer receipts, expense/refund rows, journal cash lines and recurring/refund candidates within the tool scope',
+      ],
+      postedTransit: postedTransit.status,
+      postedReclassification: postedReclassification.status,
+      purchases: purchasePostingCoverage.status,
+      notVerified: purchasePostingCoverage.notVerified,
+      recentOrderAnomalyScanLimit: 400,
+      claim:
+        'Scoped reconciliation and posting candidates, not an exhaustive audit or verified cash count.',
+    },
+    bookCashIsProvisional:
+      postedTransit.status !== 'checked' ||
+      postedReclassification.status !== 'checked' ||
+      purchasePostingCoverage.coverage.some(
+        (entry) =>
+          entry.source === 'journalSources' && entry.status !== 'checked'
+      ) ||
+      !openingModel?.findMany,
+    conditionalScenario: {
+      possibleUnpostedOutflows:
+        purchasePostingCoverage.possibleUnpostedCashOutflows,
+      conditionalCombinedBalance: Number(
+        (
+          recordedBookCashEquivalents -
+          purchasePostingCoverage.possibleUnpostedCashOutflows
+        ).toFixed(2)
+      ),
+      conditionalComparisonVariance:
+        actualCashAmount === null
+          ? null
+          : Number(
+              (
+                actualCashAmount -
+                (recordedBookCashEquivalents -
+                  purchasePostingCoverage.possibleUnpostedCashOutflows)
+              ).toFixed(2)
+            ),
+      caveat:
+        'Only if flagged Paid cash/bank/GCash purchases were actually paid and are not covered by another source. This does not change recorded book cash or verify a shortage.',
+    },
+    comparisonAmountProvenance:
+      'User-supplied comparison amount; not independently verified. Cash means physical cash, bank and GCash/e-wallet balances combined.',
     cashComponentsBreakdown: {
       openingCashEquivalents: Number(openingCashEquivalents.toFixed(2)),
       openingBreakdown,
@@ -569,6 +653,9 @@ export async function reconcileClothingCash(actualCashAmount: number | null) {
       paidExpensesOutflow: Number(paidExpensesCashEquivalents.toFixed(2)),
       refundsPaidOutflow: Number(refundsPaidCash.toFixed(2)),
       manualJournalNetCash: Number(manualJournalNetCashEquivalents.toFixed(2)),
+      journalCashBySource,
+      postedTransitNetCash: postedTransit.cashImpact,
+      postedReclassificationNetCash: postedReclassification.cashImpact,
       recentManualCashLines: manualCashLines.slice(-5),
     },
     potentialCulprits: {

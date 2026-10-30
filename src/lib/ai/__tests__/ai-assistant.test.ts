@@ -445,6 +445,63 @@ describe('AI Business Assistant — Safety, RBAC & Deterministic Monitoring', ()
     }
   });
 
+  it('answers the cash suggestion directly with combined-funds coverage and no model call', async () => {
+    const fetchSpy = vi
+      .spyOn(globalThis, 'fetch')
+      .mockRejectedValue(new Error('Cloud must not run'));
+    try {
+      const result = await runBusinessAiAssistant({
+        userPrompt:
+          'How much should our cash onhand at the moment on the balance sheet. Can you check if it matches all the records and if not, find why?',
+        businessUnit: 'clothing',
+        triggerSource: 'USER_CHAT',
+        toolContext: {
+          userId: 'admin',
+          userRole: 'SUPER_ADMIN',
+          accessibleModules: [],
+          allowedBusinessUnits: ['clothing'],
+        },
+      });
+      expect(result.model).toBe('deterministic-clothing-cash-coverage');
+      expect(result.text).toContain('Bank and GCash/e-wallet');
+      expect(result.text).toContain('Not verified');
+      expect(result.text).toContain('Provisional recorded funds');
+      expect(result.inputTokens + result.outputTokens).toBe(0);
+      expect(fetchSpy).not.toHaveBeenCalled();
+    } finally {
+      fetchSpy.mockRestore();
+    }
+  });
+
+  it('keeps cash fallback on the purchase-coverage report rather than unrelated dues', async () => {
+    const fetchSpy = vi
+      .spyOn(globalThis, 'fetch')
+      .mockRejectedValue(new Error('Provider unavailable'));
+    try {
+      const result = await runBusinessAiAssistant({
+        userPrompt: 'Check cash funds and missing product journal postings',
+        businessUnit: 'clothing',
+        triggerSource: 'USER_CHAT',
+        toolContext: {
+          userId: 'admin',
+          userRole: 'SUPER_ADMIN',
+          accessibleModules: [],
+          allowedBusinessUnits: ['clothing'],
+        },
+      });
+      expect(result.usedFallback).toBe(true);
+      expect(result.text).toContain(
+        'Recorded Combined Funds And Posting Checks'
+      );
+      expect(result.text).not.toContain('Upcoming Recurring Obligations');
+      expect(
+        mockPrisma.clothingRecurringPaymentTemplate.findMany
+      ).toHaveBeenCalledTimes(1);
+    } finally {
+      fetchSpy.mockRestore();
+    }
+  });
+
   it('enforces readOnly=true on all registered business tools', () => {
     expect(READ_ONLY_BUSINESS_TOOLS.length).toBeGreaterThanOrEqual(4);
     for (const tool of READ_ONLY_BUSINESS_TOOLS) {
