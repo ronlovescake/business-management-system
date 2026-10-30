@@ -61,9 +61,11 @@ export async function generateWithCopilot(
   const isAllowed =
     Boolean(currentUserId) &&
     Boolean(allowed) &&
-    (currentUserId === allowed ||
-      (Boolean(currentUserEmail) &&
-        currentUserEmail === allowed.toLowerCase()));
+    (allowed === 'SUPER_ADMIN'
+      ? params.toolContext.userRole === 'SUPER_ADMIN'
+      : currentUserId === allowed ||
+        (Boolean(currentUserEmail) &&
+          currentUserEmail === allowed.toLowerCase()));
 
   if (!params.isSyntheticTest && !isAllowed) {
     throw new Error(

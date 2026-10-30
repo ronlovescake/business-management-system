@@ -59,13 +59,13 @@
 ### GitHub Copilot Setup And Isolation
 
 Copilot uses the official `@github/copilot-sdk`, not an OpenAI API key or an
-unofficial proxy. This integration is for one subscription owner's personal use,
-not shared subscription access. Configure these server-only values in
+unofficial proxy. The application owner can restrict access to one account or
+explicitly allow all authenticated SUPER_ADMIN accounts. Configure these server-only values in
 `.env.local` or `.env.docker` (never paste the token into chat or a browser form):
 
 ```dotenv
 COPILOT_GITHUB_TOKEN=<GitHub user token with Copilot access>
-COPILOT_ALLOWED_USER_ID=<the subscription owner's application user ID or email>
+COPILOT_ALLOWED_USER_ID=<application user ID, email, or SUPER_ADMIN>
 ```
 
 Use a supported fine-grained PAT (`github_pat_`) with the Copilot Requests user
@@ -82,16 +82,23 @@ keeps the SDK external so its bundled platform runtime resolves from
 `node_modules`; the existing Docker image copies production dependencies.
 Node.js must be at least 20.19 (or 22.12 on Node 22).
 
-The provider checks the authenticated caller against the single owner configured
+The provider checks the authenticated caller against the access selector configured
 in `COPILOT_ALLOWED_USER_ID` before starting a non-synthetic request, for both
-primary and fallback usage. Application user IDs match exactly; an owner email
-matches case-insensitively against the server-resolved user email. Wildcards,
-comma-separated lists, and role-based grants are not supported. Denial messages
+primary and fallback usage. The exact value `SUPER_ADMIN` allows every authenticated
+account whose server-resolved role is `SUPER_ADMIN`; it does not match an account
+ID or email. Other application user IDs match exactly; an email matches
+case-insensitively against the server-resolved user email. Wildcards,
+comma-separated lists, and other role selectors are not supported. Denial messages
 do not expose the configured or current identity. Unattended jobs without an
 authenticated user ID cannot use this
-personal integration. Admin-only connection and investigation benchmarks use
+integration. Admin-only connection and investigation benchmarks use
 synthetic data and do not require the user binding. Per-user GitHub OAuth for
-shared usage is not implemented.
+shared usage is not implemented. All allowed accounts use the configured GitHub
+token and its allowance; the operator must ensure this use complies with GitHub's
+subscription terms. This role selector was explicitly approved by the requesting
+application owner. Existing session authentication, tool RBAC, cloud-sharing gates,
+and domain isolation remain mandatory. Background jobs, imports, financial rules,
+and database schema are unchanged; all business domains share this provider gate.
 
 Each request uses a fresh temporary runtime home and session, removed at cleanup.
 The child process receives no database credentials or inherited application

@@ -165,7 +165,57 @@ describe('Copilot provider isolation', () => {
     ).resolves.toBeDefined();
   });
 
-  it.each(['*', 'ADMIN', 'SUPER_ADMIN', 'owner,other-user', 'OWNER', ''])(
+  it.each(['first-super-admin', 'second-super-admin'])(
+    'allows authenticated SUPER_ADMIN account %s when configured by role',
+    async (userId) => {
+      vi.stubEnv('COPILOT_ALLOWED_USER_ID', 'SUPER_ADMIN');
+      await expect(
+        generateWithProvider({
+          ...params,
+          toolContext: {
+            ...params.toolContext,
+            userId,
+            userRole: 'SUPER_ADMIN',
+          },
+        })
+      ).resolves.toBeDefined();
+    }
+  );
+
+  it.each(['ADMIN', 'USER', 'super_admin', null])(
+    'rejects role %s when SUPER_ADMIN access is configured',
+    async (userRole) => {
+      vi.stubEnv('COPILOT_ALLOWED_USER_ID', 'SUPER_ADMIN');
+      await expect(
+        generateWithProvider({
+          ...params,
+          toolContext: {
+            ...params.toolContext,
+            userId: 'SUPER_ADMIN',
+            userRole,
+          },
+        })
+      ).rejects.toThrow(/COPILOT_ALLOWED_USER_ID/);
+      expect(sdk.options).not.toHaveBeenCalled();
+    }
+  );
+
+  it('rejects unauthenticated SUPER_ADMIN context when configured by role', async () => {
+    vi.stubEnv('COPILOT_ALLOWED_USER_ID', 'SUPER_ADMIN');
+    await expect(
+      generateWithProvider({
+        ...params,
+        toolContext: {
+          ...params.toolContext,
+          userId: null,
+          userRole: 'SUPER_ADMIN',
+        },
+      })
+    ).rejects.toThrow(/COPILOT_ALLOWED_USER_ID/);
+    expect(sdk.options).not.toHaveBeenCalled();
+  });
+
+  it.each(['*', 'ADMIN', 'owner,other-user', 'OWNER', 'super_admin', ''])(
     'does not expand owner access for configuration %s',
     async (allowed) => {
       vi.stubEnv('COPILOT_ALLOWED_USER_ID', allowed);
