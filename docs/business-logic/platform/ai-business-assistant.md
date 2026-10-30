@@ -9,9 +9,16 @@
 > - `src/lib/ai/copilot-provider.ts`
 > - `src/lib/ai/provider-http.ts`
 > - `src/lib/ai/tools/index.ts`
+> - `src/lib/ai/tools/investigative-tools.ts`
+> - `src/lib/ai/tools/investigative-access.ts`
+> - `src/lib/ai/tools/cash-reconciliation-tool.ts`
+> - `src/lib/ai/tools/clothing-cash-reconciliation.ts`
+> - `src/lib/ai/tools/customer-history-tool.ts`
+> - `src/lib/ai/tools/database-read-only-tool.ts`
 > - `src/lib/ai/monitors/index.ts`
 > - `src/lib/ai/orchestrator.ts`
 > - `src/components/ai-chat/AiChatWidget.tsx`
+> - `src/components/ai-chat/ChatMessageContent.tsx`
 > - `src/components/layout/AppLayout.tsx`
 > - `src/modules/settings/global/components/ai-assistant/AiAssistantTab.tsx`
 > - `src/modules/settings/global/components/ai-assistant/AiProviderSettingsCard.tsx`
@@ -110,6 +117,17 @@ Provider HTTP transport lives in `src/lib/ai/provider-http.ts`; provider
 selection, credentials, pricing and generation remain in `providers.ts`.
 This extraction preserves the existing DNS cache, IPv4 HTTPS agent, local
 fetch delegation and abort handling without changing business rules.
+
+Investigative tools are registered in `investigative-tools.ts`, with separate
+modules for cash reconciliation, customer history, and guarded SQL queries.
+Clothing cash calculations retain their own implementation in
+`clothing-cash-reconciliation.ts`; Trucking and General Merchandise calculations
+remain in `cash-reconciliation-tool.ts`. Domain access checks are shared in
+`investigative-access.ts`. The registry order and public SQL-validator export are
+unchanged. This is a file-size refactor, not a change to financial calculations,
+domain differences, permissions, SQL restrictions, API/job/import paths, or data.
+Message sanitization and copying now live in `ChatMessageContent.tsx`, preserving
+the widget's existing Markdown allowlist, copy behavior, and controls.
 
 | #   | Logic                                                              | Explanation                                                                                                                                                                                                                                                                                                                                        |
 | --- | ------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
